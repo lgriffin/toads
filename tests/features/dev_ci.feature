@@ -11,5 +11,10 @@ Feature: DEV CI
   @ears_ubiquitous @maintainer @phase_1_3 @phase_2_0 @pending
   Scenario: REQ-DEV-CI-003 Coverage shall not fall below 70 for wcl-core/wcl-store and 80 for services/api and services/worker
 
-  @ears_event_driven @maintainer @phase_2_0 @pending
+  @ears_event_driven @maintainer @phase_2_0
   Scenario: REQ-DEV-CI-004 When apps/web changes on main, CI shall publish a static build of the web app with sample data to GitHub Pages, marked as a preview
+    Given the Pages workflow
+    Then it runs on pushes to main that change apps/web
+    And it builds apps/web with PREVIEW=1 under the Pages base path
+    And it deploys that build to GitHub Pages
+    And the web layout shows a sample-data banner in the preview build
