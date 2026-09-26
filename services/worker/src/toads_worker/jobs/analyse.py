@@ -48,5 +48,7 @@ def analyse_report(
     code = parse_report_input(value)
     if client is None:
         client = build_client(settings or Settings())
+    # TODO(wcl-app): call RaidService.analyze once the analyzer's services layer is packaged, so role overrides
+    # and thresholds match the desktop app. Until then keep this job a thin call; add no analysis logic here.
     analysis = analyze_raid(client, code, progress_callback=progress)
     return dataclasses.asdict(analysis)
