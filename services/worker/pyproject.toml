@@ -10,7 +10,8 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "structlog>=24",
-    # "wcl-core", "wcl-store"  -- added once the analyzer publishes them (Part 1, phase 1.3)
+    "wcl-core",  # pinned by commit in the workspace root's [tool.uv.sources]
+    # "wcl-store" -- added once the analyzer's storage split lands (Part 1, phase 1.2)
 ]
 
 [project.scripts]
