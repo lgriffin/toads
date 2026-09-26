@@ -1,0 +1,24 @@
+[project]
+name = "toads-worker"
+version = "0.0.0"
+description = "Toads Hub worker: nightly guild sync, analysis via wcl-core, media processing"
+requires-python = ">=3.12"
+dependencies = [
+    "hub-db",
+    "rq>=1.16",
+    "redis>=5",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "structlog>=24",
+    # "wcl-core", "wcl-store"  -- added once the analyzer publishes them (Part 1, phase 1.3)
+]
+
+[project.scripts]
+toads-worker = "toads_worker.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/toads_worker"]

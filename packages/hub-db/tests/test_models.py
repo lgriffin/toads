@@ -1,0 +1,32 @@
+import pytest
+from hub_db import Base, CharacterClaim, ClaimStatus, Member
+from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+
+@pytest.fixture
+def session() -> Session:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    return Session(engine)
+
+
+def test_claim_defaults_to_pending(session: Session) -> None:
+    m = Member(discord_user_id=1, display_name="Toad")
+    session.add(m)
+    session.flush()
+    claim = CharacterClaim(member_id=m.id, character_id=42)
+    session.add(claim)
+    session.flush()
+    assert claim.status is ClaimStatus.PENDING
+
+
+def test_one_character_one_owner(session: Session) -> None:
+    a = Member(discord_user_id=1, display_name="A")
+    b = Member(discord_user_id=2, display_name="B")
+    session.add_all([a, b])
+    session.flush()
+    session.add_all([CharacterClaim(member_id=a.id, character_id=7), CharacterClaim(member_id=b.id, character_id=7)])
+    with pytest.raises(IntegrityError):
+        session.flush()

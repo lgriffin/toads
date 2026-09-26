@@ -1,0 +1,17 @@
+# Copy to config/raid_days.yaml (git-ignored) and fill in Discord role and channel ids.
+# Raid days, roles and channels are configuration, not code (REQ-HUB-DAY-020).
+global_officer_roles: []
+
+raid_days:
+  - id: wed
+    name: Wednesday
+    trial_roles: []
+    raider_roles: []
+    officer_roles: []
+    channels: { raid_logs: null, signups: null, bank_requests: null }
+  - id: sun
+    name: Sunday
+    trial_roles: []
+    raider_roles: []
+    officer_roles: []
+    channels: { raid_logs: null, signups: null, bank_requests: null }
