@@ -33,6 +33,7 @@ dev = [
     "mypy>=1.11",
     "pip-audit>=2.7",
     "types-PyYAML",
+    "fakeredis>=2.26",
 ]
 
 [tool.ruff]
@@ -45,6 +46,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]
 "scripts/**" = ["S101"]
+"conftest.py" = ["S101"]
 
 [tool.mypy]
 strict = true
