@@ -6,7 +6,8 @@
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
+		# frame-src: highlight reels embed only from these three, and only after a visitor presses play.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://streamable.com; frame-ancestors 'none'"
 		-Server
 	}
 	# Tighten img-src to the R2 domain and turn on HSTS in the prod override.

@@ -9,9 +9,12 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "api:types": "openapi-typescript http://localhost:8000/api/openapi.json -o src/lib/api/schema.d.ts"
+    "api:types": "openapi-typescript http://localhost:8000/api/openapi.json -o src/lib/api/schema.d.ts",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "~1.56.1",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.8.0",

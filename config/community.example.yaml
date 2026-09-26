@@ -1,0 +1,21 @@
+# Copy to config/community.yaml (git-ignored) and fill in Discord channel ids. Configuration, not code.
+guild: Toads
+realm: Spineshatter EU
+tagline: A relaxed but prepared TBC raiding guild.
+story:
+  - Replace with a few short paragraphs about the guild. This is the first thing a visitor reads.
+discord_invite: null  # e.g. https://discord.gg/<code>; only discord.gg / discord.com/invite links are accepted
+
+# Channels the bot offers to the hub for curation. Nothing from them is shown until an officer publishes it.
+# raid_day: null means guild-wide (global officers curate); otherwise that raid day's officers curate.
+mirrored_channels: []
+#  - { channel_id: 0, raid_day: null }   # announcements
+#  - { channel_id: 0, raid_day: wed }
+
+# Where hub posts go when an officer ticks "also post to Discord": "guild" plus one per raid day.
+post_channels: {}
+#  guild: 0
+#  wed: 0
+
+# Category that private interview rooms are created under.
+interview_category_id: null

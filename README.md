@@ -43,9 +43,10 @@ Phase 2.0 (Foundations) scaffold:
 | Worker | Report code / URL validation (fuzzed), sync diff, RQ entry point |
 | Bot | discord.py client with single-guild command sync |
 | hub-db | `members`, `character_claims`, `audit` |
-| Web | SvelteKit shell with Home, Raids & Logs, Bank and Me pages |
-| Requirements | 85 EARS scenarios from the build spec, all `@pending`; `docs/requirements.md` generated |
-| CI | Lint, mypy strict, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, image builds |
+| Web | Public Story, Recruit and Highlights pages; inward Hub (posts feed, raid leader desk), Officers console, Raids & Logs, Bank and Me. Sample data in the Pages preview |
+| Community | Applications with private Discord interview rooms, officer posts curated both ways with Discord, highlight reels, consent-gated spotlights. In-memory until the 2.1 migrations; tables are in hub-db |
+| Requirements | 105 EARS scenarios; 20 implemented (community layer, Pages preview); `docs/requirements.md` generated |
+| CI | Lint, mypy strict, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, Playwright e2e with axe, image builds |
 
 Next, per the phased plan: Alembic migrations and wcl-store tables (waits on the analyzer publishing
 `wcl-core` / `wcl-store`), fake Discord OAuth server and seed data for `just seed`, then Discord login (H2).

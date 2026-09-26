@@ -8,14 +8,24 @@ from toads_api.rbac import HubRole, Permission, Principal, RaidDaysConfig, can
 from toads_api.rbac.permissions import ROLE_PERMISSIONS
 
 DAYS = ("wed", "sun")
-OFFICER_ONLY = {Permission.VIEW_OTHERS, Permission.VIEW_INSIGHTS, Permission.SYNC_LOGS, Permission.APPROVE_CLAIMS}
+OFFICER_ONLY = {
+    Permission.VIEW_OTHERS,
+    Permission.VIEW_INSIGHTS,
+    Permission.SYNC_LOGS,
+    Permission.APPROVE_CLAIMS,
+    Permission.MANAGE_RECRUITMENT,
+    Permission.MANAGE_POSTS,
+    Permission.MANAGE_HIGHLIGHTS,
+}
 
 
 def test_matrix_matches_spec() -> None:
-    assert ROLE_PERMISSIONS[HubRole.MEMBER] == {Permission.VIEW_GUILD_RAIDS}
+    assert ROLE_PERMISSIONS[HubRole.MEMBER] == {Permission.VIEW_GUILD_RAIDS, Permission.APPLY}
     assert Permission.VIEW_OWN_PERFORMANCE in ROLE_PERMISSIONS[HubRole.TRIAL]
     assert Permission.UPLOAD_SCREENSHOTS not in ROLE_PERMISSIONS[HubRole.TRIAL]
     assert Permission.UPLOAD_SCREENSHOTS in ROLE_PERMISSIONS[HubRole.RAIDER]
+    assert Permission.SUBMIT_HIGHLIGHT not in ROLE_PERMISSIONS[HubRole.TRIAL]
+    assert Permission.SUBMIT_HIGHLIGHT in ROLE_PERMISSIONS[HubRole.RAIDER]
     for role in (HubRole.MEMBER, HubRole.TRIAL, HubRole.RAIDER):
         assert not (ROLE_PERMISSIONS[role] & OFFICER_ONLY)
 

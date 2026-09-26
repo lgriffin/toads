@@ -19,3 +19,14 @@ marked `@pytest.mark.security`, run in its own CI job. In short:
 - Report codes must match `^[A-Za-z0-9]{16}$` before any request; SQL goes through SQLAlchemy.
 - Uploads use presigned PUTs to a private bucket, magic-byte checks, EXIF stripping and WebP re-encoding.
 - Dependencies are locked (`uv.lock`, `package-lock.json`) and audited in CI.
+- Community content: nothing from Discord reaches the hub until an officer publishes it, and only the global tier
+  publishes to the public story. A public post edited in Discord goes back for review; one deleted in Discord is
+  hidden. Only channels on the hub's own mirror list are accepted, whatever the bot sends.
+- Nothing the bot posts can ping: every send uses `AllowedMentions.none()`, and mirrored text has `@everyone` and
+  `@here` broken up. The bot's API routes take a service token compared in constant time.
+- Interview rooms are private to the applicant, that raid day's officers, the global tier and the bot. Applications ask
+  for game details only: no age, email address or real name.
+- Highlight reels are stored as (provider, clip id) from an allowlist of YouTube, Twitch clips and Streamable; the page
+  builds the embed URL itself, sandboxes the iframe, and loads nothing third-party until a visitor presses play. CSP
+  `frame-src` allows only those three.
+- A spotlight is published only while the member it is about consents; withdrawing consent takes it down at once.

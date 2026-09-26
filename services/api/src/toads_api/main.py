@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from toads_api.community.routes import include_community
 from toads_api.rbac.deps import require
 from toads_api.rbac.permissions import Permission, Principal
 
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
         # Enqueueing lands with the worker in phase 2.1.
         return {"day": day, "status": "queued"}
 
+    include_community(app)
     return app
 
 

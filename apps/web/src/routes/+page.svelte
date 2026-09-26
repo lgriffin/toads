@@ -1,10 +1,10 @@
 <script lang="ts">
-  import Home from '$lib/preview/Home.svelte';
+  import Story from '$lib/preview/Story.svelte';
 </script>
 
 {#if __PREVIEW__}
-  <Home />
+  <Story />
 {:else}
-  <h1>Toads Hub</h1>
-  <p>Next raid, latest logs and guild announcements land here in milestone H3.</p>
+  <h1>Toads</h1>
+  <p>The guild story, progression, recruitment needs and highlight reels land here once the public story API is live.</p>
 {/if}

@@ -17,3 +17,4 @@ apps/web/build/
 !.env.example
 !**/.env.example
 config/raid_days.yaml
+config/community.yaml
