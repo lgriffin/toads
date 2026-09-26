@@ -10,10 +10,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, WED_CHAT, demo_store
-from toads_api.community.deps import get_store
+from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, WED_CHAT, demo_service
+from toads_api.community.deps import get_service
+from toads_api.community.service import CommunityService
 from toads_api.community.settings import CommunitySettings, get_community_settings
-from toads_api.community.store import CommunityStore
 from toads_api.main import create_app
 from toads_api.rbac import Permission, Principal, can
 from toads_api.rbac.deps import get_principal
@@ -36,17 +36,17 @@ def clock() -> Clock:
 
 
 @pytest.fixture
-def store(clock: Clock) -> CommunityStore:
-    return demo_store(clock)
+def store(clock: Clock) -> CommunityService:
+    return demo_service(clock)
 
 
 @pytest.fixture
-def as_(store: CommunityStore) -> Iterator[Any]:
+def as_(store: CommunityService) -> Iterator[Any]:
     """as_("Wednesday officer") -> a TestClient signed in as that demo principal; as_(None) is anonymous."""
 
     def make(who: str | Principal | None) -> TestClient:
         app = create_app()
-        app.dependency_overrides[get_store] = lambda: store
+        app.dependency_overrides[get_service] = lambda: store
         app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(TOKEN))
         principal = PRINCIPALS[who] if isinstance(who, str) else who
         if principal is not None:
@@ -189,9 +189,9 @@ def test_bot_routes_need_the_service_token(as_: Any, method: str, path: str, hea
 
 
 @pytest.mark.security
-def test_bot_routes_refuse_everything_when_no_token_is_configured(as_: Any, store: CommunityStore) -> None:
+def test_bot_routes_refuse_everything_when_no_token_is_configured(as_: Any, store: CommunityService) -> None:
     app = create_app()
-    app.dependency_overrides[get_store] = lambda: store
+    app.dependency_overrides[get_service] = lambda: store
     app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(""))
     assert TestClient(app).get("/api/bot/outbox", headers={"Authorization": "Bearer "}).status_code == 401
 
@@ -305,7 +305,7 @@ def test_deleting_in_discord_takes_the_post_down(as_: Any) -> None:
     assert as_("Wednesday raider").get("/api/posts").json() == []
 
 
-def test_hub_post_goes_out_to_discord_and_edits_follow(as_: Any, store: CommunityStore) -> None:
+def test_hub_post_goes_out_to_discord_and_edits_follow(as_: Any, store: CommunityService) -> None:
     officer, bot = as_("global officer"), as_(None)
     post = officer.post(
         "/api/admin/posts", json={"title": "Patch day", "body": "No raid Wednesday", "publish_to_discord": True}
@@ -321,7 +321,7 @@ def test_hub_post_goes_out_to_discord_and_edits_follow(as_: Any, store: Communit
     jobs = bot.get("/api/bot/outbox", headers=BOT).json()
     assert [(j["job"]["kind"], j["job"]["payload"]["message_id"]) for j in jobs] == [("edit_message", 8001)]
     assert jobs[0]["post"]["body"] == "Raid moved to Thursday"
-    assert [a.action for a in store.audit] == ["post.create", "post.update"]
+    assert [a.action for a in store.repo.audit()] == ["post.create", "post.update"]
 
 
 def test_posts_from_discord_are_edited_in_discord(as_: Any) -> None:
@@ -351,7 +351,7 @@ def test_post_limits_and_unknown_fields(as_: Any) -> None:
 # ---------------------------------------------------- applications, interviews
 
 
-def test_application_to_interview_room(as_: Any, store: CommunityStore) -> None:
+def test_application_to_interview_room(as_: Any, store: CommunityService) -> None:
     applicant, officer, bot = as_("applicant"), as_("Wednesday officer"), as_(None)
     app = applicant.post("/api/applications", json=APPLICATION)
     assert app.status_code == 201, app.text
@@ -385,7 +385,7 @@ def test_application_to_interview_room(as_: Any, store: CommunityStore) -> None:
     [lock] = bot.get("/api/bot/outbox", headers=BOT).json()
     assert lock["job"]["kind"] == "lock_interview_room"
     assert lock["job"]["payload"]["channel_id"] == 6001
-    assert [(a.action, a.raid_day) for a in store.audit] == [
+    assert [(a.action, a.raid_day) for a in store.repo.audit()] == [
         ("application.interview_room", "wed"),
         ("application.trial_offered", "wed"),
         ("application.accepted", "wed"),

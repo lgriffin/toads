@@ -28,6 +28,7 @@ lint:
     uv run ruff format --check .
     uv run ruff check .
     uv run mypy packages/hub-db/src services/api/src services/worker/src services/bot/src
+    uv run lint-imports
 
 # Regenerate docs/requirements.md from tests/features and fail on missing IDs or persona tags
 reqs:

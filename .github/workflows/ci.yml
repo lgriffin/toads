@@ -20,6 +20,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy packages/hub-db/src services/api/src services/worker/src services/bot/src
+      - run: uv run lint-imports
       - run: uv run pytest --cov=toads_api --cov=toads_worker --cov-report=term-missing --cov-fail-under=80
       - run: uv run python scripts/reqs.py --check
 

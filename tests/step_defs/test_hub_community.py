@@ -15,6 +15,7 @@ from pytest_bdd import given, scenarios, then, when
 from toads_api.community import recruitment
 from toads_api.community.clips import parse_clip_url
 from toads_api.community.demo import GUILD_POSTS, SUN_OFFICER_ROLE
+from toads_api.community.deps import audience_of, officer_scopes
 from toads_api.community.schemas import (
     ApplicationCreate,
     ApplicationStatus,
@@ -28,7 +29,7 @@ from toads_api.community.schemas import (
     SpotlightCreate,
     Visibility,
 )
-from toads_api.community.store import Conflict, Forbidden, NotFound
+from toads_api.community.service import Conflict, Forbidden, NotFound
 from toads_bot.cogs.community import NO_PINGS, Community
 
 from .conftest import World, advance
@@ -47,7 +48,7 @@ def jobs(world: World, kind: OutboxKind) -> list[dict[str, object]]:
 
 @given("a public post, a guild post, a public highlight and a published spotlight")
 def published_things(world: World) -> None:
-    gm, s = world.who("global officer"), world.store
+    gm, s = world.who("global officer").member_id, world.store
     s.create_post(gm, None, PostCreate(title="Hello world", body="We raid twice a week", visibility=Visibility.PUBLIC))
     s.create_post(gm, None, PostCreate(title="Inside news", body="Loot rules", visibility=Visibility.GUILD))
     hl = s.submit_highlight(4, HighlightCreate(title="Vashj kill", url="https://youtu.be/dQw4w9WgXcQ"))
@@ -61,7 +62,7 @@ def published_things(world: World) -> None:
 
 @given("a Discord post waiting for review, a submitted highlight and a spotlight awaiting consent")
 def unpublished_things(world: World) -> None:
-    gm, s = world.who("global officer"), world.store
+    gm, s = world.who("global officer").member_id, world.store
     world.mirror("Raid at 19:00")
     s.submit_highlight(4, HighlightCreate(title="Wipe", url="https://streamable.com/abc123"))
     s.create_spotlight(
@@ -109,25 +110,27 @@ def wed_and_gm_see(world: World) -> None:
 def sun_does_not(world: World) -> None:
     assert world.store.applications_for("sun") == []
     with pytest.raises(NotFound):
-        world.store.transition(world.who("Sunday officer"), "sun", world.app_id, ApplicationStatus.DECLINED, "")
+        world.store.transition(
+            world.who("Sunday officer").member_id, "sun", world.app_id, ApplicationStatus.DECLINED, ""
+        )
 
 
 @given("the Wednesday officer has opened an interview room")
 @when("the Wednesday officer opens an interview room")
 def open_room(world: World) -> None:
-    world.store.open_interview_room(world.who("Wednesday officer"), "wed", world.app_id)
+    world.store.open_interview_room(world.who("Wednesday officer").member_id, "wed", world.app_id)
     [job] = [j for j in world.store.pending_jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
     world.store.ack(job.id, OutboxAck(channel_id=6001))
 
 
 @then("the application is being interviewed")
 def interviewing(world: World) -> None:
-    assert world.store.applications[world.app_id].status is ApplicationStatus.INTERVIEWING
+    assert world.store.repo.get_application(world.app_id).status is ApplicationStatus.INTERVIEWING
 
 
 @then("the bot is asked for a room for the applicant with the Wednesday and global officer roles only")
 def room_job(world: World) -> None:
-    [job] = [j for j in world.store.outbox.values() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
     assert job.payload["discord_user_id"] == 10_005
     assert job.payload["officer_role_ids"] == [12, 900]
     assert SUN_OFFICER_ROLE not in job.payload["officer_role_ids"]  # type: ignore[operator]
@@ -139,7 +142,7 @@ def _bot(**kw: object) -> Community:
 
 @then("the bot creates a channel hidden from everyone else")
 def bot_creates(world: World) -> None:
-    [job] = [j for j in world.store.outbox.values() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
     guild = MagicMock()
     guild.default_role = discord.Object(id=1)
     guild.me = discord.Object(id=99)
@@ -184,7 +187,9 @@ def bot_locks(world: World) -> None:
 @then("accepting straight from applied is refused with 409")
 def accept_refused(world: World) -> None:
     with pytest.raises(Conflict) as e:
-        world.store.transition(world.who("Wednesday officer"), "wed", world.app_id, ApplicationStatus.ACCEPTED, "")
+        world.store.transition(
+            world.who("Wednesday officer").member_id, "wed", world.app_id, ApplicationStatus.ACCEPTED, ""
+        )
     assert e.value.status_code == 409
 
 
@@ -253,13 +258,13 @@ def logs_link() -> None:
 
 @then("the Wednesday officer's desk shows no applications and one post to curate")
 def wed_desk(world: World) -> None:
-    desk = world.store.desk(world.who("Wednesday officer"))
+    desk = world.store.desk(officer_scopes(world.who("Wednesday officer")))
     assert (desk.applications_waiting, desk.posts_to_curate) == (0, 1)
 
 
 @then("the Sunday officer's desk shows one application")
 def sun_desk(world: World) -> None:
-    desk = world.store.desk(world.who("Sunday officer"))
+    desk = world.store.desk(officer_scopes(world.who("Sunday officer")))
     assert (desk.applications_waiting, desk.posts_to_curate) == (1, 0)
 
 
@@ -273,28 +278,32 @@ def mirrors(world: World) -> None:
 
 @then("members do not see it")
 def members_do_not_see(world: World) -> None:
-    assert world.store.feed(world.who("Wednesday raider")) == []
+    assert world.store.feed(audience_of(world.who("Wednesday raider"))) == []
 
 
 @when("the global officer publishes it to the guild")
 def gm_publishes(world: World) -> None:
     if world.post is not None:
-        world.store.curate(world.who("global officer"), None, world.post.id, CurationAction.PUBLISH, Visibility.GUILD)
+        world.store.curate(
+            world.who("global officer").member_id, None, world.post.id, CurationAction.PUBLISH, Visibility.GUILD
+        )
     else:
-        [hl] = world.store.highlights.values()
-        world.store.review_highlight(world.who("global officer"), hl.id, HighlightAction.PUBLISH_GUILD)
+        [hl] = world.store.repo.highlights()
+        world.store.review_highlight(world.who("global officer").member_id, hl.id, HighlightAction.PUBLISH_GUILD)
 
 
 @then("members see it marked as from Discord")
 def members_see(world: World) -> None:
-    [post] = world.store.feed(world.who("Sunday trial"))
+    [post] = world.store.feed(audience_of(world.who("Sunday trial")))
     assert post.origin.value == "discord"
 
 
 @when("the global officer writes a post and ticks also post to Discord")
 def gm_writes(world: World) -> None:
     world.post = world.store.create_post(
-        world.who("global officer"), None, PostCreate(title="Patch day", body="No raid", publish_to_discord=True)
+        world.who("global officer").member_id,
+        None,
+        PostCreate(title="Patch day", body="No raid", publish_to_discord=True),
     )
 
 
@@ -312,7 +321,9 @@ def bot_acks(world: World) -> None:
 @when("the global officer edits the post")
 def gm_edits(world: World) -> None:
     assert world.post is not None
-    world.store.update_post(world.who("global officer"), None, world.post.id, PostCreate(title="Patch day", body="Thu"))
+    world.store.update_post(
+        world.who("global officer").member_id, None, world.post.id, PostCreate(title="Patch day", body="Thu")
+    )
 
 
 @then("the bot is asked to edit that Discord message")
@@ -346,7 +357,7 @@ def author_deletes(world: World) -> None:
 
 @then("nobody sees it on the hub")
 def nobody_sees(world: World) -> None:
-    assert world.store.feed(world.who("global officer")) == []
+    assert world.store.feed(audience_of(world.who("global officer"))) == []
     assert world.store.public_story().posts == []
 
 
@@ -369,10 +380,12 @@ def no_ping_sent() -> None:
 @then("the Wednesday officer cannot publish it as public")
 def wed_not_public(world: World) -> None:
     assert world.post is not None
-    with pytest.raises(Forbidden):
-        world.store.curate(
-            world.who("Wednesday officer"), "wed", world.post.id, CurationAction.PUBLISH, Visibility.PUBLIC
-        )
+    # A tier check, so it is the route layer's to refuse: go through the real API.
+    r = world.client("Wednesday officer").post(
+        f"/api/days/wed/admin/curation/{world.post.id}", json={"action": "publish", "visibility": "public"}
+    )
+    assert r.status_code == 403
+    assert world.post.status is PostStatus.PENDING_REVIEW
 
 
 @then("the Sunday officer cannot see or curate it")
@@ -380,7 +393,7 @@ def sun_cannot(world: World) -> None:
     assert world.post is not None
     assert world.store.curation_queue("sun") == []
     with pytest.raises(NotFound):
-        world.store.curate(world.who("Sunday officer"), "sun", world.post.id, CurationAction.PUBLISH, None)
+        world.store.curate(world.who("Sunday officer").member_id, "sun", world.post.id, CurationAction.PUBLISH, None)
 
 
 @then("a message from an unlisted channel is refused")
@@ -416,19 +429,19 @@ def raider_submits(world: World) -> None:
 
 @then("nobody sees it yet")
 def nobody_sees_clip(world: World) -> None:
-    assert world.store.highlights_for(world.who("global officer")) == []
+    assert world.store.highlights_for(audience_of(world.who("global officer"))) == []
 
 
 @then("members see it and the public story does not")
 def members_see_clip(world: World) -> None:
-    assert len(world.store.highlights_for(world.who("Sunday trial"))) == 1
+    assert len(world.store.highlights_for(audience_of(world.who("Sunday trial")))) == 1
     assert world.store.public_story().highlights == []
 
 
 @when("the global officer writes a spotlight about the raider")
 def gm_spotlight(world: World) -> None:
     world.last = world.store.create_spotlight(
-        world.who("global officer"),
+        world.who("global officer").member_id,
         SpotlightCreate(member_id=4, character_name="Hopscotch", class_name="Rogue", headline="Kicks", body="Lots"),
     )
 
@@ -436,7 +449,7 @@ def gm_spotlight(world: World) -> None:
 @then("publishing it is refused with 409")
 def spotlight_refused(world: World) -> None:
     with pytest.raises(Conflict):
-        world.store.publish_spotlight(world.who("global officer"), world.last.id)
+        world.store.publish_spotlight(world.who("global officer").member_id, world.last.id)
 
 
 @when("the raider agrees to it")
@@ -446,7 +459,7 @@ def raider_agrees(world: World) -> None:
 
 @when("the global officer publishes it")
 def gm_publishes_spotlight(world: World) -> None:
-    world.store.publish_spotlight(world.who("global officer"), world.last.id)
+    world.store.publish_spotlight(world.who("global officer").member_id, world.last.id)
 
 
 @then("the public story shows it")

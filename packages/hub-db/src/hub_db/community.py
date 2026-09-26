@@ -1,6 +1,7 @@
 """Community tables: posts mirrored both ways with Discord, applications, highlight reels, spotlights, bot outbox.
 
-The API's in-memory CommunityStore has the same shape; it moves onto these tables with the phase 2.1 migrations.
+The API's CommunityRepository has the same shape; a Postgres repository over these tables replaces the in-memory one
+with the phase 2.1 migrations.
 Enum columns are stored as strings (native_enum=False) so values match the API schemas without a shared import.
 """
 

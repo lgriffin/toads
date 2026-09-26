@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import SecretStr
-from toads_api.community.demo import ANNOUNCEMENTS, PRINCIPALS, demo_store
-from toads_api.community.deps import get_store
+from toads_api.community.demo import ANNOUNCEMENTS, PRINCIPALS, demo_service
+from toads_api.community.deps import get_service
 from toads_api.community.settings import CommunitySettings, get_community_settings
 from toads_api.main import create_app
 from toads_api.rbac import Principal
@@ -24,9 +24,9 @@ text = st.text(max_size=1200)
 
 
 def _client(who: str) -> TestClient:
-    store = demo_store(lambda: datetime(2026, 9, 26, tzinfo=UTC))
+    store = demo_service(lambda: datetime(2026, 9, 26, tzinfo=UTC))
     app = create_app()
-    app.dependency_overrides[get_store] = lambda: store
+    app.dependency_overrides[get_service] = lambda: store
     app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(TOKEN))
 
     async def _p() -> Principal:

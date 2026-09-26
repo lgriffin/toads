@@ -9,9 +9,10 @@ from collections.abc import Callable
 from datetime import datetime
 
 from toads_api.community.config import CommunityConfig, MirroredChannel
+from toads_api.community.repository import InMemoryCommunityRepository, MemberCard
 from toads_api.community.schemas import Priority, Progress, RecruitmentNeed, Role
-from toads_api.community.store import CommunityStore, MemberCard
-from toads_api.rbac import HubRole, Principal, RaidDay, RaidDaysConfig
+from toads_api.community.service import CommunityService, RaidDayDirectory
+from toads_api.rbac import HubRole, Principal
 
 GLOBAL_ROLE, WED_OFFICER_ROLE, SUN_OFFICER_ROLE = 900, 12, 22
 ANNOUNCEMENTS, WED_CHAT, GUILD_POSTS, WED_POSTS, INTERVIEWS = 111, 222, 333, 444, 555
@@ -35,13 +36,11 @@ MEMBERS = {
 }
 
 
-def demo_store(clock: Callable[[], datetime]) -> CommunityStore:
-    raid_days = RaidDaysConfig(
-        global_officer_roles=[GLOBAL_ROLE],
-        raid_days=[
-            RaidDay(id="wed", name="Wednesday", raider_roles=[11], officer_roles=[WED_OFFICER_ROLE]),
-            RaidDay(id="sun", name="Sunday", raider_roles=[21], officer_roles=[SUN_OFFICER_ROLE]),
-        ],
+def demo_service(clock: Callable[[], datetime]) -> CommunityService:
+    directory = RaidDayDirectory(
+        day_ids=frozenset({"wed", "sun"}),
+        global_officer_roles=(GLOBAL_ROLE,),
+        officer_roles={"wed": (WED_OFFICER_ROLE,), "sun": (SUN_OFFICER_ROLE,)},
     )
     config = CommunityConfig(
         tagline="A relaxed but prepared TBC guild on Spineshatter.",
@@ -54,7 +53,9 @@ def demo_store(clock: Callable[[], datetime]) -> CommunityStore:
         post_channels={"guild": GUILD_POSTS, "wed": WED_POSTS},
         interview_category_id=INTERVIEWS,
     )
-    store = CommunityStore(config=config, raid_days=raid_days, clock=clock, members=dict(MEMBERS))
-    store.needs = [RecruitmentNeed(class_name="Shaman", spec="Restoration", role=Role.HEALER, priority=Priority.HIGH)]
-    store.progression = [Progress(zone="Serpentshrine Cavern", killed=5, total=6)]
-    return store
+    repo = InMemoryCommunityRepository(
+        members=dict(MEMBERS),
+        needs_list=[RecruitmentNeed(class_name="Shaman", spec="Restoration", role=Role.HEALER, priority=Priority.HIGH)],
+        progression_list=[Progress(zone="Serpentshrine Cavern", killed=5, total=6)],
+    )
+    return CommunityService(repo=repo, config=config, raid_days=directory, clock=clock)

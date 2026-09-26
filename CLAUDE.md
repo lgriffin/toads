@@ -31,7 +31,9 @@ just reqs       # regenerate docs/requirements.md
 - The RBAC table in the build spec is the source of truth for `toads_api/rbac/permissions.py` and its
   matrix test. Officer powers are always scoped to a raid day unless the holder is a global officer.
   Raid-day scope comes from the route path only, never from a body or query parameter.
-- Every route declares `require(Permission.X)`; the frontend only hides buttons.
+- Every route declares `require(Permission.X)`; the frontend only hides buttons. Tier and RBAC checks stay in the
+  route layer (`rbac/`, `community/deps.py`); services such as `community/service.py` hold rules only, over a
+  repository protocol. `lint-imports` (contracts in `pyproject.toml`) enforces the layering in CI.
 - Python 3.12, ruff (line length 120), mypy strict. No `latest` image tags.
 - Config through environment only (pydantic-settings); keep each `.env.example` in sync. Never commit secrets.
 - All changes go through PRs; never push directly to main.

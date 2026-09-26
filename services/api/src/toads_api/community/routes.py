@@ -10,11 +10,20 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, FastAPI, Path, Request, Response, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from toads_api.community.deps import get_store, require_service
+from toads_api.community.deps import (
+    audience_of,
+    curation_audience_allowed,
+    get_service,
+    officer_scopes,
+    officer_transition_allowed,
+    post_audience_allowed,
+    require_service,
+    scope_of,
+)
 from toads_api.community.schemas import (
     Application,
     ApplicationCreate,
@@ -26,7 +35,6 @@ from toads_api.community.schemas import (
     Highlight,
     HighlightCreate,
     HighlightReview,
-    HighlightStatus,
     OutboxAck,
     OutboxJob,
     Post,
@@ -36,8 +44,8 @@ from toads_api.community.schemas import (
     Spotlight,
     SpotlightCreate,
 )
-from toads_api.community.store import CommunityError, CommunityStore, Forbidden
-from toads_api.rbac import HubRole, Permission, Principal
+from toads_api.community.service import CommunityError, CommunityService
+from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import require
 
 
@@ -59,7 +67,7 @@ day_admin = APIRouter(prefix="/api/days/{day}/admin", tags=["raid-day officers"]
 global_admin = APIRouter(prefix="/api/admin", tags=["global officers"])
 bot = APIRouter(prefix="/api/bot", tags=["bot"], dependencies=[Depends(require_service)])
 
-S = Depends(get_store)
+S = Depends(get_service)
 _VIEW = Depends(require(Permission.VIEW_GUILD_RAIDS))
 _SUBMIT = Depends(require(Permission.SUBMIT_HIGHLIGHT))
 _APPLY = Depends(require(Permission.APPLY))
@@ -69,89 +77,90 @@ _APPLY = Depends(require(Permission.APPLY))
 
 
 @public.get("/story")
-async def story(store: CommunityStore = S) -> PublicStory:
-    return store.public_story()
+async def story(svc: CommunityService = S) -> PublicStory:
+    return svc.public_story()
 
 
 @public.get("/recruitment")
-async def recruitment_needs(store: CommunityStore = S) -> list[RecruitmentNeed]:
-    return store.needs
+async def recruitment_needs(svc: CommunityService = S) -> list[RecruitmentNeed]:
+    return svc.needs()
 
 
 # --------------------------------------------------------------------- members
 
 
 @member.get("/posts")
-async def posts_feed(store: CommunityStore = S, p: Principal = _VIEW) -> list[Post]:
-    return store.feed(p)
+async def posts_feed(svc: CommunityService = S, p: Principal = _VIEW) -> list[Post]:
+    return svc.feed(audience_of(p))
 
 
 @member.get("/highlights")
 async def highlights(
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _VIEW,
 ) -> list[Highlight]:
-    return store.highlights_for(p)
+    return svc.highlights_for(audience_of(p))
 
 
 @member.post("/highlights", status_code=status.HTTP_201_CREATED)
 async def submit_highlight(
     body: HighlightCreate,
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _SUBMIT,
 ) -> Highlight:
-    return store.submit_highlight(p.member_id, body)
+    return svc.submit_highlight(p.member_id, body)
 
 
 @member.post("/applications", status_code=status.HTTP_201_CREATED)
 async def apply(
     body: ApplicationCreate,
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _APPLY,
 ) -> Application:
-    return store.apply(p.member_id, body)
+    return svc.apply(p.member_id, body)
 
 
 @member.get("/applications/mine")
 async def my_applications(
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _APPLY,
 ) -> list[Application]:
-    return store.my_applications(p.member_id)
+    return svc.my_applications(p.member_id)
 
 
 @member.post("/applications/{app_id}/withdraw")
 async def withdraw(
     app_id: int,
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _APPLY,
 ) -> Application:
-    return store.withdraw(p.member_id, app_id)
+    return svc.withdraw(p.member_id, app_id)
 
 
 @member.get("/me/spotlights")
 async def my_spotlights(
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _VIEW,
 ) -> list[Spotlight]:
-    return store.spotlights_about(p.member_id)
+    return svc.spotlights_about(p.member_id)
 
 
 @member.post("/me/spotlights/{sp_id}/consent")
 async def spotlight_consent(
     sp_id: int,
     body: ConsentDecision,
-    store: CommunityStore = S,
+    svc: CommunityService = S,
     p: Principal = _VIEW,
 ) -> Spotlight:
-    return store.decide_consent(p.member_id, sp_id, body.grant)
+    return svc.decide_consent(p.member_id, sp_id, body.grant)
 
 
 @member.get("/desk")
-async def desk(store: CommunityStore = S, p: Principal = _VIEW) -> DeskSummary:
-    if not p.global_officer and HubRole.OFFICER not in p.day_roles.values():
-        raise Forbidden("The raid leader desk is for officers")
-    return store.desk(p)
+async def desk(svc: CommunityService = S, p: Principal = _VIEW) -> DeskSummary:
+    scopes = officer_scopes(p)
+    if not scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="The raid leader desk is for officers")
+    return svc.desk(scopes)
 
 
 # --------------------------------------------- officers: one raid day or global
@@ -160,47 +169,48 @@ async def desk(store: CommunityStore = S, p: Principal = _VIEW) -> DeskSummary:
 def _officer_routes(router: APIRouter, scoped: bool) -> None:
     """The same officer actions, mounted once per scope. `day` is None on the global routes."""
 
-    def day_of(request: Request) -> str | None:
-        return request.path_params.get("day") if scoped else None
-
     recruit = Depends(require(Permission.MANAGE_RECRUITMENT, scoped=scoped))
     posts = Depends(require(Permission.MANAGE_POSTS, scoped=scoped))
+    # Tier checks (who may reach the public story, who may withdraw) run before the handler, in the adapter.
+    post_audience = [Depends(post_audience_allowed)]
+    curation_audience = [Depends(curation_audience_allowed)]
+    officer_transition = [Depends(officer_transition_allowed)]
 
     @router.get("/applications")
-    async def applications(request: Request, store: CommunityStore = S, _: Principal = recruit) -> list[Application]:
-        return store.applications_for(day_of(request))
+    async def applications(request: Request, svc: CommunityService = S, _: Principal = recruit) -> list[Application]:
+        return svc.applications_for(scope_of(request))
 
-    @router.post("/applications/{app_id}/transition")
+    @router.post("/applications/{app_id}/transition", dependencies=officer_transition)
     async def transition(
-        request: Request, app_id: int, body: ApplicationTransition, store: CommunityStore = S, p: Principal = recruit
+        request: Request, app_id: int, body: ApplicationTransition, svc: CommunityService = S, p: Principal = recruit
     ) -> Application:
-        return store.transition(p, day_of(request), app_id, body.to, body.note)
+        return svc.transition(p.member_id, scope_of(request), app_id, body.to, body.note)
 
     @router.post("/applications/{app_id}/interview-room", status_code=status.HTTP_202_ACCEPTED)
     async def interview_room(
-        request: Request, app_id: int, store: CommunityStore = S, p: Principal = recruit
+        request: Request, app_id: int, svc: CommunityService = S, p: Principal = recruit
     ) -> Application:
-        return store.open_interview_room(p, day_of(request), app_id)
+        return svc.open_interview_room(p.member_id, scope_of(request), app_id)
 
     @router.get("/curation")
-    async def curation(request: Request, store: CommunityStore = S, _: Principal = posts) -> list[Post]:
-        return store.curation_queue(day_of(request))
+    async def curation(request: Request, svc: CommunityService = S, _: Principal = posts) -> list[Post]:
+        return svc.curation_queue(scope_of(request))
 
-    @router.post("/curation/{post_id}")
+    @router.post("/curation/{post_id}", dependencies=curation_audience)
     async def curate(
-        request: Request, post_id: int, body: CurationDecision, store: CommunityStore = S, p: Principal = posts
+        request: Request, post_id: int, body: CurationDecision, svc: CommunityService = S, p: Principal = posts
     ) -> Post:
-        return store.curate(p, day_of(request), post_id, body.action, body.visibility)
+        return svc.curate(p.member_id, scope_of(request), post_id, body.action, body.visibility)
 
-    @router.post("/posts", status_code=status.HTTP_201_CREATED)
-    async def create_post(request: Request, body: PostCreate, store: CommunityStore = S, p: Principal = posts) -> Post:
-        return store.create_post(p, day_of(request), body)
+    @router.post("/posts", status_code=status.HTTP_201_CREATED, dependencies=post_audience)
+    async def create_post(request: Request, body: PostCreate, svc: CommunityService = S, p: Principal = posts) -> Post:
+        return svc.create_post(p.member_id, scope_of(request), body)
 
-    @router.put("/posts/{post_id}")
+    @router.put("/posts/{post_id}", dependencies=post_audience)
     async def update_post(
-        request: Request, post_id: int, body: PostCreate, store: CommunityStore = S, p: Principal = posts
+        request: Request, post_id: int, body: PostCreate, svc: CommunityService = S, p: Principal = posts
     ) -> Post:
-        return store.update_post(p, day_of(request), post_id, body)
+        return svc.update_post(p.member_id, scope_of(request), post_id, body)
 
 
 _officer_routes(day_admin, scoped=True)
@@ -212,64 +222,64 @@ _recruitment = Depends(require(Permission.MANAGE_RECRUITMENT))
 
 @global_admin.put("/recruitment/needs")
 async def set_needs(
-    body: list[RecruitmentNeed], store: CommunityStore = S, p: Principal = _recruitment
+    body: list[RecruitmentNeed], svc: CommunityService = S, p: Principal = _recruitment
 ) -> list[RecruitmentNeed]:
-    return store.set_needs(p, body)
+    return svc.set_needs(p.member_id, body)
 
 
 @global_admin.get("/highlights")
-async def highlights_to_review(store: CommunityStore = S, _: Principal = _highlights) -> list[Highlight]:
-    return [h for h in store.highlights.values() if h.status is HighlightStatus.SUBMITTED]
+async def highlights_to_review(svc: CommunityService = S, _: Principal = _highlights) -> list[Highlight]:
+    return svc.highlights_to_review()
 
 
 @global_admin.post("/highlights/{hl_id}/review")
 async def review_highlight(
-    hl_id: int, body: HighlightReview, store: CommunityStore = S, p: Principal = _highlights
+    hl_id: int, body: HighlightReview, svc: CommunityService = S, p: Principal = _highlights
 ) -> Highlight:
-    return store.review_highlight(p, hl_id, body.action)
+    return svc.review_highlight(p.member_id, hl_id, body.action)
 
 
 @global_admin.get("/spotlights")
-async def spotlights(store: CommunityStore = S, _: Principal = _highlights) -> list[Spotlight]:
-    return list(store.spotlights.values())
+async def spotlights(svc: CommunityService = S, _: Principal = _highlights) -> list[Spotlight]:
+    return svc.all_spotlights()
 
 
 @global_admin.post("/spotlights", status_code=status.HTTP_201_CREATED)
-async def create_spotlight(body: SpotlightCreate, store: CommunityStore = S, p: Principal = _highlights) -> Spotlight:
-    return store.create_spotlight(p, body)
+async def create_spotlight(body: SpotlightCreate, svc: CommunityService = S, p: Principal = _highlights) -> Spotlight:
+    return svc.create_spotlight(p.member_id, body)
 
 
 @global_admin.post("/spotlights/{sp_id}/publish")
-async def publish_spotlight(sp_id: int, store: CommunityStore = S, p: Principal = _highlights) -> Spotlight:
-    return store.publish_spotlight(p, sp_id)
+async def publish_spotlight(sp_id: int, svc: CommunityService = S, p: Principal = _highlights) -> Spotlight:
+    return svc.publish_spotlight(p.member_id, sp_id)
 
 
 @global_admin.post("/spotlights/{sp_id}/retire")
-async def retire_spotlight(sp_id: int, store: CommunityStore = S, p: Principal = _highlights) -> Spotlight:
-    return store.retire_spotlight(p, sp_id)
+async def retire_spotlight(sp_id: int, svc: CommunityService = S, p: Principal = _highlights) -> Spotlight:
+    return svc.retire_spotlight(p.member_id, sp_id)
 
 
 # ------------------------------------------------------------------------- bot
 
 
 @bot.get("/outbox")
-async def outbox(store: CommunityStore = S) -> list[BotJob]:
-    return [BotJob(job=j, post=store.post_for_job(j)) for j in store.pending_jobs()]
+async def outbox(svc: CommunityService = S) -> list[BotJob]:
+    return [BotJob(job=j, post=svc.post_for_job(j)) for j in svc.pending_jobs()]
 
 
 @bot.post("/outbox/{job_id}/ack")
-async def ack(job_id: int, body: OutboxAck, store: CommunityStore = S) -> OutboxJob:
-    return store.ack(job_id, body)
+async def ack(job_id: int, body: OutboxAck, svc: CommunityService = S) -> OutboxJob:
+    return svc.ack(job_id, body)
 
 
 @bot.post("/discord-messages", status_code=status.HTTP_202_ACCEPTED)
-async def discord_message(body: DiscordMessageIn, store: CommunityStore = S) -> Post | None:
-    return store.ingest_discord_message(body)
+async def discord_message(body: DiscordMessageIn, svc: CommunityService = S) -> Post | None:
+    return svc.ingest_discord_message(body)
 
 
 @bot.post("/discord-messages/{message_id}/deleted", status_code=status.HTTP_204_NO_CONTENT)
-async def discord_message_deleted(message_id: int, store: CommunityStore = S) -> Response:
-    store.discord_message_deleted(message_id)
+async def discord_message_deleted(message_id: int, svc: CommunityService = S) -> Response:
+    svc.discord_message_deleted(message_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

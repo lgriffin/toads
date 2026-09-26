@@ -7,8 +7,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, when
-from toads_api.community.demo import ANNOUNCEMENTS, PRINCIPALS, WED_CHAT, demo_store
+from toads_api.community.demo import ANNOUNCEMENTS, PRINCIPALS, WED_CHAT, demo_service
+from toads_api.community.deps import get_service
 from toads_api.community.schemas import (
     ApplicationCreate,
     ApplicationStatus,
@@ -18,13 +20,15 @@ from toads_api.community.schemas import (
     Role,
     Visibility,
 )
-from toads_api.community.store import CommunityStore
+from toads_api.community.service import CommunityService
+from toads_api.main import create_app
 from toads_api.rbac import Principal
+from toads_api.rbac.deps import get_principal
 
 
 @dataclass
 class World:
-    store: CommunityStore
+    store: CommunityService
     now: datetime = field(default_factory=lambda: datetime(2026, 9, 26, 18, 0, tzinfo=UTC))
     app_id: int = 0
     post: Post | None = None
@@ -43,6 +47,18 @@ class World:
         self.post = post
         return post
 
+    def client(self, who: str) -> TestClient:
+        """The real API over this world's service, signed in as a demo principal: for checks the routes own."""
+        app = create_app()
+        app.dependency_overrides[get_service] = lambda: self.store
+        principal = PRINCIPALS[who]
+
+        async def _p() -> Principal:
+            return principal
+
+        app.dependency_overrides[get_principal] = _p
+        return TestClient(app)
+
     def application(self, day: str) -> ApplicationCreate:
         return ApplicationCreate(
             character_name="Mossbeard",
@@ -56,7 +72,7 @@ class World:
 
 @pytest.fixture
 def world() -> World:
-    w = World(store=demo_store(lambda: datetime(2000, 1, 1, tzinfo=UTC)))
+    w = World(store=demo_service(lambda: datetime(2000, 1, 1, tzinfo=UTC)))
     w.store.clock = lambda: w.now
     return w
 
@@ -66,7 +82,7 @@ DAYS = {"Wednesday": "wed", "Sunday": "sun"}
 
 @given("the demo guild")
 def demo_guild(world: World) -> None:
-    assert world.store.raid_days.raid_days
+    assert world.store.raid_days.day_ids
 
 
 @given(parsers.parse("the applicant has applied for {day}"))
@@ -83,12 +99,14 @@ def wed_message(world: World) -> None:
 @given("a mirrored announcement published as public")
 def published_public(world: World) -> None:
     post = world.mirror("We're recruiting healers")
-    world.store.curate(world.who("global officer"), None, post.id, CurationAction.PUBLISH, Visibility.PUBLIC)
+    world.store.curate(world.who("global officer").member_id, None, post.id, CurationAction.PUBLISH, Visibility.PUBLIC)
 
 
 @when("the Wednesday officer declines the application")
 def wed_declines(world: World) -> None:
-    world.store.transition(world.who("Wednesday officer"), "wed", world.app_id, ApplicationStatus.DECLINED, "")
+    world.store.transition(
+        world.who("Wednesday officer").member_id, "wed", world.app_id, ApplicationStatus.DECLINED, ""
+    )
 
 
 def advance(world: World, days: int) -> None:
