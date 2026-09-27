@@ -6,12 +6,15 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
 
-from toads_api.raid_sheets.schemas import SheetSnapshot
+from toads_api.raid_sheets.schemas import NewSnapshot, SheetSnapshot
 
 
 class SheetRepository(Protocol):
-    def next_id(self) -> int: ...
-    def save(self, snapshot: SheetSnapshot) -> None: ...
+    def insert(self, snapshot: NewSnapshot) -> SheetSnapshot | None:
+        """Store the snapshot with a new id, or return None when the tab already has `snapshot.version`
+        (another import got there first). Atomic: the store enforces one row per (spreadsheet, tab, version)."""
+        ...
+
     def get(self, snapshot_id: int) -> SheetSnapshot | None: ...
     def latest(self, spreadsheet_id: str, tab: str) -> SheetSnapshot | None: ...
     def for_raid(self, raid_day: str, raid_date: date) -> list[SheetSnapshot]: ...
@@ -24,18 +27,20 @@ class InMemorySheetRepository:
 
     snapshots: dict[int, SheetSnapshot] = field(default_factory=dict)
 
-    def next_id(self) -> int:
-        return max(self.snapshots, default=0) + 1
-
-    def save(self, snapshot: SheetSnapshot) -> None:
-        self.snapshots[snapshot.id] = snapshot
+    def insert(self, snapshot: NewSnapshot) -> SheetSnapshot | None:
+        key = (snapshot.spreadsheet_id, snapshot.tab, snapshot.version)
+        if any((s.spreadsheet_id, s.tab, s.version) == key for s in self.snapshots.values()):
+            return None
+        stored = SheetSnapshot(id=max(self.snapshots, default=0) + 1, **snapshot.model_dump())
+        self.snapshots[stored.id] = stored
+        return stored
 
     def get(self, snapshot_id: int) -> SheetSnapshot | None:
         return self.snapshots.get(snapshot_id)
 
     def latest(self, spreadsheet_id: str, tab: str) -> SheetSnapshot | None:
         same = [s for s in self.snapshots.values() if s.spreadsheet_id == spreadsheet_id and s.tab == tab]
-        return max(same, key=lambda s: (s.fetched_at, s.id), default=None)
+        return max(same, key=lambda s: s.version, default=None)
 
     def for_raid(self, raid_day: str, raid_date: date) -> list[SheetSnapshot]:
         return [s for s in self.snapshots.values() if s.raid_day == raid_day and s.raid_date == raid_date]

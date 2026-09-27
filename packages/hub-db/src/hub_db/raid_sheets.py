@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, Index, String
+from sqlalchemy import JSON, Date, DateTime, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from hub_db.models import Base
@@ -18,7 +18,8 @@ class RaidSheetSnapshot(Base):
     __tablename__ = "raid_sheet_snapshots"
     __table_args__ = (
         Index("ix_raid_sheet_snapshots_raid", "raid_day_id", "raid_date"),
-        Index("ix_raid_sheet_snapshots_tab", "spreadsheet_id", "tab"),
+        # One row per version of a tab: concurrent imports of the same change cannot both add it.
+        UniqueConstraint("spreadsheet_id", "tab", "version", name="uq_raid_sheet_snapshots_tab_version"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -31,3 +32,4 @@ class RaidSheetSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     headers: Mapped[list[str]] = mapped_column(JSON)
     rows: Mapped[list[list[str]]] = mapped_column(JSON)
+    version: Mapped[int] = mapped_column()

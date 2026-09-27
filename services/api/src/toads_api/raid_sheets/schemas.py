@@ -45,8 +45,9 @@ class ImportResult(BaseModel):
     undated: list[str] = []  # tabs with no raid date to link them by; kept, but on no raid
 
 
-class SheetSnapshot(BaseModel):
-    id: int
+class NewSnapshot(BaseModel):
+    """A tab's content as the service decided to keep it; the repository assigns its id."""
+
     kind: SheetKind
     spreadsheet_id: str
     tab: str
@@ -55,6 +56,12 @@ class SheetSnapshot(BaseModel):
     content_digest: str
     fetched_at: datetime
     table: SheetTable
+    # 1 for a tab's first snapshot, then +1 per change. Unique per tab, so two imports cannot both add version n.
+    version: int = Field(ge=1)
+
+
+class SheetSnapshot(NewSnapshot):
+    id: int
 
 
 class SheetLink(BaseModel):

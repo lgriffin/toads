@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import date
 
 from hub_db import RaidSheetSnapshot
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from toads_api.raid_sheets.schemas import SheetKind, SheetSnapshot, SheetTable
+from toads_api.raid_sheets.schemas import NewSnapshot, SheetKind, SheetSnapshot, SheetTable
 
 
 def _to_schema(row: RaidSheetSnapshot) -> SheetSnapshot:
@@ -22,6 +23,7 @@ def _to_schema(row: RaidSheetSnapshot) -> SheetSnapshot:
         content_digest=row.content_digest,
         fetched_at=row.fetched_at,
         table=SheetTable(tab=row.tab, headers=row.headers, rows=row.rows),
+        version=row.version,
     )
 
 
@@ -29,26 +31,27 @@ class SqlSheetRepository:
     def __init__(self, db: sessionmaker[Session]) -> None:
         self.db = db
 
-    def next_id(self) -> int:
-        with self.db() as s:
-            return int(s.scalar(select(func.coalesce(func.max(RaidSheetSnapshot.id), 0))) or 0) + 1
-
-    def save(self, snapshot: SheetSnapshot) -> None:
-        with self.db.begin() as s:
-            s.merge(
-                RaidSheetSnapshot(
-                    id=snapshot.id,
-                    kind=snapshot.kind.value,
-                    spreadsheet_id=snapshot.spreadsheet_id,
-                    tab=snapshot.tab,
-                    raid_date=snapshot.raid_date,
-                    raid_day_id=snapshot.raid_day,
-                    content_digest=snapshot.content_digest,
-                    fetched_at=snapshot.fetched_at,
-                    headers=snapshot.table.headers,
-                    rows=snapshot.table.rows,
-                )
-            )
+    def insert(self, snapshot: NewSnapshot) -> SheetSnapshot | None:
+        row = RaidSheetSnapshot(
+            kind=snapshot.kind.value,
+            spreadsheet_id=snapshot.spreadsheet_id,
+            tab=snapshot.tab,
+            raid_date=snapshot.raid_date,
+            raid_day_id=snapshot.raid_day,
+            content_digest=snapshot.content_digest,
+            fetched_at=snapshot.fetched_at,
+            headers=snapshot.table.headers,
+            rows=snapshot.table.rows,
+            version=snapshot.version,
+        )
+        try:
+            with self.db.begin() as s:
+                s.add(row)
+                s.flush()
+                return _to_schema(row)
+        except IntegrityError:
+            # uq_raid_sheet_snapshots_tab_version: a concurrent import already added this version.
+            return None
 
     def get(self, snapshot_id: int) -> SheetSnapshot | None:
         with self.db() as s:
@@ -59,7 +62,7 @@ class SqlSheetRepository:
         q = (
             select(RaidSheetSnapshot)
             .where(RaidSheetSnapshot.spreadsheet_id == spreadsheet_id, RaidSheetSnapshot.tab == tab)
-            .order_by(RaidSheetSnapshot.fetched_at.desc(), RaidSheetSnapshot.id.desc())
+            .order_by(RaidSheetSnapshot.version.desc())
             .limit(1)
         )
         with self.db() as s:

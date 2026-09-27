@@ -10,12 +10,14 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+from typing import Literal
 
 from toads_api.raid_sheets.config import RaidSheetsConfig, SheetSource
 from toads_api.raid_sheets.dates import raid_date_of
 from toads_api.raid_sheets.repository import SheetRepository
 from toads_api.raid_sheets.schemas import (
     ImportResult,
+    NewSnapshot,
     RaidSheets,
     SheetImport,
     SheetLink,
@@ -32,10 +34,20 @@ class NotFound(RaidSheetError):
     status_code = 404
 
 
+class ImportConflict(RaidSheetError):
+    """Other imports kept changing the same tab while this one tried to add its version."""
+
+    status_code = 409
+
+
 class UnknownSource(RaidSheetError):
     """Only configured spreadsheets are accepted, so a leaked service token cannot plant arbitrary tables."""
 
     status_code = 422
+
+
+# How often to re-read a tab's latest version after losing a race with a concurrent import.
+_ATTEMPTS = 5
 
 
 def content_digest(table: SheetTable) -> str:
@@ -66,17 +78,31 @@ class RaidSheetService:
             digest = content_digest(table)
             raid_date = raid_date_of(table.tab, [table.headers, *table.rows])
             raid_day = self.raid_day_for(source, raid_date) if raid_date is not None else None
+            outcome = self._store(source, imp, table, digest, raid_date, raid_day)
+            getattr(result, outcome).append(table.tab)
+        return result
+
+    def _store(
+        self,
+        source: SheetSource,
+        imp: SheetImport,
+        table: SheetTable,
+        digest: str,
+        raid_date: date | None,
+        raid_day: str | None,
+    ) -> Literal["stored", "unchanged", "undated"]:
+        """Add the next version of a tab unless it matches the latest one. Retries when a concurrent import
+        takes the version number first, so the same change is never kept twice."""
+        for _ in range(_ATTEMPTS):
             latest = self.repo.latest(imp.spreadsheet_id, table.tab)
-            if (
-                latest is not None
-                and latest.content_digest == digest
-                and (latest.raid_date, latest.raid_day) == (raid_date, raid_day)
+            if latest is not None and (latest.content_digest, latest.raid_date, latest.raid_day) == (
+                digest,
+                raid_date,
+                raid_day,
             ):
-                result.unchanged.append(table.tab)
-                continue
-            self.repo.save(
-                SheetSnapshot(
-                    id=self.repo.next_id(),
+                return "unchanged"
+            stored = self.repo.insert(
+                NewSnapshot(
                     kind=source.kind,
                     spreadsheet_id=imp.spreadsheet_id,
                     tab=table.tab,
@@ -85,10 +111,12 @@ class RaidSheetService:
                     content_digest=digest,
                     fetched_at=imp.fetched_at,
                     table=table,
+                    version=latest.version + 1 if latest is not None else 1,
                 )
             )
-            (result.stored if raid_day is not None else result.undated).append(table.tab)
-        return result
+            if stored is not None:
+                return "stored" if raid_day is not None else "undated"
+        raise ImportConflict(f"tab {table.tab!r} kept changing during import; try again")
 
     def _link(self, snap: SheetSnapshot) -> SheetLink:
         source = self.config.source(snap.spreadsheet_id)
@@ -106,7 +134,7 @@ class RaidSheetService:
         newest: dict[tuple[str, str], SheetSnapshot] = {}
         for s in snaps:
             key = (s.spreadsheet_id, s.tab)
-            if key not in newest or (s.fetched_at, s.id) > (newest[key].fetched_at, newest[key].id):
+            if key not in newest or s.version > newest[key].version:
                 newest[key] = s
         return sorted(newest.values(), key=lambda s: (s.kind.value, s.tab))
 

@@ -10,8 +10,8 @@ from openpyxl import Workbook
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import find_date, raid_date_of, weekday_named
 from toads_api.raid_sheets.repository import InMemorySheetRepository
-from toads_api.raid_sheets.schemas import SheetImport, SheetTable
-from toads_api.raid_sheets.service import RaidSheetService, UnknownSource
+from toads_api.raid_sheets.schemas import NewSnapshot, SheetImport, SheetKind, SheetSnapshot, SheetTable
+from toads_api.raid_sheets.service import RaidSheetService, UnknownSource, content_digest
 from toads_worker.jobs.sheets import cell_text, read_tables, spreadsheet_ids
 
 SID = "1ua81-yeWdU1eW4ziHP2EF-1rxrSILbRWjmvZG9eLpkM"
@@ -27,6 +27,10 @@ SUN_ONLY = "1OTZF3PHYtx3h_ENlV5cN2aUylnIe7keS-SzFnun_CcU"
         ("24th September 2026", date(2026, 9, 24)),
         ("Raid: Sept 24, 2026", date(2026, 9, 24)),
         ("31/02/2026", None),  # not a date
+        # The earliest date in the text wins, whatever its format.
+        ("Wed 23/09/2026 (exported 2026-09-25)", date(2026, 9, 23)),
+        ("23 Sep 2026, report 2026-09-25", date(2026, 9, 23)),
+        ("31/02/2026 then 2026-09-25", date(2026, 9, 25)),
         ("Week 3", None),
         ("", None),
     ],
@@ -127,3 +131,69 @@ def test_spreadsheet_ids_from_the_example_config() -> None:
     root = Path(__file__).resolve().parents[3]
     assert spreadsheet_ids(root / "config" / "raid_sheets.example.yaml") == [SID, SUN_ONLY]
     assert RaidSheetsConfig.load(root / "config" / "raid_sheets.example.yaml").source(SID) is not None
+
+
+class StaleRepository(InMemorySheetRepository):
+    """Answers `latest` from before a concurrent import landed, the first time only."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stale_reads = 1
+
+    def latest(self, spreadsheet_id: str, tab: str) -> SheetSnapshot | None:
+        if self.stale_reads:
+            self.stale_reads -= 1
+            return None
+        return super().latest(spreadsheet_id, tab)
+
+
+def test_a_concurrent_import_of_the_same_change_is_not_kept_twice() -> None:
+    svc = service()
+    repo = StaleRepository()
+    svc.repo = repo
+    table = SheetTable(tab="2026-09-23", headers=["a"], rows=[["1"]])
+    # The other import already stored version 1 with the same content.
+    repo.insert(
+        NewSnapshot(
+            kind=SheetKind.CBA,
+            spreadsheet_id=SID,
+            tab=table.tab,
+            raid_date=date(2026, 9, 23),
+            raid_day="wed",
+            content_digest=content_digest(table),
+            fetched_at=datetime(2026, 9, 25, tzinfo=UTC),
+            table=table,
+            version=1,
+        )
+    )
+    assert svc.record_import(imp(SID, table)).unchanged == ["2026-09-23"]
+    assert len(repo.snapshots) == 1
+
+
+def test_sql_repository_refuses_a_duplicate_version() -> None:
+    from hub_db import Base
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from toads_api.raid_sheets.sql import SqlSheetRepository
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    repo = SqlSheetRepository(sessionmaker(engine, expire_on_commit=False))
+    table = SheetTable(tab="t", headers=["a"], rows=[])
+    new = NewSnapshot(
+        kind=SheetKind.RPB,
+        spreadsheet_id=SID,
+        tab="t",
+        raid_date=None,
+        raid_day=None,
+        content_digest="x",
+        fetched_at=datetime(2026, 9, 25, tzinfo=UTC),
+        table=table,
+        version=1,
+    )
+    first = repo.insert(new)
+    assert first is not None and first.id > 0
+    assert repo.insert(new) is None
+    assert repo.insert(new.model_copy(update={"version": 2})) is not None
+    latest = repo.latest(SID, "t")
+    assert latest is not None and latest.version == 2

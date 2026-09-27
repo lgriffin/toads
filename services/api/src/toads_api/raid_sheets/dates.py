@@ -51,20 +51,21 @@ def _make(year: int, month: int, day: int) -> date | None:
 
 
 def find_date(text: str) -> date | None:
-    """The first valid date written in `text`, or None."""
+    """The valid date that starts earliest in `text`, whatever its format, or None."""
+    found: list[tuple[int, date]] = []
     for m in _ISO.finditer(text):
-        if found := _make(int(m[1]), int(m[2]), int(m[3])):
-            return found
+        if d := _make(int(m[1]), int(m[2]), int(m[3])):
+            found.append((m.start(), d))
     for m in _DMY.finditer(text):
-        if found := _make(int(m[3]), int(m[2]), int(m[1])):
-            return found
+        if d := _make(int(m[3]), int(m[2]), int(m[1])):
+            found.append((m.start(), d))
     for m in _D_MON_Y.finditer(text):
-        if found := _make(int(m[3]), _MONTHS[m[2].lower()], int(m[1])):
-            return found
+        if d := _make(int(m[3]), _MONTHS[m[2].lower()], int(m[1])):
+            found.append((m.start(), d))
     for m in _MON_D_Y.finditer(text):
-        if found := _make(int(m[3]), _MONTHS[m[1].lower()], int(m[2])):
-            return found
-    return None
+        if d := _make(int(m[3]), _MONTHS[m[1].lower()], int(m[2])):
+            found.append((m.start(), d))
+    return min(found, key=lambda f: f[0])[1] if found else None
 
 
 def raid_date_of(tab: str, rows: Iterable[Iterable[str]]) -> date | None:

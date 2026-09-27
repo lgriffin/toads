@@ -28,13 +28,13 @@ def upgrade() -> None:
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("headers", sa.JSON(), nullable=False),
         sa.Column("rows", sa.JSON(), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("spreadsheet_id", "tab", "version", name="uq_raid_sheet_snapshots_tab_version"),
     )
     op.create_index("ix_raid_sheet_snapshots_raid", "raid_sheet_snapshots", ["raid_day_id", "raid_date"], unique=False)
-    op.create_index("ix_raid_sheet_snapshots_tab", "raid_sheet_snapshots", ["spreadsheet_id", "tab"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_raid_sheet_snapshots_tab", table_name="raid_sheet_snapshots")
     op.drop_index("ix_raid_sheet_snapshots_raid", table_name="raid_sheet_snapshots")
     op.drop_table("raid_sheet_snapshots")
