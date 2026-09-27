@@ -15,8 +15,9 @@ import pytest
 from hub_db import AuditEntry, Base, Member
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlalchemy import func, select
-from toads_api.rbac import UnknownDiscordRoleError
+from toads_api.rbac import HubRole, UnknownDiscordRoleError
 from toads_api.rbac.deps import route_rules
+from toads_api.rbac.permissions import ROLE_PERMISSIONS
 from toads_api.sessions import SESSION_COOKIE
 
 from conftest import RAID_DAYS, Hub
@@ -400,7 +401,8 @@ def wed_sync(hub: Hub, ctx: dict[str, Any]) -> None:
 @then("every Sunday officer view answers them 403")
 def sunday_views_denied(hub: Hub, ctx: dict[str, Any]) -> None:
     rules, _ = route_rules(hub.app)
-    scoped = [r for r in rules if r.scoped]
+    # Officer views only: scoped routes a plain member may also open (a day's raid sheets) stay open.
+    scoped = [r for r in rules if r.scoped and r.permission not in ROLE_PERMISSIONS[HubRole.MEMBER]]
     assert scoped
     for rule in scoped:
         path = re.sub(r"\{[a-z_]+\}", "1", rule.path.replace("{day}", "sun"))
