@@ -17,6 +17,11 @@ class SheetSource(BaseModel):
     # Set when a spreadsheet only ever covers one raid day. Otherwise the day is the one whose weekday
     # matches the tab's date.
     raid_day: DayId | None = None
+    # Tab names to keep (shell patterns, any case). Left out, every tab but the templates' setup tabs is kept.
+    tabs: list[str] | None = None
+    # For a sheet with no dates in it (RPB): new content joins the raid of the latest sheet of this kind, when that
+    # raid was in the week before the download and has no copy of the tab yet.
+    follows: SheetKind | None = None
 
     @property
     def url(self) -> str:

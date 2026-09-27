@@ -43,6 +43,7 @@ class ImportResult(BaseModel):
     stored: list[str] = []  # tabs with new content, saved as a new snapshot
     unchanged: list[str] = []  # tabs identical to their latest snapshot
     undated: list[str] = []  # tabs with no raid date to link them by; kept, but on no raid
+    skipped: list[str] = []  # setup tabs (instructions, webhooks, keys) and tabs the source does not list; not kept
 
 
 class NewSnapshot(BaseModel):
@@ -56,6 +57,8 @@ class NewSnapshot(BaseModel):
     content_digest: str
     fetched_at: datetime
     table: SheetTable
+    # The Warcraft Logs report the sheet was run for, from its Instructions tab.
+    report_code: str | None = None
     # 1 for a tab's first snapshot, then +1 per change. Unique per tab, so two imports cannot both add version n.
     version: int = Field(ge=1)
 
@@ -78,4 +81,5 @@ class SheetLink(BaseModel):
 class RaidSheets(BaseModel):
     raid_day: str
     raid_date: date
+    report_code: str | None = None
     sheets: list[SheetLink]

@@ -197,3 +197,42 @@ def test_sql_repository_refuses_a_duplicate_version() -> None:
     assert repo.insert(new.model_copy(update={"version": 2})) is not None
     latest = repo.latest(SID, "t")
     assert latest is not None and latest.version == 2
+
+
+def test_sql_repository_links_and_finds_the_newest_raid_and_versions() -> None:
+    from hub_db import Base
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from toads_api.raid_sheets.sql import SqlSheetRepository
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    repo = SqlSheetRepository(sessionmaker(engine, expire_on_commit=False))
+    at = datetime(2026, 9, 25, tzinfo=UTC)
+
+    def new(sid: str, kind: SheetKind, version: int, raid: date | None) -> NewSnapshot:
+        return NewSnapshot(
+            kind=kind,
+            spreadsheet_id=sid,
+            tab="t",
+            raid_date=raid,
+            raid_day="wed" if raid else None,
+            content_digest=str(version),
+            fetched_at=at,
+            table=SheetTable(tab="t", headers=["a"], rows=[]),
+            report_code="2bNJMG9AfDnmxKYh" if raid else None,
+            version=version,
+        )
+
+    repo.insert(new(SID, SheetKind.CBA, 1, date(2026, 9, 16)))
+    repo.insert(new(SID, SheetKind.CBA, 2, date(2026, 9, 23)))
+    newest = repo.latest_linked(SheetKind.CBA)
+    assert newest is not None and (newest.raid_date, newest.report_code) == (date(2026, 9, 23), "2bNJMG9AfDnmxKYh")
+    assert repo.latest_linked(SheetKind.RPB) is None
+
+    repo.insert(new(SUN_ONLY, SheetKind.RPB, 1, None))
+    undated = repo.insert(new(SUN_ONLY, SheetKind.RPB, 2, None))
+    assert undated is not None
+    assert [s.version for s in repo.latest_versions(SUN_ONLY)] == [2]
+    repo.link(undated.id, date(2026, 9, 23), "wed", "2bNJMG9AfDnmxKYh")
+    assert {s.kind for s in repo.for_raid("wed", date(2026, 9, 23))} == {SheetKind.CBA, SheetKind.RPB}

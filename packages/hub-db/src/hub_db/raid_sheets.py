@@ -33,3 +33,5 @@ class RaidSheetSnapshot(Base):
     headers: Mapped[list[str]] = mapped_column(JSON)
     rows: Mapped[list[list[str]]] = mapped_column(JSON)
     version: Mapped[int] = mapped_column()
+    # The Warcraft Logs report the sheet was run for (0006).
+    report_code: Mapped[str | None] = mapped_column(String(32))
