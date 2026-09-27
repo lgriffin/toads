@@ -71,6 +71,7 @@ services:
   worker:
     build: { context: .., dockerfile: services/worker/Dockerfile }
     env_file: ../services/worker/.env
+    volumes: [../config:/config:ro]
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_started }

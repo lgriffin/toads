@@ -59,8 +59,9 @@ PUBLIC = {
     "GET /api/public/recruitment",
 }
 GLOBAL_ADMIN_PREFIX = "/api/admin/"
-# The bot's routes: guarded by the service token (test_community.py), not by a member's permission.
-BOT_PREFIX = "/api/bot/"
+# The bot's and the worker's routes: guarded by the service token (test_community.py, test_hub_sheets.py), not by
+# a member's permission.
+SERVICE_PREFIXES = ("/api/bot/", "/api/worker/")
 
 
 def principal(tier: str, own_day: str) -> Principal:
@@ -138,7 +139,7 @@ def test_endpoint_matrix(case: Case, client_for) -> None:
 
 
 def test_every_api_route_is_guarded() -> None:
-    assert {r for r in UNGUARDED if not r.split(" ", 1)[1].startswith(BOT_PREFIX)} == PUBLIC
+    assert {r for r in UNGUARDED if not r.split(" ", 1)[1].startswith(SERVICE_PREFIXES)} == PUBLIC
 
 
 def test_officer_routes_are_scoped_and_have_sibling_denials() -> None:
