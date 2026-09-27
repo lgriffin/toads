@@ -26,11 +26,39 @@ services:
       MINIO_ROOT_PASSWORD: toads-dev-only
     ports: ["9000:9000", "9001:9001"]
 
+  migrate:  # one-shot: applies hub-db's Alembic migrations before the API starts
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    command: ["hub-db-migrate"]
+    env_file: ../services/api/.env
+    healthcheck: { disable: true }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  # Dev stand-in for Discord OAuth2 + REST (services/api/src/toads_api/testing/fake_discord.py), so the dev
+  # stack needs no Discord application. It signs the browser straight in as the seeded user: dev only,
+  # never in staging/prod. services/api/.env.example points the API at it; FAKE_DISCORD_ROLES gives the
+  # dev user those role ids (put the same ids in config/raid_days.yaml to sign in as raider or officer).
+  fake-discord:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    command: ["uvicorn", "--factory", "toads_api.testing.fake_discord:app_from_env", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      FAKE_DISCORD_I_AM_DEV: "1"  # the fake refuses to start without this opt-in
+      FAKE_DISCORD_CLIENT_ID: toads-dev
+      FAKE_DISCORD_CLIENT_SECRET: replace-me  # matches the placeholder in services/api/.env.example
+      FAKE_DISCORD_GUILD_ID: "1"
+      FAKE_DISCORD_NICK: Hopscotch
+      FAKE_DISCORD_ROLES: ""
+    healthcheck: { disable: true }
+    ports: ["8081:8001"]  # the browser is redirected to http://localhost:8081/oauth2/authorize
+
   api:
     build: { context: .., dockerfile: services/api/Dockerfile }
     env_file: ../services/api/.env
     volumes: [../config:/config:ro]
-    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+      fake-discord: { condition: service_started }  # startup checks raid-day roles against "Discord"
     ports: ["8000:8000"]
 
   worker:

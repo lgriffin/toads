@@ -4,6 +4,8 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS build
 WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+# git fetches wcl-core, which uv.lock pins to a warcraftlogs_project commit.
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml uv.lock ./
 COPY packages ./packages
 COPY services ./services

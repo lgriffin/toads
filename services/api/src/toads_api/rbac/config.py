@@ -10,6 +10,10 @@ from pydantic import BaseModel, Field
 from toads_api.rbac.permissions import HubRole, Principal
 
 
+class UnknownDiscordRoleError(RuntimeError):
+    """A configured role id is not a role in the Discord server (REQ-HUB-DAY-022)."""
+
+
 class RaidDayChannels(BaseModel):
     raid_logs: int | None = None
     signups: int | None = None
@@ -39,7 +43,20 @@ class RaidDaysConfig(BaseModel):
             ids.update(day.raider_roles, day.trial_roles, day.officer_roles)
         return ids
 
-    def principal_for(self, member_id: int, discord_role_ids: set[int]) -> Principal:
+    def day(self, day_id: str) -> RaidDay | None:
+        return next((d for d in self.raid_days if d.id == day_id), None)
+
+    def check_roles_exist(self, server_role_ids: set[int]) -> None:
+        """Fail naming the raid day and role when a configured role id is not in the server (REQ-HUB-DAY-022)."""
+        unknown = [("global officers", r) for r in self.global_officer_roles if r not in server_role_ids]
+        for day in self.raid_days:
+            for kind, ids in (("trial", day.trial_roles), ("raider", day.raider_roles), ("officer", day.officer_roles)):
+                unknown += [(f"raid day {day.id!r} {kind}", r) for r in ids if r not in server_role_ids]
+        if unknown:
+            names = "; ".join(f"{where} role {role_id}" for where, role_id in unknown)
+            raise UnknownDiscordRoleError(f"Discord server has no such role: {names}")
+
+    def principal_for(self, member_id: int, discord_role_ids: set[int], display_name: str = "") -> Principal:
         """Map a member's Discord role ids to hub roles; several matches give the highest per day."""
         day_roles: dict[str, HubRole] = {}
         for day in self.raid_days:
@@ -54,6 +71,7 @@ class RaidDaysConfig(BaseModel):
                 day_roles[day.id] = role
         return Principal(
             member_id=member_id,
+            display_name=display_name,
             global_officer=bool(discord_role_ids & set(self.global_officer_roles)),
             day_roles=day_roles,
         )

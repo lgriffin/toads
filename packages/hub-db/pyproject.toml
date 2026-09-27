@@ -3,7 +3,13 @@ name = "hub-db"
 version = "0.0.0"
 description = "Hub-only SQLAlchemy models; analyzer tables come from wcl-store"
 requires-python = ">=3.12"
-dependencies = ["sqlalchemy>=2.0"]
+dependencies = [
+    "alembic>=1.13",
+    "sqlalchemy>=2.0",
+]
+
+[project.scripts]
+hub-db-migrate = "hub_db.migrate:main"
 
 [build-system]
 requires = ["hatchling"]

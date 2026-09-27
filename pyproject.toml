@@ -15,6 +15,8 @@ hub-db = { workspace = true }
 toads-api = { workspace = true }
 toads-worker = { workspace = true }
 toads-bot = { workspace = true }
+# The analyzer's headless core, from lgriffin/warcraftlogs_project. Bump rev to take analyzer changes.
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "63269c0901396605aec20f8640a5bf7da0bdda1e" }
 
 [dependency-groups]
 dev = [
@@ -31,6 +33,7 @@ dev = [
     "mypy>=1.11",
     "pip-audit>=2.7",
     "types-PyYAML",
+    "fakeredis>=2.26",
 ]
 
 [tool.ruff]
@@ -43,6 +46,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]
 "scripts/**" = ["S101"]
+"conftest.py" = ["S101"]
 
 [tool.mypy]
 strict = true
