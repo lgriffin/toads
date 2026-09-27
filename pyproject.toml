@@ -16,7 +16,7 @@ toads-api = { workspace = true }
 toads-worker = { workspace = true }
 toads-bot = { workspace = true }
 # The analyzer's headless core, from lgriffin/warcraftlogs_project. Bump rev to take analyzer changes.
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "491ca254a1163bdfff2c902678001d10f9680b17" }
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "63269c0901396605aec20f8640a5bf7da0bdda1e" }
 
 [dependency-groups]
 dev = [

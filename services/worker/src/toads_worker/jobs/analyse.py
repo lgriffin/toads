@@ -26,8 +26,7 @@ def build_client(settings: Settings) -> WarcraftLogsClient:
     The on-disk response cache is off: the worker runs in a read-only container, and raw responses
     will be cached in object storage instead (phase 2.1).
     """
-    # wcl-core's TokenManager has no annotations yet (analyzer phase 1.1 adds them).
-    tokens = TokenManager(settings.wcl_client_id, settings.wcl_client_secret.get_secret_value())  # type: ignore[no-untyped-call]
+    tokens = TokenManager(settings.wcl_client_id, settings.wcl_client_secret)
     client = WarcraftLogsClient(tokens, cache_enabled=False, api_url=settings.wcl_api_url)
     client.MIN_REQUEST_INTERVAL = settings.wcl_throttle_ms / 1000
     client.MAX_RETRIES = settings.wcl_max_retries

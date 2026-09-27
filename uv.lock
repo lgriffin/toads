@@ -2356,7 +2356,7 @@ requires-dist = [
     { name = "redis", specifier = ">=5" },
     { name = "rq", specifier = ">=1.16" },
     { name = "structlog", specifier = ">=24" },
-    { name = "wcl-core", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=491ca254a1163bdfff2c902678001d10f9680b17" },
+    { name = "wcl-core", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=63269c0901396605aec20f8640a5bf7da0bdda1e" },
 ]
 
 [[package]]
@@ -2603,7 +2603,7 @@ wheels = [
 [[package]]
 name = "wcl-core"
 version = "4.3.0"
-source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=491ca254a1163bdfff2c902678001d10f9680b17#491ca254a1163bdfff2c902678001d10f9680b17" }
+source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=63269c0901396605aec20f8640a5bf7da0bdda1e#63269c0901396605aec20f8640a5bf7da0bdda1e" }
 dependencies = [
     { name = "requests" },
 ]
