@@ -95,6 +95,41 @@ def demo_guild(world: World) -> None:
     assert world.store.raid_days.day_ids
 
 
+@given("the demo guild stored in the hub database")
+def demo_guild_in_db(world: World) -> None:
+    from conftest import sql_community_repository
+
+    clock = world.store.clock
+    world.store = demo_service(clock, sql_community_repository())  # type: ignore[arg-type]
+
+
+@when("the API restarts")
+def api_restarts(world: World) -> None:
+    from toads_api.community.sql_repository import SqlCommunityRepository
+
+    repo = world.store.repo
+    assert isinstance(repo, SqlCommunityRepository)
+    # A new service and repository over the same database: nothing carried over in memory.
+    world.store = CommunityService(
+        repo=SqlCommunityRepository(repo.db),
+        config=world.store.config,
+        raid_days=world.store.raid_days,
+        clock=world.store.clock,
+    )
+
+
+@then("the application is still declined with its full history")
+def still_declined(world: World) -> None:
+    app = world.store.repo.get_application(world.app_id)
+    assert app is not None
+    assert app.status is ApplicationStatus.DECLINED
+    assert [(e.from_status, e.to_status) for e in app.events] == [
+        (None, ApplicationStatus.APPLIED),
+        (ApplicationStatus.APPLIED, ApplicationStatus.DECLINED),
+    ]
+    assert [e.actor_name for e in app.events] == ["Newtonian", "Croakley"]
+
+
 @given(parsers.parse("the applicant has applied for {day}"))
 @when(parsers.parse("the applicant applies for {day}"))
 def applicant_applies(world: World, day: str) -> None:

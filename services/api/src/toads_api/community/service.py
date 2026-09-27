@@ -161,6 +161,7 @@ class CommunityService:
             title=data.title,
             body=data.body,
             author_name=self.name_of(actor_id),
+            author_id=actor_id,
             origin=PostOrigin.HUB,
             visibility=Visibility.RAID_DAY if scope is not None else data.visibility,
             raid_day=scope,
@@ -305,7 +306,11 @@ class CommunityService:
             availability=data.availability,
             logs_url=data.logs_url,
             status=ApplicationStatus.APPLIED,
-            events=[ApplicationEvent(at=now, actor_name=name, from_status=None, to_status=ApplicationStatus.APPLIED)],
+            events=[
+                ApplicationEvent(
+                    at=now, actor_id=member_id, actor_name=name, from_status=None, to_status=ApplicationStatus.APPLIED
+                )
+            ],
             created_at=now,
         )
         self.repo.save_application(app)
@@ -328,11 +333,18 @@ class CommunityService:
             raise NotFound("No such application")
         return app
 
-    def _move(self, app: Application, to: ApplicationStatus, actor_name: str, note: str) -> None:
+    def _move(self, app: Application, to: ApplicationStatus, actor_id: int, note: str) -> None:
         if not recruitment.can_transition(app.status, to):
             raise Conflict(f"An application that is {app.status.value} cannot become {to.value}")
         app.events.append(
-            ApplicationEvent(at=self.clock(), actor_name=actor_name, from_status=app.status, to_status=to, note=note)
+            ApplicationEvent(
+                at=self.clock(),
+                actor_id=actor_id,
+                actor_name=self.name_of(actor_id),
+                from_status=app.status,
+                to_status=to,
+                note=note,
+            )
         )
         app.status = to
         self.repo.save_application(app)
@@ -356,7 +368,7 @@ class CommunityService:
         self, actor_id: int, scope: str | None, app_id: int, to: ApplicationStatus, note: str
     ) -> Application:
         app = self._application_in_scope(app_id, scope)
-        self._move(app, to, self.name_of(actor_id), note)
+        self._move(app, to, actor_id, note)
         self._audit(actor_id, f"application.{to.value}", f"application:{app.id}", scope)
         return app
 
@@ -364,7 +376,7 @@ class CommunityService:
         app = self.repo.get_application(app_id)
         if app is None or app.member_id != member_id:
             raise NotFound("No such application")
-        self._move(app, ApplicationStatus.WITHDRAWN, self.name_of(member_id), "")
+        self._move(app, ApplicationStatus.WITHDRAWN, member_id, "")
         return app
 
     def open_interview_room(self, actor_id: int, scope: str | None, app_id: int) -> Application:
@@ -377,7 +389,7 @@ class CommunityService:
         if app.interview_channel_id is not None or pending:
             raise Conflict("An interview room is already open or on its way")
         if app.status is ApplicationStatus.APPLIED:
-            self._move(app, ApplicationStatus.INTERVIEWING, self.name_of(actor_id), "Interview room opened")
+            self._move(app, ApplicationStatus.INTERVIEWING, actor_id, "Interview room opened")
         elif app.status is not ApplicationStatus.INTERVIEWING:
             raise Conflict("Interview rooms are for applications being interviewed")
         self._enqueue(
@@ -428,9 +440,10 @@ class CommunityService:
         ref = parse_clip_url(data.url)
         if ref is None:
             raise Invalid("Clips must be https links to YouTube, a Twitch clip or Streamable")
-        name = self.name_of(member_id)
         waiting = sum(
-            1 for h in self.repo.highlights() if h.status is HighlightStatus.SUBMITTED and h.submitted_by == name
+            1
+            for h in self.repo.highlights()
+            if h.status is HighlightStatus.SUBMITTED and h.submitted_by_id == member_id
         )
         if waiting >= HIGHLIGHT_QUEUE_CAP:
             raise Conflict(f"You have {HIGHLIGHT_QUEUE_CAP} clips waiting for review already")
@@ -439,7 +452,8 @@ class CommunityService:
             title=data.title,
             provider=ref.provider,
             clip_id=ref.clip_id,
-            submitted_by=name,
+            submitted_by_id=member_id,
+            submitted_by=self.name_of(member_id),
             raid_id=data.raid_id,
             boss=data.boss,
             visibility=Visibility.GUILD,
@@ -486,6 +500,7 @@ class CommunityService:
             class_name=data.class_name,
             headline=data.headline,
             body=data.body,
+            written_by_id=actor_id,
             written_by=self.name_of(actor_id),
             consent=SpotlightConsent.PENDING,
             status=SpotlightStatus.DRAFT,

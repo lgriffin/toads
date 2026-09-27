@@ -46,6 +46,8 @@ class Post(BaseModel):
     title: str
     body: str
     author_name: str
+    # Internal member ids ride along for storage and are never serialised to clients.
+    author_id: int | None = Field(default=None, exclude=True)
     origin: PostOrigin
     visibility: Visibility
     raid_day: str | None = None
@@ -94,6 +96,7 @@ class ApplicationStatus(enum.StrEnum):
 
 class ApplicationEvent(BaseModel):
     at: datetime
+    actor_id: int = Field(exclude=True)
     actor_name: str
     from_status: ApplicationStatus | None
     to_status: ApplicationStatus
@@ -172,6 +175,7 @@ class Highlight(BaseModel):
     title: str
     provider: ClipProvider
     clip_id: str
+    submitted_by_id: int = Field(exclude=True)
     submitted_by: str
     raid_id: str | None = None
     boss: str | None = None
@@ -221,6 +225,7 @@ class Spotlight(BaseModel):
     class_name: str
     headline: str
     body: str
+    written_by_id: int = Field(exclude=True)
     written_by: str
     consent: SpotlightConsent
     status: SpotlightStatus

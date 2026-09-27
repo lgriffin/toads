@@ -1,5 +1,5 @@
-"""Where community state lives. CommunityService only talks to this protocol, so moving from memory to Postgres
-(phase 2.1, tables in hub_db.community) replaces the repository and leaves the rules alone."""
+"""Where community state lives. CommunityService only talks to this protocol: the API uses the Postgres repository
+(`sql_repository.py`, tables in hub_db.community); tests and the demo guild can use the in-memory one."""
 
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ class CommunityRepository(Protocol):
 
 @dataclass
 class InMemoryCommunityRepository:
-    """Process-local state for tests, local dev and the Pages-era API. Not durable across restarts."""
+    """Process-local state for tests and the demo guild. Not durable across restarts."""
 
     members: dict[int, MemberCard] = field(default_factory=dict)
     needs_list: list[RecruitmentNeed] = field(default_factory=list)
