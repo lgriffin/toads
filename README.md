@@ -47,7 +47,7 @@ Phase 2.0 (Foundations) scaffold plus phase 2.2 (Identity and RBAC):
 | Bot | discord.py client with single-guild command sync |
 | hub-db | `members`, `character_claims`, `audit`, community tables, Alembic migrations (`hub-db-migrate`) |
 | Web | Public Story, Recruit and Highlights pages; inward Hub (posts feed, raid leader desk), Officers console, Raids & Logs, Bank and Me; Discord sign-in/out, members-only page, claim flow placeholder. Sample data in the Pages preview |
-| Community | Applications with private Discord interview rooms, officer posts curated both ways with Discord, highlight reels, consent-gated spotlights. In-memory until the 2.1 migrations; tables are in hub-db |
+| Community | Applications with private Discord interview rooms, officer posts curated both ways with Discord, highlight reels, consent-gated spotlights. Stored in the hub database (hub-db migrations 0002, 0003); zone progress waits on wcl-store |
 | Requirements | EARS scenarios from the build spec plus phase 2.2 and the community layer; `docs/requirements.md` generated with the counts |
 | CI | Lint, mypy strict, import layering, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, Playwright e2e with axe, image builds |
 

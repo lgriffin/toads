@@ -16,7 +16,7 @@ from toads_api.community.service import CommunityService
 from toads_api.main import create_app
 from toads_api.rbac import Permission, Principal, can
 
-from conftest import community_client
+from conftest import community_client, sql_community_repository
 
 TOKEN = "test-service-token"  # noqa: S105  (conftest.make_settings)
 BOT = {"Authorization": f"Bearer {TOKEN}"}
@@ -35,9 +35,10 @@ def clock() -> Clock:
     return Clock()
 
 
-@pytest.fixture
-def store(clock: Clock) -> CommunityService:
-    return demo_service(clock)
+@pytest.fixture(params=["memory", "sql"])
+def store(request: pytest.FixtureRequest, clock: Clock) -> CommunityService:
+    """Every route test runs over both repositories, so Postgres storage keeps the same rules."""
+    return demo_service(clock, sql_community_repository() if request.param == "sql" else None)  # type: ignore[arg-type]
 
 
 @pytest.fixture

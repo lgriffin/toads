@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from toads_api.community.config import CommunityConfig, MirroredChannel
-from toads_api.community.repository import InMemoryCommunityRepository, MemberCard
+from toads_api.community.repository import CommunityRepository, InMemoryCommunityRepository, MemberCard
 from toads_api.community.schemas import Priority, Progress, RecruitmentNeed, Role
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.rbac import HubRole, Principal
@@ -36,7 +36,12 @@ MEMBERS = {
 }
 
 
-def demo_service(clock: Callable[[], datetime]) -> CommunityService:
+DEMO_NEEDS = [RecruitmentNeed(class_name="Shaman", spec="Restoration", role=Role.HEALER, priority=Priority.HIGH)]
+DEMO_PROGRESSION = [Progress(zone="Serpentshrine Cavern", killed=5, total=6)]
+
+
+def demo_service(clock: Callable[[], datetime], repo: CommunityRepository | None = None) -> CommunityService:
+    """The demo guild over `repo` (default: in memory). A given repo must already know MEMBERS and DEMO_PROGRESSION."""
     directory = RaidDayDirectory(
         day_ids=frozenset({"wed", "sun"}),
         global_officer_roles=(GLOBAL_ROLE,),
@@ -53,9 +58,7 @@ def demo_service(clock: Callable[[], datetime]) -> CommunityService:
         post_channels={"guild": GUILD_POSTS, "wed": WED_POSTS},
         interview_category_id=INTERVIEWS,
     )
-    repo = InMemoryCommunityRepository(
-        members=dict(MEMBERS),
-        needs_list=[RecruitmentNeed(class_name="Shaman", spec="Restoration", role=Role.HEALER, priority=Priority.HIGH)],
-        progression_list=[Progress(zone="Serpentshrine Cavern", killed=5, total=6)],
-    )
+    if repo is None:
+        repo = InMemoryCommunityRepository(members=dict(MEMBERS), progression_list=list(DEMO_PROGRESSION))
+    repo.set_needs(list(DEMO_NEEDS))
     return CommunityService(repo=repo, config=config, raid_days=directory, clock=clock)

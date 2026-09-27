@@ -1,7 +1,6 @@
 """Community tables: posts mirrored both ways with Discord, applications, highlight reels, spotlights, bot outbox.
 
-The API's CommunityRepository has the same shape; a Postgres repository over these tables replaces the in-memory one
-with the phase 2.1 migrations.
+The API reads and writes them through `toads_api.community.sql_repository.SqlCommunityRepository`.
 Enum columns are stored as strings (native_enum=False) so values match the API schemas without a shared import.
 """
 
@@ -13,6 +12,15 @@ from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, String, 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from hub_db.models import Base, _now
+
+
+class CommunityId(Base):
+    """One id sequence shared by every community record, so an id names one thing across posts, applications,
+    highlights, spotlights and outbox jobs. Works the same on Postgres and SQLite."""
+
+    __tablename__ = "community_ids"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
 
 
 class CommunityPost(Base):
