@@ -106,4 +106,16 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           push: false
+          load: true
           tags: toads-${{ matrix.name }}:${{ github.sha }}
+      # Every console script in the venv must point at an interpreter that exists in the runtime image.
+      - name: Console scripts run in the image
+        if: matrix.name != 'web'
+        run: |
+          docker run --rm --entrypoint sh toads-${{ matrix.name }}:${{ github.sha }} -c '
+            for f in /app/.venv/bin/*; do
+              [ "$(head -c2 "$f")" = "#!" ] || continue
+              interp=$(head -n1 "$f" | cut -c3- | cut -d" " -f1)
+              [ -x "$interp" ] || { echo "$f: interpreter $interp is missing"; exit 1; }
+            done'
+          docker run --rm --entrypoint python toads-${{ matrix.name }}:${{ github.sha }} -c "import sys; print(sys.prefix)"
