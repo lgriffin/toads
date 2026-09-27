@@ -39,3 +39,26 @@ Feature: HUB SHEET
   @ears_ubiquitous @maintainer @phase_2_6
   Scenario: REQ-HUB-SHEET-006 The hub shall never write to the CBA or RPB spreadsheets; the worker shall only download them
     Then the raid sheet importer only reads from Google Sheets
+
+  @ears_unwanted_behavior @maintainer @phase_2_6
+  Scenario: REQ-HUB-SHEET-007 If a downloaded sheet holds setup tabs, Discord webhooks or e-mail addresses, then the hub shall not store the setup tabs and shall blank the webhooks and e-mails, keeping only the Warcraft Logs report code
+    Given the Toads raid sheets are configured with RPB following CBA
+    When the worker imports the CBA sheet for the 2026-09-23 raid with its Instructions tab
+    Then the import skips the Instructions tab
+    And no stored tab holds the webhook or the e-mail address
+    And the 2026-09-23 raid names the Warcraft Logs report the CBA sheet was run for
+
+  @ears_event_driven @raid_leader @phase_2_6
+  Scenario: REQ-HUB-SHEET-008 When an RPB sheet with no dates arrives with new content, the hub shall attach it to the latest CBA raid from the week before the download, or once that raid's CBA arrives
+    Given the Toads raid sheets are configured with RPB following CBA
+    And the worker imported the CBA sheet for the 2026-09-23 raid
+    When the worker imports the RPB sheet
+    Then the 2026-09-23 raid shows both the CBA and the RPB tabs
+
+  @ears_ubiquitous @member @phase_2_6
+  Scenario: REQ-HUB-SHEET-009 The hub shall show each raid's CBA and RPB totals (clear times, consumable uptime, gear issues, drums, potions, interrupts, deaths and avoidable damage) with a line per player, and list recent raids' totals newest first for the home page
+    Given the Toads raid sheets are configured with RPB following CBA
+    And the worker imported the CBA and RPB sheets for the 2026-09-23 raid
+    Then a member sees the 2026-09-23 raid's clear times, consumable uptime, gear issues and deaths
+    And a member sees each player's line for the 2026-09-23 raid
+    And a member sees the 2026-09-23 raid in the home page trend

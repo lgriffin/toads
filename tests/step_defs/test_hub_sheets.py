@@ -12,6 +12,7 @@ from hub_db import RaidSheetSnapshot
 from pytest_bdd import given, parsers, scenarios, then, when
 from sqlalchemy import func, select
 from toads_api.raid_sheets.config import RaidSheetsConfig
+from toads_api.testing.raid_sheet_samples import REPORT, cba_tabs, rpb_tabs
 from toads_worker.jobs import sheets as worker_sheets
 
 from conftest import Hub
@@ -34,8 +35,14 @@ def configure(hub: Hub) -> None:
     )
 
 
-def post_import(hub: Hub, sid: str, tabs: list[dict[str, Any]], headers: dict[str, str] | None = WORKER) -> Any:
-    body = {"spreadsheet_id": sid, "fetched_at": "2026-09-25T09:00:00Z", "tables": tabs}
+def post_import(
+    hub: Hub,
+    sid: str,
+    tabs: list[dict[str, Any]],
+    headers: dict[str, str] | None = WORKER,
+    fetched_at: str = "2026-09-25T09:00:00Z",
+) -> Any:
+    body = {"spreadsheet_id": sid, "fetched_at": fetched_at, "tables": tabs}
     return hub.client.post("/api/worker/raid-sheets", json=body, headers=headers or {})
 
 
@@ -92,7 +99,7 @@ def import_again(hub: Hub, ctx: dict[str, Any]) -> None:
 
 @then("the import reports the tab as unchanged")
 def reported_unchanged(ctx: dict[str, Any]) -> None:
-    assert ctx["result"] == {"stored": [], "unchanged": [ctx["tab"]], "undated": []}
+    assert ctx["result"] == {"stored": [], "unchanged": [ctx["tab"]], "undated": [], "skipped": []}
 
 
 @when("the worker imports the tab with one more row")
@@ -167,3 +174,93 @@ def importer_read_only() -> None:
     ]
     assert google_calls == ["GET"]
     assert worker_sheets.EXPORT_URL.startswith("https://docs.google.com/spreadsheets/d/")
+
+
+# REQ-HUB-SHEET-007..009: the real sheets' layout (toads_api.testing.raid_sheet_samples).
+SEP_23 = "September 23, 2026 19:32:26"
+
+
+@given("the Toads raid sheets are configured with RPB following CBA")
+def configured_following(hub: Hub) -> None:
+    hub.services.raid_sheets.config = RaidSheetsConfig.model_validate(
+        {
+            "sources": [
+                {"kind": "cba", "spreadsheet_id": CBA},
+                {"kind": "rpb", "spreadsheet_id": RPB, "follows": "cba"},
+            ]
+        }
+    )
+
+
+@when("the worker imports the CBA sheet for the 2026-09-23 raid with its Instructions tab")
+@given("the worker imported the CBA sheet for the 2026-09-23 raid")
+def import_real_cba(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = post_import(hub, CBA, cba_tabs(SEP_23), fetched_at="2026-09-24T09:00:00Z")
+    assert r.status_code == 200, r.text
+    ctx["result"] = r.json()
+
+
+@when("the worker imports the RPB sheet")
+def import_real_rpb(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = post_import(hub, RPB, rpb_tabs(), fetched_at="2026-09-25T09:00:00Z")
+    assert r.status_code == 200, r.text
+    ctx["result"] = r.json()
+
+
+@given("the worker imported the CBA and RPB sheets for the 2026-09-23 raid")
+def import_both(hub: Hub, ctx: dict[str, Any]) -> None:
+    import_real_cba(hub, ctx)
+    import_real_rpb(hub, ctx)
+
+
+@then("the import skips the Instructions tab")
+def skips_instructions(ctx: dict[str, Any]) -> None:
+    assert ctx["result"]["skipped"] == ["Instructions"]
+
+
+@then("no stored tab holds the webhook or the e-mail address")
+def nothing_secret(hub: Hub) -> None:
+    with hub.db() as db:
+        snaps = db.scalars(select(RaidSheetSnapshot)).all()
+    cells = " ".join(c for s in snaps for row in [s.headers, *s.rows] for c in row)
+    assert snaps and "Instructions" not in {s.tab for s in snaps}
+    assert "discord.com/api/webhooks" not in cells and "runner@example.com" not in cells
+
+
+@then("the 2026-09-23 raid names the Warcraft Logs report the CBA sheet was run for")
+def names_report(hub: Hub, member: str) -> None:
+    assert hub.get("/api/days/wed/raids/2026-09-23/sheets", member).json()["report_code"] == REPORT
+
+
+@then("the 2026-09-23 raid shows both the CBA and the RPB tabs")
+def shows_both(hub: Hub, member: str) -> None:
+    sheets = hub.get("/api/days/wed/raids/2026-09-23/sheets", member).json()["sheets"]
+    assert {s["kind"] for s in sheets} == {"cba", "rpb"}
+    assert {s["tab"] for s in sheets if s["kind"] == "rpb"} == {"General", "Tank", "Caster", "Caster - casts"}
+
+
+@then("a member sees the 2026-09-23 raid's clear times, consumable uptime, gear issues and deaths")
+def sees_totals(hub: Hub, member: str, ctx: dict[str, Any]) -> None:
+    r = hub.get("/api/days/wed/raids/2026-09-23/sheets/summary", member)
+    assert r.status_code == 200, r.text
+    ctx["summary"] = r.json()
+    head = ctx["summary"]["headline"]
+    assert head["clear_times"] == [{"zone": "BT", "seconds": 6512}, {"zone": "MH", "seconds": 4120}]
+    assert head["low_consumables"] == ["Ribbit"]
+    assert (head["gear_issues"], head["drums"], head["potions"], head["deaths"]) == (2, 25, 16, 9)
+    assert head["report_code"] == REPORT
+    # Scoped to the raid day in the path, like the sheets themselves.
+    assert hub.get("/api/days/wed/raids/2026-09-23/sheets/summary", None).status_code == 401
+
+
+@then("a member sees each player's line for the 2026-09-23 raid")
+def sees_players(ctx: dict[str, Any]) -> None:
+    players = {p["name"]: p for p in ctx["summary"]["players"]}
+    assert set(players) == {"Hopscotch", "Ribbit"}
+    assert (players["Hopscotch"]["role"], players["Hopscotch"]["avoidable_damage"]) == ("tank", 274846)
+
+
+@then("a member sees the 2026-09-23 raid in the home page trend")
+def sees_trend(hub: Hub, member: str) -> None:
+    trend = hub.get("/api/raid-sheets/trend", member).json()
+    assert [(t["raid_day"], t["raid_date"], t["interrupts"]) for t in trend] == [("wed", "2026-09-23", 4)]
