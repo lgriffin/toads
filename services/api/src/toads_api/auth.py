@@ -138,7 +138,8 @@ async def callback(
         )
     )
     log.info("auth.signed_in", member_id=member_id)
-    response = RedirectResponse(f"{public}/", status_code=status.HTTP_303_SEE_OTHER)
+    # Members land on their hub home; the public landing page is for visitors.
+    response = RedirectResponse(f"{public}/hub", status_code=status.HTTP_303_SEE_OTHER)
     _clear_cookie(response, LOGIN_COOKIE, path="/auth")
     _cookie(response, SESSION_COOKIE, session_id, max_age=services.settings.session_ttl_seconds, path="/")
     return response

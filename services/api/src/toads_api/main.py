@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from toads_api import audit, auth, claims, members
 from toads_api.account.routes import router as account_router
 from toads_api.community.routes import include_community
+from toads_api.home.routes import include_home
 from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
@@ -56,6 +57,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(claims.router)
     app.include_router(members.router)
     app.include_router(account_router)
+    include_home(app)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

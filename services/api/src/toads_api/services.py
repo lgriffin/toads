@@ -19,6 +19,8 @@ from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord
+from toads_api.home.service import HomeService
+from toads_api.home.sql import SqlHomeRepository
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
@@ -43,11 +45,13 @@ class Services:
     sessions: SessionStore = field(init=False)
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
+    home: HomeService = field(init=False)
     raid_sheets: RaidSheetService = field(init=False)
 
     def __post_init__(self) -> None:
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
+        self.home = HomeService(SqlHomeRepository(self.db))
         self.sessions = SessionStore(
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )

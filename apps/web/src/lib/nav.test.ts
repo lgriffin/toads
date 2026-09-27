@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MEMBER_NAV, PUBLIC_NAV, isActive, memberNav } from './nav';
 
 describe('isActive', () => {
-  it('matches the story page only at root', () => {
+  it('matches the landing page only at root', () => {
     expect(isActive('/', '/')).toBe(true);
     expect(isActive('/me', '/')).toBe(false);
     expect(isActive('/hub/', '/')).toBe(false);
@@ -16,9 +16,9 @@ describe('isActive', () => {
 });
 
 describe('nav groups', () => {
-  it('splits public story pages from member pages', () => {
-    expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/recruit', '/highlights']);
-    expect(MEMBER_NAV.map((i) => i.href)).toEqual(['/hub', '/raids', '/bank', '/me', '/officers']);
+  it('splits public pages from member pages', () => {
+    expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/story', '/recruit']);
+    expect(MEMBER_NAV.map((i) => i.href)).toEqual(['/hub', '/raids', '/highlights', '/bank', '/me', '/officers']);
   });
   it('shows Officers to officers only', () => {
     expect(memberNav(false).some((i) => i.href === '/officers')).toBe(false);

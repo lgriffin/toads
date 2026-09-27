@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { CLIP_HOSTS } from './routes';
 
-for (const route of ['', 'highlights/', 'hub/', 'officers/']) {
+for (const route of ['story/', 'highlights/', 'hub/', 'officers/']) {
   test(`/${route} makes no clip provider request until a clip is played`, async ({ page }) => {
     const hits: string[] = [];
     page.on('request', (req) => {
