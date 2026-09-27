@@ -108,15 +108,16 @@ async def create_claim(
     except IntegrityError:
         # Two members claimed the same unclaimed character at once; the unique constraint picked one.
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Character already claimed") from None
-    if needs_officer:
-        await services.notifier.notify_officers(
-            {
-                "kind": "claim_pending",
-                "claim_id": claim.id,
-                "character": claim.character_name,
-                "raid_day": claim.raid_day_id,
-            }
-        )
+    # An auto-approved claim still reaches #officers as an FYI: a member could rename themselves to match someone
+    # else's character first, and the officer can reassign it in one action.
+    await services.notifier.notify_officers(
+        {
+            "kind": "claim_pending" if needs_officer else "claim_auto_approved",
+            "claim_id": claim.id,
+            "character": claim.character_name,
+            "raid_day": claim.raid_day_id,
+        }
+    )
     return claim
 
 

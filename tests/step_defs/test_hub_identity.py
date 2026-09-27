@@ -263,9 +263,11 @@ def _outbox(hub: Hub) -> list[bytes]:
     return list(hub.client.portal.call(hub.redis.lrange, "toads:outbox:officers", 0, -1))
 
 
-@then("no officer was notified")
-def not_notified(hub: Hub) -> None:
-    assert _outbox(hub) == []
+@then("#officers only gets an FYI they can reassign from")
+def fyi_only(hub: Hub, ctx: dict[str, Any]) -> None:
+    [event] = _outbox(hub)
+    assert b'"kind": "claim_auto_approved"' in event
+    assert f'"claim_id": {ctx["claim"]["id"]}'.encode() in event
 
 
 @then("#officers is notified of the claim")

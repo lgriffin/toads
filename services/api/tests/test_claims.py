@@ -45,7 +45,9 @@ def test_matching_nickname_is_auto_approved(hub: Hub) -> None:
     assert r.status_code == 201
     assert r.json()["status"] == "approved"
     assert r.json()["raid_day_id"] == "wed"
-    assert outbox(hub) == []
+    assert outbox(hub) == [
+        {"kind": "claim_auto_approved", "claim_id": r.json()["id"], "character": "Hopscotch", "raid_day": "wed"}
+    ]
     assert audit(hub) == [("claim.auto_approve", "wed")]
     assert [c["character_name"] for c in hub.get("/api/claims", sid).json()] == ["Hopscotch"]
 
