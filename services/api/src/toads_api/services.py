@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
-from toads_api.community.repository import InMemoryCommunityRepository
 from toads_api.community.service import CommunityService, RaidDayDirectory
+from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.rbac.config import RaidDaysConfig
@@ -34,7 +34,6 @@ class Services:
     clock: Callable[[], float] = time.time
     http: httpx.AsyncClient | None = None
     sessions: SessionStore = field(init=False)
-    # In memory until the 2.1 migrations back CommunityRepository with Postgres.
     community: CommunityService = field(init=False)
 
     def __post_init__(self) -> None:
@@ -42,7 +41,7 @@ class Services:
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )
         self.community = CommunityService(
-            repo=InMemoryCommunityRepository(),
+            repo=SqlCommunityRepository(self.db),
             config=CommunityConfig.load(self.settings.community_config),
             raid_days=RaidDayDirectory(
                 day_ids=frozenset(d.id for d in self.raid_days.raid_days),
