@@ -5,17 +5,18 @@ export interface NavItem {
   officerOnly?: boolean;
 }
 
-/** The outward story: public, no login. */
+/** The public face: the landing page, the outward story and recruitment. No login. */
 export const PUBLIC_NAV: readonly NavItem[] = [
-  { href: '/', label: 'Story' },
-  { href: '/recruit', label: 'Recruit' },
-  { href: '/highlights', label: 'Highlights' }
+  { href: '/', label: 'Home' },
+  { href: '/story', label: 'Story' },
+  { href: '/recruit', label: 'Recruit' }
 ];
 
-/** The inward hub for signed-in members. */
+/** The inward hub, shown once a member signs in. */
 export const MEMBER_NAV: readonly NavItem[] = [
   { href: '/hub', label: 'Hub' },
   { href: '/raids', label: 'Raids & Logs' },
+  { href: '/highlights', label: 'Highlights' },
   { href: '/bank', label: 'Bank' },
   { href: '/me', label: 'Me' },
   { href: '/officers', label: 'Officers', officerOnly: true }

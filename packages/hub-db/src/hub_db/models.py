@@ -10,7 +10,7 @@ from __future__ import annotations
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -38,6 +38,30 @@ class Member(Base):
     profile_public: Mapped[bool] = mapped_column(default=False)
     dms_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class MemberHomeLayout(Base):
+    """The widgets a member placed on their hub home, in order: [{"id": ..., "shown": ...}]. No row means the
+    default layout. Which widgets exist is decided by the API's home service, not stored here."""
+
+    __tablename__ = "member_home_layouts"
+
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), primary_key=True)
+    widgets: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class AnalyzerHomePage(Base):
+    """The analyzer's home page (wcl_app.home) as the worker last built it: guild-wide, one row. The payload is the
+    analyzer's JSON contract, stored as published."""
+
+    __tablename__ = "analyzer_home_pages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column()
+    generated_at: Mapped[str] = mapped_column(String(40))
+    widgets: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class ClaimStatus(enum.StrEnum):

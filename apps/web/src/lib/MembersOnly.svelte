@@ -12,7 +12,7 @@
     {#if __PREVIEW__}sign in again{:else}<a href="/auth/login" data-sveltekit-reload>sign in again</a>{/if}.
     Switched Discord accounts? Sign out of Discord first.
   </p>
-  <p><a href="{base}/">Back to the hub</a></p>
+  <p><a href="{base}/">Back to the home page</a></p>
 </section>
 
 <style>

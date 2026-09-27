@@ -2,20 +2,28 @@
   import { base } from '$app/paths';
   import { PROVIDER_LABELS } from '$lib/clips';
   import { isOfficer, visibleHighlights } from '$lib/community';
+  import AnalyzerWidget from '$lib/components/AnalyzerWidget.svelte';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
+  import DeskList from '$lib/components/DeskList.svelte';
+  import HomeView from '$lib/components/HomeView.svelte';
+  import NeedsList from '$lib/components/NeedsList.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
+  import ProgressBars from '$lib/components/ProgressBars.svelte';
   import RaidTotals from '$lib/components/RaidTotals.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
-  import { dateTime, shortDate } from '$lib/format';
-  import { viewer } from '$lib/mock/community';
-  import { nextRaid, raids, type Role } from '$lib/mock/data';
+  import { deskLines } from '$lib/community-api';
+  import { dateTime } from '$lib/format';
+  import { catalogueTitle, defaultLayout, isAnalyzer, saved, type HomeWidget } from '$lib/home';
+  import { widgetById } from '$lib/home-payload';
+  import { analyzerPage } from '$lib/mock/analyzer';
+  import { needs, story, viewer } from '$lib/mock/community';
+  import { me, nextRaid, type Role } from '$lib/mock/data';
   import { sheetTrend } from '$lib/mock/sheets';
   import { visibleFeed } from '$lib/posts';
   import { isFinal } from '$lib/recruitment';
-  import { community } from './state.svelte';
+  import { community, home } from './state.svelte';
 
   const roles: Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
-  const latest = raids.slice(0, 3);
   const officer = isOfficer(viewer);
 
   const feed = $derived(visibleFeed(community.posts, viewer));
@@ -24,29 +32,22 @@
   const recent = $derived(visibleHighlights(community.highlights, viewer).slice(0, 2));
   let consentNote = $state('');
 
-  const desk = $derived([
-    {
-      label: 'Applications waiting',
-      count: community.applications.filter((a) => !isFinal(a.status)).length,
-      href: '#applications'
-    },
-    {
-      label: 'Discord posts to curate',
-      count: community.posts.filter((p) => p.status === 'pending_review').length,
-      href: '#curation'
-    },
-    {
-      label: 'Highlight submissions',
-      count: community.highlights.filter((h) => h.status === 'submitted').length,
-      href: '#highlights'
-    },
-    {
-      label: 'Spotlights awaiting consent',
-      count: community.spotlights.filter((s) => s.consent === 'pending').length,
-      href: '#spotlights'
-    }
-  ]);
+  const desk = $derived(
+    deskLines({
+      applications_waiting: community.applications.filter((a) => !isFinal(a.status)).length,
+      posts_to_curate: community.posts.filter((p) => p.status === 'pending_review').length,
+      highlights_to_review: community.highlights.filter((h) => h.status === 'submitted').length,
+      spotlights_awaiting_consent: community.spotlights.filter((s) => s.consent === 'pending').length
+    })
+  );
   const gaps = roles.filter((r) => nextRaid.signups[r] < nextRaid.needed[r]);
+
+  // The main character's last raid against the guild median for their role.
+  const main = me.characters[0];
+  const mainRaids = me.history[main.name] ?? [];
+  const last = mainRaids.at(-1);
+  const diff = last ? Math.round(((last.mine - last.median) / last.median) * 100) : 0;
+  const best = mainRaids.reduce((m, r) => Math.max(m, r.mine), 0);
 
   function decide(id: string, consent: 'granted' | 'declined') {
     const s = community.spotlights.find((x) => x.id === id);
@@ -57,118 +58,129 @@
         ? 'Thanks! Officers can now publish your spotlight. You can revoke this on your Me page at any time.'
         : 'Declined. Your spotlight will not be published.';
   }
+
+  // The preview has no API: layouts change in memory only, as the API would answer.
+  async function save(widgets: HomeWidget[]) {
+    home.layout = saved(widgets);
+    return null;
+  }
+  async function reset() {
+    home.layout = defaultLayout(officer);
+    return null;
+  }
 </script>
 
-<h1>Your night, {viewer.name}</h1>
-
-<div class="grid">
-  <section class="card" aria-labelledby="next-h">
-    <h2 id="next-h">Next raid</h2>
-    <p class="big">{nextRaid.zone}</p>
-    <p class="muted">{nextRaid.raidDay} team · {dateTime(nextRaid.start)} server time</p>
-    <table>
-      <thead><tr><th>Role</th><th class="num">Signed</th><th class="num">Needed</th></tr></thead>
-      <tbody>
-        {#each roles as role}
-          {@const short = nextRaid.signups[role] < nextRaid.needed[role]}
-          <tr>
-            <td>{role}</td>
-            <td class="num" class:warn={short}>{nextRaid.signups[role]}</td>
-            <td class="num">{nextRaid.needed[role]}</td>
-          </tr>
+<HomeView name={viewer.name} layout={home.layout} {save} {reset}>
+  {#snippet top()}
+    {#if askingConsent.length || consentNote}
+      <section class="card consent" aria-labelledby="consent-h">
+        <h2 id="consent-h">Spotlight about you</h2>
+        {#each askingConsent as s (s.id)}
+          <p>{s.writtenBy} wrote a spotlight about {s.characterName}. It is only published if you agree.</p>
+          <div class="quote"><SpotlightCard spotlight={s} /></div>
+          <div class="actions">
+            <button class="btn primary" type="button" onclick={() => decide(s.id, 'granted')}>Grant</button>
+            <button class="btn" type="button" onclick={() => decide(s.id, 'declined')}>Decline</button>
+          </div>
         {/each}
-      </tbody>
-    </table>
-  </section>
+        {#if consentNote}<p role="status">{consentNote}</p>{/if}
+      </section>
+    {/if}
+  {/snippet}
 
-  {#if askingConsent.length || consentNote}
-    <section class="card consent" aria-labelledby="consent-h">
-      <h2 id="consent-h">Spotlight about you</h2>
-      {#each askingConsent as s (s.id)}
-        <p>{s.writtenBy} wrote a spotlight about {s.characterName}. It is only published if you agree.</p>
-        <div class="quote"><SpotlightCard spotlight={s} /></div>
-        <div class="actions">
-          <button class="btn primary" type="button" onclick={() => decide(s.id, 'granted')}>Grant</button>
-          <button class="btn" type="button" onclick={() => decide(s.id, 'declined')}>Decline</button>
+  {#snippet widget(id)}
+    {#if id === 'next_raid'}
+      <section class="card" aria-labelledby="next-h">
+        <h2 id="next-h">Next raid</h2>
+        <p class="big">{nextRaid.zone}</p>
+        <p class="muted">{nextRaid.raidDay} team · {dateTime(nextRaid.start)} server time</p>
+        <table>
+          <thead><tr><th>Role</th><th class="num">Signed</th><th class="num">Needed</th></tr></thead>
+          <tbody>
+            {#each roles as role}
+              {@const short = nextRaid.signups[role] < nextRaid.needed[role]}
+              <tr>
+                <td>{role}</td>
+                <td class="num" class:warn={short}>{nextRaid.signups[role]}</td>
+                <td class="num">{nextRaid.needed[role]}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </section>
+    {:else if id === 'officer_desk'}
+      <section class="card" aria-labelledby="desk-h">
+        <h2 id="desk-h">Raid leader desk</h2>
+        <DeskList lines={desk} />
+        <p class="muted small">
+          Next raid role gaps:
+          {#if gaps.length}
+            {gaps.map((r) => `${r} ${nextRaid.needed[r] - nextRaid.signups[r]}`).join(', ')}
+          {:else}none{/if}
+        </p>
+      </section>
+    {:else if id === 'my_performance'}
+      <section class="card" aria-labelledby="perf-h">
+        <h2 id="perf-h">Your performance</h2>
+        {#if last}
+          <p class="big">{last.mine} {main.metric}</p>
+          <p>
+            {main.name} in {last.zone}:
+            <span class:ok={diff >= 0} class:bad={diff < 0}>{diff >= 0 ? '+' : ''}{diff}%</span>
+            against the guild median for {main.role.toLowerCase()}s.
+          </p>
+          <p class="muted small">Best of your last {mainRaids.length} raids: {best} {main.metric}.</p>
+        {:else}
+          <p class="muted">Claim a character to see your numbers here.</p>
+        {/if}
+        <a href="{base}/me/">Your full history</a>
+      </section>
+    {:else if isAnalyzer(id)}
+      <AnalyzerWidget widget={widgetById(analyzerPage, id)} title={catalogueTitle(id)} missing="Not in this sample." />
+    {:else if id === 'raid_totals'}
+      <RaidTotals raids={sheetTrend} />
+    {:else if id === 'posts'}
+      <section class="card feed" aria-labelledby="feed-h">
+        <h2 id="feed-h">Posts</h2>
+        {#each feed as p (p.id)}
+          <PostCard post={p} badges />
+        {:else}
+          <p class="muted">Nothing posted yet.</p>
+        {/each}
+      </section>
+    {:else if id === 'highlights'}
+      <section class="card" aria-labelledby="hl-h">
+        <h2 id="hl-h">Recent highlights</h2>
+        <div class="clips">
+          {#each recent as h (h.id)}
+            <ClipPlayer
+              provider={h.provider}
+              clipId={h.clipId}
+              title={h.title}
+              meta="{h.visibility === 'guild' ? 'Guild only · ' : ''}{PROVIDER_LABELS[h.provider]}"
+            />
+          {/each}
         </div>
-      {/each}
-      {#if consentNote}<p role="status">{consentNote}</p>{/if}
-    </section>
-  {/if}
-
-  {#if officer}
-    <section class="card" aria-labelledby="desk-h">
-      <h2 id="desk-h">Raid leader desk</h2>
-      <ul class="desk">
-        {#each desk as d}
-          <li>
-            <a href="{base}/officers/{d.href}"><span class="n">{d.count}</span> {d.label}</a>
-          </li>
-        {/each}
-      </ul>
-      <p class="muted small">
-        Next raid role gaps:
-        {#if gaps.length}
-          {gaps.map((r) => `${r} ${nextRaid.needed[r] - nextRaid.signups[r]}`).join(', ')}
-        {:else}none{/if}
-      </p>
-    </section>
-  {/if}
-
-  <section class="card" aria-labelledby="logs-h">
-    <h2 id="logs-h">Latest logs</h2>
-    <ul class="list">
-      {#each latest as raid}
-        {@const kills = raid.bosses.filter((b) => b.killed).length}
-        <li>
-          <a href="{base}/raids/{raid.id}/">{raid.zone}</a>
-          <span class="muted">{shortDate(raid.date)} · {raid.raidDay} · {kills}/{raid.bosses.length} bosses</span>
-        </li>
-      {/each}
-    </ul>
-    <a href="{base}/raids/">All raids</a>
-  </section>
-</div>
-
-<div class="lower">
-  <RaidTotals raids={sheetTrend} />
-</div>
-
-<div class="grid lower">
-  <section class="card feed" aria-labelledby="feed-h">
-    <h2 id="feed-h">Posts</h2>
-    {#each feed as p (p.id)}
-      <PostCard post={p} badges />
-    {:else}
-      <p class="muted">Nothing posted yet.</p>
-    {/each}
-  </section>
-
-  <section class="card" aria-labelledby="hl-h">
-    <h2 id="hl-h">Recent highlights</h2>
-    <div class="clips">
-      {#each recent as h (h.id)}
-        <ClipPlayer
-          provider={h.provider}
-          clipId={h.clipId}
-          title={h.title}
-          meta="{h.visibility === 'guild' ? 'Guild only · ' : ''}{PROVIDER_LABELS[h.provider]}"
-        />
-      {/each}
-    </div>
-    <a href="{base}/highlights/">All highlights</a>
-  </section>
-</div>
+        <a href="{base}/highlights/">All highlights</a>
+      </section>
+    {:else if id === 'progression'}
+      <section class="card" aria-labelledby="prog-h">
+        <h2 id="prog-h">Progression</h2>
+        <ProgressBars zones={story.progression} />
+      </section>
+    {:else if id === 'recruiting'}
+      <section class="card" aria-labelledby="needs-h">
+        <h2 id="needs-h">Recruiting</h2>
+        <NeedsList {needs} />
+        <a href="{base}/recruit/">How applying works</a>
+      </section>
+    {/if}
+  {/snippet}
+</HomeView>
 
 <style>
   .big { font-size: 1.3rem; margin: 0; }
-  .list { list-style: none; padding: 0; margin: 0 0 0.75rem; }
-  .list li { display: flex; flex-direction: column; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
-  .lower { margin-top: 1rem; }
-  .desk { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.35rem; }
-  .desk a { display: flex; gap: 0.6rem; align-items: baseline; }
-  .n { font-size: 1.3rem; min-width: 1.5rem; text-align: right; font-variant-numeric: tabular-nums; }
-  .consent { border-color: var(--accent); }
+  .consent { border-color: var(--accent); margin-bottom: 1rem; }
   .quote { border-left: 3px solid var(--line); padding-left: 0.75rem; margin: 0.5rem 0 0.75rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .clips { display: grid; gap: 1rem; margin-bottom: 0.75rem; }

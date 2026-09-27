@@ -3,6 +3,7 @@
  * these in memory (shared across client-side navigation, reset on reload); nothing is sent anywhere.
  */
 import type { Application, Highlight, Post, Spotlight } from '$lib/community';
+import { defaultLayout, type HomeLayout } from '$lib/home';
 import { applications, highlights, posts, spotlights } from '$lib/mock/community';
 
 export const community = $state<{
@@ -16,3 +17,6 @@ export const community = $state<{
   highlights: structuredClone(highlights),
   spotlights: structuredClone(spotlights)
 });
+
+/** The preview visitor's hub home layout. Hopscotch is an officer, so the desk is placeable. */
+export const home = $state<{ layout: HomeLayout }>({ layout: defaultLayout(true) });

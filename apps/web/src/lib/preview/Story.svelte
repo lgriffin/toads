@@ -5,6 +5,7 @@
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
   import NeedsList from '$lib/components/NeedsList.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
+  import ProgressBars from '$lib/components/ProgressBars.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
   import { story } from '$lib/mock/community';
   import { visibleFeed } from '$lib/posts';
@@ -34,14 +35,7 @@
 
   <section class="card" aria-labelledby="prog-h">
     <h2 id="prog-h">Progression</h2>
-    <ul class="prog">
-      {#each story.progression as z (z.zone)}
-        <li>
-          <span class="zone"><span>{z.zone}</span><span class="muted">{z.killed}/{z.total}</span></span>
-          <span class="bar" aria-hidden="true"><span style="width: {(z.killed / z.total) * 100}%"></span></span>
-        </li>
-      {/each}
-    </ul>
+    <ProgressBars zones={story.progression} />
   </section>
 
   <section class="card" aria-labelledby="needs-h">
@@ -87,10 +81,6 @@
   .hero h1 { font-size: clamp(2rem, 8vw, 3.2rem); margin: 0.25rem 0 0.5rem; }
   .tagline { font-size: 1.1rem; max-width: 40rem; margin: 0 0 1.25rem; }
   .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  .prog { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
-  .zone { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.95rem; }
-  .bar { display: block; height: 0.5rem; margin-top: 0.3rem; border-radius: 999px; background: var(--line); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--accent); }
   .band { margin: 1.5rem 0; }
   .band-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
   .reels { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }

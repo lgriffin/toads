@@ -1,6 +1,7 @@
 /** Every prerendered page in the preview, relative to the base URL. */
 export const ROUTES = [
   '',
+  'story/',
   'recruit/',
   'highlights/',
   'hub/',

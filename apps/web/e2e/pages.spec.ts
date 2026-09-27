@@ -40,16 +40,26 @@ for (const route of ROUTES) {
 test('the nav splits public and member pages', async ({ page }) => {
   await page.goto('');
   const guild = page.getByRole('navigation', { name: 'Guild' });
-  await expect(guild.getByRole('link')).toHaveText(['Story', 'Recruit', 'Highlights']);
+  await expect(guild.getByRole('link')).toHaveText(['Home', 'Story', 'Recruit']);
   const members = page.getByRole('navigation', { name: 'Members' });
-  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raids & Logs', 'Bank', 'Me', 'Officers']);
+  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raids & Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
   await members.getByRole('link', { name: 'Hub' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
   await expect(members.getByRole('link', { name: 'Hub' })).toHaveAttribute('aria-current', 'page');
 });
 
-test('the story page links to recruit and opens Discord safely', async ({ page }) => {
+test('the landing page says who we are and what we stand for', async ({ page }) => {
   await page.goto('');
+  await expect(page.getByRole('heading', { name: 'Toads', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Who we are' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What we stand for' })).toBeVisible();
+  // The preview visitor is signed in, so the call to action is their hub rather than the login.
+  await page.getByRole('link', { name: 'Go to your hub' }).click();
+  await expect(page).toHaveURL(/\/toads\/hub\/$/);
+});
+
+test('the story page links to recruit and opens Discord safely', async ({ page }) => {
+  await page.goto('story/');
   const discord = page.getByRole('link', { name: 'Join our Discord' });
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer');
   await page.getByRole('link', { name: 'Apply to raid with us' }).click();
@@ -69,4 +79,39 @@ test('the hub shows the latest raid totals from the sheets', async ({ page }) =>
   await expect(report).toHaveAttribute('href', /^https:\/\/classic\.warcraftlogs\.com\/reports\/[A-Za-z0-9]{16}$/);
   const rows = totals.getByRole('table', { name: 'Recent raids' }).locator('tbody tr');
   await expect(rows).toHaveCount(5);
+});
+
+test('a member customises their hub home', async ({ page }) => {
+  await page.goto('hub/');
+  const widgets = page.locator('[data-widget]');
+  await expect(widgets.first()).toHaveAttribute('data-widget', 'next_raid');
+  await expect(page.getByRole('heading', { name: 'Recruiting' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Customise' }).click();
+  const panel = page.getByRole('region', { name: 'Customise your home' });
+  await panel.getByRole('checkbox', { name: /Next raid/ }).uncheck();
+  await panel.getByRole('checkbox', { name: /Recruiting/ }).check();
+  const up = panel.getByRole('button', { name: 'Move Recruiting up' });
+  // Recruiting starts last; move it to the top.
+  for (let i = 0; i < 30 && !(await up.isDisabled()); i++) await up.click();
+  await expect(up).toBeDisabled();
+  await panel.getByRole('button', { name: 'Save' }).click();
+
+  await expect(panel).toHaveCount(0);
+  await expect(widgets.first()).toHaveAttribute('data-widget', 'recruiting');
+  await expect(page.locator('[data-widget="next_raid"]')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Customise' }).click();
+  await panel.getByRole('button', { name: 'Reset to default' }).click();
+  await expect(widgets.first()).toHaveAttribute('data-widget', 'next_raid');
+});
+
+test('the hub draws the analyzer widgets from their shared payloads', async ({ page }) => {
+  await page.goto('hub/');
+  const damage = page.getByRole('region', { name: 'Top damage' });
+  await expect(damage.getByRole('columnheader', { name: 'Damage' })).toBeVisible();
+  await expect(damage.getByRole('row')).toHaveCount(6);
+  const recent = page.getByRole('region', { name: 'Recent raids' });
+  await recent.getByRole('link').first().click();
+  await expect(page).toHaveURL(/\/toads\/raids\/[a-z]+-\d{4}\/$/);
 });

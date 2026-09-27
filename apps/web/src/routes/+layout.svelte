@@ -13,6 +13,8 @@
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview's Hopscotch is an officer. Officer links only hide; the API is the real gate either way.
   let members = $derived(memberNav(__PREVIEW__ || (session?.officer_days.length ?? 0) > 0));
+  // Everything past the public pages opens on login, so the member links show only to a signed-in member.
+  let signedIn = $derived(__PREVIEW__ || !!session);
 </script>
 
 <a class="skip" href="#main">Skip to content</a>
@@ -30,11 +32,13 @@
       >
     {/each}
   </nav>
-  <nav aria-label="Members" class="members">
-    {#each members as item}
-      <a href="{base}{item.href}/" aria-current={isActive(path, item.href) ? 'page' : undefined}>{item.label}</a>
-    {/each}
-  </nav>
+  {#if signedIn}
+    <nav aria-label="Members" class="members">
+      {#each members as item}
+        <a href="{base}{item.href}/" aria-current={isActive(path, item.href) ? 'page' : undefined}>{item.label}</a>
+      {/each}
+    </nav>
+  {/if}
   {#if __PREVIEW__}
     <span class="login">Signed in as Hopscotch</span>
   {:else if session}

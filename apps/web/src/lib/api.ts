@@ -4,6 +4,16 @@
  * `npm run api:types` once the OpenAPI schema settles.
  */
 
+import {
+  highlightFromApi,
+  postFromApi,
+  type ApiHighlight,
+  type ApiPost,
+  type ApiStory,
+  type DeskSummary
+} from './community-api';
+import type { HomeLayout } from './home';
+import type { AnalyzerPage } from './home-payload';
 import type { RaidHeadline, RaidSheets, RaidSummary } from './sheets';
 
 export interface Session {
@@ -199,3 +209,37 @@ export const raidSummary = (day: string, date: string, f: Fetch = fetch) =>
 export function recentRaidSheets(day?: string, limit?: number, f: Fetch = fetch): Promise<RaidSheets[]> {
   return call<RaidSheets[]>(f, `/api/raid-sheets/recent${dayQuery(day, limit)}`);
 }
+
+// --- the member's customisable hub home ------------------------------------------------------------
+
+export type { HomeLayout, HomeWidget, WidgetId } from './home';
+
+export const getHome = (f: Fetch = fetch) => call<HomeLayout>(f, '/api/me/home');
+
+/** Show exactly `shown`, in that order; every other widget stays placeable, hidden. */
+export const saveHome = (shown: string[], f: Fetch = fetch) =>
+  call<HomeLayout>(f, '/api/me/home', { method: 'PUT', body: JSON.stringify({ shown }) });
+
+export const resetHome = (f: Fetch = fetch) => call<HomeLayout>(f, '/api/me/home', { method: 'DELETE' });
+
+/** The analyzer's widgets (guild-wide), as the worker last built them. */
+export const analyzerHome = (f: Fetch = fetch) => call<AnalyzerPage>(f, '/api/home/analyzer');
+
+/** What to tell a member when saving their home fails. */
+export function homeError(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
+  if (e.status === 401) return 'Sign in with Discord to change your home.';
+  if (e.status === 403) return 'Only officers can place that widget.';
+  return e.message || 'Something went wrong; try again.';
+}
+
+// --- community reads the hub home uses -------------------------------------------------------------
+
+export const postsFeed = async (f: Fetch = fetch) => (await call<ApiPost[]>(f, '/api/posts')).map(postFromApi);
+
+export const guildHighlights = async (f: Fetch = fetch) =>
+  (await call<ApiHighlight[]>(f, '/api/highlights')).map(highlightFromApi);
+
+export const publicStory = (f: Fetch = fetch) => call<ApiStory>(f, '/api/public/story');
+
+export const deskSummary = (f: Fetch = fetch) => call<DeskSummary>(f, '/api/desk');
