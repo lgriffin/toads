@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
-  import { NAV, isActive } from '$lib/nav';
+  import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
   let session = $state<Session | null | undefined>(undefined);
@@ -11,17 +11,28 @@
     if (!__PREVIEW__) session = await getSession().catch(() => null);
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
+  // The preview's Hopscotch is an officer. Officer links only hide; the API is the real gate either way.
+  let members = $derived(memberNav(__PREVIEW__ || (session?.officer_days.length ?? 0) > 0));
 </script>
+
+<a class="skip" href="#main">Skip to content</a>
 
 {#if __PREVIEW__}
   <div class="preview">Preview with sample data. Nothing here is live.</div>
 {/if}
 
 <header>
-  <strong>Toads</strong>
-  <nav>
-    {#each NAV as item}
-      <a href="{base}{item.href}" aria-current={isActive(path, item.href) ? 'page' : undefined}>{item.label}</a>
+  <a class="brand" href="{base}/">Toads</a>
+  <nav aria-label="Guild">
+    {#each PUBLIC_NAV as item}
+      <a href="{base}{item.href}{item.href === '/' ? '' : '/'}" aria-current={isActive(path, item.href) ? 'page' : undefined}
+        >{item.label}</a
+      >
+    {/each}
+  </nav>
+  <nav aria-label="Members" class="members">
+    {#each members as item}
+      <a href="{base}{item.href}/" aria-current={isActive(path, item.href) ? 'page' : undefined}>{item.label}</a>
     {/each}
   </nav>
   {#if __PREVIEW__}
@@ -36,7 +47,7 @@
   {/if}
 </header>
 
-<main>{@render children()}</main>
+<main id="main" tabindex="-1">{@render children()}</main>
 
 <style>
   :global(:root) {
@@ -71,6 +82,53 @@
   :global(.warn) { color: var(--warn); }
   :global(.bad) { color: var(--bad); }
   :global(main a) { color: var(--accent); }
+  :global(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :global(main:focus) { outline: none; }
+  :global(.sr-only) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  :global(.btn) {
+    display: inline-block;
+    padding: 0.5rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.95rem;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  :global(main a.btn) { color: var(--text); }
+  :global(.btn:hover) { border-color: var(--muted); }
+  :global(.btn.primary), :global(main a.btn.primary) { background: var(--accent); border-color: var(--accent); color: #0f1411; font-weight: 600; }
+  :global(.btn.danger) { border-color: var(--bad); color: #f0a39c; }
+  :global(.btn:disabled) { opacity: 0.55; cursor: not-allowed; }
+  :global(.field) { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+  :global(.field label), :global(legend) { font-size: 0.9rem; }
+  :global(input:not([type='checkbox'])), :global(select), :global(textarea) {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.45rem 0.55rem;
+    font: inherit;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  :global(textarea) { resize: vertical; width: 100%; }
+  :global([aria-invalid='true']) { border-color: var(--bad) !important; }
+  :global(.hint) { font-size: 0.8rem; color: var(--muted); }
+  :global(.err) { font-size: 0.85rem; color: #f0a39c; }
+  :global(main) { overflow-wrap: break-word; }
   header {
     display: flex;
     flex-wrap: wrap;
@@ -79,7 +137,14 @@
     padding: 0.75rem 1rem;
     background: var(--surface);
   }
-  nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+  nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+  .members { padding-left: 1rem; border-left: 1px solid var(--line); }
+  .brand { color: var(--text); font-weight: 700; }
+  .skip { position: absolute; left: -999px; top: 0; background: var(--accent); color: #0f1411; padding: 0.5rem; z-index: 10; }
+  .skip:focus { left: 0.5rem; }
+  @media (max-width: 40rem) {
+    .members { padding-left: 0; border-left: 0; }
+  }
   a { color: var(--muted); text-decoration: none; }
   a[aria-current='page'], a:hover { color: var(--text); }
   .login { margin-left: auto; color: var(--accent); }

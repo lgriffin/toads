@@ -16,13 +16,6 @@ export interface NextRaid {
   needed: Record<Role, number>;
 }
 
-export interface Announcement {
-  title: string;
-  body: string;
-  author: string;
-  posted: string;
-}
-
 export interface BossKill {
   name: string;
   killed: boolean;
@@ -91,21 +84,6 @@ export const nextRaid: NextRaid = {
   signups: { Tank: 3, Healer: 6, Melee: 7, Ranged: 8 },
   needed: { Tank: 3, Healer: 7, Melee: 7, Ranged: 8 }
 };
-
-export const announcements: Announcement[] = [
-  {
-    title: 'Vashj prep night',
-    body: 'Bring fire resist for Hydross swaps and a stack of Flasks of Relentless Assault. Tainted core runners, check #tactics.',
-    author: 'Ribbitz',
-    posted: '2026-09-25T20:12:00Z'
-  },
-  {
-    title: 'Bank requests open for Wednesday',
-    body: 'Wednesday bank is restocked with Super Mana Potions and Elixirs of Major Agility. Request through the Bank page.',
-    author: 'Croakley',
-    posted: '2026-09-23T09:40:00Z'
-  }
-];
 
 const TBC_CONSUMES = ['Flask or elixirs', 'Food buff', 'Weapon oil or stone', 'Potion used'];
 

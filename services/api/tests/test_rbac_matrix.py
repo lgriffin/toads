@@ -23,18 +23,44 @@ from conftest import Hub
 
 DAYS = ("wed", "sun")
 P = Permission
-OFFICER_ONLY = {P.VIEW_OTHERS, P.VIEW_INSIGHTS, P.SYNC_LOGS, P.APPROVE_CLAIMS}
+OFFICER_ONLY = {
+    P.VIEW_OTHERS,
+    P.VIEW_INSIGHTS,
+    P.SYNC_LOGS,
+    P.APPROVE_CLAIMS,
+    P.MANAGE_RECRUITMENT,
+    P.MANAGE_POSTS,
+    P.MANAGE_HIGHLIGHTS,
+}
 
 # The build spec's table: which tier holds which permission on its own raid day.
 SPEC: dict[str, set[Permission]] = {
-    "member": {P.VIEW_GUILD_RAIDS},
-    "trial": {P.VIEW_GUILD_RAIDS, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER},
-    "raider": {P.VIEW_GUILD_RAIDS, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER, P.UPLOAD_SCREENSHOTS},
+    "member": {P.VIEW_GUILD_RAIDS, P.APPLY},
+    "trial": {P.VIEW_GUILD_RAIDS, P.APPLY, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER},
+    "raider": {
+        P.VIEW_GUILD_RAIDS,
+        P.APPLY,
+        P.VIEW_OWN_PERFORMANCE,
+        P.CLAIM_CHARACTER,
+        P.UPLOAD_SCREENSHOTS,
+        P.SUBMIT_HIGHLIGHT,
+    },
     "officer": set(Permission),
 }
 TIERS = ("member", "trial", "raider", "officer", "global")
 # Routes that are public by design: health, and the OAuth dance that creates the session.
-PUBLIC = {"GET /healthz", "GET /auth/login", "GET /auth/callback", "POST /auth/logout"}
+PUBLIC = {
+    "GET /healthz",
+    "GET /auth/login",
+    "GET /auth/callback",
+    "POST /auth/logout",
+    # The outward story and recruitment needs, for visitors.
+    "GET /api/public/story",
+    "GET /api/public/recruitment",
+}
+GLOBAL_ADMIN_PREFIX = "/api/admin/"
+# The bot's routes: guarded by the service token (test_community.py), not by a member's permission.
+BOT_PREFIX = "/api/bot/"
 
 
 def principal(tier: str, own_day: str) -> Principal:
@@ -112,7 +138,7 @@ def test_endpoint_matrix(case: Case, client_for) -> None:
 
 
 def test_every_api_route_is_guarded() -> None:
-    assert set(UNGUARDED) == PUBLIC
+    assert {r for r in UNGUARDED if not r.split(" ", 1)[1].startswith(BOT_PREFIX)} == PUBLIC
 
 
 def test_officer_routes_are_scoped_and_have_sibling_denials() -> None:
@@ -124,9 +150,17 @@ def test_officer_routes_are_scoped_and_have_sibling_denials() -> None:
         ("POST", "/api/days/{day}/claims/{claim_id}/reject"),
         ("POST", "/api/days/{day}/claims/{claim_id}/reassign"),
     }
-    assert all(r.scoped for r in officer_rules)
-    for rule in officer_rules:
+    scoped = [r for r in officer_rules if r.scoped]
+    assert all("{day}" in r.path for r in scoped)
+    for rule in scoped:
         assert any(c.rule == rule and c.tier == "officer" and c.sibling for c in matrix())
+    # Guild-wide officer routes live under /api/admin and are the global tier's alone: a day officer counts as
+    # a raider there, so only "global" is ever allowed.
+    for rule in (r for r in officer_rules if not r.scoped):
+        assert rule.path.startswith(GLOBAL_ADMIN_PREFIX)
+        assert {
+            c.tier for c in matrix() if c.rule == rule and expected_allowed(c.tier, c.own_day, rule.permission, None)
+        } == {"global"}
 
 
 def test_matrix_matches_spec() -> None:

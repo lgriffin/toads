@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     discord_api_base: str = "https://discord.com/api/v10"
     public_base_url: str
     raid_days_config: Path = Path("config/raid_days.yaml")
+    # The bot's credential for the /api/bot/* routes. Shared with services/bot's TOADS_HUB_SERVICE_TOKEN.
+    hub_service_token: SecretStr
+    community_config: Path = Path("config/community.yaml")
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)

@@ -63,7 +63,7 @@ Feature: HUB DAY
   @ears_ubiquitous @maintainer @phase_2_2
   Scenario: REQ-HUB-DAY-021 The RBAC matrix test shall be generated over (tier × raid day × endpoint) and shall include a denial case for every officer endpoint reached with a sibling day's scope
     Given the hub API
-    Then every officer route is scoped by a raid day in its path
+    Then every officer route is scoped by a raid day in its path, or is a global-officer route
     And the RBAC matrix has a sibling-day denial case for every officer route
 
   @ears_unwanted_behavior @maintainer @phase_2_2

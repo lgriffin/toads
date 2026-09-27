@@ -34,6 +34,7 @@ dev = [
     "pip-audit>=2.7",
     "types-PyYAML",
     "fakeredis>=2.26",
+    "import-linter>=2.15",
 ]
 
 [tool.ruff]
@@ -73,3 +74,35 @@ markers = [
     "raid_leader: raid leader persona",
     "maintainer: developer / maintainer persona",
 ]
+
+# Architecture contracts, checked by `lint-imports` in CI (just lint). Frontends and the bot reach the hub only
+# through the API; community rules stay free of RBAC, web framework and storage imports.
+[tool.importlinter]
+root_packages = ["toads_api", "toads_bot", "toads_worker", "hub_db"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The bot talks to the hub only over HTTP: no toads_api or hub_db imports"
+type = "forbidden"
+source_modules = ["toads_bot"]
+forbidden_modules = ["toads_api", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Community routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.community.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Community rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.community.service"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Only the worker imports wcl_core"
+type = "forbidden"
+source_modules = ["toads_api", "toads_bot", "hub_db"]
+forbidden_modules = ["wcl_core"]

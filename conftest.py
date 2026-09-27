@@ -65,6 +65,8 @@ def make_settings(**overrides: object) -> Settings:
         "discord_api_base": f"{DISCORD}/api/v10",
         "public_base_url": HUB,
         "raid_days_config": Path("unused.yaml"),
+        "hub_service_token": "test-service-token",
+        "community_config": Path("unused-community.yaml"),
     }
     values.update(overrides)
     return Settings(**values)
@@ -165,3 +167,27 @@ def hub() -> Iterator[Hub]:
     h = Hub()
     with h.client:
         yield h
+
+
+def community_client(
+    service: object, principal: object = None, *, token: str | None = None, raise_server_exceptions: bool = True
+) -> TestClient:
+    """The real API with its community service swapped for `service`, signed in as `principal` (None: anonymous).
+
+    `token` replaces the bot's service token. Skips the lifespan: the fakes need no startup checks here.
+    """
+    from toads_api.community.deps import get_service
+    from toads_api.rbac.deps import get_principal
+
+    h = Hub()
+    if token is not None:
+        h.services.settings = make_settings(hub_service_token=token)
+    h.app.state.services = h.services
+    h.app.dependency_overrides[get_service] = lambda: service
+    if principal is not None:
+
+        async def _p() -> object:
+            return principal
+
+        h.app.dependency_overrides[get_principal] = _p
+    return TestClient(h.app, raise_server_exceptions=raise_server_exceptions)

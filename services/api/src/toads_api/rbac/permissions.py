@@ -26,11 +26,18 @@ class Permission(enum.StrEnum):
     VIEW_INSIGHTS = "view_insights"
     SYNC_LOGS = "sync_logs"
     APPROVE_CLAIMS = "approve_claims"
+    # Community layer: recruitment, curated posts, highlight reels and spotlights.
+    APPLY = "apply"
+    SUBMIT_HIGHLIGHT = "submit_highlight"
+    MANAGE_RECRUITMENT = "manage_recruitment"
+    MANAGE_POSTS = "manage_posts"
+    MANAGE_HIGHLIGHTS = "manage_highlights"
 
 
-_MEMBER = frozenset({Permission.VIEW_GUILD_RAIDS})
+# Applicants join the Discord server first, so a plain member (no raid-day role) can apply.
+_MEMBER = frozenset({Permission.VIEW_GUILD_RAIDS, Permission.APPLY})
 _TRIAL = _MEMBER | {Permission.VIEW_OWN_PERFORMANCE, Permission.CLAIM_CHARACTER}
-_RAIDER = _TRIAL | {Permission.UPLOAD_SCREENSHOTS}
+_RAIDER = _TRIAL | {Permission.UPLOAD_SCREENSHOTS, Permission.SUBMIT_HIGHLIGHT}
 _OFFICER = frozenset(Permission)
 
 ROLE_PERMISSIONS: dict[HubRole, frozenset[Permission]] = {

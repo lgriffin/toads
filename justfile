@@ -12,6 +12,7 @@ setup:
 up:
     for s in api worker bot; do [ -f services/$s/.env ] || cp services/$s/.env.example services/$s/.env; done
     [ -f config/raid_days.yaml ] || cp config/raid_days.example.yaml config/raid_days.yaml
+    [ -f config/community.yaml ] || cp config/community.example.yaml config/community.yaml
     docker compose -f infra/docker-compose.yml up --build -d
 
 down:
@@ -27,6 +28,7 @@ lint:
     uv run ruff format --check .
     uv run ruff check .
     uv run mypy packages/hub-db/src services/api/src services/worker/src services/bot/src
+    uv run lint-imports
 
 # Regenerate docs/requirements.md from tests/features and fail on missing IDs or persona tags
 reqs:

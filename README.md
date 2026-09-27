@@ -45,10 +45,11 @@ Phase 2.0 (Foundations) scaffold plus phase 2.2 (Identity and RBAC):
 | Fake Discord | `toads_api.testing.fake_discord`: OAuth2 + member/roles endpoints for tests and the dev stack (no Discord app needed) |
 | Worker | Report code / URL validation (fuzzed), sync diff, RQ entry point |
 | Bot | discord.py client with single-guild command sync |
-| hub-db | `members`, `character_claims`, `audit`, Alembic migrations (`hub-db-migrate`) |
-| Web | SvelteKit shell with Home, Raids & Logs, Bank and Me pages; Discord sign-in/out, members-only page, claim flow placeholder |
-| Requirements | 88 EARS scenarios (86 from the build spec, 2 added in phase 2.2), 15 implemented with pytest-bdd steps; `docs/requirements.md` generated |
-| CI | Lint, mypy strict, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, image builds |
+| hub-db | `members`, `character_claims`, `audit`, community tables, Alembic migrations (`hub-db-migrate`) |
+| Web | Public Story, Recruit and Highlights pages; inward Hub (posts feed, raid leader desk), Officers console, Raids & Logs, Bank and Me; Discord sign-in/out, members-only page, claim flow placeholder. Sample data in the Pages preview |
+| Community | Applications with private Discord interview rooms, officer posts curated both ways with Discord, highlight reels, consent-gated spotlights. In-memory until the 2.1 migrations; tables are in hub-db |
+| Requirements | EARS scenarios from the build spec plus phase 2.2 and the community layer; `docs/requirements.md` generated with the counts |
+| CI | Lint, mypy strict, import layering, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, Playwright e2e with axe, image builds |
 
 Next, per the phased plan: wcl-store tables and the character list the claim flow picks from (waits on the
 analyzer publishing `wcl-core` / `wcl-store`; until then `POST /api/claims` answers 404), the bot draining the

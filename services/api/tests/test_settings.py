@@ -11,6 +11,7 @@ REQUIRED = (
     "DISCORD_GUILD_ID",
     "DISCORD_REDIRECT_URI",
     "PUBLIC_BASE_URL",
+    "HUB_SERVICE_TOKEN",
 )
 
 
@@ -45,7 +46,7 @@ def test_role_refresh_cannot_exceed_15_minutes(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.security
-@pytest.mark.parametrize("secret", ["DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "DATABASE_URL"])
+@pytest.mark.parametrize("secret", ["DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "DATABASE_URL", "HUB_SERVICE_TOKEN"])
 def test_secrets_are_not_in_repr(monkeypatch: pytest.MonkeyPatch, secret: str) -> None:
     _env(monkeypatch)
     monkeypatch.setenv(f"TOADS_{secret}", "planted-secret-value")

@@ -440,20 +440,23 @@ def sync_with_smuggled_day(hub: Hub, ctx: dict[str, Any], day: str) -> None:
     )
 
 
-@then("every officer route is scoped by a raid day in its path")
+@then("every officer route is scoped by a raid day in its path, or is a global-officer route")
 def officer_routes_scoped(hub: Hub) -> None:
     matrix = _matrix_module()
     rules, _ = route_rules(hub.app)
     officer = [r for r in rules if r.permission in matrix.OFFICER_ONLY]
     assert officer
-    assert all(r.scoped and "{day}" in r.path for r in officer)
+    assert all(
+        (r.scoped and "{day}" in r.path) or (not r.scoped and r.path.startswith(matrix.GLOBAL_ADMIN_PREFIX))
+        for r in officer
+    )
 
 
 @then("the RBAC matrix has a sibling-day denial case for every officer route")
 def matrix_has_sibling_cases(hub: Hub) -> None:
     matrix = _matrix_module()
     rules, _ = route_rules(hub.app)
-    for rule in (r for r in rules if r.permission in matrix.OFFICER_ONLY):
+    for rule in (r for r in rules if r.permission in matrix.OFFICER_ONLY and r.scoped):
         sibling = [c for c in matrix.matrix() if c.rule == rule and c.tier == "officer" and c.sibling]
         assert sibling
         assert not any(matrix.expected_allowed(c.tier, c.own_day, rule.permission, c.target_day) for c in sibling)
