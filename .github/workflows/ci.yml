@@ -24,6 +24,29 @@ jobs:
       - run: uv run pytest --cov=toads_api --cov=toads_worker --cov-report=term-missing --cov-fail-under=80
       - run: uv run python scripts/reqs.py --check
 
+  postgres:
+    # The community repository and the hub-db migrations against a real Postgres (the other jobs use SQLite).
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: toads
+          POSTGRES_DB: toads
+          POSTGRES_HOST_AUTH_METHOD: trust  # throwaway CI container reachable only from this job
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U toads" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TOADS_TEST_DATABASE_URL: postgresql+psycopg://toads@localhost:5432/toads
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run pytest -q services/api/tests/test_community_sql.py services/api/tests/test_community.py -k sql
+
   security:
     runs-on: ubuntu-latest
     permissions:

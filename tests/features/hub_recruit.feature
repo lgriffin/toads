@@ -46,3 +46,11 @@ Feature: HUB RECRUIT
   Scenario: REQ-HUB-RECRUIT-006 The application shall ask only for game details and never for age, email address or real name
     Then the application form's fields are character, class, spec, role, raid days, experience, availability and a Warcraft Logs link
     And a Warcraft Logs link must be an https link to warcraftlogs.com
+
+  @ears_ubiquitous @raid_leader @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-007 Applications, their status history, posts, highlights and spotlights shall be kept in the hub database, so an API restart loses nothing
+    Given the demo guild stored in the hub database
+    And the applicant has applied for Wednesday
+    When the Wednesday officer declines the application
+    And the API restarts
+    Then the application is still declined with its full history

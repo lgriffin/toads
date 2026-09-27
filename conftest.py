@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from hub_db import Base, CredentialCipher
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 from toads_api.characters import InMemoryCharacters
 from toads_api.discord_api import HttpDiscord
 from toads_api.main import create_app
@@ -196,3 +196,34 @@ def community_client(
 
         h.app.dependency_overrides[get_principal] = _p
     return TestClient(h.app, raise_server_exceptions=raise_server_exceptions)
+
+
+def sql_community_repository() -> object:
+    """A SqlCommunityRepository on a fresh database that knows the demo guild's members.
+
+    In-memory SQLite by default. With TOADS_TEST_DATABASE_URL set (CI's postgres job), a real Postgres database is
+    wiped and rebuilt through the Alembic migrations, so the migrations and the repository are checked together.
+    """
+    import os
+
+    from hub_db import Member
+    from hub_db.migrate import upgrade
+    from sqlalchemy import text
+    from toads_api.community.demo import DEMO_PROGRESSION, MEMBERS
+    from toads_api.community.sql_repository import SqlCommunityRepository
+
+    url = os.environ.get("TOADS_TEST_DATABASE_URL")
+    if url:
+        engine = create_engine(url, poolclass=NullPool)  # one database, many tests: hold no idle connections
+        with engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE"))
+            conn.execute(text("CREATE SCHEMA public"))
+        upgrade(url)
+    else:
+        engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+        Base.metadata.create_all(engine)
+    db: sessionmaker[Session] = sessionmaker(engine, expire_on_commit=False)
+    with db.begin() as s:
+        for member_id, card in MEMBERS.items():
+            s.add(Member(id=member_id, discord_user_id=card.discord_user_id, display_name=card.display_name))
+    return SqlCommunityRepository(db, progression_list=list(DEMO_PROGRESSION))
