@@ -144,8 +144,8 @@ export const analyzerPage: AnalyzerPage = {
     },
     table(
       'interrupts',
-      'Interrupts',
-      [col('name', 'Name'), col('count', 'Interrupts', 'right')],
+      'Interrupt casts',
+      [col('name', 'Name'), col('count', 'Casts', 'right')],
       last.interrupts.map((i) => [i.player, i.count])
     ),
     table('consumables', 'Consumables', [col('name', 'Name'), col('role', 'Role'), col('used', 'Used', 'right')], [

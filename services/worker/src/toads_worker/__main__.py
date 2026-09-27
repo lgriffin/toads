@@ -6,6 +6,7 @@ import sys
 from redis import Redis
 from rq import Worker
 
+from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.sheets import import_raid_sheets
 from toads_worker.settings import Settings
 
@@ -15,6 +16,10 @@ def main() -> None:
     if sys.argv[1:] == ["import-sheets"]:
         # One-off import of the CBA and RPB sheets, for cron or `docker compose run worker toads-worker import-sheets`.
         print(json.dumps(import_raid_sheets(settings), indent=2))
+        return
+    if sys.argv[1:] == ["publish-home"]:
+        # Rebuild the analyzer widgets on members' hub homes, for cron or after analysing new raids.
+        print(json.dumps(publish_home_page(settings), indent=2))
         return
     Worker(["default", "media"], connection=Redis.from_url(settings.redis_url)).work()
 

@@ -68,7 +68,9 @@ CATALOGUE: tuple[Widget, ...] = (
     Widget("highlights", "Recent highlights", "The newest highlight reels."),
     _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order.", default_shown=False),
     _analyzer("class_mix", "Class mix", "Players per class in the last raid.", default_shown=False),
-    _analyzer("interrupts", "Interrupts", "The top five interrupters in the last raid.", default_shown=False),
+    _analyzer(
+        "interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid.", default_shown=False
+    ),
     _analyzer("consumables", "Consumables", "The top five consumable users in the last raid.", default_shown=False),
     Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
     Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
