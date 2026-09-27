@@ -39,6 +39,8 @@ class WclKey:
     client_secret: SecretStr
     # Whose key this is; None for the guild's.
     member_id: int | None = None
+    # Which saved key it is (see StoredWclCredentials.revision); empty for the guild's.
+    revision: str = ""
 
 
 class MemberKeys:
@@ -57,9 +59,9 @@ class MemberKeys:
                 log.warning("wcl_key.unreadable", member_id=member_id)
                 return None
 
-    def mark(self, member_id: int, status: WclCredentialStatus) -> None:
+    def mark(self, member_id: int, revision: str, status: WclCredentialStatus) -> None:
         with self._db.begin() as db:
-            mark_wcl_credentials(db, member_id, status)
+            mark_wcl_credentials(db, member_id, revision, status)
 
 
 @cache
@@ -83,7 +85,7 @@ def key_for(settings: Settings, member_id: int | None, keys: MemberKeys) -> WclK
     stored = keys.get(member_id)
     if stored is None or stored.status is WclCredentialStatus.REJECTED:
         return guild_key(settings)
-    return WclKey(stored.client_id, SecretStr(stored.client_secret), member_id)
+    return WclKey(stored.client_id, SecretStr(stored.client_secret), member_id, stored.revision)
 
 
 def _client(settings: Settings, tokens: TokenManager) -> WarcraftLogsClient:
@@ -122,8 +124,8 @@ def client_for(
     except AuthenticationError as exc:
         refused = bool(_REFUSED.search(str(exc)))
         if refused:
-            keys.mark(member_id, WclCredentialStatus.REJECTED)
+            keys.mark(member_id, key.revision, WclCredentialStatus.REJECTED)
         log.warning("wcl_key.fallback_to_guild", member_id=member_id, refused=refused)
         return _client(settings, tokens(settings.wcl_client_id, settings.wcl_client_secret))
-    keys.mark(member_id, WclCredentialStatus.WORKING)
+    keys.mark(member_id, key.revision, WclCredentialStatus.WORKING)
     return _client(settings, manager)

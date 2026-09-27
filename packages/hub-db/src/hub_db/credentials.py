@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from hub_db.models import Base
@@ -100,6 +101,9 @@ class StoredWclCredentials:
     client_id: str
     client_secret: str
     status: WclCredentialStatus
+    # Identifies this saved key (its secret's ciphertext, fresh on every save), so a status found for it is never
+    # written onto a key the member saved or removed while the check was running.
+    revision: str = ""
 
     def __repr__(self) -> str:
         hint = self.client_id[-4:]
@@ -109,18 +113,31 @@ class StoredWclCredentials:
 def save_wcl_credentials(
     db: Session, cipher: CredentialCipher, member_id: int, client_id: str, client_secret: str
 ) -> WclCredential:
+    """Save or replace the member's key. Two first saves at once both succeed: the loser updates the winner's row."""
     row = db.get(WclCredential, member_id)
     if row is None:
-        row = WclCredential(member_id=member_id)
-        db.add(row)
-    row.client_id_encrypted = cipher.encrypt(member_id, client_id)
-    row.client_secret_encrypted = cipher.encrypt(member_id, client_secret)
+        try:
+            with db.begin_nested():
+                row = WclCredential(member_id=member_id)
+                _fill(row, cipher, client_id, client_secret)
+                db.add(row)
+            return row
+        except IntegrityError:
+            row = db.get(WclCredential, member_id, populate_existing=True)
+            if row is None:
+                raise
+    _fill(row, cipher, client_id, client_secret)
+    db.flush()
+    return row
+
+
+def _fill(row: WclCredential, cipher: CredentialCipher, client_id: str, client_secret: str) -> None:
+    row.client_id_encrypted = cipher.encrypt(row.member_id, client_id)
+    row.client_secret_encrypted = cipher.encrypt(row.member_id, client_secret)
     row.client_id_hint = client_id[-4:]
     row.status = WclCredentialStatus.UNVERIFIED
     row.updated_at = _now()
     row.checked_at = None
-    db.flush()
-    return row
 
 
 def load_wcl_credentials(db: Session, cipher: CredentialCipher, member_id: int) -> StoredWclCredentials | None:
@@ -133,14 +150,20 @@ def load_wcl_credentials(db: Session, cipher: CredentialCipher, member_id: int) 
         client_id=cipher.decrypt(member_id, row.client_id_encrypted),
         client_secret=cipher.decrypt(member_id, row.client_secret_encrypted),
         status=row.status,
+        revision=row.client_secret_encrypted,
     )
 
 
-def mark_wcl_credentials(db: Session, member_id: int, status: WclCredentialStatus) -> None:
-    row = db.get(WclCredential, member_id)
-    if row is not None:
-        row.status = status
-        row.checked_at = _now()
+def mark_wcl_credentials(db: Session, member_id: int, revision: str, status: WclCredentialStatus) -> bool:
+    """Record what Warcraft Logs said about the key `revision` names. Does nothing (returns False) when the member
+    has since replaced or removed that key, so the new key stays unverified."""
+    result = db.execute(
+        update(WclCredential)
+        .where(WclCredential.member_id == member_id, WclCredential.client_secret_encrypted == revision)
+        .values(status=status, checked_at=_now())
+        .execution_options(synchronize_session="fetch")
+    )
+    return bool(getattr(result, "rowcount", 0))
 
 
 def delete_wcl_credentials(db: Session, member_id: int) -> bool:

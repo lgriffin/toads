@@ -116,3 +116,17 @@ def test_network_trouble_falls_back_without_blaming_the_key(db: sessionmaker[Ses
 def test_unreadable_key_uses_guild_key(db: sessionmaker[Session]) -> None:
     _save(db, CredentialCipher([CredentialCipher.generate_key()]))
     assert key_for(_settings(), 1, MemberKeys(db, CredentialCipher([KEY]))).client_id == "guild-client-id"
+
+
+def test_check_on_a_key_replaced_meanwhile_leaves_the_new_key_unverified(db: sessionmaker[Session]) -> None:
+    cipher = CredentialCipher([KEY])
+    _save(db, cipher)
+
+    class ReplacingTokens(Tokens):
+        def get_token(self) -> str:
+            # The member saves a new key while Warcraft Logs is refusing the old one.
+            _save(db, cipher)
+            raise AuthenticationError("Authentication failed (HTTP 401)")
+
+    client_for(_settings(), 1, keys=MemberKeys(db, cipher), tokens=ReplacingTokens)  # type: ignore[arg-type]
+    assert _status(db, cipher) is WclCredentialStatus.UNVERIFIED

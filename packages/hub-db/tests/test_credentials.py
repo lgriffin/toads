@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from pathlib import Path
+from typing import Any
 
 import pytest
 from hub_db import Base, CredentialCipher, CredentialDecryptError, Member, WclCredential, WclCredentialStatus
@@ -52,7 +54,9 @@ def test_round_trip_and_hint(db: Session) -> None:
 def test_saving_again_resets_status(db: Session) -> None:
     cipher = CredentialCipher([CredentialCipher.generate_key()])
     save_wcl_credentials(db, cipher, 1, *_key())
-    mark_wcl_credentials(db, 1, WclCredentialStatus.REJECTED)
+    stored = load_wcl_credentials(db, cipher, 1)
+    assert stored is not None
+    assert mark_wcl_credentials(db, 1, stored.revision, WclCredentialStatus.REJECTED) is True
     save_wcl_credentials(db, cipher, 1, *_key())
     row = db.get(WclCredential, 1)
     assert row is not None and row.status is WclCredentialStatus.UNVERIFIED and row.checked_at is None
@@ -92,3 +96,43 @@ def test_delete(db: Session) -> None:
     save_wcl_credentials(db, cipher, 1, *_key())
     assert delete_wcl_credentials(db, 1) is True
     assert delete_wcl_credentials(db, 1) is False
+
+
+def test_a_check_on_a_replaced_key_does_not_touch_the_new_one(db: Session) -> None:
+    cipher = CredentialCipher([CredentialCipher.generate_key()])
+    save_wcl_credentials(db, cipher, 1, *_key())
+    old = load_wcl_credentials(db, cipher, 1)
+    assert old is not None
+    save_wcl_credentials(db, cipher, 1, *_key())
+    assert mark_wcl_credentials(db, 1, old.revision, WclCredentialStatus.REJECTED) is False
+    row = db.get(WclCredential, 1)
+    assert row is not None and row.status is WclCredentialStatus.UNVERIFIED
+    delete_wcl_credentials(db, 1)
+    assert mark_wcl_credentials(db, 1, old.revision, WclCredentialStatus.WORKING) is False
+
+
+def test_two_first_saves_at_once_both_succeed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'race.db'}")
+    Base.metadata.create_all(engine)
+    with Session(engine) as s, s.begin():
+        s.add(Member(id=1, discord_user_id=11, display_name="A"))
+    cipher = CredentialCipher([CredentialCipher.generate_key()])
+    first, second = Session(engine), Session(engine)
+    # The second save looked before the first committed, so it takes the insert path and hits the primary key.
+    real_get = second.get
+    looks: list[int] = []
+
+    def stale_get(*args: Any, **kwargs: Any) -> Any:
+        looks.append(1)
+        return None if len(looks) == 1 else real_get(*args, **kwargs)
+
+    monkeypatch.setattr(second, "get", stale_get)
+    save_wcl_credentials(first, cipher, 1, *_key())
+    first.commit()
+    cid, secret = _key()
+    save_wcl_credentials(second, cipher, 1, cid, secret)
+    second.commit()
+    assert len(looks) == 2
+    with Session(engine) as check:
+        stored = load_wcl_credentials(check, cipher, 1)
+    assert stored is not None and stored.client_secret == secret
