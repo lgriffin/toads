@@ -15,8 +15,11 @@ hub-db = { workspace = true }
 toads-api = { workspace = true }
 toads-worker = { workspace = true }
 toads-bot = { workspace = true }
-# The analyzer's headless core, from lgriffin/warcraftlogs_project. Bump rev to take analyzer changes.
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "63269c0901396605aec20f8640a5bf7da0bdda1e" }
+# The analyzer's packages from lgriffin/warcraftlogs_project, all three pinned to the same commit (wcl-app and
+# wcl-store depend on wcl-core and wcl-store by name). Bump every rev together to take analyzer changes.
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "a5a4e37ad3f1cf8c8c6542c9131a58ddc7f1cc94" }
+wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "a5a4e37ad3f1cf8c8c6542c9131a58ddc7f1cc94" }
+wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "a5a4e37ad3f1cf8c8c6542c9131a58ddc7f1cc94" }
 
 [dependency-groups]
 dev = [
@@ -102,7 +105,7 @@ source_modules = ["toads_api.community.service"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
-name = "Only the worker imports wcl_core"
+name = "Only the worker imports the analyzer (wcl_core, wcl_store, wcl_app)"
 type = "forbidden"
 source_modules = ["toads_api", "toads_bot", "hub_db"]
-forbidden_modules = ["wcl_core"]
+forbidden_modules = ["wcl_core", "wcl_store", "wcl_app"]
