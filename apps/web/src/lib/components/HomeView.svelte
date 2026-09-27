@@ -65,6 +65,8 @@
 
 <style>
   .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
-  .slot { display: grid; min-width: 0; }
+  /* minmax(0, 1fr) and min-width: 0 let wide tables scroll inside their card instead of widening the page. */
+  .slot { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+  .slot > :global(*) { min-width: 0; }
   .slot.wide { grid-column: 1 / -1; }
 </style>
