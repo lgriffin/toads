@@ -1,7 +1,7 @@
 [project]
 name = "toads-worker"
 version = "0.0.0"
-description = "Toads Hub worker: nightly guild sync, analysis via wcl-core, media processing"
+description = "Toads Hub worker: nightly guild sync, analysis via wcl-app, media processing"
 requires-python = ">=3.12"
 dependencies = [
     "hub-db",
@@ -10,12 +10,15 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "structlog>=24",
-    "wcl-core",  # pinned by commit in the workspace root's [tool.uv.sources]
-    # "wcl-store" -- added once the analyzer's storage split lands (Part 1, phase 1.2)
+    # The analyzer, pinned by commit in the workspace root's [tool.uv.sources]
+    "wcl-core",
+    "wcl-app",
+    "wcl-store[postgres]",
 ]
 
 [project.scripts]
 toads-worker = "toads_worker.__main__:main"
+toads-worker-migrate = "toads_worker.store:migrate_main"
 
 [build-system]
 requires = ["hatchling"]
