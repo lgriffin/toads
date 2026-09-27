@@ -16,3 +16,10 @@ Feature: HUB SYNC
 
   @ears_unwanted_behavior @raid_leader @phase_2_1 @pending
   Scenario: REQ-HUB-SYNC-005 If Warcraft Logs returns 429 or 5xx, then the worker shall back off exponentially and retry up to three times before marking the job failed with the reason visible on the status page
+
+  @ears_event_driven @raid_leader @phase_2_1
+  Scenario: REQ-HUB-SYNC-006 When a raid report is analysed, the worker shall apply saved role overrides and store the analysis
+    Given a saved role override that pins "Tankard" to melee
+    When the worker analyses the report
+    Then "Tankard" is analysed as melee
+    And the analysis is stored

@@ -43,7 +43,7 @@ Phase 2.0 (Foundations) scaffold plus phase 2.2 (Identity and RBAC):
 |---|---|
 | API | App factory, `/healthz`, OpenAPI at `/api/docs`, fail-fast settings, non-echoing validation errors; Discord OAuth2 + PKCE login, Redis sessions with 15-minute role refresh, RBAC with raid-day scoping and a route-generated matrix test, character claims with officer approve/reject/reassign, members directory, audit log, startup check of configured Discord roles |
 | Fake Discord | `toads_api.testing.fake_discord`: OAuth2 + member/roles endpoints for tests and the dev stack (no Discord app needed) |
-| Worker | Report code / URL validation (fuzzed), sync diff, RQ entry point |
+| Worker | Report code / URL validation (fuzzed), sync diff, RQ entry point; on-demand analysis through wcl-app's `RaidService` (saved role overrides apply) stored in wcl-store's Postgres tables, migrated by `toads-worker-migrate` |
 | Bot | discord.py client with single-guild command sync |
 | hub-db | `members`, `character_claims`, `audit`, community tables, Alembic migrations (`hub-db-migrate`) |
 | Web | Public Story, Recruit and Highlights pages; inward Hub (posts feed, raid leader desk), Officers console, Raids & Logs, Bank and Me; Discord sign-in/out, members-only page, claim flow placeholder. Sample data in the Pages preview |
@@ -51,8 +51,8 @@ Phase 2.0 (Foundations) scaffold plus phase 2.2 (Identity and RBAC):
 | Requirements | EARS scenarios from the build spec plus phase 2.2 and the community layer; `docs/requirements.md` generated with the counts |
 | CI | Lint, mypy strict, import layering, tests, coverage 80, security tests, pip-audit, npm audit, gitleaks, Playwright e2e with axe, image builds |
 
-Next, per the phased plan: wcl-store tables and the character list the claim flow picks from (waits on the
-analyzer publishing `wcl-core` / `wcl-store`; until then `POST /api/claims` answers 404), the bot draining the
+Next, per the phased plan: the API reading wcl-store's tables and the character list the claim flow picks from
+(until then `POST /api/claims` answers 404), the bot draining the
 `#officers` outbox, and seed data for `just seed`.
 
 See [SECURITY.md](SECURITY.md) and [docs/requirements.md](docs/requirements.md).
