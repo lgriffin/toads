@@ -40,7 +40,7 @@ def test_build_client_uses_worker_settings() -> None:
     assert client.cache_enabled is False
     assert client.MIN_REQUEST_INTERVAL == 0.5
     assert client.MAX_RETRIES == 5
-    assert client.token_manager.client_secret == settings.wcl_client_secret.get_secret_value()
+    assert client.token_manager.client_secret.get_secret_value() == settings.wcl_client_secret.get_secret_value()
 
 
 def test_analyse_report_runs_wcl_core(monkeypatch: pytest.MonkeyPatch) -> None:
