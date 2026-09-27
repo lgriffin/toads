@@ -8,17 +8,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
+from toads_api.community import routes
 from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, WED_CHAT, demo_service
-from toads_api.community.deps import get_service
 from toads_api.community.service import CommunityService
-from toads_api.community.settings import CommunitySettings, get_community_settings
 from toads_api.main import create_app
 from toads_api.rbac import Permission, Principal, can
-from toads_api.rbac.deps import get_principal
 
-TOKEN = "test-only-not-a-secret"  # noqa: S105
+from conftest import community_client
+
+TOKEN = "test-service-token"  # noqa: S105  (conftest.make_settings)
 BOT = {"Authorization": f"Bearer {TOKEN}"}
 
 
@@ -45,17 +45,7 @@ def as_(store: CommunityService) -> Iterator[Any]:
     """as_("Wednesday officer") -> a TestClient signed in as that demo principal; as_(None) is anonymous."""
 
     def make(who: str | Principal | None) -> TestClient:
-        app = create_app()
-        app.dependency_overrides[get_service] = lambda: store
-        app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(TOKEN))
-        principal = PRINCIPALS[who] if isinstance(who, str) else who
-        if principal is not None:
-
-            async def _p() -> Principal:
-                return principal
-
-            app.dependency_overrides[get_principal] = _p
-        return TestClient(app)
+        return community_client(store, PRINCIPALS[who] if isinstance(who, str) else who)
 
     yield make
 
@@ -126,11 +116,17 @@ BOT_ROUTES = {
 
 
 def test_every_community_route_is_in_the_matrix() -> None:
-    core = {("GET", "/api/me"), ("POST", "/api/days/{day}/admin/sync")}
-    # Read from the OpenAPI schema: FastAPI no longer flattens included routers into app.routes.
-    paths = create_app().openapi()["paths"]
-    served = {(method.upper(), path) for path, ops in paths.items() for method in ops}
-    assert served - core == {(m, p) for m, p, _ in ROUTES} | PUBLIC | BOT_ROUTES
+    # Read from the community routers themselves, each route's path carrying its router's prefix.
+    served = {
+        (method, route.path)
+        for router in (routes.public, routes.member, routes.day_admin, routes.global_admin, routes.bot)
+        for route in router.routes
+        if isinstance(route, APIRoute)
+        for method in route.methods
+    }
+    assert served == {(m, p) for m, p, _ in ROUTES} | PUBLIC | BOT_ROUTES
+    # And every one of them is served by the app.
+    assert {p for _, p in served} <= set(create_app().openapi()["paths"])
 
 
 def _concrete(path: str, day: str) -> str:
@@ -155,12 +151,8 @@ def test_route_permission_matrix(as_: Any, who: str, route: tuple[str, str, Perm
     allowed = can(PRINCIPALS[who], permission, scoped_day)
     r = as_(who).request(method, _concrete(path, day), json={})
     if allowed:
-        # Past the permission check: the empty body or the made-up id fails later, never with 401/403...
-        # ...except the desk, which is additionally officers-only.
-        if path == "/api/desk" and who in {"Wednesday raider", "applicant", "Sunday trial"}:
-            assert r.status_code == 403
-        else:
-            assert r.status_code not in (401, 403), r.text
+        # Past the permission check: the empty body or the made-up id fails later, never with 401/403.
+        assert r.status_code not in (401, 403), r.text
     else:
         assert r.status_code == 403, r.text
 
@@ -190,10 +182,8 @@ def test_bot_routes_need_the_service_token(as_: Any, method: str, path: str, hea
 
 @pytest.mark.security
 def test_bot_routes_refuse_everything_when_no_token_is_configured(as_: Any, store: CommunityService) -> None:
-    app = create_app()
-    app.dependency_overrides[get_service] = lambda: store
-    app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(""))
-    assert TestClient(app).get("/api/bot/outbox", headers={"Authorization": "Bearer "}).status_code == 401
+    client = community_client(store, token="")
+    assert client.get("/api/bot/outbox", headers={"Authorization": "Bearer "}).status_code == 401
 
 
 # ---------------------------------------------------------------- public story
@@ -553,7 +543,7 @@ def test_desk_counts_only_the_officers_days(as_: Any) -> None:
     }
     assert as_("Sunday officer").get("/api/desk").json()["applications_waiting"] == 1
     assert as_("global officer").get("/api/desk").json()["applications_waiting"] == 1
-    assert as_("Wednesday raider").get("/api/desk").status_code == 403
+    assert set(as_("Wednesday raider").get("/api/desk").json().values()) == {0}
 
 
 def test_recruitment_needs_are_global_only(as_: Any) -> None:

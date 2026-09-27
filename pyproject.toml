@@ -15,6 +15,8 @@ hub-db = { workspace = true }
 toads-api = { workspace = true }
 toads-worker = { workspace = true }
 toads-bot = { workspace = true }
+# The analyzer's headless core, from lgriffin/warcraftlogs_project. Bump rev to take analyzer changes.
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "491ca254a1163bdfff2c902678001d10f9680b17" }
 
 [dependency-groups]
 dev = [
@@ -31,6 +33,7 @@ dev = [
     "mypy>=1.11",
     "pip-audit>=2.7",
     "types-PyYAML",
+    "fakeredis>=2.26",
     "import-linter>=2.15",
 ]
 
@@ -44,6 +47,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]
 "scripts/**" = ["S101"]
+"conftest.py" = ["S101"]
 
 [tool.mypy]
 strict = true
@@ -88,6 +92,8 @@ name = "Community routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.community.routes"]
 forbidden_modules = ["hub_db", "sqlalchemy"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "Community rules hold no RBAC, web framework or storage code"

@@ -55,6 +55,18 @@ class Principal:
     member_id: int
     global_officer: bool = False
     day_roles: dict[str, HubRole] = field(default_factory=dict)
+    display_name: str = ""
+
+    @property
+    def is_officer(self) -> bool:
+        """Holds officer powers anywhere: globally or for at least one raid day."""
+        return self.global_officer or HubRole.OFFICER in self.day_roles.values()
+
+    def home_day(self) -> str | None:
+        """The raid day this member ranks highest on (config order breaks ties); None without one."""
+        if not self.day_roles:
+            return None
+        return max(self.day_roles.items(), key=lambda item: item[1])[0]
 
     def role_for(self, raid_day: str | None) -> HubRole:
         if self.global_officer:

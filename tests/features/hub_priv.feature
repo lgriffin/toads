@@ -8,5 +8,21 @@ Feature: HUB PRIV
   @ears_optional @member @phase_2_6 @pending
   Scenario: REQ-HUB-PRIV-002 Where a member has enabled a public profile, raiders shall be able to open that member's page from Compare
 
-  @ears_event_driven @member @phase_2_2 @pending
+  @ears_event_driven @member @phase_2_2
   Scenario: REQ-HUB-PRIV-003 When a member unclaims a character, the hub shall detach the member from it immediately while keeping the raid rows
+    Given a Wednesday raider signed in with server nickname "Hopscotch"
+    And they claim the character "Hopscotch"
+    When they unclaim it
+    Then they no longer hold the claim
+    And the character can be claimed again
+
+  # Added in phase 2.2 for the community layer; not yet in the build spec's tables.
+  @ears_ubiquitous @member @phase_2_2
+  Scenario: REQ-HUB-PRIV-004 The hub shall let every signed-in member list hub members by display name, and shall show Discord user ids to officers only
+    Given a Wednesday raider signed in with server nickname "Hopscotch"
+    And a Wednesday officer signed in
+    When the raider lists the members
+    Then they see "Hopscotch" and no Discord user ids
+    When the officer lists the members
+    Then they see every member's Discord user id
+    And signed-out visitors cannot list the members

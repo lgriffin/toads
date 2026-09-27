@@ -9,31 +9,19 @@ import pytest
 from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-from pydantic import SecretStr
 from toads_api.community.demo import ANNOUNCEMENTS, PRINCIPALS, demo_service
-from toads_api.community.deps import get_service
-from toads_api.community.settings import CommunitySettings, get_community_settings
-from toads_api.main import create_app
-from toads_api.rbac import Principal
-from toads_api.rbac.deps import get_principal
+
+from conftest import community_client
 
 pytestmark = pytest.mark.security
 
-TOKEN = "test-only-not-a-secret"  # noqa: S105
+TOKEN = "test-service-token"  # noqa: S105  (conftest.make_settings)
 text = st.text(max_size=1200)
 
 
 def _client(who: str) -> TestClient:
     store = demo_service(lambda: datetime(2026, 9, 26, tzinfo=UTC))
-    app = create_app()
-    app.dependency_overrides[get_service] = lambda: store
-    app.dependency_overrides[get_community_settings] = lambda: CommunitySettings(hub_service_token=SecretStr(TOKEN))
-
-    async def _p() -> Principal:
-        return PRINCIPALS[who]
-
-    app.dependency_overrides[get_principal] = _p
-    return TestClient(app, raise_server_exceptions=False)
+    return community_client(store, PRINCIPALS[who], raise_server_exceptions=False)
 
 
 FUZZ = settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])

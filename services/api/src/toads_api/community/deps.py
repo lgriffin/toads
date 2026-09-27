@@ -4,46 +4,28 @@ and the tier checks. RBAC decisions live here and in `routes.py`, never in `serv
 from __future__ import annotations
 
 import hmac
-from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from toads_api.community import recruitment
-from toads_api.community.config import CommunityConfig
-from toads_api.community.repository import InMemoryCommunityRepository
 from toads_api.community.schemas import ApplicationTransition, CurationDecision, PostCreate, Visibility
-from toads_api.community.service import Audience, CommunityService, RaidDayDirectory
-from toads_api.community.settings import CommunitySettings, get_community_settings
-from toads_api.rbac import HubRole, Principal, RaidDaysConfig
+from toads_api.community.service import Audience, CommunityService
+from toads_api.rbac import HubRole, Principal
+from toads_api.rbac.deps import get_services
+from toads_api.services import Services
 
 
-def directory_from(cfg: RaidDaysConfig) -> RaidDayDirectory:
-    return RaidDayDirectory(
-        day_ids=frozenset(d.id for d in cfg.raid_days),
-        global_officer_roles=tuple(cfg.global_officer_roles),
-        officer_roles={d.id: tuple(d.officer_roles) for d in cfg.raid_days},
-    )
-
-
-@lru_cache(maxsize=1)
-def get_service() -> CommunityService:
-    settings = get_community_settings()
-    path = settings.raid_days_config
-    raid_days = RaidDaysConfig.load(path) if path.exists() else RaidDaysConfig()
-    return CommunityService(
-        repo=InMemoryCommunityRepository(),
-        config=CommunityConfig.load(settings.community_config),
-        raid_days=directory_from(raid_days),
-    )
+def get_service(request: Request) -> CommunityService:
+    return get_services(request).community
 
 
 async def require_service(
     authorization: str = Header(default=""),
-    settings: CommunitySettings = Depends(get_community_settings),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
 ) -> None:
     """The bot authenticates with `Authorization: Bearer <service token>`, compared in constant time."""
     scheme, _, token = authorization.partition(" ")
-    expected = settings.hub_service_token.get_secret_value()
+    expected = services.settings.hub_service_token.get_secret_value()
     if (
         scheme.lower() != "bearer"
         or not token

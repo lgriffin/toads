@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response, status
+from fastapi import APIRouter, Depends, FastAPI, Path, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -157,10 +157,8 @@ async def spotlight_consent(
 
 @member.get("/desk")
 async def desk(svc: CommunityService = S, p: Principal = _VIEW) -> DeskSummary:
-    scopes = officer_scopes(p)
-    if not scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="The raid leader desk is for officers")
-    return svc.desk(scopes)
+    # A member who leads no raid day has nothing waiting: an empty desk, not a refusal.
+    return svc.desk(officer_scopes(p))
 
 
 # --------------------------------------------- officers: one raid day or global

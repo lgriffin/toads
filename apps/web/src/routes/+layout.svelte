@@ -1,11 +1,18 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { getSession, type Session } from '$lib/api';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   let { children } = $props();
+  // undefined while loading; null when signed out. The preview never calls the API.
+  let session = $state<Session | null | undefined>(undefined);
+  onMount(async () => {
+    if (!__PREVIEW__) session = await getSession().catch(() => null);
+  });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
-  // Only the preview knows who is signed in (Hopscotch, an officer); the API is the real gate either way.
-  const members = memberNav(__PREVIEW__);
+  // The preview's Hopscotch is an officer. Officer links only hide; the API is the real gate either way.
+  let members = $derived(memberNav(__PREVIEW__ || (session?.officer_days.length ?? 0) > 0));
 </script>
 
 <a class="skip" href="#main">Skip to content</a>
@@ -30,8 +37,13 @@
   </nav>
   {#if __PREVIEW__}
     <span class="login">Signed in as Hopscotch</span>
-  {:else}
-    <a class="login" href="/auth/login">Log in with Discord</a>
+  {:else if session}
+    <form class="login" method="post" action="/auth/logout">
+      <span>Signed in as {session.display_name}</span>
+      <button type="submit">Log out</button>
+    </form>
+  {:else if session === null}
+    <a class="login" href="/auth/login" data-sveltekit-reload>Log in with Discord</a>
   {/if}
 </header>
 
@@ -136,6 +148,9 @@
   a { color: var(--muted); text-decoration: none; }
   a[aria-current='page'], a:hover { color: var(--text); }
   .login { margin-left: auto; color: var(--accent); }
+  form.login { display: flex; gap: 0.75rem; align-items: center; }
+  form.login button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; padding: 0; }
+  form.login button:hover { color: var(--text); }
   .preview {
     padding: 0.4rem 1rem;
     background: var(--warn);

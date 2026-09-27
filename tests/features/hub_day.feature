@@ -11,11 +11,33 @@ Feature: HUB DAY
   @ears_event_driven @member @phase_2_4 @pending
   Scenario: REQ-HUB-DAY-003 When a raid day's event is created in Discord, the Home card shall show it to that day's members first and other days' events below
 
-  @ears_ubiquitous @raid_leader @phase_2_2 @pending
-  Scenario: REQ-HUB-DAY-010 A raid-day officer shall see officer views (insights, boss insights, raid diff, claims queue, bank requests, fairness) only for their own day's raids, members and bank sources
+  # Added in phase 2.2 for the web app and the community layer; not yet in the build spec's tables.
+  @ears_ubiquitous @member @phase_2_2
+  Scenario: REQ-HUB-DAY-004 The hub shall tell a signed-in member the raid days they hold a role on and the days they are an officer for; a global officer is an officer for every day
+    Given a member signed in with the Wednesday raider and Sunday officer roles
+    Then their session lists raid days "wed, sun" and officer days "sun"
+    And they are not a global officer
+    Given a global officer signed in
+    Then their session lists raid days "" and officer days "wed, sun"
+    And they are a global officer
 
-  @ears_unwanted_behavior @raid_leader @phase_2_2 @pending
+  @ears_ubiquitous @raid_leader @phase_2_2
+  Scenario: REQ-HUB-DAY-010 A raid-day officer shall see officer views (insights, boss insights, raid diff, claims queue, bank requests, fairness) only for their own day's raids, members and bank sources
+    Given a Wednesday officer signed in
+    Then they can open the Wednesday claims queue
+    And they can trigger a Wednesday sync
+    And every Sunday officer view answers them 403
+
+  @ears_unwanted_behavior @raid_leader @phase_2_2
   Scenario: REQ-HUB-DAY-011 If a raid-day officer requests a sibling day's officer view or acts on its data, then the hub shall answer 403 and record the attempt in the audit log
+    Given a Wednesday officer signed in
+    And a Sunday raider has a pending claim
+    When the Wednesday officer requests the Sunday claims queue
+    Then the hub answers 403
+    And the attempt is in the audit log for raid day "sun"
+    When the Wednesday officer approves the Sunday claim through the Wednesday path
+    Then the hub answers 403
+    And the claim is still pending
 
   @ears_event_driven @raid_leader @phase_2_1 @pending
   Scenario: REQ-HUB-DAY-012 When a raid is imported, the hub shall assign it to the raid day whose raid group overlaps the roster by more than 60%, else leave it unassigned for the global tier
@@ -38,11 +60,21 @@ Feature: HUB DAY
   @ears_ubiquitous @maintainer @phase_2_2 @pending
   Scenario: REQ-HUB-DAY-020 Raid days, their Discord roles, channels and bank sources shall be configuration, not code; adding a day or a source shall need no deploy
 
-  @ears_ubiquitous @maintainer @phase_2_2 @pending
+  @ears_ubiquitous @maintainer @phase_2_2
   Scenario: REQ-HUB-DAY-021 The RBAC matrix test shall be generated over (tier × raid day × endpoint) and shall include a denial case for every officer endpoint reached with a sibling day's scope
+    Given the hub API
+    Then every officer route is scoped by a raid day in its path, or is a global-officer route
+    And the RBAC matrix has a sibling-day denial case for every officer route
 
-  @ears_unwanted_behavior @maintainer @phase_2_2 @pending
+  @ears_unwanted_behavior @maintainer @phase_2_2
   Scenario: REQ-HUB-DAY-022 If a Discord role id in the raid-day config matches no role in the server, then the API shall fail startup naming the day and role
+    Given a raid-day config naming Discord role 424242 for Sunday officers
+    And the Discord server has no role 424242
+    When the API starts
+    Then startup fails naming raid day "sun" and role 424242
 
-  @ears_ubiquitous @maintainer @phase_2_2 @pending
+  @ears_ubiquitous @maintainer @phase_2_2
   Scenario: REQ-HUB-DAY-023 Raid-day scope shall be resolved from the route path and the session, never from a request body or query parameter
+    Given a Wednesday officer signed in
+    When they trigger a Sunday sync with "wed" in the query and the body
+    Then the hub answers 403

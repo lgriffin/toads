@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from toads_api.community.config import CommunityConfig
-from toads_api.community.settings import CommunitySettings
+
+from conftest import make_settings
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -28,12 +29,11 @@ def test_invite_must_be_a_discord_link(invite: str) -> None:
 
 def test_example_env_names_the_service_token() -> None:
     env = (ROOT / "services" / "api" / ".env.example").read_text(encoding="utf-8")
-    for name in CommunitySettings.model_fields:
-        if CommunitySettings.model_fields[name].is_required():
-            assert f"TOADS_{name.upper()}=" in env
+    assert "TOADS_HUB_SERVICE_TOKEN=" in env
+    assert "TOADS_COMMUNITY_CONFIG=" in env
 
 
 @pytest.mark.security
-def test_service_token_is_not_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TOADS_HUB_SERVICE_TOKEN", "planted-service-token")
-    assert "planted-service-token" not in repr(CommunitySettings())
+def test_service_token_is_not_in_repr() -> None:
+    token = "planted-service-token"  # noqa: S105
+    assert token not in repr(make_settings(hub_service_token=token))

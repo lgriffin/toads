@@ -305,3 +305,9 @@ export const me = {
     { item: 'Primal Might', count: 1, date: '2026-09-02', request: 'Dragonstrike crafting' }
   ] as Receipt[]
 };
+
+/** Claims as GET /api/claims returns them, for the claim flow page in the preview. */
+export const claims: import('$lib/api').Claim[] = [
+  { id: 1, member_id: 7, character_id: 101, character_name: 'Hopscotch', raid_day_id: 'wed', status: 'approved', reason: null },
+  { id: 2, member_id: 7, character_id: 102, character_name: 'Lilypadd', raid_day_id: 'wed', status: 'pending', reason: null }
+];

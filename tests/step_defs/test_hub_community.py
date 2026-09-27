@@ -4,35 +4,124 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-from datetime import timedelta
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
-from pytest_bdd import given, scenarios, then, when
+from fastapi.testclient import TestClient
+from pytest_bdd import given, parsers, scenarios, then, when
 from toads_api.community import recruitment
 from toads_api.community.clips import parse_clip_url
-from toads_api.community.demo import GUILD_POSTS, SUN_OFFICER_ROLE
+from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, SUN_OFFICER_ROLE, WED_CHAT, demo_service
 from toads_api.community.deps import audience_of, officer_scopes
 from toads_api.community.schemas import (
     ApplicationCreate,
     ApplicationStatus,
     CurationAction,
+    DiscordMessageIn,
     HighlightAction,
     HighlightCreate,
     OutboxAck,
     OutboxKind,
+    Post,
     PostCreate,
     PostStatus,
+    Role,
     SpotlightCreate,
     Visibility,
 )
-from toads_api.community.service import Conflict, Forbidden, NotFound
+from toads_api.community.service import CommunityService, Conflict, Forbidden, NotFound
+from toads_api.rbac import Principal
 from toads_bot.cogs.community import NO_PINGS, Community
 
-from .conftest import World, advance
+# ---------------------------------------------------------------- world and shared steps
+
+
+@dataclass
+class World:
+    store: CommunityService
+    now: datetime = field(default_factory=lambda: datetime(2026, 9, 26, 18, 0, tzinfo=UTC))
+    app_id: int = 0
+    post: Post | None = None
+    last: Any = None
+
+    def who(self, name: str) -> Principal:
+        return PRINCIPALS[name]
+
+    def mirror(self, content: str, *, channel: int = ANNOUNCEMENTS, message_id: int = 7001) -> Post:
+        post = self.store.ingest_discord_message(
+            DiscordMessageIn(
+                channel_id=channel, message_id=message_id, author_name="Ribbitz", content=content, created_at=self.now
+            )
+        )
+        assert post is not None
+        self.post = post
+        return post
+
+    def client(self, who: str) -> TestClient:
+        """The real API over this world's service, signed in as a demo principal: for checks the routes own."""
+        from conftest import community_client
+
+        return community_client(self.store, PRINCIPALS[who])
+
+    def application(self, day: str) -> ApplicationCreate:
+        return ApplicationCreate(
+            character_name="Mossbeard",
+            class_name="Shaman",
+            spec="Restoration",
+            role=Role.HEALER,
+            raid_days=[day],
+            experience="Cleared SSC elsewhere.",
+        )
+
+
+@pytest.fixture
+def world() -> World:
+    w = World(store=demo_service(lambda: datetime(2000, 1, 1, tzinfo=UTC)))
+    w.store.clock = lambda: w.now
+    return w
+
+
+DAYS = {"Wednesday": "wed", "Sunday": "sun"}
+
+
+@given("the demo guild")
+def demo_guild(world: World) -> None:
+    assert world.store.raid_days.day_ids
+
+
+@given(parsers.parse("the applicant has applied for {day}"))
+@when(parsers.parse("the applicant applies for {day}"))
+def applicant_applies(world: World, day: str) -> None:
+    world.app_id = world.store.apply(PRINCIPALS["applicant"].member_id, world.application(DAYS[day])).id
+
+
+@given("a Wednesday Discord message is waiting for review")
+def wed_message(world: World) -> None:
+    world.mirror("Wednesday: bring flasks", channel=WED_CHAT, message_id=7200)
+
+
+@given("a mirrored announcement published as public")
+def published_public(world: World) -> None:
+    post = world.mirror("We're recruiting healers")
+    world.store.curate(world.who("global officer").member_id, None, post.id, CurationAction.PUBLISH, Visibility.PUBLIC)
+
+
+@when("the Wednesday officer declines the application")
+def wed_declines(world: World) -> None:
+    world.store.transition(
+        world.who("Wednesday officer").member_id, "wed", world.app_id, ApplicationStatus.DECLINED, ""
+    )
+
+
+def advance(world: World, days: int) -> None:
+    world.now += timedelta(days=days)
+
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
 for name in ("hub_story", "hub_recruit", "hub_desk", "hub_post", "hub_spot"):
