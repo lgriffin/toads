@@ -1,18 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { barPercent, linkHref, widgetById, type AnalyzerPage } from './home-payload';
+import { barPercent, linkTarget, widgetById, type AnalyzerPage } from './home-payload';
 
 describe('analyzer payload links', () => {
-  it('sends raid links to the raid page', () => {
-    expect(linkHref({ kind: 'raid', params: { report_id: 'aBcD1234' } }, '/toads')).toBe('/toads/raids/aBcD1234');
+  const raid = (report_id: string) => ({ kind: 'raid' as const, params: { report_id } });
+
+  it('opens a raid on Warcraft Logs, since the live hub has no raid page yet', () => {
+    expect(linkTarget(raid('aBcD1234eFgH5678'), '')).toEqual({
+      href: 'https://classic.warcraftlogs.com/reports/aBcD1234eFgH5678',
+      external: true
+    });
+  });
+  it('opens the sample raid page in the preview', () => {
+    expect(linkTarget(raid('ssc-0924'), '/toads', true)).toEqual({ href: '/toads/raids/ssc-0924', external: false });
   });
   it('refuses raid ids that are not id-shaped', () => {
-    expect(linkHref({ kind: 'raid', params: { report_id: '../admin' } }, '')).toBeNull();
-    expect(linkHref({ kind: 'raid', params: {} }, '')).toBeNull();
+    expect(linkTarget(raid('../admin'), '')).toBeNull();
+    expect(linkTarget(raid('../admin'), '', true)).toBeNull();
+    expect(linkTarget({ kind: 'raid', params: {} }, '')).toBeNull();
   });
   it('drops links the hub has no page for', () => {
-    expect(linkHref({ kind: 'character', params: { name: 'Hopscotch' } }, '')).toBeNull();
-    expect(linkHref({ kind: 'player_page', params: { name: 'x', server: 'y', region: 'eu' } }, '')).toBeNull();
-    expect(linkHref(null, '')).toBeNull();
+    expect(linkTarget({ kind: 'character', params: { name: 'Hopscotch' } }, '')).toBeNull();
+    expect(linkTarget({ kind: 'player_page', params: { name: 'x', server: 'y', region: 'eu' } }, '')).toBeNull();
+    expect(linkTarget(null, '')).toBeNull();
   });
 });
 

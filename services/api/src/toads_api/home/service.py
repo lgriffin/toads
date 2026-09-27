@@ -7,6 +7,7 @@ Widget ids are a contract shared with the web app (`apps/web/src/lib/home.ts`); 
 from __future__ import annotations
 
 import enum
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -81,6 +82,17 @@ ANALYZER_IDS = frozenset(w.id for w in CATALOGUE if w.source is Source.ANALYZER)
 ANALYZER_SCHEMA_VERSION = 1
 # The analyzer has 13 widgets today; far more than this is a broken publisher.
 MAX_ANALYZER_WIDGETS = 50
+# Tiles, rows, items or bars in one widget: the analyzer sends at most a few dozen.
+MAX_ENTRIES = 200
+# The list fields each widget kind must carry (guides/home_widgets.md). `actions` is left out: the hub places none.
+KIND_FIELDS: dict[str, tuple[str, ...]] = {
+    "stats": ("tiles",),
+    "table": ("columns", "rows"),
+    "list": ("items",),
+    "bars": ("bars",),
+}
+# The analyzer's local time, "YYYY-MM-DD HH:MM:SS", which sorts as text.
+_GENERATED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
 
 
 class HomeError(Exception):
@@ -146,6 +158,23 @@ def merge(stored: Sequence[StoredWidget], audience: Audience) -> list[WidgetChoi
     return out
 
 
+def malformed(widget: Mapping[str, Any]) -> str | None:
+    """Why a widget the hub places does not match the analyzer's contract, or None when it does. The web draws the
+    list fields directly, so each must be a bounded list of objects."""
+    if not isinstance(widget.get("title"), str):
+        return "title must be text"
+    fields = KIND_FIELDS.get(str(widget.get("kind")))
+    if fields is None:
+        return f"unsupported kind {widget.get('kind')!r}"
+    for name in fields:
+        value = widget.get(name)
+        if not isinstance(value, list) or not all(isinstance(e, dict) for e in value):
+            return f"{name} must be a list of objects"
+        if len(value) > MAX_ENTRIES:
+            return f"{name} has more than {MAX_ENTRIES} entries"
+    return None
+
+
 class HomeService:
     def __init__(self, repo: HomeRepository) -> None:
         self.repo = repo
@@ -194,13 +223,23 @@ class HomeService:
         dropped here rather than stored."""
         if version != ANALYZER_SCHEMA_VERSION:
             raise HomeError(f"Unsupported home page version {version}", status=422)
+        if not _GENERATED_AT.fullmatch(generated_at):
+            raise HomeError("generated_at must look like 2026-09-27 12:00:00", status=422)
         if len(widgets) > MAX_ANALYZER_WIDGETS:
             raise HomeError("Too many widgets", status=422)
         kept: dict[str, dict[str, Any]] = {}
         for w in widgets:
             wid = w.get("id")
-            if isinstance(wid, str) and wid in ANALYZER_IDS and wid not in kept:
-                kept[wid] = dict(w)
+            if not isinstance(wid, str) or wid not in ANALYZER_IDS or wid in kept:
+                continue
+            problem = malformed(w)
+            if problem:
+                raise HomeError(f"Widget {wid}: {problem}", status=422)
+            kept[wid] = dict(w)
+        current = self.repo.analyzer_page()
+        if current is not None and generated_at < current.generated_at:
+            # A delayed or retried build must not replace a newer one.
+            raise HomeError("A newer home page is already published", status=409)
         self.repo.save_analyzer_page(StoredPage(version, generated_at, list(kept.values())))
         return len(kept)
 

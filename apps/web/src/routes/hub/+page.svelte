@@ -159,7 +159,7 @@
       {:else if id === 'officer_desk'}
         <section class="card" aria-labelledby="desk-h">
           <h2 id="desk-h">Raid leader desk</h2>
-          {#if desk.kind === 'ok'}<DeskList lines={deskLines(desk.value)} />{:else}{@render status(desk)}{/if}
+          {#if desk.kind === 'ok'}<DeskList lines={deskLines(desk.value)} linked={false} />{:else}{@render status(desk)}{/if}
         </section>
       {:else if id === 'posts'}
         <section class="card" aria-labelledby="feed-h">

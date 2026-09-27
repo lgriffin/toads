@@ -195,3 +195,29 @@ def test_widgets_say_where_their_data_comes_from(hub: Hub) -> None:
     sid = hub.login(hub.user(("wed", "raider")))
     sources = {w["id"]: w["source"] for w in hub.get("/api/me/home", sid).json()["widgets"]}
     assert sources["last_raid"] == "analyzer" and sources["posts"] == "hub"
+
+
+@pytest.mark.parametrize(
+    "widget",
+    [
+        {"id": "last_raid", "title": "Last raid", "kind": "stats", "tiles": "4 bosses"},
+        {"id": "top_damage", "title": "Top damage", "kind": "table", "columns": [], "rows": [1, 2]},
+        {"id": "class_mix", "title": "Class mix", "kind": "pie", "bars": []},
+        {"id": "recent_raids", "title": "Recent raids", "kind": "list", "items": [{}] * 201},
+        {"id": "attendance", "kind": "table", "columns": [], "rows": []},
+    ],
+)
+def test_malformed_widgets_are_refused(widget: dict[str, object]) -> None:
+    with pytest.raises(HomeError) as info:
+        _service().publish_analyzer_page(1, "2026-09-27 12:00:00", [widget])
+    assert info.value.status == 422
+
+
+def test_an_older_build_does_not_replace_a_newer_one() -> None:
+    svc = _service()
+    svc.publish_analyzer_page(1, "2026-09-27 12:00:00", [])
+    with pytest.raises(HomeError) as info:
+        svc.publish_analyzer_page(1, "2026-09-27 11:59:59", [])
+    assert info.value.status == 409
+    with pytest.raises(HomeError):
+        svc.publish_analyzer_page(1, "yesterday", [])
