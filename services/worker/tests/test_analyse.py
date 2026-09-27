@@ -87,6 +87,7 @@ def _settings(database_url: str = "postgresql+psycopg://u:p@localhost/db") -> Se
         wcl_api_url="https://fresh.warcraftlogs.com/api/v2/client",
         wcl_throttle_ms=500,
         wcl_max_retries=5,
+        credentials_keys=SecretStr("unused"),
     )
 
 
@@ -146,10 +147,10 @@ def test_analysis_is_stored(wcl_client: Any, sqlite_storage: Callable[[], Perfor
 def test_settings_supply_client_and_storage(
     monkeypatch: pytest.MonkeyPatch, wcl_client: Any, sqlite_storage: StorageFactory
 ) -> None:
-    seen: list[Settings] = []
+    seen: list[tuple[Settings, int | None]] = []
 
-    def client_for(settings: Settings) -> Any:
-        seen.append(settings)
+    def client_for(settings: Settings, member_id: int | None = None) -> Any:
+        seen.append((settings, member_id))
         return wcl_client
 
     opened: list[str] = []
@@ -164,9 +165,13 @@ def test_settings_supply_client_and_storage(
 
     result = analyse.analyse_report(CODE, settings=settings)
 
-    assert seen == [settings]
+    assert seen == [(settings, None)]
     assert opened == [settings.database_url.get_secret_value()]
     assert result["metadata"]["report_id"] == CODE
+
+    # Work done for a member builds its client on that member's key (REQ-HUB-KEY-001).
+    analyse.analyse_report(CODE, settings=settings, member_id=7)
+    assert seen[-1] == (settings, 7)
 
 
 @pytest.mark.security

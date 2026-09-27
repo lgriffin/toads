@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, claimError, createClaim, getSession, listClaims, listMembers, statusLabel, unclaim } from './api';
+import {
+  ApiError,
+  chooseName,
+  claimError,
+  createClaim,
+  getAccountSettings,
+  getSession,
+  listClaims,
+  listMembers,
+  removeWclKey,
+  saveWclKey,
+  settingsError,
+  statusLabel,
+  unclaim,
+  wclKeyLabel
+} from './api';
 
 type Call = { url: string; init: RequestInit };
 
@@ -71,5 +86,48 @@ describe('messages', () => {
     expect(statusLabel({ status: 'pending', reason: null })).toMatch(/officer/);
     expect(statusLabel({ status: 'rejected', reason: 'Not yours' })).toBe('Rejected: Not yours');
     expect(statusLabel({ status: 'rejected', reason: null })).toBe('Rejected');
+  });
+});
+
+describe('account settings', () => {
+  const settings = {
+    shown_name: 'Hops',
+    name_source: 'discord',
+    name_character_id: null,
+    name_options: [{ source: 'discord', name: 'Hops', character_id: null }],
+    wcl_key: null,
+    wcl_key_in_use: 'guild'
+  };
+  it('reads settings', async () => {
+    const { f, calls } = fakeFetch(200, settings);
+    expect((await getAccountSettings(f)).shown_name).toBe('Hops');
+    expect(calls[0].url).toBe('/api/me/settings');
+  });
+  it('puts the chosen name', async () => {
+    const { f, calls } = fakeFetch(200, settings);
+    await chooseName({ source: 'character', character_id: 2 }, f);
+    expect(calls[0].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ source: 'character', character_id: 2 });
+  });
+  it('puts and deletes the key', async () => {
+    const { f, calls } = fakeFetch(200, settings);
+    await saveWclKey('id-1234', 'the-secret', f);
+    await removeWclKey(f);
+    expect(calls.map((c) => [c.url, c.init.method])).toEqual([
+      ['/api/me/wcl-key', 'PUT'],
+      ['/api/me/wcl-key', 'DELETE']
+    ]);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ client_id: 'id-1234', client_secret: 'the-secret' });
+  });
+  it('describes the key without revealing it', () => {
+    expect(wclKeyLabel({ wcl_key: null })).toContain('guild key');
+    const key = { client_id_hint: 'ab12', updated_at: '', checked_at: null };
+    expect(wclKeyLabel({ wcl_key: { ...key, status: 'working' } })).toContain('ending ab12');
+    expect(wclKeyLabel({ wcl_key: { ...key, status: 'rejected' } })).toContain('refused');
+  });
+  it('explains failures', () => {
+    expect(settingsError(new ApiError(401, 'Not signed in'))).toContain('Sign in');
+    expect(settingsError(new ApiError(422, 'Choose one of your approved characters'))).toContain('approved');
+    expect(settingsError(new Error('x'))).toContain('try again');
   });
 });

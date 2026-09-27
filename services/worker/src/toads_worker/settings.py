@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     wcl_api_url: str = "https://fresh.warcraftlogs.com/api/v2/client"
     wcl_throttle_ms: int = 250
     wcl_max_retries: int = 3
+    # Same value as the API's: decrypts members' own Warcraft Logs keys (comma-separated Fernet keys, newest first).
+    credentials_keys: SecretStr
     # Raid sheets import (jobs/sheets.py): the API it posts to and the service token it posts with.
     hub_api_url: str = "http://api:8000"
     hub_service_token: SecretStr = SecretStr("")

@@ -7,10 +7,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import httpx
+from hub_db import CredentialCipher
 from redis.asyncio import Redis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from toads_api.account.service import AccountService
+from toads_api.account.sql import SqlAccountRepository
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
@@ -39,14 +42,17 @@ class Services:
     http: httpx.AsyncClient | None = None
     sessions: SessionStore = field(init=False)
     community: CommunityService = field(init=False)
+    account: AccountService = field(init=False)
     raid_sheets: RaidSheetService = field(init=False)
 
     def __post_init__(self) -> None:
+        cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
+        self.account = AccountService(SqlAccountRepository(self.db, cipher))
         self.sessions = SessionStore(
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )
         self.community = CommunityService(
-            repo=SqlCommunityRepository(self.db),
+            repo=SqlCommunityRepository(self.db, shown_names=self.account.shown_names),
             config=CommunityConfig.load(self.settings.community_config),
             raid_days=RaidDayDirectory(
                 day_ids=frozenset(d.id for d in self.raid_days.raid_days),

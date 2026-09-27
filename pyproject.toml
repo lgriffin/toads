@@ -105,6 +105,20 @@ source_modules = ["toads_api.community.service"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Member settings routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.account.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.account.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Member settings rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.account.service"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy", "cryptography"]
+
+[[tool.importlinter.contracts]]
 name = "Raid sheet routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.raid_sheets.routes"]

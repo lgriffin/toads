@@ -167,9 +167,12 @@ async def session_info(
     officer_days: days they hold officer powers for; every configured day for a global officer.
     """
     days = [d.id for d in services.raid_days.raid_days]
+    # The name the member chose to be shown by (REQ-HUB-PRIV-005). The principal keeps the Discord nickname, which
+    # claim auto-approval compares against.
+    names = await anyio.to_thread.run_sync(services.account.shown_names, [principal.member_id])
     return {
         "member_id": principal.member_id,
-        "display_name": principal.display_name,
+        "display_name": names.get(principal.member_id, principal.display_name),
         "global_officer": principal.global_officer,
         "day_roles": {day: role.name.lower() for day, role in principal.day_roles.items()},
         "raid_days": [d for d in days if d in principal.day_roles],

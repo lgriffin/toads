@@ -1,12 +1,13 @@
 """CommunityRepository over the hub-db tables (Postgres in production, SQLite in tests).
 
-Rows store member ids; display names are read from `members` on the way out, so a renamed member shows their
-new name everywhere. Each call is its own transaction.
+Rows store member ids; display names are read on the way out, so a renamed member shows their new name everywhere.
+With `shown_names` (the account service's), that is the name each member chose (REQ-HUB-PRIV-005); without it, their
+server nickname from `members`. Each call is its own transaction.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -47,10 +48,15 @@ def _utc_or_none(at: datetime | None) -> datetime | None:
     return None if at is None else _utc(at)
 
 
-def _names(db: Session, ids: Iterable[int | None]) -> dict[int, str]:
+ShownNames = Callable[[Iterable[int]], dict[int, str]]
+
+
+def _names(db: Session, ids: Iterable[int | None], shown: ShownNames | None = None) -> dict[int, str]:
     wanted = {i for i in ids if i is not None}
     if not wanted:
         return {}
+    if shown is not None:
+        return shown(wanted)
     rows = db.execute(select(hub_db.Member.id, hub_db.Member.display_name).where(hub_db.Member.id.in_(wanted)))
     return {member_id: name for member_id, name in rows}
 
@@ -64,6 +70,8 @@ class SqlCommunityRepository:
     db: sessionmaker[Session]
     # Zone progress comes from wcl-store once the analyzer publishes it; until then it is configured here.
     progression_list: list[Progress] = field(default_factory=list)
+    # Resolves the names members chose to be shown by; None falls back to their server nickname.
+    shown_names: ShownNames | None = None
 
     def next_id(self) -> int:
         with self.db.begin() as db:
@@ -75,7 +83,10 @@ class SqlCommunityRepository:
     def member(self, member_id: int) -> MemberCard | None:
         with self.db() as db:
             m = db.get(hub_db.Member, member_id)
-            return None if m is None else MemberCard(display_name=m.display_name, discord_user_id=m.discord_user_id)
+            if m is None:
+                return None
+            name = _names(db, [member_id], self.shown_names).get(member_id, m.display_name)
+            return MemberCard(display_name=name, discord_user_id=m.discord_user_id)
 
     # ------------------------------------------------------------------ posts
 
@@ -127,7 +138,7 @@ class SqlCommunityRepository:
     def _posts_where(self, *where: ColumnElement[bool]) -> list[Post]:
         with self.db() as db:
             rows = db.scalars(select(hub_db.CommunityPost).where(*where).order_by(hub_db.CommunityPost.id)).all()
-            names = _names(db, (r.author_member_id for r in rows))
+            names = _names(db, (r.author_member_id for r in rows), self.shown_names)
             return [self._post(r, names) for r in rows]
 
     def get_post(self, post_id: int) -> Post | None:
@@ -187,7 +198,7 @@ class SqlCommunityRepository:
                 .where(hub_db.ApplicationEvent.application_id.in_([r.id for r in rows]))
                 .order_by(hub_db.ApplicationEvent.id)
             ).all()
-            names = _names(db, [r.member_id for r in rows] + [e.actor_member_id for e in events])
+            names = _names(db, [r.member_id for r in rows] + [e.actor_member_id for e in events], self.shown_names)
             by_app: dict[int, list[ApplicationEvent]] = {}
             for e in events:
                 by_app.setdefault(e.application_id, []).append(
@@ -249,7 +260,7 @@ class SqlCommunityRepository:
     def _highlights_where(self, *where: ColumnElement[bool]) -> list[Highlight]:
         with self.db() as db:
             rows = db.scalars(select(hub_db.Highlight).where(*where).order_by(hub_db.Highlight.id)).all()
-            names = _names(db, (r.submitted_by for r in rows))
+            names = _names(db, (r.submitted_by for r in rows), self.shown_names)
             return [
                 Highlight(
                     id=r.id,
@@ -295,7 +306,7 @@ class SqlCommunityRepository:
     def _spotlights_where(self, *where: ColumnElement[bool]) -> list[Spotlight]:
         with self.db() as db:
             rows = db.scalars(select(hub_db.Spotlight).where(*where).order_by(hub_db.Spotlight.id)).all()
-            names = _names(db, [r.member_id for r in rows] + [r.written_by for r in rows])
+            names = _names(db, [r.member_id for r in rows] + [r.written_by for r in rows], self.shown_names)
             return [
                 Spotlight(
                     id=r.id,
