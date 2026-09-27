@@ -26,3 +26,15 @@ Feature: HUB PRIV
     When the officer lists the members
     Then they see every member's Discord user id
     And signed-out visitors cannot list the members
+
+  # Added for member settings; not yet in the build spec's tables.
+  @ears_optional @member @phase_2_2
+  Scenario: REQ-HUB-PRIV-005 Where a member has chosen one of their approved characters as their name, the hub shall show that name in place of their server nickname for as long as they hold the claim
+    Given a Wednesday raider signed in with server nickname "Hops"
+    And they claim the character "Ribbit"
+    And a Wednesday officer approves the claim
+    When they choose "Ribbit" as their name
+    Then the members list and their session show "Ribbit"
+    And they cannot choose a character they have not claimed
+    When they unclaim it
+    Then the members list and their session show "Hops"

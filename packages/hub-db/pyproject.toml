@@ -5,6 +5,7 @@ description = "Hub-only SQLAlchemy models; analyzer tables come from wcl-store"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.13",
+    "cryptography>=43",
     "sqlalchemy>=2.0",
 ]
 

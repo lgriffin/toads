@@ -1,16 +1,14 @@
 """Members directory (REQ-HUB-PRIV-004): everyone who has signed in to the hub.
 
-Every signed-in member sees display names; Discord user ids go to officers only (global or any raid
-day). Ids are strings because Discord snowflakes do not fit a JavaScript number.
+Every signed-in member sees display names (the name each member chose, REQ-HUB-PRIV-005); Discord user ids go to
+officers only (global or any raid day). Ids are strings because Discord snowflakes do not fit a JavaScript number.
 """
 
 from __future__ import annotations
 
 import anyio
 from fastapi import APIRouter, Depends
-from hub_db import Member
 from pydantic import BaseModel
-from sqlalchemy import select
 
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
@@ -26,16 +24,14 @@ class MemberOut(BaseModel):
 
 
 def _list(services: Services, with_discord_ids: bool) -> list[MemberOut]:
-    with services.db() as db:
-        rows = db.scalars(select(Member).order_by(Member.display_name, Member.id))
-        return [
-            MemberOut(
-                member_id=m.id,
-                display_name=m.display_name,
-                discord_user_id=str(m.discord_user_id) if with_discord_ids else None,
-            )
-            for m in rows
-        ]
+    return [
+        MemberOut(
+            member_id=e.member_id,
+            display_name=e.shown_name,
+            discord_user_id=str(e.discord_user_id) if with_discord_ids else None,
+        )
+        for e in services.account.directory()
+    ]
 
 
 @router.get("/api/members")

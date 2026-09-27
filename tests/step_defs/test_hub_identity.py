@@ -1,4 +1,5 @@
-"""Phase 2.2 identity and RBAC: REQ-HUB-AUTH-*, REQ-HUB-RBAC-*, REQ-HUB-CLAIM-*, REQ-HUB-PRIV-003, REQ-HUB-DAY-01x/02x.
+"""Phase 2.2 identity and RBAC: REQ-HUB-AUTH-*, REQ-HUB-RBAC-*, REQ-HUB-CLAIM-*, REQ-HUB-PRIV-*, REQ-HUB-DAY-01x/02x,
+and member settings: REQ-HUB-PRIV-005 (chosen names) and REQ-HUB-KEY-* (members' own Warcraft Logs keys).
 
 Thin steps over the `hub` fixture (root conftest.py): the real API wired to the fake Discord server.
 """
@@ -6,20 +7,28 @@ Thin steps over the `hub` fixture (root conftest.py): the real API wired to the 
 from __future__ import annotations
 
 import importlib.util
+import logging
 import re
+import secrets
 import sys
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
-from hub_db import AuditEntry, Base, Member
+import structlog
+from hub_db import AuditEntry, Base, CredentialCipher, Member, WclCredential
+from pydantic import SecretStr
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlalchemy import func, select
 from toads_api.rbac import UnknownDiscordRoleError
 from toads_api.rbac.deps import route_rules
 from toads_api.sessions import SESSION_COOKIE
+from toads_worker.settings import Settings as WorkerSettings
+from toads_worker.wcl_keys import MemberKeys, client_for
+from wcl_core.common.errors import AuthenticationError
 
-from conftest import RAID_DAYS, Hub
+from conftest import CREDENTIALS_KEY, RAID_DAYS, Hub
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
 ROOT = Path(__file__).resolve().parents[2]
@@ -81,6 +90,26 @@ def test_day_004() -> None:
 
 @_bind("hub_priv.feature", 4)
 def test_priv_004() -> None:
+    pass
+
+
+@_bind("hub_priv.feature", 5)
+def test_priv_005() -> None:
+    pass
+
+
+@_bind("hub_key.feature", 1)
+def test_key_001() -> None:
+    pass
+
+
+@_bind("hub_key.feature", 2)
+def test_key_002() -> None:
+    pass
+
+
+@_bind("hub_key.feature", 3)
+def test_key_003() -> None:
     pass
 
 
@@ -501,3 +530,158 @@ def startup_failed(ctx: dict[str, Any], day: str, role: int) -> None:
     assert ctx["error"] is not None
     assert f"raid day '{day}'" in str(ctx["error"])
     assert str(role) in str(ctx["error"])
+
+
+# --- member settings: chosen names (REQ-HUB-PRIV-005) --------------------------------------------------
+
+
+@given("a Wednesday officer approves the claim")
+def officer_approves(hub: Hub, ctx: dict[str, Any]) -> None:
+    officer = hub.login(hub.user(("wed", "officer")))
+    r = hub.post(f"/api/days/wed/claims/{ctx['claim']['id']}/approve", officer)
+    assert r.status_code == 200, r.text
+
+
+@when(parsers.parse('they choose "{name}" as their name'))
+def choose_name(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    r = hub.client.put(
+        "/api/me/name", headers=hub.as_(ctx["sid"]), json={"source": "character", "character_id": _character(hub, name)}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["shown_name"] == name
+
+
+@then(parsers.parse('the members list and their session show "{name}"'))
+def shown_everywhere(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    session = hub.get("/api/session", ctx["sid"]).json()
+    assert session["display_name"] == name
+    members = {m["member_id"]: m["display_name"] for m in hub.get("/api/members", ctx["sid"]).json()}
+    assert members[session["member_id"]] == name
+    assert hub.get("/api/me/settings", ctx["sid"]).json()["shown_name"] == name
+
+
+@then("they cannot choose a character they have not claimed")
+def cannot_choose_unclaimed(hub: Hub, ctx: dict[str, Any]) -> None:
+    body = {"source": "character", "character_id": _character(hub, "Croak")}
+    assert hub.client.put("/api/me/name", headers=hub.as_(ctx["sid"]), json=body).status_code == 422
+
+
+# --- member settings: own Warcraft Logs keys (REQ-HUB-KEY-*) --------------------------------------------
+
+
+class FakeTokens:
+    """Stands in for wcl_core's TokenManager: records which client id asked for a token, refuses listed ones."""
+
+    refused: ClassVar[set[str]] = set()
+    used: ClassVar[list[str]] = []
+
+    def __init__(self, client_id: str, client_secret: str | SecretStr) -> None:
+        self.client_id = client_id
+        self.client_secret = client_secret
+        FakeTokens.used.append(client_id)
+
+    def get_token(self) -> str:
+        if self.client_id in FakeTokens.refused:
+            raise AuthenticationError("Authentication failed (HTTP 401)")
+        return "token"
+
+
+GUILD_CLIENT_ID = "guild-client-id"
+
+
+def _client_id_for(hub: Hub, member_id: int | None) -> str:
+    settings = WorkerSettings(
+        database_url=SecretStr("sqlite://"),
+        redis_url="redis://fake",
+        wcl_client_id=GUILD_CLIENT_ID,
+        wcl_client_secret=SecretStr("replace-me"),
+        wcl_guild_id=1,
+        credentials_keys=SecretStr(CREDENTIALS_KEY),
+    )
+    keys = MemberKeys(hub.db, CredentialCipher([CREDENTIALS_KEY]))
+    client = client_for(settings, member_id, keys=keys, tokens=FakeTokens)  # type: ignore[arg-type]
+    token_manager: FakeTokens = client.token_manager
+    return token_manager.client_id
+
+
+@pytest.fixture(autouse=True)
+def _reset_fake_tokens() -> None:
+    FakeTokens.refused = set()
+    FakeTokens.used = []
+
+
+@when("they save their own Warcraft Logs key")
+def save_key(hub: Hub, ctx: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    # Built at runtime: literal key-shaped strings trip the secret scanners.
+    ctx["client_id"], ctx["client_secret"] = str(uuid.uuid4()), secrets.token_urlsafe(30)
+    ctx["member_id"] = hub.get("/api/session", ctx["sid"]).json()["member_id"]
+    caplog.set_level(logging.DEBUG)
+    with structlog.testing.capture_logs() as logs:
+        r = hub.client.put(
+            "/api/me/wcl-key",
+            headers=hub.as_(ctx["sid"]),
+            json={"client_id": ctx["client_id"], "client_secret": ctx["client_secret"]},
+        )
+        ctx["member_client_id"] = _client_id_for(hub, ctx["member_id"])
+    assert r.status_code == 200, r.text
+    ctx["saved"] = r
+    ctx["logs"] = repr(logs) + caplog.text
+
+
+@when("they remove their key")
+def remove_key(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = hub.delete("/api/me/wcl-key", ctx["sid"])
+    assert r.status_code == 200, r.text
+    assert r.json()["wcl_key"] is None
+
+
+@when("Warcraft Logs refuses that key")
+def refuse_key(ctx: dict[str, Any]) -> None:
+    FakeTokens.refused.add(ctx["client_id"])
+
+
+@then("work done for them uses their key")
+def uses_member_key(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert _client_id_for(hub, ctx["member_id"]) == ctx["client_id"]
+    assert hub.get("/api/me/settings", ctx["sid"]).json()["wcl_key"]["status"] == "working"
+
+
+@then("work done for the guild still uses the guild key")
+def guild_uses_guild_key(hub: Hub) -> None:
+    assert _client_id_for(hub, None) == GUILD_CLIENT_ID
+
+
+@then("work done for them uses the guild key")
+def member_uses_guild_key(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert _client_id_for(hub, ctx["member_id"]) == GUILD_CLIENT_ID
+    assert hub.get("/api/me/settings", ctx["sid"]).json()["wcl_key_in_use"] == "guild"
+
+
+@then("their settings show only the last four characters of the client id")
+def settings_hide_key(hub: Hub, ctx: dict[str, Any]) -> None:
+    for body in (ctx["saved"].text, hub.get("/api/me/settings", ctx["sid"]).text):
+        assert ctx["client_secret"] not in body
+        assert ctx["client_id"] not in body
+    key = hub.get("/api/me/settings", ctx["sid"]).json()["wcl_key"]
+    assert key["client_id_hint"] == ctx["client_id"][-4:]
+
+
+@then("the database holds neither the client id nor the secret in plain text")
+def encrypted_at_rest(hub: Hub, ctx: dict[str, Any]) -> None:
+    with hub.db() as db:
+        row = db.get(WclCredential, ctx["member_id"])
+        assert row is not None
+        stored = " ".join(str(getattr(row, c.name)) for c in WclCredential.__table__.columns)
+    assert ctx["client_id"] not in stored
+    assert ctx["client_secret"] not in stored
+
+
+@then("no log line carries the client id or the secret")
+def not_logged(ctx: dict[str, Any]) -> None:
+    assert ctx["client_id"] not in ctx["logs"]
+    assert ctx["client_secret"] not in ctx["logs"]
+
+
+@then("their settings show the key as rejected")
+def shows_rejected(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert hub.get("/api/me/settings", ctx["sid"]).json()["wcl_key"]["status"] == "rejected"

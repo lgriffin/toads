@@ -7,10 +7,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import httpx
+from hub_db import CredentialCipher
 from redis.asyncio import Redis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from toads_api.account.service import AccountService
+from toads_api.account.sql import SqlAccountRepository
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.repository import InMemoryCommunityRepository
@@ -36,8 +39,11 @@ class Services:
     sessions: SessionStore = field(init=False)
     # In memory until the 2.1 migrations back CommunityRepository with Postgres.
     community: CommunityService = field(init=False)
+    account: AccountService = field(init=False)
 
     def __post_init__(self) -> None:
+        cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
+        self.account = AccountService(SqlAccountRepository(self.db, cipher))
         self.sessions = SessionStore(
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )

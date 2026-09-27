@@ -12,6 +12,7 @@ REQUIRED = (
     "DISCORD_REDIRECT_URI",
     "PUBLIC_BASE_URL",
     "HUB_SERVICE_TOKEN",
+    "CREDENTIALS_KEYS",
 )
 
 
@@ -46,7 +47,9 @@ def test_role_refresh_cannot_exceed_15_minutes(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.security
-@pytest.mark.parametrize("secret", ["DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "DATABASE_URL", "HUB_SERVICE_TOKEN"])
+@pytest.mark.parametrize(
+    "secret", ["DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "DATABASE_URL", "HUB_SERVICE_TOKEN", "CREDENTIALS_KEYS"]
+)
 def test_secrets_are_not_in_repr(monkeypatch: pytest.MonkeyPatch, secret: str) -> None:
     _env(monkeypatch)
     monkeypatch.setenv(f"TOADS_{secret}", "planted-secret-value")
@@ -67,5 +70,5 @@ def test_env_example_secrets_are_placeholders() -> None:
 
     example = Path(__file__).resolve().parents[1] / ".env.example"
     values = dict(line.split("=", 1) for line in example.read_text().splitlines() if "=" in line and line[0] != "#")
-    for name in ("TOADS_DISCORD_CLIENT_SECRET", "TOADS_DISCORD_BOT_TOKEN"):
+    for name in ("TOADS_DISCORD_CLIENT_SECRET", "TOADS_DISCORD_BOT_TOKEN", "TOADS_CREDENTIALS_KEYS"):
         assert values[name] == "replace-me"

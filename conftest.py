@@ -13,7 +13,7 @@ import httpx
 import pytest
 from fakeredis import FakeAsyncRedis
 from fastapi.testclient import TestClient
-from hub_db import Base
+from hub_db import Base, CredentialCipher
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -52,6 +52,9 @@ RAID_DAYS = RaidDaysConfig.model_validate(
 )
 
 
+CREDENTIALS_KEY = CredentialCipher.generate_key()
+
+
 def make_settings(**overrides: object) -> Settings:
     values: dict[str, object] = {
         "database_url": "sqlite://",
@@ -67,6 +70,8 @@ def make_settings(**overrides: object) -> Settings:
         "raid_days_config": Path("unused.yaml"),
         "hub_service_token": "test-service-token",
         "community_config": Path("unused-community.yaml"),
+        # Generated per run: a key written out in the repo would trip the secret scanners.
+        "credentials_keys": CREDENTIALS_KEY,
     }
     values.update(overrides)
     return Settings(**values)

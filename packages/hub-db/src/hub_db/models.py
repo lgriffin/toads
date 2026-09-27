@@ -29,7 +29,12 @@ class Member(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     discord_user_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    # The member's server nickname, refreshed at every sign-in. The name the hub shows may differ: see name_source.
     display_name: Mapped[str] = mapped_column(String(100))
+    # Which name the hub shows for this member: "discord" (display_name) or "character" (name_character_id's name,
+    # honoured only while the member holds an approved claim on it).
+    name_source: Mapped[str] = mapped_column(String(16), default="discord", server_default="discord")
+    name_character_id: Mapped[int | None] = mapped_column()
     profile_public: Mapped[bool] = mapped_column(default=False)
     dms_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

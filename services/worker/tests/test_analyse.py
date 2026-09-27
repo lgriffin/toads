@@ -23,6 +23,7 @@ def _settings() -> Settings:
         wcl_api_url="https://fresh.warcraftlogs.com/api/v2/client",
         wcl_throttle_ms=500,
         wcl_max_retries=5,
+        credentials_keys=SecretStr("unused"),
     )
 
 
