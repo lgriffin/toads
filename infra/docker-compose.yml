@@ -33,6 +33,13 @@ services:
     healthcheck: { disable: true }
     depends_on: { postgres: { condition: service_healthy } }
 
+  analyser-migrate:  # one-shot: applies wcl-store's Alembic migrations (analyzer tables) before the worker starts
+    build: { context: .., dockerfile: services/worker/Dockerfile }
+    command: ["toads-worker-migrate"]
+    env_file: ../services/worker/.env
+    healthcheck: { disable: true }
+    depends_on: { postgres: { condition: service_healthy } }
+
   # Dev stand-in for Discord OAuth2 + REST (services/api/src/toads_api/testing/fake_discord.py), so the dev
   # stack needs no Discord application. It signs the browser straight in as the seeded user: dev only,
   # never in staging/prod. services/api/.env.example points the API at it; FAKE_DISCORD_ROLES gives the
@@ -64,7 +71,10 @@ services:
   worker:
     build: { context: .., dockerfile: services/worker/Dockerfile }
     env_file: ../services/worker/.env
-    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      analyser-migrate: { condition: service_completed_successfully }
 
   bot:
     build: { context: .., dockerfile: services/bot/Dockerfile }
