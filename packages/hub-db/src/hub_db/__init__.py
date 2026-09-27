@@ -1,4 +1,4 @@
-"""Tables the hub needs that the analyzer never had (members, claims, audit, community, members' WCL keys, ...)."""
+"""Tables the hub needs that the analyzer never had (members, claims, audit, community, raid sheets, WCL keys, ...)."""
 
 from hub_db.community import (
     Application,
@@ -18,6 +18,7 @@ from hub_db.credentials import (
     WclCredentialStatus,
 )
 from hub_db.models import AuditEntry, Base, CharacterClaim, ClaimStatus, Member
+from hub_db.raid_sheets import RaidSheetSnapshot
 
 __all__ = [
     "Application",
@@ -33,6 +34,7 @@ __all__ = [
     "CredentialDecryptError",
     "Highlight",
     "Member",
+    "RaidSheetSnapshot",
     "RecruitmentNeed",
     "Spotlight",
     "StoredWclCredentials",

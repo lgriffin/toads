@@ -20,6 +20,10 @@ from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord
 from toads_api.notify import Notifier, RedisOutbox
+from toads_api.raid_sheets.config import RaidSheetsConfig
+from toads_api.raid_sheets.dates import weekday_named
+from toads_api.raid_sheets.service import RaidSheetService
+from toads_api.raid_sheets.sql import SqlSheetRepository
 from toads_api.rbac.config import RaidDaysConfig
 from toads_api.sessions import SessionStore
 from toads_api.settings import Settings
@@ -39,6 +43,7 @@ class Services:
     sessions: SessionStore = field(init=False)
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
+    raid_sheets: RaidSheetService = field(init=False)
 
     def __post_init__(self) -> None:
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
@@ -55,6 +60,14 @@ class Services:
                 officer_roles={d.id: tuple(d.officer_roles) for d in self.raid_days.raid_days},
             ),
         )
+
+        sheets_config = RaidSheetsConfig.load(self.settings.raid_sheets_config)
+        weekdays = {
+            d.id: day
+            for d in self.raid_days.raid_days
+            if (day := sheets_config.weekdays.get(d.id, weekday_named(d.name))) is not None
+        }
+        self.raid_sheets = RaidSheetService(repo=SqlSheetRepository(self.db), config=sheets_config, weekdays=weekdays)
 
     async def verify_discord_roles(self) -> None:
         """REQ-HUB-DAY-022: refuse to start when the raid-day config names a role the server lacks."""

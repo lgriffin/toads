@@ -14,6 +14,7 @@ up:
     key=$(just credentials-key); for s in api worker; do sed -i.bak "s|^TOADS_CREDENTIALS_KEYS=replace-me$|TOADS_CREDENTIALS_KEYS=$key|" services/$s/.env && rm services/$s/.env.bak; done
     [ -f config/raid_days.yaml ] || cp config/raid_days.example.yaml config/raid_days.yaml
     [ -f config/community.yaml ] || cp config/community.example.yaml config/community.yaml
+    [ -f config/raid_sheets.yaml ] || cp config/raid_sheets.example.yaml config/raid_sheets.yaml
     docker compose -f infra/docker-compose.yml up --build -d
 
 # Print a new key for TOADS_CREDENTIALS_KEYS (encrypts members' own Warcraft Logs keys)

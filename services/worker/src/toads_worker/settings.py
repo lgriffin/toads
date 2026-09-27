@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,3 +19,7 @@ class Settings(BaseSettings):
     wcl_max_retries: int = 3
     # Same value as the API's: decrypts members' own Warcraft Logs keys (comma-separated Fernet keys, newest first).
     credentials_keys: SecretStr
+    # Raid sheets import (jobs/sheets.py): the API it posts to and the service token it posts with.
+    hub_api_url: str = "http://api:8000"
+    hub_service_token: SecretStr = SecretStr("")
+    raid_sheets_config: Path = Path("config/raid_sheets.yaml")

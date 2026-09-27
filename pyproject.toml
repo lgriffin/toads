@@ -60,7 +60,7 @@ mypy_path = ["packages/hub-db/src", "services/api/src", "services/worker/src", "
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["rq.*", "discord.*"]
+module = ["rq.*", "discord.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -117,6 +117,19 @@ name = "Member settings rules hold no RBAC, web framework or storage code"
 type = "forbidden"
 source_modules = ["toads_api.account.service"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy", "cryptography"]
+
+[[tool.importlinter.contracts]]
+name = "Raid sheet routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.raid_sheets.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.raid_sheets.sql"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Raid sheet rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.raid_sheets.service"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy", "httpx"]
 
 [[tool.importlinter.contracts]]
 name = "Only the worker imports the analyzer (wcl_core, wcl_store, wcl_app)"

@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # Fernet keys (comma-separated, newest first) that encrypt members' own Warcraft Logs keys at rest. The worker
     # needs the same value to use them. Generate one with `just credentials-key`.
     credentials_keys: SecretStr
+    # The CBA and RPB spreadsheets the worker imports (config/raid_sheets.example.yaml).
+    raid_sheets_config: Path = Path("config/raid_sheets.yaml")
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)
