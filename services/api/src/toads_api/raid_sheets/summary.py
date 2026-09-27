@@ -13,7 +13,7 @@ the numbers. Anything that is missing reads as None rather than failing the page
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 Grid = Sequence[Sequence[str]]
@@ -234,7 +234,7 @@ def _total(values: Iterable[int]) -> int | None:
     return sum(values) if values else None
 
 
-def _tab(tables: dict[str, Grid], name: str) -> Grid:
+def _tab(tables: Mapping[str, Grid], name: str) -> Grid:
     """The tab called `name`, or one that starts with it (RPB can append the report title to tab names)."""
     if name in tables:
         return tables[name]
@@ -244,8 +244,8 @@ def _tab(tables: dict[str, Grid], name: str) -> Grid:
 def summarise(
     raid_day: str,
     raid_date: str,
-    cba: dict[str, Grid],
-    rpb: dict[str, Grid],
+    cba: Mapping[str, Grid],
+    rpb: Mapping[str, Grid],
     report_code: str | None = None,
 ) -> RaidSummary:
     """Totals and per-player lines from a raid's current CBA and RPB tabs, keyed by lower-case tab name."""
