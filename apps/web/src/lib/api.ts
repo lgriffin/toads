@@ -4,6 +4,8 @@
  * `npm run api:types` once the OpenAPI schema settles.
  */
 
+import type { RaidHeadline, RaidSheets, RaidSummary } from './sheets';
+
 export interface Session {
   member_id: number;
   display_name: string;
@@ -172,4 +174,28 @@ export function settingsError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
   if (e.status === 401) return 'Sign in with Discord to change your settings.';
   return e.message || 'Something went wrong; try again.';
+}
+
+// --- raid totals from the CBA and RPB sheets -------------------------------------------------------
+
+function dayQuery(day?: string, limit?: number): string {
+  const q = new URLSearchParams();
+  if (day) q.set('day', day);
+  if (limit !== undefined) q.set('limit', String(limit));
+  const qs = q.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/** Each recent raid's sheet totals, newest first; all raid days unless `day` is given. */
+export function raidTrend(day?: string, limit?: number, f: Fetch = fetch): Promise<RaidHeadline[]> {
+  return call<RaidHeadline[]>(f, `/api/raid-sheets/trend${dayQuery(day, limit)}`);
+}
+
+/** One raid's totals and per-player lines. `date` is an ISO date. */
+export const raidSummary = (day: string, date: string, f: Fetch = fetch) =>
+  call<RaidSummary>(f, `/api/days/${encodeURIComponent(day)}/raids/${encodeURIComponent(date)}/sheets/summary`);
+
+/** The latest raids with sheets attached, newest first; all raid days unless `day` is given. */
+export function recentRaidSheets(day?: string, limit?: number, f: Fetch = fetch): Promise<RaidSheets[]> {
+  return call<RaidSheets[]>(f, `/api/raid-sheets/recent${dayQuery(day, limit)}`);
 }

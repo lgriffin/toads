@@ -4,10 +4,12 @@
   import { isOfficer, visibleHighlights } from '$lib/community';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
+  import RaidTotals from '$lib/components/RaidTotals.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
   import { dateTime, shortDate } from '$lib/format';
   import { viewer } from '$lib/mock/community';
   import { nextRaid, raids, type Role } from '$lib/mock/data';
+  import { sheetTrend } from '$lib/mock/sheets';
   import { visibleFeed } from '$lib/posts';
   import { isFinal } from '$lib/recruitment';
   import { community } from './state.svelte';
@@ -126,6 +128,10 @@
     </ul>
     <a href="{base}/raids/">All raids</a>
   </section>
+</div>
+
+<div class="lower">
+  <RaidTotals raids={sheetTrend} />
 </div>
 
 <div class="grid lower">

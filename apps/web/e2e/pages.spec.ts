@@ -56,3 +56,17 @@ test('the story page links to recruit and opens Discord safely', async ({ page }
   await expect(page).toHaveURL(/\/toads\/recruit\/$/);
   await expect(page.getByRole('heading', { name: 'How the interview room works' })).toBeVisible();
 });
+
+test('the hub shows the latest raid totals from the sheets', async ({ page }) => {
+  await page.goto('hub/');
+  const totals = page.getByRole('region', { name: 'Raid totals' });
+  await expect(totals).toBeVisible();
+  await expect(totals.getByText('1:48:32', { exact: true })).toBeVisible();
+  await expect(totals.getByText('40 across 21 players')).toBeVisible();
+  const report = totals.getByRole('link', { name: /Warcraft Logs report/ });
+  await expect(report).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(report).toHaveAttribute('target', '_blank');
+  await expect(report).toHaveAttribute('href', /^https:\/\/classic\.warcraftlogs\.com\/reports\/[A-Za-z0-9]{16}$/);
+  const rows = totals.getByRole('table', { name: 'Recent raids' }).locator('tbody tr');
+  await expect(rows).toHaveCount(5);
+});
