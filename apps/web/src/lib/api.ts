@@ -106,3 +106,70 @@ export function statusLabel(c: Pick<Claim, 'status' | 'reason'>): string {
   if (c.status === 'pending') return 'Waiting for an officer';
   return c.reason ? `Rejected: ${c.reason}` : 'Rejected';
 }
+
+// --- the member's own settings -------------------------------------------------------------------
+
+export type NameSource = 'discord' | 'character';
+
+export interface NameOption {
+  source: NameSource;
+  name: string;
+  character_id: number | null;
+}
+
+export type WclKeyStatus = 'unverified' | 'working' | 'rejected';
+
+/** A saved Warcraft Logs key as the API describes it. The id and secret themselves never come back. */
+export interface WclKey {
+  client_id_hint: string;
+  status: WclKeyStatus;
+  updated_at: string;
+  checked_at: string | null;
+}
+
+export interface AccountSettings {
+  shown_name: string;
+  name_source: NameSource;
+  name_character_id: number | null;
+  /** The Discord nickname first, then the member's approved characters. */
+  name_options: NameOption[];
+  wcl_key: WclKey | null;
+  /** Which key the member's Warcraft Logs requests use right now. */
+  wcl_key_in_use: 'own' | 'guild';
+}
+
+export const getAccountSettings = (f: Fetch = fetch) => call<AccountSettings>(f, '/api/me/settings');
+
+export const chooseName = (option: Pick<NameOption, 'source' | 'character_id'>, f: Fetch = fetch) =>
+  call<AccountSettings>(f, '/api/me/name', {
+    method: 'PUT',
+    body: JSON.stringify({ source: option.source, character_id: option.character_id })
+  });
+
+export const saveWclKey = (clientId: string, clientSecret: string, f: Fetch = fetch) =>
+  call<AccountSettings>(f, '/api/me/wcl-key', {
+    method: 'PUT',
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+  });
+
+export const removeWclKey = (f: Fetch = fetch) => call<AccountSettings>(f, '/api/me/wcl-key', { method: 'DELETE' });
+
+export function wclKeyLabel(s: Pick<AccountSettings, 'wcl_key'>): string {
+  if (!s.wcl_key) return 'Not set: your requests use the guild key.';
+  const which = `Key ending ${s.wcl_key.client_id_hint}`;
+  switch (s.wcl_key.status) {
+    case 'working':
+      return `${which}: working, and used for your requests.`;
+    case 'rejected':
+      return `${which}: Warcraft Logs refused it, so your requests use the guild key. Save a new one to fix it.`;
+    default:
+      return `${which}: saved, and checked the next time it is used.`;
+  }
+}
+
+/** What to tell a member when a settings call fails. */
+export function settingsError(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
+  if (e.status === 401) return 'Sign in with Discord to change your settings.';
+  return e.message || 'Something went wrong; try again.';
+}
