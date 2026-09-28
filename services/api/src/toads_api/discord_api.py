@@ -1,4 +1,5 @@
-"""The few Discord endpoints the API needs: OAuth2 token exchange, the caller's guild member, the guild's roles.
+"""The few Discord endpoints the API needs: OAuth2 token exchange, the caller's guild member, the guild's roles and its
+scheduled events.
 
 `DiscordAPI` is a protocol so tests and the dev stack can swap in the fake server
 (`toads_api.testing.fake_discord`) through an httpx transport; nothing here reads the environment.
@@ -7,6 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import httpx
@@ -49,6 +51,39 @@ class GuildMember:
         )
 
 
+def _utc(value: str) -> datetime:
+    """An ISO 8601 time from Discord; one without an offset is UTC, as all of Discord's are."""
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class ScheduledEvent:
+    """A Discord scheduled event in the Toads server, as officers post raids."""
+
+    event_id: int
+    name: str
+    starts_at: datetime
+    ends_at: datetime | None
+    # Discord's status: 1 scheduled, 2 active, 3 completed, 4 cancelled.
+    status: int
+    # How many members marked themselves interested; None when Discord leaves the count out.
+    interested: int | None
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> ScheduledEvent:
+        end = data.get("scheduled_end_time")
+        count = data.get("user_count")
+        return cls(
+            event_id=int(data["id"]),
+            name=str(data["name"]),
+            starts_at=_utc(str(data["scheduled_start_time"])),
+            ends_at=_utc(str(end)) if end else None,
+            status=int(data["status"]),
+            interested=int(count) if count is not None else None,
+        )
+
+
 class DiscordAPI(Protocol):
     async def exchange_code(self, code: str, code_verifier: str) -> str:
         """Trade an authorization code (plus PKCE verifier) for a user access token."""
@@ -60,6 +95,10 @@ class DiscordAPI(Protocol):
 
     async def guild_role_ids(self) -> set[int]:
         """Every role id that exists in the Toads server (bot token)."""
+        ...
+
+    async def scheduled_events(self) -> list[ScheduledEvent]:
+        """The Toads server's scheduled events that have not finished, with interested counts (bot token)."""
         ...
 
 
@@ -125,3 +164,16 @@ class HttpDiscord:
         if r.status_code != 200:
             raise DiscordError(f"Discord role listing failed with HTTP {r.status_code}")
         return {int(role["id"]) for role in r.json()}
+
+    async def scheduled_events(self) -> list[ScheduledEvent]:
+        r = await self._http.get(
+            f"{self._base}/guilds/{self._guild_id}/scheduled-events",
+            params={"with_user_count": "true"},
+            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+        )
+        if r.status_code != 200:
+            raise DiscordError(f"Discord scheduled event listing failed with HTTP {r.status_code}")
+        try:
+            return [ScheduledEvent.from_api(e) for e in r.json()]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DiscordError("Discord sent a scheduled event the hub could not read") from exc

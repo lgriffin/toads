@@ -17,11 +17,21 @@ from hub_db.credentials import (
     WclCredential,
     WclCredentialStatus,
 )
-from hub_db.models import AnalyzerHomePage, AuditEntry, Base, CharacterClaim, ClaimStatus, Member, MemberHomeLayout
+from hub_db.models import (
+    AnalyzerHomePage,
+    AnalyzerPerformancePage,
+    AuditEntry,
+    Base,
+    CharacterClaim,
+    ClaimStatus,
+    Member,
+    MemberHomeLayout,
+)
 from hub_db.raid_sheets import RaidSheetSnapshot
 
 __all__ = [
     "AnalyzerHomePage",
+    "AnalyzerPerformancePage",
     "Application",
     "ApplicationEvent",
     "AuditEntry",

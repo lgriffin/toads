@@ -14,6 +14,8 @@ import {
 } from './community-api';
 import type { HomeLayout } from './home';
 import type { AnalyzerPage } from './home-payload';
+import type { NextRaidAnswer } from './next-raid';
+import type { MyPerformance } from './performance';
 import type { RaidHeadline, RaidSheets, RaidSummary } from './sheets';
 
 export interface Session {
@@ -224,6 +226,12 @@ export const resetHome = (f: Fetch = fetch) => call<HomeLayout>(f, '/api/me/home
 
 /** The analyzer's widgets (guild-wide), as the worker last built them. */
 export const analyzerHome = (f: Fetch = fetch) => call<AnalyzerPage>(f, '/api/home/analyzer');
+
+/** The next raid: the soonest Discord scheduled event, else the raid days' usual start time. */
+export const nextRaid = (f: Fetch = fetch) => call<NextRaidAnswer>(f, '/api/home/next-raid');
+
+/** The member's main character in the last raid against the guild median for their role. */
+export const myPerformance = (f: Fetch = fetch) => call<MyPerformance>(f, '/api/me/performance');
 
 /** What to tell a member when saving their home fails. */
 export function homeError(e: unknown): string {

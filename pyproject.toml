@@ -126,9 +126,9 @@ forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.home.sql"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "Home layout rules hold no RBAC, web framework or storage code"
+name = "Home rules (layouts, next raid, performance) hold no RBAC, web framework or storage code"
 type = "forbidden"
-source_modules = ["toads_api.home.service"]
+source_modules = ["toads_api.home.service", "toads_api.home.next_raid", "toads_api.home.performance"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]

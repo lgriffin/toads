@@ -45,7 +45,14 @@ RAID_DAYS = RaidDaysConfig.model_validate(
     {
         "global_officer_roles": [900],
         "raid_days": [
-            {"id": "wed", "name": "Wednesday", "trial_roles": [10], "raider_roles": [11], "officer_roles": [12]},
+            {
+                "id": "wed",
+                "name": "Wednesday",
+                "start_time": "19:30",
+                "trial_roles": [10],
+                "raider_roles": [11],
+                "officer_roles": [12],
+            },
             {"id": "sun", "name": "Sunday", "trial_roles": [20], "raider_roles": [21], "officer_roles": [22]},
         ],
     }

@@ -50,7 +50,7 @@ def _analyzer(wid: str, title: str, description: str, *, default_shown: bool = T
 # In default display order. The analyzer's `quick_actions` (desktop commands) and `tracked_players` (the desktop's
 # player pages) have no hub page yet, so they are left out; the hub's navigation covers the first.
 CATALOGUE: tuple[Widget, ...] = (
-    Widget("next_raid", "Next raid", "When the next raid starts and which roles still need signups."),
+    Widget("next_raid", "Next raid", "When the next raid starts and how many have signed up in Discord."),
     Widget(
         "officer_desk",
         "Raid leader desk",
@@ -107,6 +107,11 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
 }
 # The analyzer's local time, "YYYY-MM-DD HH:MM:SS", which sorts as text.
 _GENERATED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
+
+
+def generated_at_ok(value: str) -> bool:
+    """A worker page's build time: the analyzer's local time, "YYYY-MM-DD HH:MM:SS", which sorts as text."""
+    return _GENERATED_AT.fullmatch(value) is not None
 
 
 class HomeError(Exception):
@@ -243,7 +248,7 @@ class HomeService:
         dropped here rather than stored."""
         if version != ANALYZER_SCHEMA_VERSION:
             raise HomeError(f"Unsupported home page version {version}", status=422)
-        if not _GENERATED_AT.fullmatch(generated_at):
+        if not generated_at_ok(generated_at):
             raise HomeError("generated_at must look like 2026-09-27 12:00:00", status=422)
         if len(widgets) > MAX_ANALYZER_WIDGETS:
             raise HomeError("Too many widgets", status=422)

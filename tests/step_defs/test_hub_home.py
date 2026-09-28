@@ -1,19 +1,24 @@
-"""The customisable hub home: REQ-HUB-HOME-002 to 007. Thin steps over the `hub` fixture (root conftest.py)."""
+"""The hub home: REQ-HUB-HOME-001 to 010. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
-from pytest_bdd import given, scenario, then, when
+from hub_db import CharacterClaim, ClaimStatus
+from pytest_bdd import given, parsers, scenario, then, when
 from toads_api.home.service import Audience, catalogue_for
 
-from conftest import HUB, Hub
+from conftest import GUILD_ID, HUB, Hub
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
 CHOSEN = ["recruiting", "raid_totals"]
+WORKER = {"Authorization": "Bearer test-service-token"}  # conftest.make_settings
+SERVER_TIME = ZoneInfo("Europe/Paris")  # RaidDaysConfig's default timezone
 
 
 def _bind(number: int) -> Any:
@@ -24,6 +29,11 @@ def _bind(number: int) -> Any:
         if m:
             return scenario(str(FEATURES / "hub_home.feature"), m.group(1))
     raise LookupError(req_id)
+
+
+@_bind(1)
+def test_home_001() -> None:
+    pass
 
 
 @_bind(2)
@@ -53,6 +63,21 @@ def test_home_006() -> None:
 
 @_bind(7)
 def test_home_007() -> None:
+    pass
+
+
+@_bind(8)
+def test_home_008() -> None:
+    pass
+
+
+@_bind(9)
+def test_home_009() -> None:
+    pass
+
+
+@_bind(10)
+def test_home_010() -> None:
     pass
 
 
@@ -127,7 +152,160 @@ def lands_on_hub(ctx: dict[str, Any]) -> None:
     assert ctx["response"].headers["location"] == f"{HUB}/hub"
 
 
-# --- weekly healing (REQ-HUB-HOME-006, 007) --------------------------------------------------------------------------
+# --- next raid (001, 006) --------------------------------------------------------------------------
+
+
+def _next_wednesday(hub: Hub, hour: int, minute: int) -> datetime:
+    """The next Wednesday after the hub's clock at this server time, in UTC."""
+    today = datetime.fromtimestamp(hub.now, UTC).astimezone(SERVER_TIME).date()
+    day = next(today + timedelta(days=n) for n in range(1, 8) if (today + timedelta(days=n)).weekday() == 2)
+    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=SERVER_TIME).astimezone(UTC)
+
+
+def _next_raid(hub: Hub, sid: str) -> dict[str, Any]:
+    r = hub.get("/api/home/next-raid", sid)
+    assert r.status_code == 200, r.text
+    raid: dict[str, Any] = r.json()["raid"]
+    return raid
+
+
+@given(parsers.parse('an officer has posted "{name}" as a Discord scheduled event for Wednesday evening'))
+def event_posted(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    ctx["start"] = _next_wednesday(hub, 20, 0)
+    ctx["event"] = hub.fake.add_event(4242, name, ctx["start"], interested=12)
+
+
+@given("Discord has no scheduled events")
+def no_events(hub: Hub) -> None:
+    hub.fake.events.clear()
+
+
+@then(parsers.parse('their next raid is "{name}" on Wednesday with a link to sign up in Discord'))
+def next_raid_is_event(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    raid = _next_raid(hub, ctx["sid"])
+    assert (raid["name"], raid["source"], raid["raid_day_id"], raid["interested"]) == (name, "discord", "wed", 12)
+    assert datetime.fromisoformat(raid["starts_at"]) == ctx["start"]
+    assert raid["url"] == f"https://discord.com/events/{GUILD_ID}/4242"
+
+
+@when(parsers.parse('the officer moves "{name}" an hour later'))
+def move_event(ctx: dict[str, Any], name: str) -> None:
+    assert ctx["event"]["name"] == name
+    ctx["event"]["scheduled_start_time"] = (ctx["start"] + timedelta(hours=1)).isoformat()
+
+
+@when("5 minutes pass")
+def five_minutes(hub: Hub) -> None:
+    hub.pass_time(5 * 60)
+
+
+@then("their next raid starts an hour later")
+def next_raid_moved(hub: Hub, ctx: dict[str, Any]) -> None:
+    raid = _next_raid(hub, ctx["sid"])
+    assert datetime.fromisoformat(raid["starts_at"]) == ctx["start"] + timedelta(hours=1)
+
+
+@then("their next raid is the next Wednesday at the configured start time")
+def next_raid_from_schedule(hub: Hub, ctx: dict[str, Any]) -> None:
+    raid = _next_raid(hub, ctx["sid"])
+    assert (raid["name"], raid["source"], raid["raid_day_id"], raid["url"]) == (
+        "Wednesday raid",
+        "schedule",
+        "wed",
+        None,
+    )
+    assert datetime.fromisoformat(raid["starts_at"]) == _next_wednesday(hub, 19, 30)
+
+
+# --- your performance (007, 008) -------------------------------------------------------------------
+
+
+def _member_id(hub: Hub, sid: str) -> int:
+    member_id: int = hub.get("/api/session", sid).json()["member_id"]
+    return member_id
+
+
+def _approve(hub: Hub, member_id: int, character_id: int, name: str) -> None:
+    with hub.db.begin() as db:
+        db.add(
+            CharacterClaim(
+                character_id=character_id, member_id=member_id, character_name=name, status=ClaimStatus.APPROVED
+            )
+        )
+
+
+def _player(name: str, value: float, median: float, role: str = "healer") -> dict[str, Any]:
+    return {
+        "name": name,
+        "class": "Priest",
+        "role": role,
+        "metric": "Healing",
+        "unit": "amount",
+        "value": value,
+        "median": median,
+        "rank": 1,
+        "of": 3,
+        "recent": [{"date": "2026-09-23", "value": value, "median": median}],
+    }
+
+
+def _publish(hub: Hub, players: list[dict[str, Any]]) -> None:
+    page = {
+        "version": 1,
+        "generated_at": "2026-09-24 08:00:00",
+        "raid": {"report_id": "aBcD1234eFgH5678", "title": "Karazhan", "date": "2026-09-23"},
+        "players": players,
+    }
+    r = hub.client.put("/api/worker/performance", headers=WORKER, json=page)
+    assert r.status_code == 200, r.text
+
+
+@given(parsers.parse('a Wednesday raider nicknamed "{nick}" signed in to the hub'))
+def nicknamed_raider(hub: Hub, ctx: dict[str, Any], nick: str) -> None:
+    ctx["user"] = hub.user(("wed", "raider"), nick=nick)
+    ctx["sid"] = hub.login(ctx["user"])
+
+
+@given(parsers.parse('they hold an approved claim on the healer "{name}"'))
+def own_claim(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    _approve(hub, _member_id(hub, ctx["sid"]), 101, name)
+
+
+@given(parsers.parse('another member holds an approved claim on "{name}"'))
+def other_claim(hub: Hub, name: str) -> None:
+    other = hub.login(hub.user(("wed", "raider")))
+    _approve(hub, _member_id(hub, other), 102, name)
+
+
+@when(
+    parsers.parse('the worker publishes a raid where "{name}" healed {value:d} against a healer median of {median:d}')
+)
+def publish_healer(hub: Hub, name: str, value: int, median: int) -> None:
+    _publish(hub, [_player(name, value, median), _player("Pad", 500, median)])
+
+
+@when(parsers.parse('the worker publishes a raid with "{name}" in it'))
+def publish_with(hub: Hub, name: str) -> None:
+    _publish(hub, [_player(name, 800, 700)])
+
+
+@then(parsers.parse('their performance shows "{name}" at {value:d} healing against a median of {median:d}'))
+def shows_entry(hub: Hub, ctx: dict[str, Any], name: str, value: int, median: int) -> None:
+    mine = hub.get("/api/me/performance", ctx["sid"]).json()
+    assert mine["matched_by"] == "claim"
+    entry = mine["entry"]
+    assert (entry["name"], entry["class"], entry["value"], entry["median"]) == (name, "Priest", value, median)
+    assert mine["raid"]["title"] == "Karazhan"
+
+
+@then("their performance shows no character")
+def shows_nothing(hub: Hub, ctx: dict[str, Any]) -> None:
+    mine = hub.get("/api/me/performance", ctx["sid"]).json()
+    assert (mine["entry"], mine["matched_by"], mine["looked_for"]) == (None, None, [])
+    assert mine["raid"]["title"] == "Karazhan"
+
+
+# --- weekly healing (REQ-HUB-HOME-009, 010) --------------------------------------------------------------------------
 
 WORKER = {"Authorization": "Bearer test-service-token"}  # conftest.make_settings
 

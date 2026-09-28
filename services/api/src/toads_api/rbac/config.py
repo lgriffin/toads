@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from toads_api.rbac.permissions import HubRole, Principal
 
@@ -23,6 +24,9 @@ class RaidDayChannels(BaseModel):
 class RaidDay(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9_-]{1,32}$")
     name: str
+    # When the raid starts, "HH:MM" in the config's timezone. The hub home falls back to it for the next raid while no
+    # Discord scheduled event is coming up; the weekday comes from the day's name (or raid_sheets.yaml's weekdays).
+    start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     raider_roles: list[int] = []
     trial_roles: list[int] = []
     officer_roles: list[int] = []
@@ -30,8 +34,19 @@ class RaidDay(BaseModel):
 
 
 class RaidDaysConfig(BaseModel):
+    # The realm's server time, which raid start times are written in (Spineshatter is an EU realm).
+    timezone: str = "Europe/Paris"
     global_officer_roles: list[int] = []
     raid_days: list[RaidDay] = []
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown timezone {value!r}") from exc
+        return value
 
     @classmethod
     def load(cls, path: Path) -> RaidDaysConfig:

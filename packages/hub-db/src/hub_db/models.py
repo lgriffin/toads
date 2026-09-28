@@ -64,6 +64,21 @@ class AnalyzerHomePage(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AnalyzerPerformancePage(Base):
+    """Each raider's primary number in the guild's last raid against the guild median for their role, as the worker
+    last built it (toads_worker.jobs.performance): guild-wide, one row. The API shows each member only their own."""
+
+    __tablename__ = "analyzer_performance_pages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column()
+    generated_at: Mapped[str] = mapped_column(String(40))
+    # {"report_id", "title", "date"}, or null before any raid is analysed.
+    raid: Mapped[dict[str, object] | None] = mapped_column(JSON)
+    players: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ClaimStatus(enum.StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
