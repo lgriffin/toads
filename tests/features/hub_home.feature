@@ -56,3 +56,17 @@ Feature: HUB HOME
     And another member holds an approved claim on "Croak"
     When the worker publishes a raid with "Croak" in it
     Then their performance shows no character
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-009 The hub home shall show the guild's healing per raid and average healing per character week on week, each measured against its own four-week average, as the analyzer builds them
+    Given a Wednesday raider signed in to the hub
+    When the worker publishes the analyzer's weekly healing chart
+    Then their home shows weekly healing by default
+    And the weekly healing chart carries the four-week average and no target
+
+  @ears_unwanted_behavior @member @phase_2_3
+  Scenario: REQ-HUB-HOME-010 If the worker publishes a chart over the chart limits, then the hub shall refuse the whole page
+    Given a Wednesday raider signed in to the hub
+    When the worker publishes a weekly healing chart with nine series
+    Then the page is refused with 422
+    And the hub keeps no weekly healing chart

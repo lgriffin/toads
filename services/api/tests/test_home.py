@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 from toads_api.home.repository import InMemoryHomeRepository, StoredWidget
 from toads_api.home.service import CATALOGUE, Audience, HomeError, HomeService, catalogue_for
@@ -221,3 +223,100 @@ def test_an_older_build_does_not_replace_a_newer_one() -> None:
     assert info.value.status == 409
     with pytest.raises(HomeError):
         svc.publish_analyzer_page(1, "yesterday", [])
+
+
+# --- chart widgets (week-on-week healing) ---------------------------------------------------------------------------
+
+
+def _chart(**overrides: object) -> dict[str, object]:
+    chart: dict[str, object] = {
+        "version": 1,
+        "id": "healing_weekly",
+        "title": "Weekly healing",
+        "kind": "bar",
+        "subtitle": "Effective healing per raid",
+        "x_label": "Week starting",
+        "y_label": "Healing per raid",
+        "categories": ["14 Sep", "21 Sep"],
+        "series": [
+            {
+                "key": "healing_per_raid",
+                "name": "Healing per raid",
+                "values": [None, 1_100_000.0],
+                "display": ["-", "1.1M"],
+                "emphasis": True,
+            }
+        ],
+        "y_max": 2_000_000.0,
+        "references": [{"key": "target", "label": "Target", "value": 1_000_000.0, "display": "1.0M"}],
+        "notes": ["Target 1.0M per raid met; met in 1 of 1 raided weeks."],
+        "empty": "",
+    }
+    chart.update(overrides)
+    return chart
+
+
+def _chart_widget(chart: object, **extra: object) -> dict[str, object]:
+    return {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart, **extra}
+
+
+def test_weekly_healing_and_healers_are_default_analyzer_widgets() -> None:
+    by_id = {w.id: w for w in CATALOGUE}
+    assert by_id["healing_weekly"].source == "analyzer" and by_id["healing_weekly"].default_shown
+    assert by_id["healers_weekly"].source == "analyzer" and by_id["healers_weekly"].default_shown
+
+
+def test_a_chart_widget_is_kept_as_published() -> None:
+    svc = _service()
+    assert svc.publish_analyzer_page(1, "2026-09-27 12:00:00", [_chart_widget(_chart())]) == 1
+    page = svc.analyzer_page()
+    assert page is not None and page.widgets[0]["chart"]["references"][0]["display"] == "1.0M"
+
+
+def test_a_chart_widget_that_failed_to_build_is_kept_with_its_error() -> None:
+    widget = _chart_widget(None, error="Storage unavailable")
+    assert _service().publish_analyzer_page(1, "2026-09-27 12:00:00", [widget]) == 1
+
+
+def test_an_empty_chart_is_kept() -> None:
+    chart = _chart(categories=[], series=[], references=[], notes=[], y_max=0.0, empty="No guild raids.")
+    assert _service().publish_analyzer_page(1, "2026-09-27 12:00:00", [_chart_widget(chart)]) == 1
+
+
+_SERIES = _chart()["series"][0]  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("chart", "problem"),
+    [
+        (None, "chart must be an object"),
+        (_chart(version=2), "unsupported chart version"),
+        (_chart(kind="pie"), "unsupported chart kind"),
+        (_chart(title="x" * 121), "title must be text"),
+        (_chart(categories=["w"] * 53, series=[]), "categories must be at most 52"),
+        (_chart(notes=["n"] * 11), "notes must be at most 10"),
+        (_chart(y_max=math.inf), "y_max must be a number"),
+        (_chart(y_max=True), "y_max must be a number"),
+        (_chart(series=[{**_SERIES, "key": f"s{i}"} for i in range(9)]), "series must be a list of at most 8"),
+        (_chart(references=[{"key": "r", "label": "R", "value": 1, "display": "1"}] * 4), "at most 3"),
+        (_chart(series=[{"values": []}]), "a series needs a key and a name"),
+        (_chart(series=[{**_SERIES, "values": [1.0]}]), "does not line up"),
+        (_chart(series=[{**_SERIES, "values": [None, 3_000_000.0]}]), "outside 0 to y_max"),
+        (_chart(series=[{**_SERIES, "values": [None, "big"]}]), "outside 0 to y_max"),
+        (_chart(series=[{**_SERIES, "emphasis": "yes"}]), "emphasis must be true or false"),
+        (_chart(series=[_SERIES, _SERIES]), "series keys must be unique"),
+        (_chart(references=[{"key": "r", "label": "R", "value": -1, "display": "-1"}]), "outside 0 to y_max"),
+        (_chart(references=[{"key": "r", "value": 1}]), "a reference needs a key, label and display"),
+        (_chart(references=[{"key": "r", "label": "R", "value": 1, "display": "1"}] * 2), "reference keys must be"),
+        (_chart(y_max=10**400), "y_max must be a number"),
+        (_chart(series=[{**_SERIES, "values": [None, 10**400]}]), "outside 0 to y_max"),
+        ({k: v for k, v in _chart().items() if k != "notes"}, "notes must be at most"),
+        ({k: v for k, v in _chart().items() if k != "references"}, "references must be a list"),
+        ({k: v for k, v in _chart().items() if k != "subtitle"}, "subtitle must be text"),
+        (_chart(id="healers_weekly"), "does not belong to widget 'healing_weekly'"),
+    ],
+)
+def test_charts_that_break_the_contract_are_refused(chart: object, problem: str) -> None:
+    with pytest.raises(HomeError) as info:
+        _service().publish_analyzer_page(1, "2026-09-27 12:00:00", [_chart_widget(chart)])
+    assert info.value.status == 422 and problem in info.value.message

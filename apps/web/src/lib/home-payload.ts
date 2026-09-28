@@ -4,6 +4,7 @@
  * Numbers arrive already formatted (`display`, `cells`), so nothing here formats them; `value`/`values` are raw.
  */
 
+import type { ChartPayload } from './charts';
 import { reportUrl } from './sheets';
 
 export type LinkKind = 'raid' | 'character' | 'player_page' | 'action';
@@ -61,7 +62,9 @@ export type PayloadWidget =
   | (Base & { kind: 'table'; columns: Column[]; rows: Row[] })
   | (Base & { kind: 'list'; items: ListItem[] })
   | (Base & { kind: 'bars'; bars: Bar[] })
-  | (Base & { kind: 'actions'; actions: { id: string; label: string; description: string }[] });
+  | (Base & { kind: 'actions'; actions: { id: string; label: string; description: string }[] })
+  /** `chart` is null only when the widget failed to build (`error` is set). Drawn by PayloadChart ($lib/charts). */
+  | (Base & { kind: 'chart'; chart: ChartPayload | null });
 
 /** GET /api/home/analyzer. `generated_at` is null until the worker has published a page. */
 export interface AnalyzerPage {

@@ -78,3 +78,20 @@ def test_publish_puts_the_page_with_the_service_token(sqlite_storage: Callable[[
 def test_publish_needs_a_service_token(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     with pytest.raises(RuntimeError, match="HUB_SERVICE_TOKEN"):
         home.publish_home_page(_settings(token=""), storage=sqlite_storage)
+
+
+def test_weekly_healing_charts_are_built_per_raid_and_per_character(
+    sqlite_storage: Callable[[], PerformanceDB],
+) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    page = home.build_page(sqlite_storage)
+    widgets = {w["id"]: w for w in page["widgets"]}
+    for wid in ("healing_weekly", "healers_weekly"):
+        assert widgets[wid]["kind"] == "chart" and not widgets[wid]["error"], wid
+        assert widgets[wid]["chart"]["version"] == 1
+    chart = widgets["healing_weekly"]["chart"]
+    assert len(chart["categories"]) == 12 and len(chart["series"]) <= 8
+    assert all(r["key"] != "target" for r in chart["references"])
+    healers = widgets["healers_weekly"]["chart"]
+    if not healers["empty"]:  # the sample report is weeks old, so it may fall outside the window
+        assert healers["series"][0]["key"] == "average" and healers["series"][0]["emphasis"]

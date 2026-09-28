@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from toads_api.home.charts import chart_problem
 from toads_api.home.repository import HomeRepository, StoredPage, StoredWidget
 
 
@@ -62,6 +63,16 @@ CATALOGUE: tuple[Widget, ...] = (
     Widget("raid_totals", "Raid totals", "Consumes, buffs and deaths per raid from the CBA and RPB sheets."),
     _analyzer("recent_raids", "Recent raids", "The newest guild raids."),
     _analyzer("raid_activity", "Raid activity", "Raids per week over the last eight weeks."),
+    _analyzer(
+        "healing_weekly",
+        "Weekly healing",
+        "Healing per raid each week, measured against its four-week average.",
+    ),
+    _analyzer(
+        "healers_weekly",
+        "Healers week on week",
+        "Average healing per character each week, with each healer's healing per raid.",
+    ),
     _analyzer("top_damage", "Top damage", "The top five damage dealers in the last raid."),
     _analyzer("top_healing", "Top healing", "The top five healers in the last raid, with overheal."),
     _analyzer("attendance", "Attendance", "Who attended most of the last ten raids."),
@@ -80,7 +91,7 @@ MAX_WIDGETS = len(CATALOGUE)
 ANALYZER_IDS = frozenset(w.id for w in CATALOGUE if w.source is Source.ANALYZER)
 # The analyzer's HOME_SCHEMA_VERSION this hub understands; it changes only when a payload field changes meaning.
 ANALYZER_SCHEMA_VERSION = 1
-# The analyzer has 13 widgets today; far more than this is a broken publisher.
+# The analyzer has 15 widgets today; far more than this is a broken publisher.
 MAX_ANALYZER_WIDGETS = 50
 # Tiles, rows, items or bars in one widget: the analyzer sends at most a few dozen.
 MAX_ENTRIES = 200
@@ -90,6 +101,8 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
     "table": ("columns", "rows"),
     "list": ("items",),
     "bars": ("bars",),
+    # One chart payload rather than a list; checked by toads_api.home.charts.
+    "chart": (),
 }
 # The analyzer's local time, "YYYY-MM-DD HH:MM:SS", which sorts as text.
 _GENERATED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
@@ -168,9 +181,15 @@ def malformed(widget: Mapping[str, Any]) -> str | None:
     list fields directly, so each must be a bounded list of objects."""
     if not isinstance(widget.get("title"), str):
         return "title must be text"
-    fields = KIND_FIELDS.get(str(widget.get("kind")))
+    kind = str(widget.get("kind"))
+    fields = KIND_FIELDS.get(kind)
     if fields is None:
         return f"unsupported kind {widget.get('kind')!r}"
+    if kind == "chart":
+        # A widget that failed to build carries its error and no chart.
+        if widget.get("chart") is None and widget.get("error"):
+            return None
+        return chart_problem(widget.get("chart"), str(widget.get("id")))
     for name in fields:
         value = widget.get(name)
         if not isinstance(value, list) or not all(isinstance(e, dict) for e in value):
