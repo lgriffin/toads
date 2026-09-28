@@ -1,20 +1,37 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
+  import { previewGate } from '$lib/preview/gate';
+  import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
   let session = $state<Session | null | undefined>(undefined);
   onMount(async () => {
-    if (!__PREVIEW__) session = await getSession().catch(() => null);
+    if (__PREVIEW__) loadPreviewSession();
+    else session = await getSession().catch(() => null);
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
-  // The preview's Hopscotch is an officer. Officer links only hide; the API is the real gate either way.
-  let members = $derived(memberNav(__PREVIEW__ || (session?.officer_days.length ?? 0) > 0));
+  // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
+  let officer = $derived(__PREVIEW__ ? previewSession.role === 'officer' : (session?.officer_days.length ?? 0) > 0);
+  let members = $derived(memberNav(officer));
   // Everything past the public pages opens on login, so the member links show only to a signed-in member.
-  let signedIn = $derived(__PREVIEW__ || !!session);
+  let signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : !!session);
+  // The preview has no API to refuse a page, so it gates member pages and the officer console itself.
+  let gate = $derived(__PREVIEW__ ? previewGate(path, previewSession.role) : 'open');
+
+  function switchView() {
+    const next = officer ? 'member' : 'officer';
+    previewSignIn(next);
+    if (next === 'member' && previewGate(path, next) !== 'open') goto(`${base}/hub/`);
+  }
+  function logOut() {
+    previewSignOut();
+    goto(`${base}/`);
+  }
 </script>
 
 <a class="skip" href="#main">Skip to content</a>
@@ -40,7 +57,17 @@
     </nav>
   {/if}
   {#if __PREVIEW__}
-    <span class="login">Signed in as Hopscotch</span>
+    {#if !previewSession.ready}
+      <span class="login"></span>
+    {:else if signedIn}
+      <div class="login">
+        <span>Signed in as Hopscotch <span class="pill">{officer ? 'Officer' : 'Raider'}</span></span>
+        <button type="button" onclick={switchView}>{officer ? 'Switch to raider view' : 'Switch to officer view'}</button>
+        <button type="button" onclick={logOut}>Log out</button>
+      </div>
+    {:else}
+      <a class="login" href="{base}/login/">Log in with Discord</a>
+    {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout">
       <span>Signed in as {session.display_name}</span>
@@ -51,7 +78,27 @@
   {/if}
 </header>
 
-<main id="main" tabindex="-1">{@render children()}</main>
+<main id="main" tabindex="-1">
+  {#if __PREVIEW__ && gate !== 'open' && !previewSession.ready}
+    <p class="muted" role="status">Loading…</p>
+  {:else if gate === 'sign-in'}
+    <section class="card gate" aria-labelledby="gate-h">
+      <h1 id="gate-h">Sign in to see this</h1>
+      <p>This page is for guild members. Log in to explore it with sample data.</p>
+      <p><a class="btn primary" href="{base}/login/">Log in with Discord</a></p>
+    </section>
+  {:else if gate === 'officers-only'}
+    <section class="card gate" aria-labelledby="gate-h">
+      <h1 id="gate-h">Officers only</h1>
+      <p>The officer console is for raid leaders. Switch to the officer view to see it.</p>
+      <p>
+        <button class="btn primary" type="button" onclick={() => previewSignIn('officer')}>Switch to officer view</button>
+      </p>
+    </section>
+  {:else}
+    {@render children()}
+  {/if}
+</main>
 
 <style>
   :global(:root) {
@@ -152,9 +199,10 @@
   a { color: var(--muted); text-decoration: none; }
   a[aria-current='page'], a:hover { color: var(--text); }
   .login { margin-left: auto; color: var(--accent); }
-  form.login { display: flex; gap: 0.75rem; align-items: center; }
-  form.login button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; padding: 0; }
-  form.login button:hover { color: var(--text); }
+  form.login, div.login { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; align-items: center; }
+  div.login { color: var(--text); }
+  div.login button, form.login button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; padding: 0; }
+  div.login button:hover, form.login button:hover { color: var(--text); }
   .preview {
     padding: 0.4rem 1rem;
     background: var(--warn);
@@ -162,5 +210,6 @@
     font-size: 0.85rem;
     text-align: center;
   }
+  .gate { max-width: 36rem; margin: 2rem auto; }
   main { max-width: 72rem; margin: 0 auto; padding: 1rem; }
 </style>

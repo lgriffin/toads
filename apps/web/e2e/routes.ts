@@ -3,6 +3,7 @@ export const ROUTES = [
   '',
   'story/',
   'recruit/',
+  'login/',
   'highlights/',
   'hub/',
   'officers/',

@@ -23,10 +23,12 @@
   import { sheetTrend } from '$lib/mock/sheets';
   import { visibleFeed } from '$lib/posts';
   import { isFinal } from '$lib/recruitment';
+  import { previewSession } from './session.svelte';
   import { community, home } from './state.svelte';
 
   const roles: Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
-  const officer = isOfficer(viewer);
+  // Hopscotch is a Wednesday officer in the sample data; the raider view signs in without those powers.
+  const officer = $derived(isOfficer(viewer) && previewSession.role === 'officer');
 
   const feed = $derived(visibleFeed(community.posts, viewer));
   const mySpotlights = $derived(community.spotlights.filter((s) => s.memberName === viewer.name));
@@ -54,9 +56,13 @@
         : 'Declined. Your spotlight will not be published.';
   }
 
+  // Officer widgets are for officers only, as the API answers; the raider view never places or draws them.
+  const allowed = (w: HomeWidget) => officer || !w.officer_only;
+  const layout = $derived({ ...home.layout, widgets: home.layout.widgets.filter(allowed) });
+
   // The preview has no API: layouts change in memory only, as the API would answer.
   async function save(widgets: HomeWidget[]) {
-    home.layout = saved(widgets);
+    home.layout = saved(widgets.filter(allowed));
     return null;
   }
   async function reset() {
@@ -65,7 +71,9 @@
   }
 </script>
 
-<HomeView name={viewer.name} layout={home.layout} {save} {reset}>
+<!-- A view switch remounts the home, so an open customiser never keeps the other view's widgets. -->
+{#key officer}
+<HomeView name={viewer.name} {layout} {save} {reset}>
   {#snippet top()}
     {#if askingConsent.length || consentNote}
       <section class="card consent" aria-labelledby="consent-h">
@@ -141,6 +149,7 @@
     {/if}
   {/snippet}
 </HomeView>
+{/key}
 
 <style>
   .consent { border-color: var(--accent); margin-bottom: 1rem; }

@@ -9,7 +9,7 @@
   </p>
   <p class="muted">
     If you are in the guild, join the Toads Discord (ask any officer for an invite) and then
-    {#if __PREVIEW__}sign in again{:else}<a href="/auth/login" data-sveltekit-reload>sign in again</a>{/if}.
+    {#if __PREVIEW__}<a href="{base}/login/">sign in again</a>{:else}<a href="/auth/login" data-sveltekit-reload>sign in again</a>{/if}.
     Switched Discord accounts? Sign out of Discord first.
   </p>
   <p><a href="{base}/">Back to the home page</a></p>
