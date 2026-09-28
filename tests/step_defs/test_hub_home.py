@@ -334,9 +334,8 @@ def _healing_page(series: int = 1) -> dict[str, Any]:
         "y_max": 5_000_000.0,
         "references": [
             {"key": "baseline", "label": "4-week average", "value": 4_000_000.0, "display": "4.0M"},
-            {"key": "target", "label": "Target", "value": 4_200_000.0, "display": "4.2M"},
         ],
-        "notes": ["Target 4.2M per raid met; met in 1 of 2 raided weeks."],
+        "notes": ["Per raid 4.4M: up, 10.0% above its 4-week average of 4.0M."],
         "empty": "",
     }
     widget = {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart}
@@ -359,11 +358,11 @@ def healing_shown(hub: Hub, ctx: dict[str, Any]) -> None:
     assert "healing_weekly" in _shown(hub, ctx["sid"])
 
 
-@then("the weekly healing chart carries the four-week average and the target")
+@then("the weekly healing chart carries the four-week average and no target")
 def healing_measured(hub: Hub, ctx: dict[str, Any]) -> None:
     page = hub.get("/api/home/analyzer", ctx["sid"]).json()
     chart = next(w for w in page["widgets"] if w["id"] == "healing_weekly")["chart"]
-    assert [r["key"] for r in chart["references"]] == ["baseline", "target"]
+    assert [r["key"] for r in chart["references"]] == ["baseline"]
 
 
 @then("the page is refused with 422")

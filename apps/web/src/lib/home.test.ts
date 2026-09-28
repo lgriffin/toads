@@ -22,6 +22,7 @@ describe('home catalogue', () => {
       'recent_raids',
       'raid_activity',
       'healing_weekly',
+      'healers_weekly',
       'top_damage',
       'top_healing',
       'attendance',

@@ -41,13 +41,10 @@ const healingChart: ChartPayload = {
   categories: weeks,
   series: [{ key: 'healing_per_raid', name: 'Healing per raid', values: perRaid, display: perRaid.map(shown), emphasis: true }],
   y_max: 5e6,
-  references: [
-    { key: 'baseline', label: '4-week average', value: 4.05e6, display: '4.0M' },
-    { key: 'target', label: 'Target', value: 4.2e6, display: '4.2M' }
-  ],
+  references: [{ key: 'baseline', label: '4-week average', value: 4.05e6, display: '4.0M' }],
   notes: [
-    'Trend up: 8.6% above the 4-week average of 4.0M.',
-    'Target 4.2M per raid met; met in 2 of 11 raided weeks.',
+    'Per raid 4.4M: up, 8.6% above its 4-week average of 4.0M.',
+    'Per character 1.1M: up, 7.3% above its 4-week average of 1.0M.',
     'Week of 22 Sep: +10.0% on the week before it raided.',
     'Overheal that week: 28.4%.'
   ],
@@ -59,13 +56,21 @@ const healers: [string, (number | null)[]][] = [
   ['Mossbottom', [null, null, 0.8e6, null, 0.9e6, 0.9e6, 0.8e6, 0.9e6, 1.0e6, 1.0e6, 1.0e6, 1.1e6]],
   ['Duckweed', [0.8e6, 0.8e6, 0.9e6, null, 0.8e6, null, null, 0.7e6, 0.8e6, 0.9e6, 0.9e6, 0.9e6]]
 ];
+// Healing per healer per raid across all four healers, week by week.
+const perCharacter = weeks.map((_, i) => {
+  const v = healers.map(([, values]) => values[i]).filter((x): x is number => x !== null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+});
 const healersChart: ChartPayload = {
   ...healingChart,
   id: 'healers_weekly',
   title: 'Healers week on week',
   kind: 'line',
-  subtitle: 'Healing per raid attended as a healer, weeks from Monday',
-  series: healers.map(([name, values]) => ({ key: name.toLowerCase(), name, values, display: values.map(shown), emphasis: false })),
+  subtitle: "Healing per raid attended as a healer, against the guild's average per character",
+  series: [
+    { key: 'average', name: 'Average per character', values: perCharacter, display: perCharacter.map(shown), emphasis: true },
+    ...healers.map(([name, values]) => ({ key: name.toLowerCase(), name, values, display: values.map(shown), emphasis: false }))
+  ],
   y_max: 1.5e6,
   references: [],
   notes: []

@@ -36,10 +36,9 @@ HUB_WIDGETS = (
 )
 
 
-def build_page(storage: StorageFactory, healing_target: float | None = None) -> dict[str, Any]:
-    """The page as JSON. A widget that fails to build carries its own `error`; the rest still build.
-    `healing_target` is the guild's healing per raid the weekly healing chart measures each week against."""
-    return HomeService(storage, healing_target=healing_target).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
+def build_page(storage: StorageFactory) -> dict[str, Any]:
+    """The page as JSON. A widget that fails to build carries its own `error`; the rest still build."""
+    return HomeService(storage).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
 
 
 def publish_home_page(
@@ -51,5 +50,4 @@ def publish_home_page(
     """Build the page and PUT it to the hub API. Returns the API's answer (how many widgets it kept)."""
     settings = settings or Settings()
     hub_api.service_token(settings)
-    page = build_page(storage or store.storage(settings), settings.healing_target_per_raid)
-    return hub_api.put(settings, "/api/worker/home-page", page, hub)
+    return hub_api.put(settings, "/api/worker/home-page", build_page(storage or store.storage(settings)), hub)

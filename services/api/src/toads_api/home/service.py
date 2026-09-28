@@ -66,7 +66,12 @@ CATALOGUE: tuple[Widget, ...] = (
     _analyzer(
         "healing_weekly",
         "Weekly healing",
-        "Healing per raid each week, measured against the four-week average and the guild's target.",
+        "Healing per raid each week, measured against its four-week average.",
+    ),
+    _analyzer(
+        "healers_weekly",
+        "Healers week on week",
+        "Average healing per character each week, with each healer's healing per raid.",
     ),
     _analyzer("top_damage", "Top damage", "The top five damage dealers in the last raid."),
     _analyzer("top_healing", "Top healing", "The top five healers in the last raid, with overheal."),
@@ -79,12 +84,6 @@ CATALOGUE: tuple[Widget, ...] = (
         "interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid.", default_shown=False
     ),
     _analyzer("consumables", "Consumables", "The top five consumable users in the last raid.", default_shown=False),
-    _analyzer(
-        "healers_weekly",
-        "Healers week on week",
-        "Each healer's healing per raid over the last twelve weeks.",
-        default_shown=False,
-    ),
     Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
     Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
 )

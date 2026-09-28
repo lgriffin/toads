@@ -27,6 +27,3 @@ class Settings(BaseSettings):
     # the raid sheets. 0 turns that job off.
     hub_refresh_minutes: int = Field(default=30, ge=0)
     sheets_refresh_minutes: int = Field(default=360, ge=0)
-    # The guild's standard for weekly healing (jobs/home.py): effective healing per raid each week is measured
-    # against it on the hub home. Unset measures weeks against their four-week average only.
-    healing_target_per_raid: float | None = None

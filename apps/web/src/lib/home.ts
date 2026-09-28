@@ -83,7 +83,13 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
   analyzer(
     'healing_weekly',
     'Weekly healing',
-    "Healing per raid each week, measured against the four-week average and the guild's target.",
+    'Healing per raid each week, measured against its four-week average.',
+    { wide: true }
+  ),
+  analyzer(
+    'healers_weekly',
+    'Healers week on week',
+    "Average healing per character each week, with each healer's healing per raid.",
     { wide: true }
   ),
   analyzer('top_damage', 'Top damage', 'The top five damage dealers in the last raid.'),
@@ -97,10 +103,6 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
     defaultShown: false
   }),
   analyzer('consumables', 'Consumables', 'The top five consumable users in the last raid.', { defaultShown: false }),
-  analyzer('healers_weekly', 'Healers week on week', "Each healer's healing per raid over the last twelve weeks.", {
-    defaultShown: false,
-    wide: true
-  }),
   hub('progression', 'Progression', 'Bosses killed in each raid zone.', { defaultShown: false }),
   hub('recruiting', 'Recruiting', 'The classes and specs the guild is looking for.', { defaultShown: false })
 ];

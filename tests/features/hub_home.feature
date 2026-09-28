@@ -58,11 +58,11 @@ Feature: HUB HOME
     Then their performance shows no character
 
   @ears_ubiquitous @member @phase_2_3
-  Scenario: REQ-HUB-HOME-009 The hub home shall show the guild's healing per raid week on week, measured against its four-week average and the guild's target, as the analyzer builds it
+  Scenario: REQ-HUB-HOME-009 The hub home shall show the guild's healing per raid and average healing per character week on week, each measured against its own four-week average, as the analyzer builds them
     Given a Wednesday raider signed in to the hub
     When the worker publishes the analyzer's weekly healing chart
     Then their home shows weekly healing by default
-    And the weekly healing chart carries the four-week average and the target
+    And the weekly healing chart carries the four-week average and no target
 
   @ears_unwanted_behavior @member @phase_2_3
   Scenario: REQ-HUB-HOME-010 If the worker publishes a chart over the chart limits, then the hub shall refuse the whole page

@@ -260,10 +260,10 @@ def _chart_widget(chart: object, **extra: object) -> dict[str, object]:
     return {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart, **extra}
 
 
-def test_weekly_healing_is_a_default_analyzer_widget_and_healers_are_optional() -> None:
+def test_weekly_healing_and_healers_are_default_analyzer_widgets() -> None:
     by_id = {w.id: w for w in CATALOGUE}
     assert by_id["healing_weekly"].source == "analyzer" and by_id["healing_weekly"].default_shown
-    assert by_id["healers_weekly"].source == "analyzer" and not by_id["healers_weekly"].default_shown
+    assert by_id["healers_weekly"].source == "analyzer" and by_id["healers_weekly"].default_shown
 
 
 def test_a_chart_widget_is_kept_as_published() -> None:
