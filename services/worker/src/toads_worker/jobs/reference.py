@@ -52,6 +52,7 @@ MAX_GUILD_RAIDS = 100
 
 EXPIRED_MESSAGE = "The Warcraft Logs sign-in has expired; connect the account again."
 NO_LOGIN_MESSAGE = "Connect the Warcraft Logs account before importing a reference."
+UNEXPECTED_MESSAGE = "The request failed unexpectedly; try again, and tell a hub admin if it keeps failing."
 
 
 class LoginExpired(AuthenticationError):
@@ -68,11 +69,15 @@ def hub_sessions(settings: Settings) -> sessionmaker[Session]:
 
 
 class DedicatedLogin:
-    """The dedicated login's token in hub-db, as wcl-core's UserToken."""
+    """The dedicated login's token in hub-db, as wcl-core's UserToken.
+
+    Remembers which connection it loaded, so a refresh or an expiry only ever lands on that connection: an officer
+    who disconnects and connects another account meanwhile keeps the new one."""
 
     def __init__(self, db: sessionmaker[Session], cipher: CredentialCipher) -> None:
         self._db = db
         self._cipher = cipher
+        self._connection = ""
 
     def token(self) -> UserToken | None:
         with self._db() as db:
@@ -83,19 +88,23 @@ class DedicatedLogin:
                 return None
         if stored is None:
             return None
+        self._connection = stored.connection_id
         refresh = SecretStr(stored.refresh_token) if stored.refresh_token else None
         return UserToken(SecretStr(stored.access_token), refresh, stored.expires_at)
 
     def save(self, token: UserToken) -> None:
         refresh = token.refresh_token.get_secret_value() if token.refresh_token else None
+        stored = LoginToken(token.access_token.get_secret_value(), refresh, token.expires_at, self._connection)
         with self._db.begin() as db:
-            store_refreshed_login(
-                db, self._cipher, LoginToken(token.access_token.get_secret_value(), refresh, token.expires_at)
-            )
+            if not store_refreshed_login(db, self._cipher, stored):
+                log.info("reference.login_replaced")
 
     def expire(self) -> None:
+        if not self._connection:
+            return
         with self._db.begin() as db:
-            mark_login_expired(db)
+            if not mark_login_expired(db, self._connection):
+                log.info("reference.login_replaced")
 
 
 class _LoginTokens:
@@ -184,8 +193,13 @@ def _outcome(
         return JobStatus.FAILED, EXPIRED_MESSAGE
     except (WarcraftLogsError, StorageError, OSError) as exc:
         # requests' errors are OSErrors. Only the kind of failure reaches the officer; the detail goes to the log.
-        log.warning("reference.job_failed", kind=kind, error=type(exc).__name__)
+        log.warning("reference.job_failed", kind=kind, error=type(exc).__name__, exc_info=exc)
         return JobStatus.FAILED, "Warcraft Logs or the database failed; try again shortly."
+
+
+def _record(db: sessionmaker[Session], job_id: str, status: JobStatus, message: str) -> None:
+    with db.begin() as s:
+        update_job(s, job_id, status, message)
 
 
 def run_reference_job(
@@ -212,11 +226,16 @@ def run_reference_job(
         user_client=user_client_factory(settings, login),
     )
     refs = ReferenceService(ctx)
-    status, message = _outcome(kind, params, refs, db)
-    if message == EXPIRED_MESSAGE:
-        login.expire()
-    with db.begin() as s:
-        update_job(s, job_id, status, message)
+    try:
+        status, message = _outcome(kind, params, refs, db)
+        if message == EXPIRED_MESSAGE:
+            login.expire()
+    except Exception:
+        # Anything _outcome does not expect (a hub-db failure storing the comparison, a bug) still ends the job, so
+        # the officer page stops showing it as running; RQ keeps the traceback.
+        _record(db, job_id, JobStatus.FAILED, UNEXPECTED_MESSAGE)
+        raise
+    _record(db, job_id, status, message)
     log.info("reference.job_finished", kind=kind, status=status.value)
     try:
         publish_page(refs, db)

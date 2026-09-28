@@ -15,7 +15,7 @@ from __future__ import annotations
 import enum
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -64,6 +64,8 @@ class ReferenceLogin(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     token_encrypted: Mapped[str] = mapped_column(Text)
+    # New on every connect, so a job still holding an earlier connection's token cannot touch this one.
+    connection_id: Mapped[str] = mapped_column(String(32), default=lambda: uuid.uuid4().hex)
     status: Mapped[str] = mapped_column(String(16), default=LoginStatus.WORKING.value)
     connected_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -125,6 +127,8 @@ class LoginToken:
     refresh_token: str | None
     # Epoch seconds.
     expires_at: float
+    # Which connect this token belongs to (ReferenceLogin.connection_id); not part of the token itself.
+    connection_id: str = field(default="", compare=False)
 
     def __repr__(self) -> str:
         return f"LoginToken(expires_at={self.expires_at})"
@@ -141,13 +145,21 @@ def save_login(db: Session, cipher: CredentialCipher, token: LoginToken, member_
     if row is None:
         try:
             with db.begin_nested():
-                db.add(ReferenceLogin(id=LOGIN_ROW, token_encrypted=_encrypt(cipher, token), connected_by=member_id))
+                db.add(
+                    ReferenceLogin(
+                        id=LOGIN_ROW,
+                        token_encrypted=_encrypt(cipher, token),
+                        connection_id=uuid.uuid4().hex,
+                        connected_by=member_id,
+                    )
+                )
             return
         except IntegrityError:
             row = db.get(ReferenceLogin, LOGIN_ROW, populate_existing=True)
             if row is None:
                 raise
     row.token_encrypted = _encrypt(cipher, token)
+    row.connection_id = uuid.uuid4().hex
     row.status = LoginStatus.WORKING.value
     row.connected_by = member_id
     row.connected_at = _now()
@@ -161,22 +173,36 @@ def load_login(db: Session, cipher: CredentialCipher) -> LoginToken | None:
     if row is None or row.status == LoginStatus.EXPIRED.value:
         return None
     data = json.loads(cipher.decrypt(_LOGIN_OWNER, row.token_encrypted))
-    return LoginToken(str(data["access_token"]), data.get("refresh_token"), float(data.get("expires_at", 0)))
+    return LoginToken(
+        str(data["access_token"]), data.get("refresh_token"), float(data.get("expires_at", 0)), row.connection_id
+    )
 
 
-def store_refreshed_login(db: Session, cipher: CredentialCipher, token: LoginToken) -> None:
-    """Keep a token the worker refreshed; Warcraft Logs may have rotated the refresh token."""
-    row = db.get(ReferenceLogin, LOGIN_ROW)
+def _current(db: Session, connection_id: str) -> ReferenceLogin | None:
+    """The login row, when it is still the connection a job loaded (not disconnected or reconnected since)."""
+    row = db.get(ReferenceLogin, LOGIN_ROW, with_for_update=True)
+    return row if row is not None and row.connection_id == connection_id else None
+
+
+def store_refreshed_login(db: Session, cipher: CredentialCipher, token: LoginToken) -> bool:
+    """Keep a token the worker refreshed; Warcraft Logs may have rotated the refresh token.
+
+    Only for the connection the token came from (``token.connection_id``); returns False when an officer has
+    disconnected or reconnected since, leaving the newer login untouched."""
+    row = _current(db, token.connection_id)
     if row is not None:
         row.token_encrypted = _encrypt(cipher, token)
         row.status = LoginStatus.WORKING.value
         row.refreshed_at = _now()
+    return row is not None
 
 
-def mark_login_expired(db: Session) -> None:
-    row = db.get(ReferenceLogin, LOGIN_ROW)
+def mark_login_expired(db: Session, connection_id: str) -> bool:
+    """Mark the connection `connection_id` expired; a newer connection is left alone (returns False)."""
+    row = _current(db, connection_id)
     if row is not None:
         row.status = LoginStatus.EXPIRED.value
+    return row is not None
 
 
 def delete_login(db: Session) -> bool:

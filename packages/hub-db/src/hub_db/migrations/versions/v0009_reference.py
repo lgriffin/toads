@@ -20,6 +20,7 @@ def upgrade() -> None:
         "reference_login",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("token_encrypted", sa.Text(), nullable=False),
+        sa.Column("connection_id", sa.String(32), nullable=False),
         sa.Column("status", sa.String(16), nullable=False),
         sa.Column("connected_by", sa.Integer(), sa.ForeignKey("members.id", ondelete="SET NULL"), nullable=True),
         sa.Column("connected_at", sa.DateTime(timezone=True), nullable=False),

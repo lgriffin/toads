@@ -59,10 +59,18 @@
     if (loaded && comparisonKey(entry.guild_report, entry.reference_report) === openKey) comparison = loaded;
   }
 
+  // Bumped by every refresh and write; a response only lands while its number is still the latest, so a slow,
+  // older overview can never replace a newer one (and hide a job that was just queued).
+  let overviewSeq = 0;
+
   async function refresh() {
     if (!day) return;
+    const seq = ++overviewSeq;
+    const requestedDay = day;
     try {
-      overview = await getReferenceOverview(day);
+      const next = await getReferenceOverview(requestedDay);
+      if (seq !== overviewSeq || requestedDay !== day) return;
+      overview = next;
       await syncComparison();
     } catch (e) {
       fail(e);
@@ -81,6 +89,7 @@
     busy = true;
     error = '';
     message = '';
+    overviewSeq += 1;
     try {
       const job = await action();
       if (job && overview) overview = { ...overview, jobs: [job, ...overview.jobs.filter((j) => j.id !== job.id)] };
@@ -124,15 +133,20 @@
       );
     },
     async open(guildReport, referenceReport) {
-      openKey = comparisonKey(guildReport, referenceReport);
+      const key = comparisonKey(guildReport, referenceReport);
+      openKey = key;
       comparison = null;
       error = '';
       message = 'Loading the comparison…';
       try {
-        comparison = await getComparison(day, guildReport, referenceReport);
-        message = comparison ? '' : 'That comparison is not built yet; compare the two raids to build it.';
-        return comparison !== null;
+        const loaded = await getComparison(day, guildReport, referenceReport);
+        // The officer may have opened another comparison while this one loaded; theirs wins.
+        if (openKey !== key) return false;
+        comparison = loaded;
+        message = loaded ? '' : 'That comparison is not built yet; compare the two raids to build it.';
+        return loaded !== null;
       } catch (e) {
+        if (openKey !== key) return false;
         message = '';
         fail(e);
         return false;

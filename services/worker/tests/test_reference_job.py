@@ -13,7 +13,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from hub_db import Base, CredentialCipher, Member, ReferenceComparison, ReferenceLogin, ReferencePage
+from hub_db import Base, CredentialCipher, Member, ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 from hub_db.reference import LOGIN_ROW, JobKind, LoginToken, create_job, load_login, save_comparison, save_login
 from pydantic import SecretStr
 from sqlalchemy import create_engine, select
@@ -236,3 +236,42 @@ def test_publish_reference_page(
         )
     assert reference.publish_reference_page(_settings(), storage=storage) == {"references": 0, "guild_raids": 1}
     assert [r["report_id"] for r in _page(hub_db).guild_raids] == [OURS]
+
+
+def test_an_unexpected_failure_still_ends_the_job(
+    hub_db: sessionmaker[Session], storage: Callable[[], PerformanceDB]
+) -> None:
+    with storage() as db:
+        db.import_raid(_analysis(THEIRS, "Best Gruul", 800_000), source="reference")
+    job = _job(hub_db, JobKind.COMPARE, guild_report=OURS, reference_report=THEIRS)
+    with (
+        patch.object(reference, "save_comparison", side_effect=RuntimeError("hub-db down")),
+        pytest.raises(RuntimeError),
+    ):
+        _run(job, hub_db, storage)
+    with hub_db() as s:
+        row = s.get(ReferenceJob, job)
+        assert row is not None and row.status == "failed" and row.message == reference.UNEXPECTED_MESSAGE
+
+
+def test_a_refresh_after_a_reconnect_leaves_the_new_login_alone(
+    hub_db: sessionmaker[Session], storage: Callable[[], PerformanceDB]
+) -> None:
+    _connect(hub_db, expires_at=0)
+    newer = LoginToken(secrets.token_urlsafe(16), secrets.token_urlsafe(16), 4_000_000_000.0)
+
+    def reconnect_then_refresh(client: WarcraftLogsClient, *_: Any, **__: Any) -> RaidAnalysis:
+        # An officer connects another account while this job still holds the first one's expired token.
+        with hub_db.begin() as s:
+            save_login(s, CredentialCipher([KEY]), newer, member_id=1)
+        client.token_manager.get_token()
+        return _analysis(THEIRS, "Best Gruul", 1)
+
+    job = _job(hub_db, JobKind.IMPORT, report=THEIRS, label=None)
+    with (
+        patch("wcl_core.user_auth.requests.post", return_value=_token_response(400)),
+        patch("wcl_app.raids.analyze_raid", side_effect=reconnect_then_refresh),
+    ):
+        assert _run(job, hub_db, storage)["message"] == reference.EXPIRED_MESSAGE
+    with hub_db() as s:
+        assert load_login(s, CredentialCipher([KEY])) == newer

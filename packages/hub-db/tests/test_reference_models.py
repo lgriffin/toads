@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from dataclasses import replace
 
 import pytest
 from hub_db import (
@@ -91,11 +92,13 @@ def test_reconnect_refresh_expire_and_delete(db: Session, cipher: CredentialCiph
     assert row is not None and row.connected_by == 2
     assert load_login(db, cipher) == second
 
-    refreshed = _token(12_000.0)
-    store_refreshed_login(db, cipher, refreshed)
+    loaded = load_login(db, cipher)
+    assert loaded is not None
+    refreshed = replace(_token(12_000.0), connection_id=loaded.connection_id)
+    assert store_refreshed_login(db, cipher, refreshed) is True
     assert load_login(db, cipher) == refreshed and row.refreshed_at is not None
 
-    mark_login_expired(db)
+    assert mark_login_expired(db, loaded.connection_id) is True
     assert load_login(db, cipher) is None and row.status == "expired"
     save_login(db, cipher, _token(), member_id=1)
     assert row.status == "working"
@@ -103,6 +106,21 @@ def test_reconnect_refresh_expire_and_delete(db: Session, cipher: CredentialCiph
     assert delete_login(db) is True
     assert delete_login(db) is False
     assert load_login(db, cipher) is None
+
+
+def test_a_stale_connection_never_touches_a_newer_login(db: Session, cipher: CredentialCipher) -> None:
+    save_login(db, cipher, _token(), member_id=1)
+    stale = load_login(db, cipher)
+    assert stale is not None
+    # An officer disconnects and connects another account while a job still holds the first token.
+    delete_login(db)
+    newer = _token(9_000.0)
+    save_login(db, cipher, newer, member_id=2)
+
+    assert store_refreshed_login(db, cipher, replace(_token(), connection_id=stale.connection_id)) is False
+    assert mark_login_expired(db, stale.connection_id) is False
+    current = load_login(db, cipher)
+    assert current == newer and current is not None and current.connection_id != stale.connection_id
 
 
 def test_jobs_are_created_updated_and_capped(db: Session) -> None:
