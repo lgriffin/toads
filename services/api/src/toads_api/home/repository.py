@@ -56,6 +56,8 @@ class MemberCharacters:
     approved: list[str]
     # Case-folded names another member claims (approved or pending): never shown to anyone else.
     claimed_by_others: frozenset[str]
+    # Another member goes by the same server nickname, so the nickname alone cannot say whose character it is.
+    nickname_shared: bool = False
 
 
 class HomeRepository(Protocol):
@@ -69,7 +71,11 @@ class HomeRepository(Protocol):
     def performance_page(self) -> StoredPerformance | None: ...
     def save_performance_page(self, page: StoredPerformance) -> None: ...
     def badge_page(self) -> StoredBadges | None: ...
-    def save_badge_page(self, page: StoredBadges) -> None: ...
+    def save_badge_page(self, page: StoredBadges) -> bool:
+        """Keep `page` unless the stored one is newer, checked in the same transaction as the write. Returns
+        whether it was kept."""
+        ...
+
     def member_characters(self, member_id: int) -> MemberCharacters | None: ...
 
 
@@ -108,8 +114,11 @@ class InMemoryHomeRepository:
     def badge_page(self) -> StoredBadges | None:
         return self.badges
 
-    def save_badge_page(self, page: StoredBadges) -> None:
+    def save_badge_page(self, page: StoredBadges) -> bool:
+        if self.badges is not None and page.generated_at < self.badges.generated_at:
+            return False
         self.badges = page
+        return True
 
     def member_characters(self, member_id: int) -> MemberCharacters | None:
         return self.characters.get(member_id)

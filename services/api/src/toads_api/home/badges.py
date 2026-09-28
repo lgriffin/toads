@@ -45,10 +45,8 @@ class BadgeService:
             raise HomeError("generated_at must look like 2026-09-27 12:00:00", status=422)
         if len({fold(str(p["name"])) for p in players}) != len(players):
             raise HomeError("A player can only appear once", status=422)
-        current = self.repo.badge_page()
-        if current is not None and generated_at < current.generated_at:
+        if not self.repo.save_badge_page(StoredBadges(version, generated_at, [dict(p) for p in players])):
             raise HomeError("A newer badge page is already published", status=409)
-        self.repo.save_badge_page(StoredBadges(version, generated_at, [dict(p) for p in players]))
         return len(players)
 
     def mine(self, member_id: int) -> MyBadges:

@@ -67,6 +67,29 @@ def test_a_nickname_someone_else_claims_is_not_shown() -> None:
     assert (mine.entry, mine.matched_by, mine.looked_for) == (None, None, [])
 
 
+def test_a_nickname_another_member_shares_is_not_shown() -> None:
+    chars = MemberCharacters("Croak", None, [], frozenset(), nickname_shared=True)
+    mine = _service(chars, [_player("Croak")]).mine(1)
+    assert (mine.entry, mine.looked_for) == (None, [])
+
+
+def test_two_members_with_one_nickname_see_neither_characters_badges(hub: Hub) -> None:
+    first = hub.login(hub.user(("wed", "raider"), nick="Croak"))
+    second = hub.login(hub.user(("wed", "raider"), nick="croak"))
+    assert hub.client.put("/api/worker/badges", headers=WORKER, json=_page(_player("Croak"))).status_code == 200
+    for sid in (first, second):
+        mine = hub.get("/api/me/badges", sid).json()
+        assert (mine["entry"], mine["looked_for"]) == (None, [])
+
+
+def test_an_older_build_never_replaces_a_newer_one(hub: Hub) -> None:
+    assert hub.client.put("/api/worker/badges", headers=WORKER, json=_page(_player("A"))).status_code == 200
+    stale = _page(_player("B"), generated_at="2026-09-28 07:00:00")
+    assert hub.client.put("/api/worker/badges", headers=WORKER, json=stale).status_code == 409
+    sid = hub.login(hub.user(("wed", "raider"), nick="A"))
+    assert hub.get("/api/me/badges", sid).json()["entry"]["name"] == "A"
+
+
 def test_nothing_before_the_worker_publishes() -> None:
     mine = _service(MemberCharacters("Hopscotch", None, [], frozenset())).mine(1)
     assert (mine.generated_at, mine.entry, mine.looked_for) == (None, None, ["Hopscotch"])

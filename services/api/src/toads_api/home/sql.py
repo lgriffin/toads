@@ -116,16 +116,19 @@ class SqlHomeRepository:
             row = db.get(AnalyzerBadgePage, _PAGE_ROW)
             return None if row is None else StoredBadges(row.version, row.generated_at, list(row.players))
 
-    def save_badge_page(self, page: StoredBadges) -> None:
+    def save_badge_page(self, page: StoredBadges) -> bool:
         try:
-            self._write_badges(page)
+            return self._write_badges(page)
         except IntegrityError:
-            # The first two publications raced to insert the row; update the one that won.
-            self._write_badges(page)
+            # The first two publications raced to insert the row; check against the one that won.
+            return self._write_badges(page)
 
-    def _write_badges(self, page: StoredBadges) -> None:
+    def _write_badges(self, page: StoredBadges) -> bool:
         with self._db.begin() as db:
-            row = db.get(AnalyzerBadgePage, _PAGE_ROW)
+            # Locked until commit, so an overlapping older build cannot land after a newer one.
+            row = db.get(AnalyzerBadgePage, _PAGE_ROW, with_for_update=True)
+            if row is not None and page.generated_at < row.generated_at:
+                return False
             if row is None:
                 row = AnalyzerBadgePage(id=_PAGE_ROW)
                 db.add(row)
@@ -133,6 +136,7 @@ class SqlHomeRepository:
             row.generated_at = page.generated_at
             row.players = page.players
             row.updated_at = datetime.now(UTC)
+            return True
 
     def member_characters(self, member_id: int) -> MemberCharacters | None:
         with self._db() as db:
@@ -154,4 +158,8 @@ class SqlHomeRepository:
                 chosen=chosen,
                 approved=sorted((c.character_name for c in approved), key=str.casefold),
                 claimed_by_others=frozenset(fold(c.character_name) for c in claims if c.member_id != member_id),
+                nickname_shared=any(
+                    fold(name) == fold(member.display_name)
+                    for name in db.scalars(select(Member.display_name).where(Member.id != member_id))
+                ),
             )

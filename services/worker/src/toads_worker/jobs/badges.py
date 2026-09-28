@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+import structlog
 from wcl_app import BadgeService
 from wcl_app.badges import BADGES_SCHEMA_VERSION
 from wcl_app.context import StorageFactory
@@ -20,13 +21,19 @@ from wcl_app.context import StorageFactory
 from toads_worker import hub_api, store
 from toads_worker.settings import Settings
 
+log = structlog.get_logger(__name__)
+
 # The hub API's MAX_BADGE_PLAYERS. `for_guild` ranks by tiers earned, so a longer history keeps its most decorated.
 MAX_PLAYERS = 1000
 
 
 def build_page(storage: StorageFactory, *, now: Callable[[], datetime] = datetime.now) -> dict[str, Any]:
     """The page as JSON: every character who has raided with the guild, each with every badge, earned or not."""
-    players = BadgeService(storage).for_guild()[:MAX_PLAYERS]
+    players = BadgeService(storage).for_guild()
+    if len(players) > MAX_PLAYERS:
+        # Those left out have the fewest tiers; their owners see "no guild raids yet" until the cap is raised.
+        log.warning("badges.players_capped", players=len(players), kept=MAX_PLAYERS)
+        players = players[:MAX_PLAYERS]
     return {
         "version": BADGES_SCHEMA_VERSION,
         "generated_at": now().strftime("%Y-%m-%d %H:%M:%S"),
