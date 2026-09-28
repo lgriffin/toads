@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     credentials_keys: SecretStr
     # The CBA and RPB spreadsheets the worker imports (config/raid_sheets.example.yaml).
     raid_sheets_config: Path = Path("config/raid_sheets.yaml")
+    # The Warcraft Logs application officers sign in through to connect the guild's dedicated account for reference
+    # comparisons (the worker holds the same values as TOADS_WCL_CLIENT_ID/SECRET). Empty: the feature says so.
+    wcl_client_id: str = ""
+    wcl_client_secret: SecretStr = SecretStr("")
+    wcl_site_url: str = "https://fresh.warcraftlogs.com"
+    # Must be registered on the Warcraft Logs client. Empty: {public_base_url}/api/reference/login/callback.
+    wcl_redirect_uri: str = ""
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)

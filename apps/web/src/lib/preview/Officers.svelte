@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import { PROVIDER_LABELS } from '$lib/clips';
   import type { Application, Visibility } from '$lib/community';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
@@ -144,6 +145,7 @@
 <nav class="sections" aria-label="Officer sections">
   {#each SECTIONS as s}<a href="#{s.id}">{s.label}</a>{/each}
 </nav>
+<p><a href="{base}/officers/reference/">Reference comparison</a>: compare one of our raids with another guild's.</p>
 
 <section id="applications" class="card" aria-labelledby="applications-h">
   <h2 id="applications-h">Applications</h2>

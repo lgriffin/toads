@@ -57,9 +57,10 @@ export class ApiError extends Error {
   }
 }
 
-type Fetch = typeof fetch;
+export type Fetch = typeof fetch;
 
-async function call<T>(f: Fetch, path: string, init: RequestInit = {}): Promise<T> {
+/** One JSON call to the API; a non-2xx answer throws `ApiError` carrying the API's `detail`. */
+export async function call<T>(f: Fetch, path: string, init: RequestInit = {}): Promise<T> {
   const r = await f(path, {
     credentials: 'same-origin',
     ...init,

@@ -13,6 +13,8 @@ dependencies = [
     "structlog>=24",
     "httpx>=0.27",
     "redis>=5",
+    # Hands reference comparison jobs to the worker's queue.
+    "rq>=1.16",
     "psycopg[binary]>=3.2",
 ]
 

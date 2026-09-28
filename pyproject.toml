@@ -17,9 +17,9 @@ toads-worker = { workspace = true }
 toads-bot = { workspace = true }
 # The analyzer's packages from lgriffin/warcraftlogs_project, all three pinned to the same commit (wcl-app and
 # wcl-store depend on wcl-core and wcl-store by name). Bump every rev together to take analyzer changes.
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "8188f7750d8701f931dff9bfaa1cd0f9b0d18043" }
-wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "8188f7750d8701f931dff9bfaa1cd0f9b0d18043" }
-wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "8188f7750d8701f931dff9bfaa1cd0f9b0d18043" }
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
+wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
+wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
 
 [dependency-groups]
 dev = [
@@ -143,6 +143,19 @@ name = "Raid sheet rules hold no RBAC, web framework or storage code"
 type = "forbidden"
 source_modules = ["toads_api.raid_sheets.service"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "Reference routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.reference.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.reference.sql"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Reference rules hold no RBAC, web framework, HTTP, queue or storage code"
+type = "forbidden"
+source_modules = ["toads_api.reference.service"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy", "httpx", "redis", "rq"]
 
 [[tool.importlinter.contracts]]
 name = "Only the worker imports the analyzer (wcl_core, wcl_store, wcl_app)"
