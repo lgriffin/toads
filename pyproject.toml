@@ -91,6 +91,12 @@ source_modules = ["toads_bot"]
 forbidden_modules = ["toads_api", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Bot bridge rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.bots.bridge", "toads_api.bots.models"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
 name = "Community routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.community.routes"]

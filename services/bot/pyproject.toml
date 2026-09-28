@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 toads-bot = "toads_bot.__main__:main"
+toads-botkit = "toads_bot.kit.cli:main"
 
 [build-system]
 requires = ["hatchling"]

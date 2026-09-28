@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.account.service import AccountService
 from toads_api.account.sql import SqlAccountRepository
+from toads_api.bots.bridge import BotBridge, InMemoryBridgeStore
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
@@ -60,8 +61,11 @@ class Services:
     raid_sheets: RaidSheetService = field(init=False)
     reference: ReferenceService = field(init=False)
     wcl_login: WclLogin = field(init=False)
+    bots: BotBridge = field(init=False)
 
     def __post_init__(self) -> None:
+        # Two-way Discord bots (docs/bots.md). In memory until the bridge has a table: a restart drops queued actions.
+        self.bots = BotBridge(InMemoryBridgeStore(), clock=lambda: self.clock())
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
         home_repo = SqlHomeRepository(self.db)
