@@ -54,28 +54,32 @@
         {#each chart.notes as note, i (i)}<p class="muted">{note}</p>{/each}
       </figcaption>
     {/if}
-    <table class="sr-only">
-      <caption>{chart.title}</caption>
-      <thead>
-        <tr>
-          <th scope="col">{chart.x_label}</th>
-          {#each chart.series as s (s.key)}<th scope="col">{s.name}</th>{/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#each chart.categories as c, i (i)}
+    <!-- The wrapper hides the table: a table is never narrower than its cells, whatever its own width says. -->
+    <div class="sr-only">
+      <table>
+        <caption>{chart.title}</caption>
+        <thead>
           <tr>
-            <th scope="row">{c}</th>
-            {#each chart.series as s (s.key)}<td>{s.display[i]}</td>{/each}
+            <th scope="col">{chart.x_label}</th>
+            {#each chart.series as s (s.key)}<th scope="col">{s.name}</th>{/each}
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {#each chart.categories as c, i (i)}
+            <tr>
+              <th scope="row">{c}</th>
+              {#each chart.series as s (s.key)}<td>{s.display[i]}</td>{/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   </figure>
 {/if}
 
 <style>
-  .chart { margin: 0; }
+  /* Positioned, so the screen-reader table stays inside the card and cannot widen the page. */
+  .chart { margin: 0; position: relative; }
   svg { display: block; width: 100%; height: auto; overflow: visible; }
   .grid { stroke: var(--line); stroke-width: 1; }
   .axis { stroke: var(--muted, currentColor); stroke-width: 1; }
