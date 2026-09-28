@@ -21,6 +21,7 @@ describe('home catalogue', () => {
       'raid_totals',
       'recent_raids',
       'raid_activity',
+      'healing_weekly',
       'top_damage',
       'top_healing',
       'attendance',
@@ -37,8 +38,10 @@ describe('home catalogue', () => {
     expect(isAnalyzer('raid_totals')).toBe(false);
   });
 
-  it('marks raid totals as wide', () => {
+  it('marks raid totals and the weekly healing charts as wide', () => {
     expect(isWide('raid_totals')).toBe(true);
+    expect(isWide('healing_weekly')).toBe(true);
+    expect(isAnalyzer('healers_weekly')).toBe(true);
     expect(isWide('posts')).toBe(false);
   });
 });

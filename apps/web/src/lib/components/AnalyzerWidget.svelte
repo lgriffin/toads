@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import PayloadChart from '$lib/components/PayloadChart.svelte';
   import { barPercent, linkTarget, type PayloadLink, type PayloadWidget, type Target } from '$lib/home-payload';
 
   // One widget of the analyzer's home page. Payload text (names, zones) comes from logs, so it is only ever
@@ -89,6 +90,8 @@
         </li>
       {/each}
     </ul>
+  {:else if widget.kind === 'chart'}
+    <PayloadChart chart={widget.chart} />
   {/if}
 </section>
 

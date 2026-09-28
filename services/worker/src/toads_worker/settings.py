@@ -23,3 +23,6 @@ class Settings(BaseSettings):
     hub_api_url: str = "http://api:8000"
     hub_service_token: SecretStr = SecretStr("")
     raid_sheets_config: Path = Path("config/raid_sheets.yaml")
+    # The guild's standard for weekly healing (jobs/home.py): effective healing per raid each week is measured
+    # against it on the hub home. Unset measures weeks against their four-week average only.
+    healing_target_per_raid: float | None = None

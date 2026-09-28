@@ -1,4 +1,4 @@
-"""The customisable hub home: REQ-HUB-HOME-002 to 005. Thin steps over the `hub` fixture (root conftest.py)."""
+"""The customisable hub home: REQ-HUB-HOME-002 to 007. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
@@ -43,6 +43,16 @@ def test_home_004() -> None:
 
 @_bind(5)
 def test_home_005() -> None:
+    pass
+
+
+@_bind(6)
+def test_home_006() -> None:
+    pass
+
+
+@_bind(7)
+def test_home_007() -> None:
     pass
 
 
@@ -115,3 +125,75 @@ def sign_in(hub: Hub, ctx: dict[str, Any]) -> None:
 def lands_on_hub(ctx: dict[str, Any]) -> None:
     assert ctx["response"].status_code == 303
     assert ctx["response"].headers["location"] == f"{HUB}/hub"
+
+
+# --- weekly healing (REQ-HUB-HOME-006, 007) --------------------------------------------------------------------------
+
+WORKER = {"Authorization": "Bearer test-service-token"}  # conftest.make_settings
+
+
+def _healing_page(series: int = 1) -> dict[str, Any]:
+    """A page as the worker publishes it: wcl_app.home's healing_weekly widget (guides/charts.md)."""
+    chart = {
+        "version": 1,
+        "id": "healing_weekly",
+        "title": "Weekly healing",
+        "kind": "bar",
+        "subtitle": "Effective healing per raid",
+        "x_label": "Week starting",
+        "y_label": "Healing per raid",
+        "categories": ["14 Sep", "21 Sep"],
+        "series": [
+            {
+                "key": f"s{i}",
+                "name": "Healing per raid",
+                "values": [4_000_000.0, 4_400_000.0],
+                "display": ["4.0M", "4.4M"],
+                "emphasis": i == 0,
+            }
+            for i in range(series)
+        ],
+        "y_max": 5_000_000.0,
+        "references": [
+            {"key": "baseline", "label": "4-week average", "value": 4_000_000.0, "display": "4.0M"},
+            {"key": "target", "label": "Target", "value": 4_200_000.0, "display": "4.2M"},
+        ],
+        "notes": ["Target 4.2M per raid met; met in 1 of 2 raided weeks."],
+        "empty": "",
+    }
+    widget = {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart}
+    return {"version": 1, "generated_at": "2026-09-28 12:00:00", "widgets": [widget]}
+
+
+@when("the worker publishes the analyzer's weekly healing chart")
+def publish_healing(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["response"] = hub.client.put("/api/worker/home-page", headers=WORKER, json=_healing_page())
+    assert ctx["response"].status_code == 200, ctx["response"].text
+
+
+@when("the worker publishes a weekly healing chart with nine series")
+def publish_oversized(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["response"] = hub.client.put("/api/worker/home-page", headers=WORKER, json=_healing_page(series=9))
+
+
+@then("their home shows weekly healing by default")
+def healing_shown(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert "healing_weekly" in _shown(hub, ctx["sid"])
+
+
+@then("the weekly healing chart carries the four-week average and the target")
+def healing_measured(hub: Hub, ctx: dict[str, Any]) -> None:
+    page = hub.get("/api/home/analyzer", ctx["sid"]).json()
+    chart = next(w for w in page["widgets"] if w["id"] == "healing_weekly")["chart"]
+    assert [r["key"] for r in chart["references"]] == ["baseline", "target"]
+
+
+@then("the page is refused with 422")
+def refused_422(ctx: dict[str, Any]) -> None:
+    assert ctx["response"].status_code == 422
+
+
+@then("the hub keeps no weekly healing chart")
+def no_healing(hub: Hub, ctx: dict[str, Any]) -> None:
+    page = hub.get("/api/home/analyzer", ctx["sid"]).json()
+    assert all(w["id"] != "healing_weekly" for w in page["widgets"])

@@ -15,6 +15,7 @@ export type WidgetId =
   | 'raid_totals'
   | 'recent_raids'
   | 'raid_activity'
+  | 'healing_weekly'
   | 'top_damage'
   | 'top_healing'
   | 'attendance'
@@ -24,6 +25,7 @@ export type WidgetId =
   | 'class_mix'
   | 'interrupts'
   | 'consumables'
+  | 'healers_weekly'
   | 'progression'
   | 'recruiting';
 
@@ -78,6 +80,12 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
   hub('raid_totals', 'Raid totals', 'Consumes, buffs and deaths per raid from the CBA and RPB sheets.', { wide: true }),
   analyzer('recent_raids', 'Recent raids', 'The newest guild raids.'),
   analyzer('raid_activity', 'Raid activity', 'Raids per week over the last eight weeks.'),
+  analyzer(
+    'healing_weekly',
+    'Weekly healing',
+    "Healing per raid each week, measured against the four-week average and the guild's target.",
+    { wide: true }
+  ),
   analyzer('top_damage', 'Top damage', 'The top five damage dealers in the last raid.'),
   analyzer('top_healing', 'Top healing', 'The top five healers in the last raid, with overheal.'),
   analyzer('attendance', 'Attendance', 'Who attended most of the last ten raids.'),
@@ -89,6 +97,10 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
     defaultShown: false
   }),
   analyzer('consumables', 'Consumables', 'The top five consumable users in the last raid.', { defaultShown: false }),
+  analyzer('healers_weekly', 'Healers week on week', "Each healer's healing per raid over the last twelve weeks.", {
+    defaultShown: false,
+    wide: true
+  }),
   hub('progression', 'Progression', 'Bosses killed in each raid zone.', { defaultShown: false }),
   hub('recruiting', 'Recruiting', 'The classes and specs the guild is looking for.', { defaultShown: false })
 ];

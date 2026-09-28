@@ -30,3 +30,17 @@ Feature: HUB HOME
     Given a Wednesday raider in the Toads server
     When they complete Discord sign-in
     Then the hub sends them to their hub home
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-006 The hub home shall show the guild's healing per raid week on week, measured against its four-week average and the guild's target, as the analyzer builds it
+    Given a Wednesday raider signed in to the hub
+    When the worker publishes the analyzer's weekly healing chart
+    Then their home shows weekly healing by default
+    And the weekly healing chart carries the four-week average and the target
+
+  @ears_unwanted_behavior @member @phase_2_3
+  Scenario: REQ-HUB-HOME-007 If the worker publishes a chart over the chart limits, then the hub shall refuse the whole page
+    Given a Wednesday raider signed in to the hub
+    When the worker publishes a weekly healing chart with nine series
+    Then the page is refused with 422
+    And the hub keeps no weekly healing chart

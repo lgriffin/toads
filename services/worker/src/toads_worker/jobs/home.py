@@ -23,6 +23,8 @@ HUB_WIDGETS = (
     "last_raid",
     "recent_raids",
     "raid_activity",
+    "healing_weekly",
+    "healers_weekly",
     "top_damage",
     "top_healing",
     "attendance",
@@ -33,9 +35,10 @@ HUB_WIDGETS = (
 )
 
 
-def build_page(storage: StorageFactory) -> dict[str, Any]:
-    """The page as JSON. A widget that fails to build carries its own `error`; the rest still build."""
-    return HomeService(storage).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
+def build_page(storage: StorageFactory, healing_target: float | None = None) -> dict[str, Any]:
+    """The page as JSON. A widget that fails to build carries its own `error`; the rest still build.
+    `healing_target` is the guild's healing per raid the weekly healing chart measures each week against."""
+    return HomeService(storage, healing_target=healing_target).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
 
 
 def publish_home_page(
@@ -49,7 +52,7 @@ def publish_home_page(
     token = settings.hub_service_token.get_secret_value()
     if not token:
         raise RuntimeError("TOADS_HUB_SERVICE_TOKEN is not set; the hub API would refuse the page")
-    page = build_page(storage or store.storage(settings))
+    page = build_page(storage or store.storage(settings), settings.healing_target_per_raid)
     hub = hub or httpx.Client(base_url=settings.hub_api_url, timeout=30.0)
     r = hub.put("/api/worker/home-page", json=page, headers={"Authorization": f"Bearer {token}"})
     r.raise_for_status()

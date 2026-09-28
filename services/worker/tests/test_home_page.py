@@ -78,3 +78,25 @@ def test_publish_puts_the_page_with_the_service_token(sqlite_storage: Callable[[
 def test_publish_needs_a_service_token(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     with pytest.raises(RuntimeError, match="HUB_SERVICE_TOKEN"):
         home.publish_home_page(_settings(token=""), storage=sqlite_storage)
+
+
+def test_weekly_healing_charts_are_built_and_measured_against_the_target(
+    sqlite_storage: Callable[[], PerformanceDB],
+) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    page = home.build_page(sqlite_storage, healing_target=1.0)
+    widgets = {w["id"]: w for w in page["widgets"]}
+    for wid in ("healing_weekly", "healers_weekly"):
+        assert widgets[wid]["kind"] == "chart" and not widgets[wid]["error"], wid
+        assert widgets[wid]["chart"]["version"] == 1
+    chart = widgets["healing_weekly"]["chart"]
+    assert len(chart["categories"]) == 12 and len(chart["series"]) <= 8
+    if not chart["empty"]:  # the sample report is weeks old, so it may fall outside the window
+        assert "target" in [r["key"] for r in chart["references"]]
+
+
+def test_the_healing_target_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOADS_HEALING_TARGET_PER_RAID", raising=False)
+    assert _settings().healing_target_per_raid is None
+    monkeypatch.setenv("TOADS_HEALING_TARGET_PER_RAID", "4000000")
+    assert _settings().healing_target_per_raid == 4_000_000

@@ -17,9 +17,9 @@ toads-worker = { workspace = true }
 toads-bot = { workspace = true }
 # The analyzer's packages from lgriffin/warcraftlogs_project, all three pinned to the same commit (wcl-app and
 # wcl-store depend on wcl-core and wcl-store by name). Bump every rev together to take analyzer changes.
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "b9fe932630806b035cb4a1a92f3dfff8e8ca64df" }
-wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "b9fe932630806b035cb4a1a92f3dfff8e8ca64df" }
-wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "b9fe932630806b035cb4a1a92f3dfff8e8ca64df" }
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "1cb3faa3aad0f09b8fb978d46e02ddd249975b91" }
+wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "1cb3faa3aad0f09b8fb978d46e02ddd249975b91" }
+wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "1cb3faa3aad0f09b8fb978d46e02ddd249975b91" }
 
 [dependency-groups]
 dev = [
