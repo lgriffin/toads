@@ -307,6 +307,13 @@ _SERIES = _chart()["series"][0]  # type: ignore[index]
         (_chart(series=[_SERIES, _SERIES]), "series keys must be unique"),
         (_chart(references=[{"key": "r", "label": "R", "value": -1, "display": "-1"}]), "outside 0 to y_max"),
         (_chart(references=[{"key": "r", "value": 1}]), "a reference needs a key, label and display"),
+        (_chart(references=[{"key": "r", "label": "R", "value": 1, "display": "1"}] * 2), "reference keys must be"),
+        (_chart(y_max=10**400), "y_max must be a number"),
+        (_chart(series=[{**_SERIES, "values": [None, 10**400]}]), "outside 0 to y_max"),
+        ({k: v for k, v in _chart().items() if k != "notes"}, "notes must be at most"),
+        ({k: v for k, v in _chart().items() if k != "references"}, "references must be a list"),
+        ({k: v for k, v in _chart().items() if k != "subtitle"}, "subtitle must be text"),
+        (_chart(id="healers_weekly"), "does not belong to widget 'healing_weekly'"),
     ],
 )
 def test_charts_that_break_the_contract_are_refused(chart: object, problem: str) -> None:

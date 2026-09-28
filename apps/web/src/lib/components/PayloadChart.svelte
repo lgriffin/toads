@@ -11,7 +11,9 @@
   const plotBottom = VIEW.height - VIEW.bottom;
 </script>
 
-{#if !chart || !ok || !l}
+{#if chart?.empty}
+  <p class="muted">{chart.empty}</p>
+{:else if !chart || !ok || !l}
   <p class="muted">This chart could not be drawn.</p>
 {:else}
   <figure class="chart">
@@ -34,7 +36,7 @@
           <circle cx={p.x} cy={p.y} r="3.5" fill={line.colour}><title>{p.tip}</title></circle>
         {/each}
       {/each}
-      {#each l.references as r (r.key)}
+      {#each l.references as r, i (i)}
         <line class="ref" x1={VIEW.left} x2={plotRight} y1={r.y} y2={r.y} />
         <text class="ref-label" x={plotRight} y={r.y - 4} text-anchor="end">{r.label} {r.display}</text>
       {/each}
@@ -47,7 +49,7 @@
         {/each}
       </ul>
     {/if}
-    {#if chart.notes.length}
+    {#if chart.notes?.length}
       <figcaption>
         {#each chart.notes as note, i (i)}<p class="muted">{note}</p>{/each}
       </figcaption>

@@ -185,7 +185,7 @@ def malformed(widget: Mapping[str, Any]) -> str | None:
         # A widget that failed to build carries its error and no chart.
         if widget.get("chart") is None and widget.get("error"):
             return None
-        return chart_problem(widget.get("chart"))
+        return chart_problem(widget.get("chart"), str(widget.get("id")))
     for name in fields:
         value = widget.get(name)
         if not isinstance(value, list) or not all(isinstance(e, dict) for e in value):

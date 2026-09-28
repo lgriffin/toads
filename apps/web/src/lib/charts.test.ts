@@ -42,6 +42,7 @@ describe('which charts the hub draws', () => {
     expect(drawable(chart({ series: Array.from({ length: 9 }, (_, i) => ({ ...s, key: `s${i}` })) }))).toBe(false);
     expect(drawable(chart({ references: Array(4).fill(chart().references[0]) }))).toBe(false);
     expect(drawable(chart({ series: [{ ...s, values: [1] }] }))).toBe(false);
+    expect(drawable(chart({ series: [s, s] }))).toBe(false);
   });
 });
 

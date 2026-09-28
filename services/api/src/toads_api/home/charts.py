@@ -21,7 +21,12 @@ MAX_NOTES = 10
 
 
 def _number(value: Any) -> TypeGuard[float]:
-    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:  # an int too large for a float
+        return False
 
 
 def _text(value: Any) -> bool:
@@ -53,27 +58,30 @@ def _reference_problem(r: Any, y_max: float) -> str | None:
     return None
 
 
-def chart_problem(chart: Any) -> str | None:
-    """Why `chart` is not a chart payload this hub can draw, or None when it is."""
+def chart_problem(chart: Any, widget_id: str | None = None) -> str | None:
+    """Why `chart` is not a chart payload this hub can draw, or None when it is. With `widget_id`, the chart must
+    also be the one that widget shows."""
     if not isinstance(chart, Mapping):
         return "chart must be an object"
+    if widget_id is not None and chart.get("id") != widget_id:
+        return f"chart {chart.get('id')!r} does not belong to widget {widget_id!r}"
     if chart.get("version") != CHART_VERSION:
         return f"unsupported chart version {chart.get('version')!r}"
     if chart.get("kind") not in KINDS:
         return f"unsupported chart kind {chart.get('kind')!r}"
     for name in ("id", "title", "subtitle", "x_label", "y_label", "empty"):
-        if not _text(chart.get(name, "")):
+        if not _text(chart.get(name)):
             return f"{name} must be text of at most {MAX_TEXT} characters"
     categories = chart.get("categories")
     if not _texts(categories, MAX_POINTS):
         return f"categories must be at most {MAX_POINTS} short labels"
-    if not _texts(chart.get("notes", []), MAX_NOTES):
+    if not _texts(chart.get("notes"), MAX_NOTES):
         return f"notes must be at most {MAX_NOTES} short lines"
     raw_max = chart.get("y_max")
     if not (_number(raw_max) and raw_max >= 0):
         return "y_max must be a number of at least 0"
     y_max = float(raw_max)
-    series, references = chart.get("series"), chart.get("references", [])
+    series, references = chart.get("series"), chart.get("references")
     if not isinstance(series, list) or len(series) > MAX_SERIES:
         return f"series must be a list of at most {MAX_SERIES}"
     if not isinstance(references, list) or len(references) > MAX_REFERENCES:
@@ -88,4 +96,6 @@ def chart_problem(chart: Any) -> str | None:
         problem = _reference_problem(r, y_max)
         if problem:
             return problem
+    if len({r["key"] for r in references}) != len(references):
+        return "reference keys must be unique"
     return None

@@ -105,7 +105,8 @@ export function drawable(chart: ChartPayload | null | undefined): chart is Chart
   if (!chart || chart.version !== CHART_VERSION) return false;
   if (chart.categories.length > MAX_POINTS || chart.series.length > MAX_SERIES) return false;
   if ((chart.references ?? []).length > MAX_REFERENCES) return false;
-  return chart.series.every((s) => s.values.length === chart.categories.length);
+  const keys = new Set(chart.series.map((s) => s.key));
+  return keys.size === chart.series.length && chart.series.every((s) => s.values.length === chart.categories.length);
 }
 
 export function colours(series: readonly ChartSeries[], accent = 'var(--accent)'): string[] {
