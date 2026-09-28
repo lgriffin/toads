@@ -1,5 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import BadgesCard from '$lib/components/BadgesCard.svelte';
+  import { previewBadges } from '$lib/mock/badges';
   import { me } from '$lib/mock/data';
   import TrendChart from './TrendChart.svelte';
 
@@ -56,6 +58,8 @@
     </table>
   </section>
 
+  <div class="wide"><BadgesCard mine={previewBadges} /></div>
+
   <section class="card">
     <h2>Bank receipts</h2>
     <table>
@@ -86,4 +90,5 @@
   }
   .chars button[aria-pressed='true'] { border-color: var(--accent); }
   .small { font-size: 0.8rem; }
+  .wide { grid-column: 1 / -1; }
 </style>

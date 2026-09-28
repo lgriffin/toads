@@ -4,6 +4,7 @@
  * Numbers arrive already formatted (`display`, `cells`), so nothing here formats them; `value`/`values` are raw.
  */
 
+import type { BadgeHolder } from './badges';
 import type { ChartPayload } from './charts';
 import { reportUrl } from './sheets';
 
@@ -64,7 +65,9 @@ export type PayloadWidget =
   | (Base & { kind: 'bars'; bars: Bar[] })
   | (Base & { kind: 'actions'; actions: { id: string; label: string; description: string }[] })
   /** `chart` is null only when the widget failed to build (`error` is set). Drawn by PayloadChart ($lib/charts). */
-  | (Base & { kind: 'chart'; chart: ChartPayload | null });
+  | (Base & { kind: 'chart'; chart: ChartPayload | null })
+  /** The last raid's roster with the badges each has earned (guides/badges.md); only officers receive it. */
+  | (Base & { kind: 'badges'; holders: BadgeHolder[] });
 
 /** GET /api/home/analyzer. `generated_at` is null until the worker has published a page. */
 export interface AnalyzerPage {

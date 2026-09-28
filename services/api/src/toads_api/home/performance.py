@@ -51,7 +51,8 @@ def candidates(chars: MemberCharacters) -> list[tuple[str, MatchedBy]]:
     if chars.chosen:
         found.append((chars.chosen, MatchedBy.CHOSEN))
     found += [(name, MatchedBy.CLAIM) for name in chars.approved]
-    if chars.nickname.strip() and fold(chars.nickname) not in chars.claimed_by_others:
+    nickname_free = fold(chars.nickname) not in chars.claimed_by_others and not chars.nickname_shared
+    if chars.nickname.strip() and nickname_free:
         found.append((chars.nickname.strip(), MatchedBy.NICKNAME))
     seen: set[str] = set()
     out: list[tuple[str, MatchedBy]] = []

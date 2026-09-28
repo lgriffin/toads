@@ -11,6 +11,12 @@ describe('home catalogue', () => {
     expect(shownIds(defaultLayout(true))).toContain('officer_desk');
   });
 
+  it('shows the badge roster to raid leaders only', () => {
+    expect(isAnalyzer('badges')).toBe(true);
+    expect(shownIds(defaultLayout(true))).toContain('badges');
+    expect(defaultLayout(false).widgets.map((w) => w.id)).not.toContain('badges');
+  });
+
   it('shows the defaults and hides the extras', () => {
     const shown = shownIds(defaultLayout(false));
     expect(shown).toEqual([

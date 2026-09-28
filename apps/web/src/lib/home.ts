@@ -19,6 +19,7 @@ export type WidgetId =
   | 'top_damage'
   | 'top_healing'
   | 'attendance'
+  | 'badges'
   | 'posts'
   | 'highlights'
   | 'boss_kills'
@@ -95,6 +96,10 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
   analyzer('top_damage', 'Top damage', 'The top five damage dealers in the last raid.'),
   analyzer('top_healing', 'Top healing', 'The top five healers in the last raid, with overheal.'),
   analyzer('attendance', 'Attendance', 'Who attended most of the last ten raids.'),
+  // The whole roster's badges are for raid leaders; each member sees their own on /me.
+  analyzer('badges', 'Toads badges', "Badges earned by the last raid's roster, most tiers first.", {
+    officer_only: true
+  }),
   hub('posts', 'Guild posts', 'News and posts from officers and Discord.'),
   hub('highlights', 'Recent highlights', 'The newest highlight reels.'),
   analyzer('boss_kills', 'Boss kills', 'Bosses killed in the last raid, in kill order.', { defaultShown: false }),

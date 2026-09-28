@@ -4,7 +4,7 @@ Runs in its own container (infra/docker-compose.yml, service `scheduler`) on the
 start, then again each interval. A job that fails is logged and tried again at its next turn; it never stops the
 others. Intervals come from the environment, and 0 turns a job off:
 
-- publish-home, publish-performance and publish-reference: every TOADS_HUB_REFRESH_MINUTES (default 30)
+- publish-home, publish-performance, publish-badges and publish-reference: every TOADS_HUB_REFRESH_MINUTES (default 30)
 - import-sheets: every TOADS_SHEETS_REFRESH_MINUTES (default 360), only when the raid sheets config exists
 """
 
@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 import structlog
 
+from toads_worker.jobs.badges import publish_badges
 from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
@@ -44,6 +45,7 @@ def jobs_for(settings: Settings) -> list[Job]:
         every = settings.hub_refresh_minutes * 60.0
         jobs.append(Job("publish-home", every, lambda: publish_home_page(settings)))
         jobs.append(Job("publish-performance", every, lambda: publish_performance(settings)))
+        jobs.append(Job("publish-badges", every, lambda: publish_badges(settings)))
         # The raids officers pick from on the reference comparison page, so newly synced raids show up there.
         jobs.append(Job("publish-reference", every, lambda: publish_reference_page(settings)))
     if settings.sheets_refresh_minutes and settings.raid_sheets_config.is_file():

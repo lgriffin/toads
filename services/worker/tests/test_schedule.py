@@ -34,6 +34,7 @@ def test_default_jobs_refresh_the_hub_every_half_hour(tmp_path: Path) -> None:
     assert [(j.name, j.every_seconds) for j in jobs] == [
         ("publish-home", 1800.0),
         ("publish-performance", 1800.0),
+        ("publish-badges", 1800.0),
         ("publish-reference", 1800.0),
     ]
 
@@ -121,13 +122,19 @@ def default_scheduler(tmp_path: Path, ops: dict[str, Any], monkeypatch: pytest.M
 
     monkeypatch.setattr(schedule, "publish_home_page", publisher("home"))
     monkeypatch.setattr(schedule, "publish_performance", publisher("performance"))
+    monkeypatch.setattr(schedule, "publish_badges", publisher("badges"))
     monkeypatch.setattr(schedule, "publish_reference_page", publisher("reference"))
     ops.update(jobs=schedule.jobs_for(_settings(tmp_path)), published=published, hub_up=hub_up)
 
 
 @when("the hub is down for the first run")
 def first_run_fails(ops: dict[str, Any]) -> None:
-    assert schedule.run_due(ops["jobs"], 0.0) == ["publish-home", "publish-performance", "publish-reference"]
+    assert schedule.run_due(ops["jobs"], 0.0) == [
+        "publish-home",
+        "publish-performance",
+        "publish-badges",
+        "publish-reference",
+    ]
     assert ops["published"] == []
     ops["hub_up"][0] = True
 
@@ -135,5 +142,10 @@ def first_run_fails(ops: dict[str, Any]) -> None:
 @then("the analyzer widgets and performance numbers are published again 30 minutes later")
 def published_later(ops: dict[str, Any]) -> None:
     assert schedule.run_due(ops["jobs"], 29 * 60.0) == []
-    assert schedule.run_due(ops["jobs"], 30 * 60.0) == ["publish-home", "publish-performance", "publish-reference"]
-    assert ops["published"] == ["home", "performance", "reference"]
+    assert schedule.run_due(ops["jobs"], 30 * 60.0) == [
+        "publish-home",
+        "publish-performance",
+        "publish-badges",
+        "publish-reference",
+    ]
+    assert ops["published"] == ["home", "performance", "badges", "reference"]

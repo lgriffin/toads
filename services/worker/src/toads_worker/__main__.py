@@ -7,6 +7,7 @@ from redis import Redis
 from rq import Worker
 
 from toads_worker import schedule
+from toads_worker.jobs.badges import publish_badges
 from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
@@ -27,6 +28,10 @@ def main() -> None:
     if sys.argv[1:] == ["publish-performance"]:
         # Rebuild the numbers behind each member's "Your performance" widget.
         print(json.dumps(publish_performance(settings), indent=2))
+        return
+    if sys.argv[1:] == ["publish-badges"]:
+        # Rebuild every raider's Toads badges for their /me page.
+        print(json.dumps(publish_badges(settings), indent=2))
         return
     if sys.argv[1:] == ["schedule"]:
         # The scheduler container: runs the jobs above on their intervals (toads_worker.schedule).

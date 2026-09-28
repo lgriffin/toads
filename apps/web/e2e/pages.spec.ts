@@ -115,3 +115,14 @@ test('the hub draws the analyzer widgets from their shared payloads', async ({ p
   await recent.getByRole('link').first().click();
   await expect(page).toHaveURL(/\/toads\/raids\/[a-z]+-\d{4}\/$/);
 });
+
+test('raid leaders see the roster\'s badges and members their own', async ({ page }) => {
+  await page.goto('hub/');
+  const roster = page.getByRole('region', { name: 'Toads badges' });
+  await expect(roster.getByText('Hopscotch', { exact: true })).toBeVisible();
+  await expect(roster.getByRole('img', { name: /^Loyal Toad, Legendary: 104 raids/ }).first()).toBeVisible();
+  await page.goto('me/');
+  const mine = page.getByRole('region', { name: 'Your badges' });
+  await expect(mine.getByText(/^Hopscotch: \d+ of 10 earned/)).toBeVisible();
+  await expect(mine.getByRole('img', { name: /^Drummer, not earned yet/ })).toBeVisible();
+});

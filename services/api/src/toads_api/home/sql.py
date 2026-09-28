@@ -4,13 +4,21 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from hub_db import AnalyzerHomePage, AnalyzerPerformancePage, CharacterClaim, ClaimStatus, Member, MemberHomeLayout
+from hub_db import (
+    AnalyzerBadgePage,
+    AnalyzerHomePage,
+    AnalyzerPerformancePage,
+    CharacterClaim,
+    ClaimStatus,
+    Member,
+    MemberHomeLayout,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.home.performance import fold
-from toads_api.home.repository import MemberCharacters, StoredPage, StoredPerformance, StoredWidget
+from toads_api.home.repository import MemberCharacters, StoredBadges, StoredPage, StoredPerformance, StoredWidget
 
 # The analyzer's page is guild-wide: one row.
 _PAGE_ROW = 1
@@ -103,6 +111,33 @@ class SqlHomeRepository:
             row.players = page.players
             row.updated_at = datetime.now(UTC)
 
+    def badge_page(self) -> StoredBadges | None:
+        with self._db() as db:
+            row = db.get(AnalyzerBadgePage, _PAGE_ROW)
+            return None if row is None else StoredBadges(row.version, row.generated_at, list(row.players))
+
+    def save_badge_page(self, page: StoredBadges) -> bool:
+        try:
+            return self._write_badges(page)
+        except IntegrityError:
+            # The first two publications raced to insert the row; check against the one that won.
+            return self._write_badges(page)
+
+    def _write_badges(self, page: StoredBadges) -> bool:
+        with self._db.begin() as db:
+            # Locked until commit, so an overlapping older build cannot land after a newer one.
+            row = db.get(AnalyzerBadgePage, _PAGE_ROW, with_for_update=True)
+            if row is not None and page.generated_at < row.generated_at:
+                return False
+            if row is None:
+                row = AnalyzerBadgePage(id=_PAGE_ROW)
+                db.add(row)
+            row.version = page.version
+            row.generated_at = page.generated_at
+            row.players = page.players
+            row.updated_at = datetime.now(UTC)
+            return True
+
     def member_characters(self, member_id: int) -> MemberCharacters | None:
         with self._db() as db:
             member = db.get(Member, member_id)
@@ -123,4 +158,8 @@ class SqlHomeRepository:
                 chosen=chosen,
                 approved=sorted((c.character_name for c in approved), key=str.casefold),
                 claimed_by_others=frozenset(fold(c.character_name) for c in claims if c.member_id != member_id),
+                nickname_shared=any(
+                    fold(name) == fold(member.display_name)
+                    for name in db.scalars(select(Member.display_name).where(Member.id != member_id))
+                ),
             )

@@ -20,6 +20,7 @@ from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord
+from toads_api.home.badges import BadgeService
 from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
 from toads_api.home.performance import PerformanceService
 from toads_api.home.service import HomeService
@@ -54,6 +55,7 @@ class Services:
     account: AccountService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
+    badges: BadgeService = field(init=False)
     next_raid: NextRaidService = field(init=False)
     raid_sheets: RaidSheetService = field(init=False)
     reference: ReferenceService = field(init=False)
@@ -65,6 +67,7 @@ class Services:
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)
+        self.badges = BadgeService(home_repo)
         self.wcl_login = WclLogin(self.settings, self.redis, self.http)
         self.reference = ReferenceService(
             SqlReferenceRepository(self.db, cipher),
