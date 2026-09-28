@@ -10,7 +10,8 @@ the API reads through `wcl-store`, both published from `lgriffin/warcraftlogs_pr
 - `apps/web/` SvelteKit + TypeScript. Talks only to the API.
 - `services/api/` FastAPI: auth, RBAC (`toads_api/rbac/`), routes.
 - `services/worker/` RQ jobs; owns all Warcraft Logs traffic.
-- `services/bot/` discord.py; no DB credentials, calls the API with a service token.
+- `services/bot/` discord.py; no DB credentials, calls the API with a service token. `toads_bot.kit` builds two-way
+  bots (a spec of bindings; site actions out, Discord events in) against `toads_api.bots`; see `docs/bots.md`.
 - `packages/hub-db/` hub-only SQLAlchemy models (analyzer tables come from wcl-store).
 - `infra/` compose, Caddyfile. `config/` raid days and Discord role map (config, not code).
 - `tests/features/` EARS requirements as Gherkin, one file per epic. `docs/requirements.md` is generated.
