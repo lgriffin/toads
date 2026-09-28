@@ -62,8 +62,12 @@ The rules:
 
        @commands.Cog.listener()
        async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
-           await self.emit("signup", event_id=f"signup:{payload.message_id}:{payload.user_id}", user_id=payload.user_id,
-                           payload={"message_id": payload.message_id, "emoji": str(payload.emoji)})
+           await self.emit(
+               "signup",
+               event_id=f"signup:{payload.message_id}:{payload.user_id}",
+               user_id=payload.user_id,
+               payload={"message_id": payload.message_id, "emoji": str(payload.emoji)},
+           )
    ```
 
 2. Add a spec to `SPECS` in `toads_bot/kit/specs.py`, for example
@@ -73,6 +77,7 @@ The rules:
 
    ```python
    services.bots.send("signups", "open_signup", {"channel_id": 111, "raid": "ssc-1001"})
+
 
    @services.bots.on_event("signups", "signup", name="raid-signups")
    def record(bot: str, event: DiscordEvent) -> None: ...
