@@ -8,6 +8,7 @@ It implements just what the hub uses, with the same paths and shapes as Discord:
                                                  URI and PKCE verifier; codes are single use
 - GET  /api/v10/users/@me/guilds/{id}/member     the token owner's guild member, 404 when not in the server
 - GET  /api/v10/guilds/{id}/roles                the server's roles (any `Bot` token)
+- GET  /api/v10/guilds/{id}/scheduled-events     the server's scheduled events (any `Bot` token)
 
 Tests drive it in-process (httpx.ASGITransport / TestClient) and edit `FakeDiscordState` directly.
 The dev stack runs `uvicorn --factory toads_api.testing.fake_discord:app_from_env` (see infra/docker-compose.yml).
@@ -21,6 +22,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlencode
 
@@ -55,11 +57,22 @@ class FakeDiscordState:
     login_as: int | None = None
     codes: dict[str, _Code] = field(default_factory=dict)
     tokens: dict[str, int] = field(default_factory=dict)
+    # Scheduled events exactly as Discord's API returns them (see `scheduled_event`).
+    events: list[dict[str, Any]] = field(default_factory=list)
+    # Tests set this to make the scheduled events listing fail as Discord does when it is down.
+    events_down: bool = False
 
     def add_user(self, user: FakeUser) -> FakeUser:
         self.users[user.user_id] = user
         self.guild_roles |= user.roles
         return user
+
+    def add_event(
+        self, event_id: int, name: str, starts_at: datetime, *, status: int = 1, interested: int | None = 0
+    ) -> dict[str, Any]:
+        event = scheduled_event(self.guild_id, event_id, name, starts_at, status=status, interested=interested)
+        self.events.append(event)
+        return event
 
     def revoke_tokens(self, user_id: int) -> None:
         self.tokens = {t: u for t, u in self.tokens.items() if u != user_id}
@@ -79,7 +92,28 @@ class FakeDiscordState:
             FakeUser(1001, "hopscotch", global_name="Hopscotch", nick=os.environ.get("FAKE_DISCORD_NICK"), roles=roles)
         )
         state.login_as = user.user_id
+        # One raid two days out, so the dev hub's Next raid widget has something to show.
+        start = (datetime.now(UTC) + timedelta(days=2)).replace(hour=18, minute=30, second=0, microsecond=0)
+        state.add_event(9001, "Karazhan", start, interested=17)
         return state
+
+
+def scheduled_event(
+    guild_id: int, event_id: int, name: str, starts_at: datetime, *, status: int = 1, interested: int | None = 0
+) -> dict[str, Any]:
+    """A scheduled event in Discord's shape (voice-channel raid events carry no end time)."""
+    event: dict[str, Any] = {
+        "id": str(event_id),
+        "guild_id": str(guild_id),
+        "name": name,
+        "scheduled_start_time": starts_at.isoformat(),
+        "scheduled_end_time": None,
+        "status": status,
+        "entity_type": 2,
+    }
+    if interested is not None:
+        event["user_count"] = interested
+    return event
 
 
 def _s256(verifier: str) -> str:
@@ -150,6 +184,15 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
         if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
             raise HTTPException(401, detail="401: Unauthorized")
         return [{"id": str(r), "name": f"role-{r}"} for r in sorted(state.guild_roles | {state.guild_id})]
+
+    @app.get("/api/v10/guilds/{guild_id}/scheduled-events")
+    async def scheduled_events(guild_id: int, request: Request) -> list[dict[str, Any]]:
+        if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
+            raise HTTPException(401, detail="401: Unauthorized")
+        if state.events_down:
+            raise HTTPException(503, detail="503: Service Unavailable")
+        with_count = request.query_params.get("with_user_count") == "true"
+        return [e if with_count else {k: v for k, v in e.items() if k != "user_count"} for e in state.events]
 
     return app
 

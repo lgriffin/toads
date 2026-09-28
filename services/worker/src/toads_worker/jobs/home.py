@@ -2,7 +2,8 @@
 in wcl-store and publishes it to the hub API, which serves it to members' hub homes.
 
 The API decides which widgets it keeps; this job builds the analyzer widgets the hub places and posts them with the
-service token. Run it after new raids are analysed: `toads-worker publish-home`, or enqueue `publish_home_page`.
+service token. `toads-worker schedule` runs it every TOADS_HUB_REFRESH_MINUTES; run it by hand after new raids are
+analysed with `toads-worker publish-home`, or enqueue `publish_home_page`.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import httpx
 from wcl_app import HomeLayout, HomeService
 from wcl_app.context import StorageFactory
 
-from toads_worker import store
+from toads_worker import hub_api, store
 from toads_worker.settings import Settings
 
 # The analyzer widgets the hub places (toads_api.home.service.CATALOGUE). The analyzer's quick actions and tracked
@@ -46,12 +47,5 @@ def publish_home_page(
 ) -> dict[str, Any]:
     """Build the page and PUT it to the hub API. Returns the API's answer (how many widgets it kept)."""
     settings = settings or Settings()
-    token = settings.hub_service_token.get_secret_value()
-    if not token:
-        raise RuntimeError("TOADS_HUB_SERVICE_TOKEN is not set; the hub API would refuse the page")
-    page = build_page(storage or store.storage(settings))
-    hub = hub or httpx.Client(base_url=settings.hub_api_url, timeout=30.0)
-    r = hub.put("/api/worker/home-page", json=page, headers={"Authorization": f"Bearer {token}"})
-    r.raise_for_status()
-    answer: dict[str, Any] = r.json()
-    return answer
+    hub_api.service_token(settings)
+    return hub_api.put(settings, "/api/worker/home-page", build_page(storage or store.storage(settings)), hub)

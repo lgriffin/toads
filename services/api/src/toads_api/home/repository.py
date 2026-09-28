@@ -25,6 +25,30 @@ class StoredPage:
     widgets: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class StoredPerformance:
+    """The worker's performance page (toads_worker.jobs.performance): the last raid and every player's entry in it."""
+
+    version: int
+    generated_at: str
+    raid: dict[str, Any] | None
+    players: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class MemberCharacters:
+    """The names a member's own numbers may be under."""
+
+    # Their Discord server nickname, as refreshed at sign-in.
+    nickname: str
+    # The approved character they chose to go by, if any.
+    chosen: str | None
+    # Characters they hold an approved claim on.
+    approved: list[str]
+    # Case-folded names another member claims (approved or pending): never shown to anyone else.
+    claimed_by_others: frozenset[str]
+
+
 class HomeRepository(Protocol):
     def layout(self, member_id: int) -> list[StoredWidget] | None: ...
     def save_layout(self, member_id: int, widgets: list[StoredWidget]) -> None: ...
@@ -33,6 +57,10 @@ class HomeRepository(Protocol):
     def analyzer_page(self) -> StoredPage | None: ...
     def save_analyzer_page(self, page: StoredPage) -> None: ...
 
+    def performance_page(self) -> StoredPerformance | None: ...
+    def save_performance_page(self, page: StoredPerformance) -> None: ...
+    def member_characters(self, member_id: int) -> MemberCharacters | None: ...
+
 
 @dataclass
 class InMemoryHomeRepository:
@@ -40,6 +68,8 @@ class InMemoryHomeRepository:
 
     layouts: dict[int, list[StoredWidget]] = field(default_factory=dict)
     page: StoredPage | None = None
+    performance: StoredPerformance | None = None
+    characters: dict[int, MemberCharacters] = field(default_factory=dict)
 
     def layout(self, member_id: int) -> list[StoredWidget] | None:
         found = self.layouts.get(member_id)
@@ -56,3 +86,12 @@ class InMemoryHomeRepository:
 
     def save_analyzer_page(self, page: StoredPage) -> None:
         self.page = page
+
+    def performance_page(self) -> StoredPerformance | None:
+        return self.performance
+
+    def save_performance_page(self, page: StoredPerformance) -> None:
+        self.performance = page
+
+    def member_characters(self, member_id: int) -> MemberCharacters | None:
+        return self.characters.get(member_id)

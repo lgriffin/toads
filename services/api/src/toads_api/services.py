@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from zoneinfo import ZoneInfo
 
 import httpx
 from hub_db import CredentialCipher
@@ -19,6 +20,8 @@ from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord
+from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
+from toads_api.home.performance import PerformanceService
 from toads_api.home.service import HomeService
 from toads_api.home.sql import SqlHomeRepository
 from toads_api.notify import Notifier, RedisOutbox
@@ -46,12 +49,16 @@ class Services:
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
     home: HomeService = field(init=False)
+    performance: PerformanceService = field(init=False)
+    next_raid: NextRaidService = field(init=False)
     raid_sheets: RaidSheetService = field(init=False)
 
     def __post_init__(self) -> None:
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
-        self.home = HomeService(SqlHomeRepository(self.db))
+        home_repo = SqlHomeRepository(self.db)
+        self.home = HomeService(home_repo)
+        self.performance = PerformanceService(home_repo)
         self.sessions = SessionStore(
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )
@@ -72,6 +79,17 @@ class Services:
             if (day := sheets_config.weekdays.get(d.id, weekday_named(d.name))) is not None
         }
         self.raid_sheets = RaidSheetService(repo=SqlSheetRepository(self.db), config=sheets_config, weekdays=weekdays)
+        self.next_raid = NextRaidService(
+            self.discord.scheduled_events,
+            guild_id=self.settings.discord_guild_id,
+            slots=[
+                RaidSlot(d.id, d.name, weekdays[d.id], parse_start(d.start_time))
+                for d in self.raid_days.raid_days
+                if d.start_time is not None and d.id in weekdays
+            ],
+            timezone=ZoneInfo(self.raid_days.timezone),
+            clock=lambda: self.clock(),
+        )
 
     async def verify_discord_roles(self) -> None:
         """REQ-HUB-DAY-022: refuse to start when the raid-day config names a role the server lacks."""

@@ -7,3 +7,9 @@ Feature: DEV OPS
 
   @ears_event_driven @maintainer @phase_2_7 @pending
   Scenario: REQ-DEV-OPS-002 When the nightly backup runs, the hub shall upload a pg_dump to object storage; a monthly CI job shall restore it into an empty database and run the contract tests
+
+  @ears_ubiquitous @maintainer @phase_2_3
+  Scenario: REQ-DEV-OPS-003 The worker's scheduler shall rebuild the hub's analyzer widgets and performance numbers at start and then on a fixed interval, and a failed run shall not stop later runs
+    Given the scheduler with the default intervals
+    When the hub is down for the first run
+    Then the analyzer widgets and performance numbers are published again 30 minutes later

@@ -66,7 +66,7 @@ function analyzer(id: WidgetId, title: string, description: string, extra: Parti
  * (guides/home_widgets.md in lgriffin/warcraftlogs_project); its quick actions and tracked players have no hub page.
  */
 export const CATALOGUE: readonly CatalogueEntry[] = [
-  hub('next_raid', 'Next raid', 'When the next raid starts and which roles still need signups.'),
+  hub('next_raid', 'Next raid', 'When the next raid starts and how many have signed up in Discord.'),
   hub('officer_desk', 'Raid leader desk', 'Applications, posts, highlights and spotlights waiting on officers.', {
     officer_only: true
   }),
