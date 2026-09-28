@@ -179,4 +179,6 @@
   .small { font-size: 0.85rem; }
   .note { font-size: 0.9rem; }
   td.num { white-space: nowrap; }
+  /* Keeps screen-reader-only text in wide tables inside the scroll box, so it cannot widen the page. */
+  .scroll { position: relative; }
 </style>

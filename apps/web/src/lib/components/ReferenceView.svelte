@@ -304,6 +304,8 @@
   .inline { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
   .inline input { width: 12rem; }
   .nowrap { white-space: nowrap; }
+  /* Keeps screen-reader-only text in wide tables inside the scroll box, so it cannot widen the page. */
+  .scroll { position: relative; }
   tbody th { color: var(--text); font-weight: 400; }
   h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   .link {
