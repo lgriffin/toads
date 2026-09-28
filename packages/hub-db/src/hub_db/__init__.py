@@ -18,6 +18,7 @@ from hub_db.credentials import (
     WclCredentialStatus,
 )
 from hub_db.models import (
+    AnalyzerBadgePage,
     AnalyzerHomePage,
     AnalyzerPerformancePage,
     AuditEntry,
@@ -31,6 +32,7 @@ from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 
 __all__ = [
+    "AnalyzerBadgePage",
     "AnalyzerHomePage",
     "AnalyzerPerformancePage",
     "Application",

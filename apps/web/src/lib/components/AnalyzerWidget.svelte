@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import BadgeIcon from '$lib/components/BadgeIcon.svelte';
   import PayloadChart from '$lib/components/PayloadChart.svelte';
   import { barPercent, linkTarget, type PayloadLink, type PayloadWidget, type Target } from '$lib/home-payload';
 
@@ -92,6 +93,17 @@
     </ul>
   {:else if widget.kind === 'chart'}
     <PayloadChart chart={widget.chart} />
+  {:else if widget.kind === 'badges'}
+    <ul class="holders">
+      {#each (widget.holders ?? []) as h, i (i)}
+        <li>
+          <span class="who"><span>{h.name}</span>{#if h.player_class}<span class="muted small">{h.player_class}</span>{/if}</span>
+          <span class="icons">
+            {#each h.badges as b (b.id)}<BadgeIcon badge={b} />{/each}
+          </span>
+        </li>
+      {/each}
+    </ul>
   {/if}
 </section>
 
@@ -108,4 +120,9 @@
   .label { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.9rem; }
   .bar { display: block; height: 0.5rem; margin-top: 0.25rem; border-radius: 999px; background: var(--line); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--accent); }
+  .holders { list-style: none; margin: 0; padding: 0; }
+  .holders li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
+  .who { display: flex; flex-direction: column; min-width: 0; }
+  .icons { display: flex; flex-wrap: wrap; gap: 0.55rem; padding-right: 0.45rem; }
+  .small { font-size: 0.8rem; }
 </style>

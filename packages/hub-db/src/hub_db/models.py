@@ -79,6 +79,21 @@ class AnalyzerPerformancePage(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AnalyzerBadgePage(Base):
+    """Every raider's Toads badges as the worker last built them (toads_worker.jobs.badges, wcl_app.badges):
+    guild-wide, one row. The API shows each member only their own; officers see the last raid's roster on the hub
+    home through the analyzer's `badges` widget."""
+
+    __tablename__ = "analyzer_badge_pages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column()
+    generated_at: Mapped[str] = mapped_column(String(40))
+    # wcl_app PlayerBadges.to_dict() per player: {name, player_class, score, badges}.
+    players: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ClaimStatus(enum.StrEnum):
     PENDING = "pending"
     APPROVED = "approved"

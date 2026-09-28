@@ -4,8 +4,11 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
 - GET    /api/me/home   the widgets the member may place, in order, and which are shown
 - PUT    /api/me/home   show exactly these widgets, in this order
 - DELETE /api/me/home   back to the default layout
-- GET    /api/home/analyzer        the analyzer's widgets (guild-wide), as the worker last built them
+- GET    /api/home/analyzer        the analyzer's widgets (guild-wide), as the worker last built them; officer-only
+                                  widgets (the roster's badges) only for officers
+- GET    /api/me/badges            the caller's own Toads badges
 - PUT    /api/worker/home-page     the worker, with the service token: a fresh build of the analyzer's page
+- PUT    /api/worker/badges        the worker, with the service token: every raider's badges
 """
 
 from __future__ import annotations
@@ -19,10 +22,12 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
 
 from toads_api.community.deps import require_service
+from toads_api.home.badges import BadgeService
 from toads_api.home.next_raid import NextRaidService
 from toads_api.home.performance import PerformanceService
 from toads_api.home.service import (
     MAX_ANALYZER_WIDGETS,
+    MAX_HOLDER_BADGES,
     MAX_WIDGETS,
     Audience,
     HomeError,
@@ -33,6 +38,8 @@ from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
 
 log = structlog.get_logger(__name__)
+# Everyone who has raided with the guild; the worker sends the highest scores first when there are more.
+MAX_BADGE_PLAYERS = 1000
 router = APIRouter(prefix="/api/me", tags=["home"])
 guild = APIRouter(prefix="/api/home", tags=["home"])
 worker = APIRouter(prefix="/api/worker", tags=["worker"], dependencies=[Depends(require_service)])
@@ -50,9 +57,14 @@ def get_next_raid(request: Request) -> NextRaidService:
     return get_services(request).next_raid
 
 
+def get_badges(request: Request) -> BadgeService:
+    return get_services(request).badges
+
+
 Home = Annotated[HomeService, Depends(get_home)]
 Performance = Annotated[PerformanceService, Depends(get_performance)]
 NextRaids = Annotated[NextRaidService, Depends(get_next_raid)]
+Badges = Annotated[BadgeService, Depends(get_badges)]
 SignedIn = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
 
 
@@ -139,6 +151,51 @@ class MyPerformanceOut(BaseModel):
     looked_for: list[str]
 
 
+class BadgeEntry(BaseModel):
+    """One badge for one player (guides/badges.md in lgriffin/warcraftlogs_project). `tier` 0 is not earned yet."""
+
+    id: str = Field(min_length=1, max_length=40)
+    name: str = Field(max_length=40)
+    description: str = Field(max_length=200)
+    icon: str = Field(max_length=40)
+    glyph: str = Field(max_length=16)
+    tier: int = Field(ge=0, le=4)
+    quality: Literal["", "uncommon", "rare", "epic", "legendary"]
+    tier_name: str = Field(max_length=20)
+    value: int = Field(ge=0)
+    display: str = Field(max_length=40)
+    stacks: int = Field(ge=0)
+    next_at: int | None = Field(ge=1)
+    next_tier: str = Field(max_length=20)
+    progress: FiniteFloat = Field(ge=0, le=1)
+
+
+class PlayerBadgesEntry(BaseModel):
+    """wcl_app PlayerBadges.to_dict(): every badge in play for one player, earned or not, in catalogue order."""
+
+    name: str = Field(min_length=1, max_length=64)
+    player_class: str = Field(max_length=32)
+    score: int = Field(ge=0)
+    badges: list[BadgeEntry] = Field(max_length=MAX_HOLDER_BADGES)
+
+
+class BadgePageIn(BaseModel):
+    version: int
+    generated_at: str = Field(max_length=40)
+    players: list[PlayerBadgesEntry] = Field(max_length=MAX_BADGE_PLAYERS)
+
+
+class MyBadgesOut(BaseModel):
+    """`generated_at` is null until the worker has published; `entry` is null when none of the member's characters
+    has raided with the guild. `looked_for` names the characters looked for, best first."""
+
+    generated_at: str | None
+    entry: PlayerBadgesEntry | None
+    # "chosen", "claim" or "nickname", as for performance.
+    matched_by: str | None
+    looked_for: list[str]
+
+
 class NextRaidBody(BaseModel):
     name: str
     starts_at: datetime
@@ -202,8 +259,8 @@ async def reset_layout(principal: SignedIn, home: Home) -> HomeOut:
 
 
 @guild.get("/analyzer")
-async def analyzer_page(_: SignedIn, home: Home) -> AnalyzerPageOut:
-    page = await anyio.to_thread.run_sync(home.analyzer_page)
+async def analyzer_page(principal: SignedIn, home: Home) -> AnalyzerPageOut:
+    page = await anyio.to_thread.run_sync(home.analyzer_page, audience_of(principal))
     if page is None:
         return AnalyzerPageOut(version=1, generated_at=None, widgets=[])
     return AnalyzerPageOut(version=page.version, generated_at=page.generated_at, widgets=page.widgets)
@@ -216,6 +273,17 @@ async def my_performance(principal: SignedIn, performance: Performance) -> MyPer
         generated_at=mine.generated_at,
         raid=RaidRef.model_validate(mine.raid) if mine.raid else None,
         entry=PlayerEntry.model_validate(mine.entry) if mine.entry else None,
+        matched_by=mine.matched_by.value if mine.matched_by else None,
+        looked_for=mine.looked_for,
+    )
+
+
+@router.get("/badges")
+async def my_badges(principal: SignedIn, badges: Badges) -> MyBadgesOut:
+    mine = await anyio.to_thread.run_sync(badges.mine, principal.member_id)
+    return MyBadgesOut(
+        generated_at=mine.generated_at,
+        entry=PlayerBadgesEntry.model_validate(mine.entry) if mine.entry else None,
         matched_by=mine.matched_by.value if mine.matched_by else None,
         looked_for=mine.looked_for,
     )
@@ -250,6 +318,17 @@ async def publish_performance(body: PerformancePageIn, performance: Performance)
     except HomeError as exc:
         raise _refused(exc) from None
     log.info("home.performance_published", players=kept)
+    return {"players": kept}
+
+
+@worker.put("/badges")
+async def publish_badges(body: BadgePageIn, badges: Badges) -> dict[str, int]:
+    players = [p.model_dump() for p in body.players]
+    try:
+        kept = await anyio.to_thread.run_sync(badges.publish, body.version, body.generated_at, players)
+    except HomeError as exc:
+        raise _refused(exc) from None
+    log.info("home.badges_published", players=kept)
     return {"players": kept}
 
 

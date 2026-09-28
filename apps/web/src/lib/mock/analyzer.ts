@@ -5,6 +5,7 @@
 import type { ChartPayload } from '../charts';
 import { compact } from '../charts';
 import type { AnalyzerPage, Column, PayloadWidget, Row } from '../home-payload';
+import { badgeHolders } from './badges';
 import { raids } from './data';
 
 const last = raids[0];
@@ -170,6 +171,15 @@ export const analyzerPage: AnalyzerPage = {
         ['Wartsworth', 'Mage', 8, '80.0%']
       ]),
       subtitle: 'Last 10 raids'
+    },
+    {
+      id: 'badges',
+      title: 'Toads badges',
+      kind: 'badges',
+      size: 'half',
+      ...blank,
+      subtitle: `${last.zone} · ${day(last.date)}`,
+      holders: badgeHolders
     },
     table(
       'boss_kills',

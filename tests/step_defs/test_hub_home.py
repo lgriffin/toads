@@ -1,4 +1,4 @@
-"""The hub home: REQ-HUB-HOME-001 to 010. Thin steps over the `hub` fixture (root conftest.py)."""
+"""The hub home: REQ-HUB-HOME-001 to 012. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
@@ -78,6 +78,16 @@ def test_home_009() -> None:
 
 @_bind(10)
 def test_home_010() -> None:
+    pass
+
+
+@_bind(11)
+def test_home_011() -> None:
+    pass
+
+
+@_bind(12)
+def test_home_012() -> None:
     pass
 
 
@@ -374,3 +384,80 @@ def refused_422(ctx: dict[str, Any]) -> None:
 def no_healing(hub: Hub, ctx: dict[str, Any]) -> None:
     page = hub.get("/api/home/analyzer", ctx["sid"]).json()
     assert all(w["id"] != "healing_weekly" for w in page["widgets"])
+
+
+# --- badges (REQ-HUB-HOME-011, 012) ---------------------------------------------------------------------------------
+
+QUALITIES = ["", "uncommon", "rare", "epic", "legendary"]
+
+
+def _badge(quality: str, name: str = "Loyal Toad") -> dict[str, Any]:
+    """wcl_app Badge.to_dict() (guides/badges.md in lgriffin/warcraftlogs_project)."""
+    tier = QUALITIES.index(quality)
+    return {
+        "id": "attendance",
+        "name": name,
+        "description": "Raids attended",
+        "icon": "attendance",
+        "glyph": "\N{FROG FACE}",
+        "tier": tier,
+        "quality": quality,
+        "tier_name": quality.title(),
+        "value": 40,
+        "display": "40 raids",
+        "stacks": 8,
+        "next_at": 100,
+        "next_tier": "Legendary",
+        "progress": 0.0,
+    }
+
+
+@when(parsers.parse('the worker publishes badges where "{name}" has the {tier} {badge} badge'))
+def publish_badges(hub: Hub, name: str, tier: str, badge: str) -> None:
+    players = [
+        {"name": name, "player_class": "Priest", "score": 3, "badges": [_badge(tier.lower(), badge)]},
+        {"name": "Pad", "player_class": "Druid", "score": 0, "badges": [_badge("", badge)]},
+    ]
+    page = {"version": 1, "generated_at": "2026-09-28 08:00:00", "players": players}
+    r = hub.client.put("/api/worker/badges", headers=WORKER, json=page)
+    assert r.status_code == 200, r.text
+
+
+@then(parsers.parse('their badges show "{name}" with the {tier} {badge} badge'))
+def shows_badges(hub: Hub, ctx: dict[str, Any], name: str, tier: str, badge: str) -> None:
+    mine = hub.get("/api/me/badges", ctx["sid"]).json()
+    assert mine["entry"]["name"] == name and mine["matched_by"] == "claim"
+    assert [(b["name"], b["tier_name"]) for b in mine["entry"]["badges"]] == [(badge, tier)]
+
+
+@given("a Sunday officer signed in to the hub")
+def officer_signed_in(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["officer"] = hub.login(hub.user(("sun", "officer")))
+
+
+@when("the worker publishes the last raid's badge roster")
+def publish_roster(hub: Hub) -> None:
+    widget = {
+        "id": "badges",
+        "title": "Toads badges",
+        "kind": "badges",
+        "size": "half",
+        "holders": [{"name": "Hopscotch", "player_class": "Rogue", "badges": [_badge("epic")], "link": None}],
+    }
+    page = {"version": 1, "generated_at": "2026-09-28 08:00:00", "widgets": [widget]}
+    r = hub.client.put("/api/worker/home-page", headers=WORKER, json=page)
+    assert r.status_code == 200, r.text
+
+
+@then(parsers.parse('the officer\'s home offers the badge roster with "{name}" in it'))
+def officer_sees_roster(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    assert "badges" in _shown(hub, ctx["officer"])
+    page = hub.get("/api/home/analyzer", ctx["officer"]).json()
+    roster = next(w for w in page["widgets"] if w["id"] == "badges")
+    assert [h["name"] for h in roster["holders"]] == [name]
+
+
+@then("the raider receives no badge roster")
+def raider_sees_no_roster(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert "badges" not in [w["id"] for w in hub.get("/api/me/home", ctx["sid"]).json()["widgets"]]
+    assert all(w["id"] != "badges" for w in hub.get("/api/home/analyzer", ctx["sid"]).json()["widgets"])

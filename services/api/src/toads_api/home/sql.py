@@ -4,13 +4,21 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from hub_db import AnalyzerHomePage, AnalyzerPerformancePage, CharacterClaim, ClaimStatus, Member, MemberHomeLayout
+from hub_db import (
+    AnalyzerBadgePage,
+    AnalyzerHomePage,
+    AnalyzerPerformancePage,
+    CharacterClaim,
+    ClaimStatus,
+    Member,
+    MemberHomeLayout,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.home.performance import fold
-from toads_api.home.repository import MemberCharacters, StoredPage, StoredPerformance, StoredWidget
+from toads_api.home.repository import MemberCharacters, StoredBadges, StoredPage, StoredPerformance, StoredWidget
 
 # The analyzer's page is guild-wide: one row.
 _PAGE_ROW = 1
@@ -100,6 +108,29 @@ class SqlHomeRepository:
             row.version = page.version
             row.generated_at = page.generated_at
             row.raid = page.raid
+            row.players = page.players
+            row.updated_at = datetime.now(UTC)
+
+    def badge_page(self) -> StoredBadges | None:
+        with self._db() as db:
+            row = db.get(AnalyzerBadgePage, _PAGE_ROW)
+            return None if row is None else StoredBadges(row.version, row.generated_at, list(row.players))
+
+    def save_badge_page(self, page: StoredBadges) -> None:
+        try:
+            self._write_badges(page)
+        except IntegrityError:
+            # The first two publications raced to insert the row; update the one that won.
+            self._write_badges(page)
+
+    def _write_badges(self, page: StoredBadges) -> None:
+        with self._db.begin() as db:
+            row = db.get(AnalyzerBadgePage, _PAGE_ROW)
+            if row is None:
+                row = AnalyzerBadgePage(id=_PAGE_ROW)
+                db.add(row)
+            row.version = page.version
+            row.generated_at = page.generated_at
             row.players = page.players
             row.updated_at = datetime.now(UTC)
 

@@ -43,8 +43,10 @@ class Widget:
     source: Source = Source.HUB
 
 
-def _analyzer(wid: str, title: str, description: str, *, default_shown: bool = True) -> Widget:
-    return Widget(wid, title, description, default_shown=default_shown, source=Source.ANALYZER)
+def _analyzer(
+    wid: str, title: str, description: str, *, default_shown: bool = True, audience: Audience = Audience.MEMBER
+) -> Widget:
+    return Widget(wid, title, description, audience, default_shown=default_shown, source=Source.ANALYZER)
 
 
 # In default display order. The analyzer's `quick_actions` (desktop commands) and `tracked_players` (the desktop's
@@ -76,6 +78,13 @@ CATALOGUE: tuple[Widget, ...] = (
     _analyzer("top_damage", "Top damage", "The top five damage dealers in the last raid."),
     _analyzer("top_healing", "Top healing", "The top five healers in the last raid, with overheal."),
     _analyzer("attendance", "Attendance", "Who attended most of the last ten raids."),
+    # The whole roster's badges are for raid leaders; each member sees their own on /me (toads_api.home.badges).
+    _analyzer(
+        "badges",
+        "Toads badges",
+        "Badges earned by the last raid's roster, most tiers first.",
+        audience=Audience.OFFICER,
+    ),
     Widget("posts", "Guild posts", "News and posts from officers and Discord."),
     Widget("highlights", "Recent highlights", "The newest highlight reels."),
     _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order.", default_shown=False),
@@ -103,7 +112,11 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
     "bars": ("bars",),
     # One chart payload rather than a list; checked by toads_api.home.charts.
     "chart": (),
+    # Each holder's `badges` is checked too (_holders_problem).
+    "badges": ("holders",),
 }
+# Badges one holder carries: the analyzer has ten; far more than this is a broken publisher.
+MAX_HOLDER_BADGES = 50
 # The analyzer's local time, "YYYY-MM-DD HH:MM:SS", which sorts as text.
 _GENERATED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
 
@@ -196,6 +209,19 @@ def malformed(widget: Mapping[str, Any]) -> str | None:
             return f"{name} must be a list of objects"
         if len(value) > MAX_ENTRIES:
             return f"{name} has more than {MAX_ENTRIES} entries"
+    if kind == "badges":
+        return _holders_problem(widget["holders"])
+    return None
+
+
+def _holders_problem(holders: Sequence[Mapping[str, Any]]) -> str | None:
+    """The web draws each holder's badges directly, so each must be a bounded list of objects."""
+    for holder in holders:
+        badges = holder.get("badges")
+        if not isinstance(badges, list) or not all(isinstance(b, dict) for b in badges):
+            return "each holder's badges must be a list of objects"
+        if len(badges) > MAX_HOLDER_BADGES:
+            return f"a holder has more than {MAX_HOLDER_BADGES} badges"
     return None
 
 
@@ -267,8 +293,11 @@ class HomeService:
         self.repo.save_analyzer_page(StoredPage(version, generated_at, list(kept.values())))
         return len(kept)
 
-    def analyzer_page(self) -> AnalyzerPage | None:
+    def analyzer_page(self, audience: Audience = Audience.MEMBER) -> AnalyzerPage | None:
+        """The page as this audience may see it: officer-only widgets (the roster's badges) are left out for
+        members, so hiding them in the web is never the only thing keeping them private."""
         page = self.repo.analyzer_page()
         if page is None:
             return None
-        return AnalyzerPage(page.version, page.generated_at, [dict(w) for w in page.widgets])
+        allowed = {w.id for w in catalogue_for(audience)}
+        return AnalyzerPage(page.version, page.generated_at, [dict(w) for w in page.widgets if w.get("id") in allowed])

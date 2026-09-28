@@ -70,3 +70,18 @@ Feature: HUB HOME
     When the worker publishes a weekly healing chart with nine series
     Then the page is refused with 422
     And the hub keeps no weekly healing chart
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-011 The hub shall show each member their main character's Toads badges, earned or not, as the analyzer awards them
+    Given a Wednesday raider signed in to the hub
+    And they hold an approved claim on the healer "Lilypad"
+    When the worker publishes badges where "Lilypad" has the Epic Loyal Toad badge
+    Then their badges show "Lilypad" with the Epic Loyal Toad badge
+
+  @ears_unwanted_behavior @raid_leader @phase_2_3
+  Scenario: REQ-HUB-HOME-012 If a member without officer powers loads the analyzer's home widgets, then the hub shall leave out the last raid's badge roster that raid leaders see
+    Given a Wednesday raider signed in to the hub
+    And a Sunday officer signed in to the hub
+    When the worker publishes the last raid's badge roster
+    Then the officer's home offers the badge roster with "Hopscotch" in it
+    And the raider receives no badge roster

@@ -29,6 +29,8 @@ HUB_WIDGETS = (
     "top_damage",
     "top_healing",
     "attendance",
+    # Officer-only on the hub: the last raid's roster with their badges.
+    "badges",
     "boss_kills",
     "class_mix",
     "interrupts",

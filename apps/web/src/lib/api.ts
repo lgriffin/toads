@@ -12,6 +12,7 @@ import {
   type ApiStory,
   type DeskSummary
 } from './community-api';
+import type { MyBadges } from './badges';
 import type { HomeLayout } from './home';
 import type { AnalyzerPage } from './home-payload';
 import type { NextRaidAnswer } from './next-raid';
@@ -233,6 +234,9 @@ export const nextRaid = (f: Fetch = fetch) => call<NextRaidAnswer>(f, '/api/home
 
 /** The member's main character in the last raid against the guild median for their role. */
 export const myPerformance = (f: Fetch = fetch) => call<MyPerformance>(f, '/api/me/performance');
+
+/** The member's main character's Toads badges, earned or not. */
+export const myBadges = (f: Fetch = fetch) => call<MyBadges>(f, '/api/me/badges');
 
 /** What to tell a member when saving their home fails. */
 export function homeError(e: unknown): string {
