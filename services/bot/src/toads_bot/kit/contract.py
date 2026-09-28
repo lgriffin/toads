@@ -4,12 +4,13 @@ the bot cannot import toads_api; tests/test_bot_contract.py checks the two stay 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
 NAME = r"^[a-z][a-z0-9_-]{0,39}$"
 KIND = r"^[a-z][a-z0-9_.]{0,63}$"
+Kind = Annotated[str, Field(pattern=KIND)]
 
 
 class BotManifest(BaseModel):
@@ -17,8 +18,8 @@ class BotManifest(BaseModel):
 
     name: str = Field(pattern=NAME)
     description: str = Field(default="", max_length=500)
-    actions: list[str] = Field(default_factory=list, max_length=100)
-    events: list[str] = Field(default_factory=list, max_length=100)
+    actions: list[Kind] = Field(default_factory=list, max_length=100)
+    events: list[Kind] = Field(default_factory=list, max_length=100)
 
 
 class SiteAction(BaseModel):

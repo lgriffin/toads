@@ -7,6 +7,7 @@ manifest with the hub, pulls its actions and reports the results. The hub is rea
 
 from toads_bot.kit.binding import Binding, BotContext
 from toads_bot.kit.contract import ActionResult, BotManifest, DiscordEvent, EventReceipt, SiteAction
+from toads_bot.kit.delivery import EventOutbox
 from toads_bot.kit.gate import Gate, OpenGate
 from toads_bot.kit.link import HttpHubLink, HubLink
 from toads_bot.kit.runner import ActionRunner
@@ -20,6 +21,7 @@ __all__ = [
     "BotManifest",
     "BotSpec",
     "DiscordEvent",
+    "EventOutbox",
     "EventReceipt",
     "Gate",
     "HttpHubLink",

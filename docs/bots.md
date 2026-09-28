@@ -42,10 +42,21 @@ The rules:
 - Once a bot has registered, the site can send it only the action kinds its manifest lists (otherwise 422). Actions
   sent before a bot's first start wait for it.
 - A failed result (`ok: false`) puts the action back in the queue until its fifth attempt, when it is given up.
-  `on_result` listeners hear the final answer, which is how a feature keeps the message id its post became.
-- An event from a bot that has not registered gets 409, and an event kind the bot did not declare gets 422. An
-  `event_id` seen before gets `duplicate: true` and reaches no listener, so a resend after a reconnect is harmless.
-  Use a stable id such as `message:<discord id>`.
+  `on_result` listeners hear the final answer, which is how a feature keeps the message id its post became. A second
+  answer to a finished action (the bot resending after a lost response) changes nothing.
+- An event from a bot that has not registered gets 409, and an event kind the bot did not declare gets 422. Each
+  `on_event` listener hears an `event_id` once: a resend reaches only the listeners that have not taken it, and one
+  that fails makes the hub answer 503 so the bot resends. Use a stable id such as `message:<discord id>`.
+
+What the bot does about the hub going away:
+
+- Every action run registers the manifest again, so an API restart (which empties the in-memory registry) is
+  healed within a run. An event answered with 409 registers and resends at once.
+- An event the hub cannot take (network, 5xx) waits in the bot's `EventOutbox` and is resent in order on the next
+  run. The outbox is bounded (1,000 events) and in memory, so a bot restart during an outage loses what it held. A
+  4xx other than 409 is final and the event is dropped with a log line.
+- A result the bot could not report is kept and sent again when the action comes back, so the action is never
+  carried out twice.
 
 ## Making a new bot
 

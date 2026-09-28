@@ -50,8 +50,8 @@ class BotSpec:
 def build_bot(
     spec: BotSpec, settings: KitSettings, *, link: HubLink | None = None, gate: Gate | None = None
 ) -> commands.Bot:
-    """A discord.py bot for `spec`. Nothing connects until the bot runs: setup_hook registers the manifest with the
-    hub, adds each binding as a cog, starts pulling site actions and syncs slash commands to the one guild."""
+    """A discord.py bot for `spec`. Nothing connects until the bot runs: setup_hook adds each binding as a cog, starts
+    the action runner (which registers the manifest with the hub) and syncs slash commands to the one guild."""
     manifest = spec.manifest()  # fails fast on clashing bindings
     intents = discord.Intents.default()
     intents.message_content = spec.message_content
@@ -59,7 +59,7 @@ def build_bot(
     bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
     hub = link or HttpHubLink(settings.hub_api_url, settings.hub_service_token)
     ctx = BotContext(
-        name=spec.name,
+        manifest=manifest,
         guild_id=settings.discord_guild_id,
         link=hub,
         gate=gate or OpenGate(),
@@ -68,13 +68,13 @@ def build_bot(
 
     @bot.event
     async def setup_hook() -> None:
-        await hub.register(manifest)
+        # The runner registers the manifest on every run, so a hub that restarts relearns this bot within a run.
         handlers: dict[str, ActionHandler] = {}
         for binding_type in spec.bindings:
             binding = binding_type(bot, ctx)
             await bot.add_cog(binding)
             handlers.update(binding.handlers())
-        runner = ActionRunner(spec.name, hub, handlers)
+        runner = ActionRunner(manifest, hub, handlers, ctx.outbox)
         poll = tasks.loop(seconds=settings.bot_poll_seconds)(runner.run_once)
         poll.before_loop(bot.wait_until_ready)
         poll.start()

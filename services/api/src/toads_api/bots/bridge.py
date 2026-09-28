@@ -3,8 +3,8 @@ listens for their Discord events. Rules only; routes live in toads_api.bots.rout
 
 Site to Discord: a feature calls `send(bot, kind, payload)`; the bot pulls pending actions, carries them out and
 reports an ActionResult, which reaches any `on_result` listener (to keep the message id a post became, say).
-Discord to site: the bot posts a DiscordEvent; `receive` drops resends by `event_id` and hands it to every
-`on_event` listener for that bot and kind.
+Discord to site: the bot posts a DiscordEvent; `receive` hands it to each `on_event` listener for that bot and kind
+that has not already handled that `event_id`, so a resend reaches only the listeners that missed it.
 
 Who may trigger what is not decided here yet: the routes accept only the bot's service token, and listeners get the
 Discord user id unverified. Member-level permissions belong in the listener or a later gate.
@@ -12,18 +12,25 @@ Discord user id unverified. Member-level permissions belong in the listener or a
 
 from __future__ import annotations
 
+import logging
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from toads_api.bots.models import ActionResult, BotManifest, DiscordEvent, EventReceipt, SiteAction
+
+log = logging.getLogger(__name__)
 
 EventListener = Callable[[str, DiscordEvent], None]
 ResultListener = Callable[[SiteAction, ActionResult], None]
 
 MAX_PULL = 50
 MAX_ATTEMPTS = 5
+# How many finished actions and handled events the in-memory store remembers, so answers and events that arrive
+# twice stay harmless without the store growing forever.
+MEMORY = 10_000
 
 
 class BridgeError(Exception):
@@ -33,27 +40,37 @@ class BridgeError(Exception):
 
 
 class BridgeStore(Protocol):
-    """Where bots, pending actions and seen event ids live. In memory for now; a table replaces it without touching
+    """Where bots, pending actions and handled events live. In memory for now; a table replaces it without touching
     the rules."""
 
     def save_manifest(self, manifest: BotManifest) -> None: ...
     def manifests(self) -> list[BotManifest]: ...
     def add_action(self, bot: str, kind: str, payload: dict[str, object], at: datetime) -> SiteAction: ...
     def pending(self, bot: str, limit: int) -> list[SiteAction]: ...
-    def get_action(self, action_id: int) -> SiteAction | None: ...
-    def finish(self, action_id: int, result: ActionResult) -> None: ...
-    def retry(self, action_id: int) -> None: ...
-    def seen(self, bot: str, event_id: str) -> bool:
-        """True if this event was seen before; records it otherwise."""
+    def get_action(self, action_id: int) -> SiteAction | None:
+        """A pending action, or None once it is finished or unknown."""
         ...
+
+    def is_finished(self, action_id: int) -> bool: ...
+    def finish(self, action_id: int) -> None: ...
+    def retry(self, action_id: int) -> None: ...
+    def was_handled(self, bot: str, event_id: str, listener: str) -> bool: ...
+    def mark_handled(self, bot: str, event_id: str, listener: str) -> None: ...
+
+
+def _remember(memory: OrderedDict[Any, None], key: Any) -> None:
+    memory[key] = None
+    memory.move_to_end(key)
+    while len(memory) > MEMORY:
+        memory.popitem(last=False)
 
 
 @dataclass
 class InMemoryBridgeStore:
     _manifests: dict[str, BotManifest] = field(default_factory=dict)
-    _actions: dict[int, SiteAction] = field(default_factory=dict)
-    _done: dict[int, ActionResult] = field(default_factory=dict)
-    _events: set[tuple[str, str]] = field(default_factory=set)
+    _pending: dict[int, SiteAction] = field(default_factory=dict)
+    _finished: OrderedDict[int, None] = field(default_factory=OrderedDict)
+    _handled: OrderedDict[tuple[str, str, str], None] = field(default_factory=OrderedDict)
     _next: int = 1
 
     def save_manifest(self, manifest: BotManifest) -> None:
@@ -64,30 +81,33 @@ class InMemoryBridgeStore:
 
     def add_action(self, bot: str, kind: str, payload: dict[str, object], at: datetime) -> SiteAction:
         action = SiteAction(id=self._next, bot=bot, kind=kind, payload=dict(payload), created_at=at)
-        self._actions[action.id] = action
+        self._pending[action.id] = action
         self._next += 1
         return action
 
     def pending(self, bot: str, limit: int) -> list[SiteAction]:
-        waiting = [a for a in self._actions.values() if a.bot == bot and a.id not in self._done]
-        return sorted(waiting, key=lambda a: a.id)[:limit]
+        # Dicts keep insertion order, which is id order.
+        return [a for a in self._pending.values() if a.bot == bot][:limit]
 
     def get_action(self, action_id: int) -> SiteAction | None:
-        return self._actions.get(action_id)
+        return self._pending.get(action_id)
 
-    def finish(self, action_id: int, result: ActionResult) -> None:
-        self._done[action_id] = result
+    def is_finished(self, action_id: int) -> bool:
+        return action_id in self._finished
+
+    def finish(self, action_id: int) -> None:
+        self._pending.pop(action_id, None)
+        _remember(self._finished, action_id)
 
     def retry(self, action_id: int) -> None:
-        action = self._actions[action_id]
-        self._actions[action_id] = action.model_copy(update={"attempts": action.attempts + 1})
+        action = self._pending[action_id]
+        self._pending[action_id] = action.model_copy(update={"attempts": action.attempts + 1})
 
-    def seen(self, bot: str, event_id: str) -> bool:
-        key = (bot, event_id)
-        if key in self._events:
-            return True
-        self._events.add(key)
-        return False
+    def was_handled(self, bot: str, event_id: str, listener: str) -> bool:
+        return (bot, event_id, listener) in self._handled
+
+    def mark_handled(self, bot: str, event_id: str, listener: str) -> None:
+        _remember(self._handled, (bot, event_id, listener))
 
 
 class BotBridge:
@@ -125,18 +145,26 @@ class BotBridge:
     def pending(self, bot: str, limit: int = MAX_PULL) -> list[SiteAction]:
         return self._store.pending(bot, max(1, min(limit, MAX_PULL)))
 
-    def complete(self, bot: str, action_id: int, result: ActionResult) -> SiteAction:
-        """Record the bot's answer. A failed action is offered again until MAX_ATTEMPTS, then given up."""
+    def complete(self, bot: str, action_id: int, result: ActionResult) -> None:
+        """Record the bot's answer. A failed action is offered again until MAX_ATTEMPTS, then given up. An answer to
+        a finished action (a bot resending after a lost response) changes nothing and reaches no listener."""
         action = self._store.get_action(action_id)
-        if action is None or action.bot != bot:
+        if action is None:
+            if self._store.is_finished(action_id):
+                return
+            raise BridgeError(404, "no such action")
+        if action.bot != bot:
             raise BridgeError(404, "no such action for this bot")
         if not result.ok and action.attempts + 1 < MAX_ATTEMPTS:
             self._store.retry(action_id)
-            return action
-        self._store.finish(action_id, result)
+            return
+        self._store.finish(action_id)
         for listener in self._result_listeners.get((bot, action.kind), []):
-            listener(action, result)
-        return action
+            try:
+                listener(action, result)
+            except Exception:
+                # The bot's answer is recorded either way; a broken listener must not make the bot act twice.
+                log.exception("result listener for %s/%s failed", bot, action.kind)
 
     def on_result(self, bot: str, kind: str) -> Callable[[ResultListener], ResultListener]:
         def register(listener: ResultListener) -> ResultListener:
@@ -148,18 +176,31 @@ class BotBridge:
     # ---------------------------------------------------------- Discord to site
 
     def receive(self, bot: str, event: DiscordEvent) -> EventReceipt:
+        """Hand the event to each listener that has not handled it yet. A listener that fails is retried when the bot
+        resends (it gets 503 and keeps the event); the listeners that already took it are not called again."""
         manifest = self.manifest(bot)
         if manifest is None:
             raise BridgeError(409, f"bot {bot!r} has not registered")
         if event.kind not in manifest.events:
             raise BridgeError(422, f"bot {bot!r} did not declare {event.kind!r} events")
-        if self._store.seen(bot, event.event_id):
-            return EventReceipt(accepted=True, duplicate=True)
         handled: list[str] = []
-        for name, listener in self._event_listeners.get((bot, event.kind), []):
-            listener(bot, event)
+        failed: list[str] = []
+        listeners = self._event_listeners.get((bot, event.kind), [])
+        for name, listener in listeners:
+            if self._store.was_handled(bot, event.event_id, name):
+                continue
+            try:
+                listener(bot, event)
+            except Exception:
+                log.exception("listener %s failed on %s/%s", name, bot, event.event_id)
+                failed.append(name)
+                continue
+            self._store.mark_handled(bot, event.event_id, name)
             handled.append(name)
-        return EventReceipt(accepted=True, handled_by=handled)
+        if failed:
+            raise BridgeError(503, f"listeners failed: {', '.join(failed)}; resend the event")
+        duplicate = bool(listeners) and not handled
+        return EventReceipt(accepted=True, duplicate=duplicate, handled_by=handled)
 
     def on_event(self, bot: str, kind: str, *, name: str) -> Callable[[EventListener], EventListener]:
         """Listen for one bot's events of one kind. `name` shows in the receipt, so the bot can log who took it."""

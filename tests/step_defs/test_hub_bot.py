@@ -36,7 +36,9 @@ class World:
         self.channel.send = AsyncMock(return_value=SimpleNamespace(id=555))
         bot = MagicMock()
         bot.get_channel.side_effect = lambda cid: self.channel if cid == 111 else None
-        ctx = BotContext(name="relay", guild_id=1, link=self.link, gate=OpenGate(), channel_ids=frozenset({111}))
+        ctx = BotContext(
+            manifest=RELAY.manifest(), guild_id=1, link=self.link, gate=OpenGate(), channel_ids=frozenset({111})
+        )
         self.relay = Relay(bot, ctx)
         self.results: list[dict[str, Any]] = []
         self.heard: list[str] = []
@@ -76,7 +78,7 @@ def site_says(world: World, text: str, channel: int) -> None:
 
 @when("the bot runs its pending actions")
 def bot_runs(world: World) -> None:
-    assert world.run(ActionRunner("relay", world.link, world.relay.handlers()).run_once()) == 1
+    assert world.run(ActionRunner(RELAY.manifest(), world.link, world.relay.handlers()).run_once()) == 1
 
 
 @then(parsers.parse('"{text}" is posted in channel {channel:d} without pings'))

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from toads_api.bots.bridge import MAX_ATTEMPTS, BotBridge, BridgeError, InMemoryBridgeStore
+from toads_api.bots.bridge import MAX_ATTEMPTS, MEMORY, BotBridge, BridgeError, InMemoryBridgeStore
 from toads_api.bots.models import ActionResult, BotManifest, DiscordEvent, SiteAction
 
 from conftest import Hub
@@ -59,6 +59,28 @@ def test_a_result_finishes_the_action_and_reaches_listeners() -> None:
     assert seen == [(action.id, {"message_id": 42})]
 
 
+def test_an_answer_sent_twice_reaches_listeners_once() -> None:
+    bridge = _bridge()
+    calls: list[int] = []
+    bridge.on_result("relay", "say")(lambda a, _r: calls.append(a.id))
+    action = bridge.send("relay", "say")
+    bridge.complete("relay", action.id, ActionResult(refs={"message_id": 1}))
+    bridge.complete("relay", action.id, ActionResult(refs={"message_id": 1}))  # the bot lost the first response
+    assert calls == [action.id]
+
+
+def test_a_broken_result_listener_still_finishes_the_action() -> None:
+    bridge = _bridge()
+
+    @bridge.on_result("relay", "say")
+    def broken(_a: SiteAction, _r: ActionResult) -> None:
+        raise RuntimeError("boom")
+
+    action = bridge.send("relay", "say")
+    bridge.complete("relay", action.id, ActionResult())
+    assert bridge.pending("relay") == []
+
+
 def test_failed_actions_are_retried_then_given_up() -> None:
     bridge = _bridge()
     action = bridge.send("relay", "say")
@@ -89,6 +111,42 @@ def test_events_reach_their_listeners_once() -> None:
     assert (receipt.accepted, receipt.duplicate, receipt.handled_by) == (True, False, ["log"])
     assert bridge.receive("relay", _event()).duplicate
     assert got == ["relay/message:1"]
+
+
+def test_a_failed_listener_gets_the_resend_and_the_others_do_not() -> None:
+    bridge = _bridge()
+    calls: list[str] = []
+    flaky = {"fail": True}
+
+    @bridge.on_event("relay", "message", name="steady")
+    def steady(_bot: str, _e: DiscordEvent) -> None:
+        calls.append("steady")
+
+    @bridge.on_event("relay", "message", name="flaky")
+    def flaky_listener(_bot: str, _e: DiscordEvent) -> None:
+        calls.append("flaky")
+        if flaky["fail"]:
+            raise RuntimeError("database away")
+
+    with pytest.raises(BridgeError) as info:
+        bridge.receive("relay", _event())
+    assert info.value.status == 503
+    flaky["fail"] = False
+    assert bridge.receive("relay", _event()).handled_by == ["flaky"]
+    assert calls == ["steady", "flaky", "flaky"]
+
+
+def test_the_memory_store_forgets_old_work() -> None:
+    store = InMemoryBridgeStore()
+    for i in range(MEMORY + 5):
+        store.mark_handled("relay", f"message:{i}", "log")
+    assert not store.was_handled("relay", "message:0", "log")
+    assert store.was_handled("relay", f"message:{MEMORY + 4}", "log")
+
+
+def test_manifests_only_declare_well_formed_kinds() -> None:
+    with pytest.raises(ValueError, match="pattern"):
+        BotManifest(name="relay", actions=["Not A Kind"])
 
 
 @pytest.mark.parametrize(("bot", "kind", "status"), [("ghost", "message", 409), ("relay", "reaction", 422)])

@@ -10,13 +10,14 @@ Both lists go into the bot's manifest, so the hub refuses actions and events a b
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from discord.ext import commands
 
-from toads_bot.kit.contract import DiscordEvent, EventReceipt, SiteAction
+from toads_bot.kit.contract import BotManifest, DiscordEvent, EventReceipt, SiteAction
+from toads_bot.kit.delivery import EventOutbox
 from toads_bot.kit.gate import Gate
 from toads_bot.kit.link import HubLink
 
@@ -28,11 +29,16 @@ ActionHandler = Callable[[SiteAction], Awaitable[Refs | None]]
 class BotContext:
     """What every binding of one bot shares."""
 
-    name: str
+    manifest: BotManifest
     guild_id: int
     link: HubLink
     gate: Gate
     channel_ids: frozenset[int] = frozenset()
+    outbox: EventOutbox = field(default_factory=EventOutbox)
+
+    @property
+    def name(self) -> str:
+        return self.manifest.name
 
 
 class Binding(commands.Cog):
@@ -58,7 +64,8 @@ class Binding(commands.Cog):
         channel_id: int | None = None,
         user_id: int | None = None,
         payload: dict[str, Any] | None = None,
-    ) -> EventReceipt:
+    ) -> EventReceipt | None:
+        """Send an event to the hub. None when the hub could not take it yet (it is kept and resent) or refused it."""
         if kind not in self.discord_events:
             raise ValueError(f"{type(self).__name__} does not declare {kind!r} events")
         event = DiscordEvent(
@@ -70,4 +77,4 @@ class Binding(commands.Cog):
             user_id=user_id,
             payload=payload or {},
         )
-        return await self.ctx.link.send_event(self.ctx.name, event)
+        return await self.ctx.outbox.deliver(self.ctx.link, self.ctx.manifest, event)

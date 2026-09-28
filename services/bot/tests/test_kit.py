@@ -38,11 +38,24 @@ def run(coro: Any) -> Any:
     return asyncio.run(coro)
 
 
+def _maybe_fail(failures: list[int]) -> None:
+    if not failures:
+        return
+    code = failures.pop(0)
+    if code == 0:
+        raise httpx.ConnectError("hub down")
+    request = httpx.Request("POST", "http://hub/")
+    raise httpx.HTTPStatusError(str(code), request=request, response=httpx.Response(code, request=request))
+
+
 class FakeLink:
     """A hub in memory: queued actions out, reported results and received events in."""
 
     def __init__(self, actions: list[SiteAction] | None = None) -> None:
         self.actions = actions or []
+        # Status codes the next send_event / report calls answer with, before behaving normally.
+        self.event_failures: list[int] = []
+        self.report_failures: list[int] = []
         self.manifests: list[BotManifest] = []
         self.results: dict[int, ActionResult] = {}
         self.events: list[DiscordEvent] = []
@@ -54,9 +67,11 @@ class FakeLink:
         return [a for a in self.actions if a.bot == bot and a.id not in self.results]
 
     async def report(self, bot: str, action_id: int, result: ActionResult) -> None:
+        _maybe_fail(self.report_failures)
         self.results[action_id] = result
 
     async def send_event(self, bot: str, event: DiscordEvent) -> EventReceipt:
+        _maybe_fail(self.event_failures)
         self.events.append(event)
         return EventReceipt(accepted=True, handled_by=["test"])
 
@@ -68,7 +83,9 @@ def action(kind: str = "say", action_id: int = 1, **payload: Any) -> SiteAction:
 
 
 def ctx(link: FakeLink) -> BotContext:
-    return BotContext(name="relay", guild_id=GUILD, link=link, gate=OpenGate(), channel_ids=frozenset({CHANNEL}))
+    return BotContext(
+        manifest=RELAY.manifest(), guild_id=GUILD, link=link, gate=OpenGate(), channel_ids=frozenset({CHANNEL})
+    )
 
 
 def settings(monkeypatch: pytest.MonkeyPatch, **extra: str) -> KitSettings:
@@ -134,7 +151,7 @@ def test_the_runner_reports_each_actions_result() -> None:
             raise RuntimeError("channel gone")
         return {"message_id": 100 + a.id}
 
-    assert run(ActionRunner("relay", link, {"say": say}).run_once()) == 3
+    assert run(ActionRunner(RELAY.manifest(), link, {"say": say}).run_once()) == 3
     assert calls == [1, 3]
     assert link.results[1] == ActionResult(refs={"message_id": 101})
     assert link.results[2] == ActionResult(ok=False, error="no handler for dance")
@@ -143,8 +160,33 @@ def test_the_runner_reports_each_actions_result() -> None:
 
 def test_a_hub_outage_skips_the_run() -> None:
     link = MagicMock()
-    link.pull = AsyncMock(side_effect=httpx.ConnectError("down"))
-    assert run(ActionRunner("relay", link, {}).run_once()) == 0
+    link.register = AsyncMock(side_effect=httpx.ConnectError("down"))
+    assert run(ActionRunner(RELAY.manifest(), link, {}).run_once()) == 0
+
+
+def test_a_lost_report_is_resent_without_running_the_action_again() -> None:
+    link = FakeLink([action(action_id=1)])
+    link.report_failures = [0]
+    runs: list[int] = []
+
+    async def say(a: SiteAction) -> dict[str, int | str]:
+        runs.append(a.id)
+        return {"message_id": 5}
+
+    runner = ActionRunner(RELAY.manifest(), link, {"say": say})
+    run(runner.run_once())
+    assert link.results == {}
+    run(runner.run_once())
+    assert runs == [1]
+    assert link.results[1] == ActionResult(refs={"message_id": 5})
+
+
+def test_every_run_registers_so_a_restarted_hub_relearns_the_bot() -> None:
+    link = FakeLink()
+    runner = ActionRunner(RELAY.manifest(), link, {})
+    run(runner.run_once())
+    run(runner.run_once())
+    assert link.manifests == [RELAY.manifest(), RELAY.manifest()]
 
 
 # ---------------------------------------------------------------- relay
@@ -161,14 +203,14 @@ def test_relay_says_the_sites_text_without_pings() -> None:
     channel.send = AsyncMock(return_value=SimpleNamespace(id=555))
     link = FakeLink([action(channel_id=CHANNEL, text="@everyone raid at 8")])
     binding = relay(link, channel)
-    run(ActionRunner("relay", link, binding.handlers()).run_once())
+    run(ActionRunner(RELAY.manifest(), link, binding.handlers()).run_once())
     channel.send.assert_awaited_once_with("@everyone raid at 8", allowed_mentions=NO_PINGS)
     assert link.results[1] == ActionResult(refs={"channel_id": CHANNEL, "message_id": 555})
 
 
 def test_relay_refuses_channels_that_are_not_its_own() -> None:
     link = FakeLink([action(channel_id=999, text="hi")])
-    run(ActionRunner("relay", link, relay(link, MagicMock(spec=discord.TextChannel)).handlers()).run_once())
+    run(ActionRunner(RELAY.manifest(), link, relay(link, MagicMock(spec=discord.TextChannel)).handlers()).run_once())
     assert link.results[1].ok is False
     assert "not one of this bot's channels" in str(link.results[1].error)
 
@@ -202,6 +244,36 @@ def test_relay_ignores_bots_other_channels_and_other_servers(msg: Any) -> None:
     link = FakeLink()
     run(relay(link).on_message(msg))
     assert link.events == []
+
+
+def test_a_forgotten_bot_registers_again_and_resends() -> None:
+    link = FakeLink()
+    link.event_failures = [409]
+    run(relay(link).on_message(message()))
+    assert link.manifests == [RELAY.manifest()]
+    assert [e.event_id for e in link.events] == ["message:42"]
+
+
+def test_events_wait_out_a_hub_outage_in_order() -> None:
+    link = FakeLink()
+    binding = relay(link)
+    link.event_failures = [0, 503]
+    first = message()
+    second = SimpleNamespace(**{**vars(message()), "id": 43})
+    run(binding.on_message(first))  # hub down: kept
+    run(binding.on_message(second))  # still failing (503): both kept, order kept
+    assert link.events == [] and len(binding.ctx.outbox) == 2
+    run(ActionRunner(RELAY.manifest(), link, {}, binding.ctx.outbox).run_once())
+    assert [e.event_id for e in link.events] == ["message:42", "message:43"]
+    assert len(binding.ctx.outbox) == 0
+
+
+def test_an_event_the_hub_refuses_is_dropped() -> None:
+    link = FakeLink()
+    link.event_failures = [422]
+    binding = relay(link)
+    run(binding.on_message(message()))
+    assert link.events == [] and len(binding.ctx.outbox) == 0
 
 
 def test_a_binding_cannot_emit_an_event_it_did_not_declare() -> None:
