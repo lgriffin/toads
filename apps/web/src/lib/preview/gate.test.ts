@@ -19,8 +19,9 @@ describe('previewGate', () => {
     expect(previewGate('/officers/reference/', 'member')).toBe('officers-only');
     expect(previewGate('/officers/reference/', 'officer')).toBe('open');
   });
-  it('does not mistake a longer path for a public one', () => {
-    expect(previewGate('/storyteller/', null)).toBe('sign-in');
+  it('leaves unknown paths open so they reach the 404 page', () => {
+    expect(previewGate('/does-not-exist/', null)).toBe('open');
+    expect(previewGate('/hubbub/', null)).toBe('open');
   });
 });
 

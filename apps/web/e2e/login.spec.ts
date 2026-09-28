@@ -61,3 +61,23 @@ test('logging out returns to the public landing page', async ({ page }) => {
   await page.reload();
   await expect(page.getByRole('navigation', { name: 'Members' })).toHaveCount(0);
 });
+
+test('an unknown page is still a 404 for a signed-out visitor', async ({ page }) => {
+  await page.goto('does-not-exist/');
+  await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in to see this' })).toHaveCount(0);
+});
+
+test('switching to the raider view mid-customise drops the officer widgets', async ({ page }) => {
+  await page.goto('login/');
+  await page.getByRole('button', { name: 'Sign in as an officer' }).click();
+  await page.getByRole('button', { name: 'Customise' }).click();
+  await expect(page.getByRole('checkbox', { name: /Raid leader desk/ })).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Switch to raider view' }).click();
+  await expect(page.getByRole('region', { name: 'Customise your home' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Customise' }).click();
+  await expect(page.getByRole('checkbox', { name: /Raid leader desk/ })).toHaveCount(0);
+  await page.getByRole('region', { name: 'Customise your home' }).getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(0);
+});

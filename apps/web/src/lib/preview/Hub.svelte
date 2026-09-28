@@ -56,9 +56,13 @@
         : 'Declined. Your spotlight will not be published.';
   }
 
+  // Officer widgets are for officers only, as the API answers; the raider view never places or draws them.
+  const allowed = (w: HomeWidget) => officer || !w.officer_only;
+  const layout = $derived({ ...home.layout, widgets: home.layout.widgets.filter(allowed) });
+
   // The preview has no API: layouts change in memory only, as the API would answer.
   async function save(widgets: HomeWidget[]) {
-    home.layout = saved(widgets);
+    home.layout = saved(widgets.filter(allowed));
     return null;
   }
   async function reset() {
@@ -67,7 +71,9 @@
   }
 </script>
 
-<HomeView name={viewer.name} layout={home.layout} {save} {reset}>
+<!-- A view switch remounts the home, so an open customiser never keeps the other view's widgets. -->
+{#key officer}
+<HomeView name={viewer.name} {layout} {save} {reset}>
   {#snippet top()}
     {#if askingConsent.length || consentNote}
       <section class="card consent" aria-labelledby="consent-h">
@@ -143,6 +149,7 @@
     {/if}
   {/snippet}
 </HomeView>
+{/key}
 
 <style>
   .consent { border-color: var(--accent); margin-bottom: 1rem; }
