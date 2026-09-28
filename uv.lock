@@ -2533,9 +2533,9 @@ requires-dist = [
     { name = "redis", specifier = ">=5" },
     { name = "rq", specifier = ">=1.16" },
     { name = "structlog", specifier = ">=24" },
-    { name = "wcl-app", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-app&rev=f877879502b225f9358a56de4e0d68592b5287e9" },
-    { name = "wcl-core", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=f877879502b225f9358a56de4e0d68592b5287e9" },
-    { name = "wcl-store", extras = ["postgres"], git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-store&rev=f877879502b225f9358a56de4e0d68592b5287e9" },
+    { name = "wcl-app", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-app&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d" },
+    { name = "wcl-core", git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d" },
+    { name = "wcl-store", extras = ["postgres"], git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-store&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d" },
 ]
 
 [[package]]
@@ -2782,7 +2782,7 @@ wheels = [
 [[package]]
 name = "wcl-app"
 version = "4.3.0"
-source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-app&rev=f877879502b225f9358a56de4e0d68592b5287e9#f877879502b225f9358a56de4e0d68592b5287e9" }
+source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-app&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d#92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
 dependencies = [
     { name = "requests" },
     { name = "wcl-core" },
@@ -2792,7 +2792,7 @@ dependencies = [
 [[package]]
 name = "wcl-core"
 version = "4.3.0"
-source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=f877879502b225f9358a56de4e0d68592b5287e9#f877879502b225f9358a56de4e0d68592b5287e9" }
+source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-core&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d#92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
@@ -2801,7 +2801,7 @@ dependencies = [
 [[package]]
 name = "wcl-store"
 version = "4.3.0"
-source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-store&rev=f877879502b225f9358a56de4e0d68592b5287e9#f877879502b225f9358a56de4e0d68592b5287e9" }
+source = { git = "https://github.com/lgriffin/warcraftlogs_project?subdirectory=packages%2Fwcl-store&rev=92930321f6a183cb7f8d4f789c9ac2fdba0af10d#92930321f6a183cb7f8d4f789c9ac2fdba0af10d" }
 dependencies = [
     { name = "wcl-core" },
 ]
