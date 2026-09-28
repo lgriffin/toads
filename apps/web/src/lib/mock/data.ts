@@ -311,3 +311,229 @@ export const claims: import('$lib/api').Claim[] = [
   { id: 1, member_id: 7, character_id: 101, character_name: 'Hopscotch', raid_day_id: 'wed', status: 'approved', reason: null },
   { id: 2, member_id: 7, character_id: 102, character_name: 'Lilypadd', raid_day_id: 'wed', status: 'pending', reason: null }
 ];
+
+// --- reference comparison (officers) --------------------------------------------------------------
+
+type RefMetric = import('$lib/reference').Metric;
+
+const pct = (ours: number | null, theirs: number | null): number | null =>
+  ours === null || theirs === null || theirs === 0 ? null : Math.round(((ours - theirs) / theirs) * 1000) / 10;
+
+function refMetric(
+  key: string,
+  label: string,
+  guild: number,
+  reference: number,
+  displays: [string, string],
+  higher: boolean | null
+): RefMetric {
+  const delta = pct(guild, reference);
+  // null `higher` marks a metric with no better side (raid totals, composition).
+  const better = higher === null || !delta ? null : delta > 0 === higher;
+  return {
+    key,
+    label,
+    guild,
+    reference,
+    guild_display: displays[0],
+    reference_display: displays[1],
+    delta_percent: delta,
+    higher_is_better: higher ?? true,
+    better
+  };
+}
+
+function classRow(
+  player_class: string,
+  role: string,
+  metric: string,
+  guild_count: number,
+  guild_average: number | null,
+  reference_count: number,
+  reference_average: number | null
+): import('$lib/reference').ClassRow {
+  return {
+    player_class,
+    role,
+    metric,
+    guild_count,
+    guild_average,
+    reference_count,
+    reference_average,
+    delta_percent: pct(guild_average, reference_average)
+  };
+}
+
+/** The preview's Wednesday officer console: two of our raids, two references and one built comparison. */
+export const referenceOverview: import('$lib/reference').ReferenceOverview = {
+  login: {
+    configured: true,
+    connected: true,
+    status: 'working',
+    connected_by: 'Hopscotch',
+    connected_at: '2026-09-18T19:02:00Z'
+  },
+  generated_at: '2026-09-26T17:40:00Z',
+  references: [
+    {
+      report_id: 'Rf5GkT2pWm8hQz3C',
+      title: "Gruul's Lair",
+      raid_date: '2026-09-21 20:00:00',
+      zone: "Gruul's Lair",
+      raid_size: 25,
+      label: 'EU speed clear',
+      owner: 'Nightfall Vanguard'
+    },
+    {
+      report_id: 'Mg7LsV4bYc1nXe9D',
+      title: 'Magtheridon',
+      raid_date: '2026-09-19 21:15:00',
+      zone: "Magtheridon's Lair",
+      raid_size: 25,
+      label: null,
+      owner: 'Nightfall Vanguard'
+    }
+  ],
+  guild_raids: [
+    {
+      report_id: 'Tq8mZr2VbX4kLp7N',
+      title: 'Gruul + Magtheridon',
+      raid_date: '2026-09-23 19:30:00',
+      zone: "Gruul's Lair",
+      raid_size: 25,
+      label: null,
+      owner: 'Toads'
+    },
+    {
+      report_id: 'Hc3YwP9sNd6fJa1R',
+      title: 'Gruul + Magtheridon',
+      raid_date: '2026-09-16 19:30:00',
+      zone: "Gruul's Lair",
+      raid_size: 25,
+      label: null,
+      owner: 'Toads'
+    }
+  ],
+  comparisons: [
+    {
+      guild_report: 'Tq8mZr2VbX4kLp7N',
+      reference_report: 'Rf5GkT2pWm8hQz3C',
+      guild_title: 'Gruul + Magtheridon',
+      reference_title: "Gruul's Lair",
+      generated_at: '2026-09-24T08:12:00Z'
+    }
+  ],
+  jobs: [
+    {
+      id: 'job-4',
+      kind: 'import',
+      status: 'failed',
+      message: 'Warcraft Logs says that report is private or does not exist.',
+      report: 'Xx0Xx0Xx0Xx0Xx0X',
+      created_at: '2026-09-25T20:41:00Z',
+      updated_at: '2026-09-25T20:41:09Z'
+    },
+    {
+      id: 'job-3',
+      kind: 'compare',
+      status: 'done',
+      message: "Compared Gruul + Magtheridon with Gruul's Lair.",
+      report: 'Tq8mZr2VbX4kLp7N',
+      created_at: '2026-09-24T08:11:40Z',
+      updated_at: '2026-09-24T08:12:00Z'
+    },
+    {
+      id: 'job-2',
+      kind: 'import',
+      status: 'done',
+      message: "Imported Gruul's Lair (Nightfall Vanguard).",
+      report: 'Rf5GkT2pWm8hQz3C',
+      created_at: '2026-09-22T09:30:00Z',
+      updated_at: '2026-09-22T09:31:12Z'
+    }
+  ]
+};
+
+/** Our Gruul + Magtheridon night against a faster guild's Gruul-only log, so the scope note shows. */
+export const referenceComparison: import('$lib/reference').ComparisonResponse = {
+  generated_at: '2026-09-24T08:12:00Z',
+  comparison: {
+    version: 1,
+    guild: {
+      report_id: 'Tq8mZr2VbX4kLp7N',
+      title: 'Gruul + Magtheridon',
+      raid_date: '2026-09-23 19:30:00',
+      zone: "Gruul's Lair",
+      raid_size: 25,
+      duration_ms: 3_134_000
+    },
+    reference: {
+      report_id: 'Rf5GkT2pWm8hQz3C',
+      title: "Gruul's Lair",
+      raid_date: '2026-09-21 20:00:00',
+      zone: "Gruul's Lair",
+      raid_size: 25,
+      duration_ms: 1_872_000
+    },
+    scope: { scoped: true, shared_encounters: 2, guild_extra_encounters: ['Magtheridon'] },
+    overview: [
+      refMetric('duration', 'Duration', 3134, 1872, ['52:14', '31:12'], false),
+      refMetric('total_damage', 'Total damage', 14_820_000, 9_910_000, ['14.8M', '9.9M'], null),
+      refMetric('total_healing', 'Total healing', 6_120_000, 3_740_000, ['6.1M', '3.7M'], null),
+      refMetric('damage_taken', 'Damage taken', 7_410_000, 4_580_000, ['7.4M', '4.6M'], false),
+      refMetric('damage_per_dps', 'Damage per DPS', 823_400, 586_700, ['823.4k', '586.7k'], true),
+      refMetric('healing_per_healer', 'Healing per healer', 871_200, 622_900, ['871.2k', '622.9k'], true),
+      refMetric('overheal', 'Overheal', 31.4, 24.8, ['31.4%', '24.8%'], false)
+    ],
+    composition: [
+      refMetric('raid_size', 'Raid size', 25, 25, ['25', '25'], null),
+      refMetric('tanks', 'Tanks', 3, 3, ['3', '3'], null),
+      refMetric('healers', 'Healers', 7, 6, ['7', '6'], null),
+      refMetric('melee', 'Melee', 7, 8, ['7', '8'], null),
+      refMetric('ranged', 'Ranged', 8, 8, ['8', '8'], null)
+    ],
+    classes: [
+      classRow('Warrior', 'tank', 'DPS', 3, 612, 3, 655),
+      classRow('Rogue', 'melee', 'DPS', 3, 1184, 3, 1352),
+      classRow('Warrior', 'melee', 'DPS', 2, 1098, 3, 1290),
+      classRow('Shaman', 'melee', 'DPS', 1, 1030, 0, null),
+      classRow('Hunter', 'ranged', 'DPS', 3, 1142, 2, 1203),
+      classRow('Mage', 'ranged', 'DPS', 2, 1210, 3, 1302),
+      classRow('Warlock', 'ranged', 'DPS', 2, 1265, 2, 1381),
+      classRow('Shaman', 'healer', 'HPS', 3, 702, 2, 745),
+      classRow('Priest', 'healer', 'HPS', 2, 688, 2, 731),
+      classRow('Druid', 'healer', 'HPS', 1, 655, 1, 690),
+      classRow('Paladin', 'healer', 'HPS', 1, 742, 1, 801)
+    ],
+    consumables: [
+      { name: 'Flask of Relentless Assault', guild_uses: 6, guild_users: 6, reference_uses: 9, reference_users: 9 },
+      { name: 'Super Mana Potion', guild_uses: 14, guild_users: 9, reference_uses: 21, reference_users: 12 },
+      { name: 'Haste Potion', guild_uses: 8, guild_users: 6, reference_uses: 22, reference_users: 15 },
+      { name: 'Destruction Potion', guild_uses: 4, guild_users: 3, reference_uses: 12, reference_users: 8 },
+      { name: 'Dark Rune', guild_uses: 5, guild_users: 4, reference_uses: 11, reference_users: 7 },
+      { name: 'Drums of Battle', guild_uses: 9, guild_users: 3, reference_uses: 18, reference_users: 5 }
+    ],
+    encounters: [
+      {
+        name: 'High King Maulgar',
+        guild_duration_ms: 214_000,
+        reference_duration_ms: 168_000,
+        guild_damage: 3_960_000,
+        reference_damage: 3_880_000,
+        guild_healing: 1_410_000,
+        reference_healing: 1_120_000,
+        duration_delta_percent: pct(214, 168)
+      },
+      {
+        name: 'Gruul the Dragonkiller',
+        guild_duration_ms: 289_000,
+        reference_duration_ms: 231_000,
+        guild_damage: 6_020_000,
+        reference_damage: 5_890_000,
+        guild_healing: 1_960_000,
+        reference_healing: 1_540_000,
+        duration_delta_percent: pct(289, 231)
+      }
+    ]
+  }
+};
