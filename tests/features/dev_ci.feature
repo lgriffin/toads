@@ -18,3 +18,10 @@ Feature: DEV CI
     And it builds apps/web with PREVIEW=1 under the Pages base path
     And it deploys that build to GitHub Pages
     And the web layout shows a sample-data banner in the preview build
+
+  @ears_optional @maintainer @member @raid_leader @phase_2_0
+  Scenario: REQ-DEV-CI-005 Where the web app is built as the Pages preview, it shall open signed out on the public landing page and offer a pretend sign-in as a raider or an officer
+    Given the preview's pretend sign-in
+    Then the landing page sends a signed-out visitor to it
+    And it offers the raider and the officer view
+    And the preview asks a signed-out visitor to sign in for member pages and keeps raiders out of the officer console

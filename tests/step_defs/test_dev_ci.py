@@ -1,4 +1,4 @@
-"""REQ-DEV-CI-004: the GitHub Pages preview workflow."""
+"""REQ-DEV-CI-004 and 005: the GitHub Pages preview workflow and its pretend sign-in."""
 
 from pathlib import Path
 from typing import Any
@@ -8,6 +8,7 @@ from pytest_bdd import given, scenario, then
 
 ROOT = Path(__file__).resolve().parents[2]
 FEATURE = ROOT / "tests" / "features" / "dev_ci.feature"
+WEB = ROOT / "apps" / "web" / "src"
 
 
 @scenario(
@@ -16,6 +17,15 @@ FEATURE = ROOT / "tests" / "features" / "dev_ci.feature"
     "to GitHub Pages, marked as a preview",
 )
 def test_pages_preview() -> None:
+    pass
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-DEV-CI-005 Where the web app is built as the Pages preview, it shall open signed out on the public landing "
+    "page and offer a pretend sign-in as a raider or an officer",
+)
+def test_preview_sign_in() -> None:
     pass
 
 
@@ -63,3 +73,39 @@ def banner() -> None:
     layout = (ROOT / "apps" / "web" / "src" / "routes" / "+layout.svelte").read_text(encoding="utf-8")
     assert "{#if __PREVIEW__}" in layout
     assert "Preview with sample data" in layout
+
+
+def _read(relative: str) -> str:
+    return (WEB / relative).read_text(encoding="utf-8")
+
+
+@given("the preview's pretend sign-in", target_fixture="login")
+def login() -> str:
+    page = _read("routes/login/+page.svelte")
+    # Only the preview build serves /login; the real site signs in with Discord at /auth/login.
+    assert "if (!__PREVIEW__) error(404" in _read("routes/login/+page.ts")
+    return page
+
+
+@then("the landing page sends a signed-out visitor to it")
+def landing_links_login() -> None:
+    landing = _read("routes/+page.svelte")
+    assert "previewSession.role ? 'Hopscotch' : null" in landing
+    assert "`${base}/login/`" in landing
+
+
+@then("it offers the raider and the officer view")
+def offers_both_views(login: str) -> None:
+    assert "role: 'member'" in login
+    assert "role: 'officer'" in login
+    layout = _read("routes/+layout.svelte")
+    assert "Switch to officer view" in layout
+    assert "Log out" in layout
+
+
+@then("the preview asks a signed-out visitor to sign in for member pages and keeps raiders out of the officer console")
+def gates_pages() -> None:
+    gate = _read("lib/preview/gate.ts")
+    assert "if (role === null) return 'sign-in';" in gate
+    assert "under(p, '/officers') && role !== 'officer'" in gate
+    assert "previewGate(path, previewSession.role)" in _read("routes/+layout.svelte")

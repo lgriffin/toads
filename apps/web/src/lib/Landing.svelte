@@ -3,7 +3,8 @@
   import { LANDING, MEMBER_FEATURES } from '$lib/landing';
 
   // null: signed out; a name: signed in. The page is the same for both apart from the call to action.
-  let { member }: { member: string | null } = $props();
+  // loginHref: /auth/login on the real site, the preview's pretend sign-in on GitHub Pages.
+  let { member, loginHref = '/auth/login' }: { member: string | null; loginHref?: string } = $props();
 </script>
 
 <section class="hero" aria-labelledby="landing-h">
@@ -14,7 +15,9 @@
     {#if member}
       <a class="btn primary" href="{base}/hub/">Go to your hub</a>
     {:else}
-      <a class="btn primary" href="/auth/login" data-sveltekit-reload>Log in with Discord</a>
+      <a class="btn primary" href={loginHref} data-sveltekit-reload={loginHref === '/auth/login' ? '' : 'off'}
+        >Log in with Discord</a
+      >
     {/if}
     <a class="btn" href="{base}/recruit/">Apply to raid with us</a>
   </div>

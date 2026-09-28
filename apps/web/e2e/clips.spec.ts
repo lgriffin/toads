@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { CLIP_HOSTS } from './routes';
+import { signIn } from './auth';
+
+// Member pages open after the preview's pretend sign-in; most tests explore as an officer.
+test.beforeEach(({ page }) => signIn(page, 'officer'));
 
 for (const route of ['story/', 'highlights/', 'hub/', 'officers/']) {
   test(`/${route} makes no clip provider request until a clip is played`, async ({ page }) => {

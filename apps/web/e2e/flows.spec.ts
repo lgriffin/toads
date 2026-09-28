@@ -1,4 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { signIn } from './auth';
+
+// Member pages open after the preview's pretend sign-in; most tests explore as an officer.
+test.beforeEach(({ page }) => signIn(page, 'officer'));
 
 test('the recruit form shows field errors, then success', async ({ page }) => {
   await page.goto('recruit/');

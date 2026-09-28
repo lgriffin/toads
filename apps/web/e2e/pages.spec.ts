@@ -1,6 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { ROUTES } from './routes';
+import { signIn } from './auth';
+
+// Member pages open after the preview's pretend sign-in; most tests explore as an officer.
+test.beforeEach(({ page }) => signIn(page, 'officer'));
 
 for (const route of ROUTES) {
   const name = `/${route}`;

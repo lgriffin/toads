@@ -23,10 +23,12 @@
   import { sheetTrend } from '$lib/mock/sheets';
   import { visibleFeed } from '$lib/posts';
   import { isFinal } from '$lib/recruitment';
+  import { previewSession } from './session.svelte';
   import { community, home } from './state.svelte';
 
   const roles: Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
-  const officer = isOfficer(viewer);
+  // Hopscotch is a Wednesday officer in the sample data; the raider view signs in without those powers.
+  const officer = $derived(isOfficer(viewer) && previewSession.role === 'officer');
 
   const feed = $derived(visibleFeed(community.posts, viewer));
   const mySpotlights = $derived(community.spotlights.filter((s) => s.memberName === viewer.name));
