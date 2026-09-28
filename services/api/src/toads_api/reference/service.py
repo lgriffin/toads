@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 
 from toads_api.reference.repository import (
     ComparisonSummary,
@@ -26,6 +27,10 @@ _URL = re.compile(r"warcraftlogs\.com/reports/([A-Za-z0-9]{16})(?![A-Za-z0-9])")
 MAX_LABEL_LENGTH = 80
 MAX_REPORT_INPUT = 300
 RECENT_JOBS = 10
+# A job still queued or running this long after its last update was lost (the worker died or RQ's 30-minute
+# timeout killed it before it could record an outcome); the page shows it failed instead of polling forever.
+ABANDONED_AFTER = timedelta(hours=1)
+ABANDONED_MESSAGE = "The worker did not finish this request; try again."
 
 
 class ReferenceRequestError(Exception):
@@ -71,8 +76,16 @@ class Overview:
 
 
 class ReferenceService:
-    def __init__(self, repo: ReferenceRepository, enqueue: Callable[[str], None], *, configured: bool) -> None:
+    def __init__(
+        self,
+        repo: ReferenceRepository,
+        enqueue: Callable[[str], None],
+        *,
+        configured: bool,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
         self.repo = repo
+        self.clock = clock
         # Hands a job id to the worker (toads_worker.jobs.reference.run_reference_job).
         self.enqueue = enqueue
         # Whether the hub has a Warcraft Logs application to sign in with.
@@ -84,8 +97,16 @@ class ReferenceService:
             login=self.repo.login_info(),
             page=self.repo.page(),
             comparisons=self.repo.comparisons(),
-            jobs=self.repo.recent_jobs(RECENT_JOBS),
+            jobs=[self._settled(j) for j in self.repo.recent_jobs(RECENT_JOBS)],
         )
+
+    def _settled(self, job: Job) -> Job:
+        if job.status not in ("queued", "running"):
+            return job
+        updated = job.updated_at if job.updated_at.tzinfo else job.updated_at.replace(tzinfo=UTC)
+        if self.clock() - updated < ABANDONED_AFTER:
+            return job
+        return replace(job, status="failed", message=ABANDONED_MESSAGE)
 
     # ── The dedicated login ──
 

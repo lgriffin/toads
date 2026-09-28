@@ -14,6 +14,8 @@ from sqlalchemy import select
 from toads_api.reference.login import WclLogin
 from toads_api.reference.repository import InMemoryReferenceRepository, StoredComparison, UserToken
 from toads_api.reference.service import (
+    ABANDONED_AFTER,
+    ABANDONED_MESSAGE,
     QueueUnavailable,
     ReferenceRequestError,
     ReferenceService,
@@ -36,6 +38,16 @@ def _service(queue: list[str] | None = None, *, connected: bool = True) -> Refer
     if connected:
         repo.save_login(UserToken(secrets.token_urlsafe(8), None, 1.0), 1)
     return ReferenceService(repo, (queue if queue is not None else []).append, configured=True)
+
+
+def test_a_job_the_worker_never_finished_shows_as_failed() -> None:
+    svc = _service()
+    job = svc.request_import("wed", 1, THEIRS, None)
+    later = job.updated_at + ABANDONED_AFTER
+    assert [j.status for j in svc.overview().jobs] == ["queued"]
+    svc.clock = lambda: later
+    [shown] = svc.overview().jobs
+    assert (shown.status, shown.message) == ("failed", ABANDONED_MESSAGE)
 
 
 @pytest.mark.parametrize(
