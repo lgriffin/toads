@@ -6,6 +6,7 @@ export const ROUTES = [
   'highlights/',
   'hub/',
   'officers/',
+  'officers/reference/',
   'raids/',
   'raids/ssc-0924/',
   'bank/',

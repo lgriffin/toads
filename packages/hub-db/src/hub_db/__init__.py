@@ -28,6 +28,7 @@ from hub_db.models import (
     MemberHomeLayout,
 )
 from hub_db.raid_sheets import RaidSheetSnapshot
+from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 
 __all__ = [
     "AnalyzerHomePage",
@@ -48,6 +49,10 @@ __all__ = [
     "MemberHomeLayout",
     "RaidSheetSnapshot",
     "RecruitmentNeed",
+    "ReferenceComparison",
+    "ReferenceJob",
+    "ReferenceLogin",
+    "ReferencePage",
     "Spotlight",
     "StoredWclCredentials",
     "WclCredential",

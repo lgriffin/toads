@@ -30,6 +30,10 @@ from toads_api.raid_sheets.dates import weekday_named
 from toads_api.raid_sheets.service import RaidSheetService
 from toads_api.raid_sheets.sql import SqlSheetRepository
 from toads_api.rbac.config import RaidDaysConfig
+from toads_api.reference.login import WclLogin
+from toads_api.reference.queue import RqEnqueue
+from toads_api.reference.service import ReferenceService
+from toads_api.reference.sql import SqlReferenceRepository
 from toads_api.sessions import SessionStore
 from toads_api.settings import Settings
 
@@ -52,6 +56,8 @@ class Services:
     performance: PerformanceService = field(init=False)
     next_raid: NextRaidService = field(init=False)
     raid_sheets: RaidSheetService = field(init=False)
+    reference: ReferenceService = field(init=False)
+    wcl_login: WclLogin = field(init=False)
 
     def __post_init__(self) -> None:
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
@@ -59,6 +65,12 @@ class Services:
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)
+        self.wcl_login = WclLogin(self.settings, self.redis, self.http)
+        self.reference = ReferenceService(
+            SqlReferenceRepository(self.db, cipher),
+            RqEnqueue(self.settings.redis_url),
+            configured=self.wcl_login.configured,
+        )
         self.sessions = SessionStore(
             self.redis, session_ttl=self.settings.session_ttl_seconds, login_ttl=self.settings.login_ttl_seconds
         )

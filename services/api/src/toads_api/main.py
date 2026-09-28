@@ -18,6 +18,7 @@ from toads_api.home.routes import include_home
 from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
+from toads_api.reference.routes import include_reference
 from toads_api.services import Services, build_services
 from toads_api.settings import Settings
 
@@ -58,6 +59,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(members.router)
     app.include_router(account_router)
     include_home(app)
+    include_reference(app)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:
