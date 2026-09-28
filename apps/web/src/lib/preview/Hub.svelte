@@ -7,17 +7,19 @@
   import DeskList from '$lib/components/DeskList.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
   import NeedsList from '$lib/components/NeedsList.svelte';
+  import NextRaidCard from '$lib/components/NextRaidCard.svelte';
+  import PerformanceCard from '$lib/components/PerformanceCard.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
   import ProgressBars from '$lib/components/ProgressBars.svelte';
   import RaidTotals from '$lib/components/RaidTotals.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
   import { deskLines } from '$lib/community-api';
-  import { dateTime } from '$lib/format';
   import { catalogueTitle, defaultLayout, isAnalyzer, saved, type HomeWidget } from '$lib/home';
   import { widgetById } from '$lib/home-payload';
   import { analyzerPage } from '$lib/mock/analyzer';
   import { needs, story, viewer } from '$lib/mock/community';
-  import { me, nextRaid, type Role } from '$lib/mock/data';
+  import { nextRaid, type Role } from '$lib/mock/data';
+  import { previewNextRaid, previewNow, previewPerformance } from '$lib/mock/hub';
   import { sheetTrend } from '$lib/mock/sheets';
   import { visibleFeed } from '$lib/posts';
   import { isFinal } from '$lib/recruitment';
@@ -41,13 +43,6 @@
     })
   );
   const gaps = roles.filter((r) => nextRaid.signups[r] < nextRaid.needed[r]);
-
-  // The main character's last raid against the guild median for their role.
-  const main = me.characters[0];
-  const mainRaids = me.history[main.name] ?? [];
-  const last = mainRaids.at(-1);
-  const diff = last ? Math.round(((last.mine - last.median) / last.median) * 100) : 0;
-  const best = mainRaids.reduce((m, r) => Math.max(m, r.mine), 0);
 
   function decide(id: string, consent: 'granted' | 'declined') {
     const s = community.spotlights.find((x) => x.id === id);
@@ -90,24 +85,7 @@
 
   {#snippet widget(id)}
     {#if id === 'next_raid'}
-      <section class="card" aria-labelledby="next-h">
-        <h2 id="next-h">Next raid</h2>
-        <p class="big">{nextRaid.zone}</p>
-        <p class="muted">{nextRaid.raidDay} team · {dateTime(nextRaid.start)} server time</p>
-        <table>
-          <thead><tr><th>Role</th><th class="num">Signed</th><th class="num">Needed</th></tr></thead>
-          <tbody>
-            {#each roles as role}
-              {@const short = nextRaid.signups[role] < nextRaid.needed[role]}
-              <tr>
-                <td>{role}</td>
-                <td class="num" class:warn={short}>{nextRaid.signups[role]}</td>
-                <td class="num">{nextRaid.needed[role]}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </section>
+      <NextRaidCard raid={previewNextRaid} now={previewNow} />
     {:else if id === 'officer_desk'}
       <section class="card" aria-labelledby="desk-h">
         <h2 id="desk-h">Raid leader desk</h2>
@@ -120,21 +98,7 @@
         </p>
       </section>
     {:else if id === 'my_performance'}
-      <section class="card" aria-labelledby="perf-h">
-        <h2 id="perf-h">Your performance</h2>
-        {#if last}
-          <p class="big">{last.mine} {main.metric}</p>
-          <p>
-            {main.name} in {last.zone}:
-            <span class:ok={diff >= 0} class:bad={diff < 0}>{diff >= 0 ? '+' : ''}{diff}%</span>
-            against the guild median for {main.role.toLowerCase()}s.
-          </p>
-          <p class="muted small">Best of your last {mainRaids.length} raids: {best} {main.metric}.</p>
-        {:else}
-          <p class="muted">Claim a character to see your numbers here.</p>
-        {/if}
-        <a href="{base}/me/">Your full history</a>
-      </section>
+      <PerformanceCard mine={previewPerformance} />
     {:else if isAnalyzer(id)}
       <AnalyzerWidget widget={widgetById(analyzerPage, id)} title={catalogueTitle(id)} missing="Not in this sample." />
     {:else if id === 'raid_totals'}
@@ -179,7 +143,6 @@
 </HomeView>
 
 <style>
-  .big { font-size: 1.3rem; margin: 0; }
   .consent { border-color: var(--accent); margin-bottom: 1rem; }
   .quote { border-left: 3px solid var(--line); padding-left: 0.75rem; margin: 0.5rem 0 0.75rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }

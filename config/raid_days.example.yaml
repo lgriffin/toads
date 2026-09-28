@@ -1,16 +1,20 @@
 # Copy to config/raid_days.yaml (git-ignored) and fill in Discord role and channel ids.
 # Raid days, roles and channels are configuration, not code (REQ-HUB-DAY-020).
+# Server time for raid start times; the hub shows each member the time in their own timezone.
+timezone: Europe/Paris
 global_officer_roles: []
 
 raid_days:
   - id: wed
     name: Wednesday
+    start_time: "19:30"  # optional: the next raid shown on the hub home when Discord has no scheduled event
     trial_roles: []
     raider_roles: []
     officer_roles: []
     channels: { raid_logs: null, signups: null, bank_requests: null }
   - id: sun
     name: Sunday
+    start_time: "19:30"
     trial_roles: []
     raider_roles: []
     officer_roles: []

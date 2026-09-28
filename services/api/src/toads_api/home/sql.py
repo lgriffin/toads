@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from hub_db import AnalyzerHomePage, MemberHomeLayout
+from hub_db import AnalyzerHomePage, AnalyzerPerformancePage, CharacterClaim, ClaimStatus, Member, MemberHomeLayout
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from toads_api.home.repository import StoredPage, StoredWidget
+from toads_api.home.performance import fold
+from toads_api.home.repository import MemberCharacters, StoredPage, StoredPerformance, StoredWidget
 
 # The analyzer's page is guild-wide: one row.
 _PAGE_ROW = 1
@@ -72,3 +74,53 @@ class SqlHomeRepository:
             row.generated_at = page.generated_at
             row.widgets = page.widgets
             row.updated_at = datetime.now(UTC)
+
+    def performance_page(self) -> StoredPerformance | None:
+        with self._db() as db:
+            row = db.get(AnalyzerPerformancePage, _PAGE_ROW)
+            if row is None:
+                return None
+            return StoredPerformance(
+                row.version, row.generated_at, dict(row.raid) if row.raid else None, list(row.players)
+            )
+
+    def save_performance_page(self, page: StoredPerformance) -> None:
+        try:
+            self._write_performance(page)
+        except IntegrityError:
+            # The first two publications raced to insert the row; update the one that won.
+            self._write_performance(page)
+
+    def _write_performance(self, page: StoredPerformance) -> None:
+        with self._db.begin() as db:
+            row = db.get(AnalyzerPerformancePage, _PAGE_ROW)
+            if row is None:
+                row = AnalyzerPerformancePage(id=_PAGE_ROW)
+                db.add(row)
+            row.version = page.version
+            row.generated_at = page.generated_at
+            row.raid = page.raid
+            row.players = page.players
+            row.updated_at = datetime.now(UTC)
+
+    def member_characters(self, member_id: int) -> MemberCharacters | None:
+        with self._db() as db:
+            member = db.get(Member, member_id)
+            if member is None:
+                return None
+            claims = db.scalars(select(CharacterClaim).where(CharacterClaim.status != ClaimStatus.REJECTED)).all()
+            approved = [c for c in claims if c.member_id == member_id and c.status is ClaimStatus.APPROVED]
+            chosen = next(
+                (
+                    c.character_name
+                    for c in approved
+                    if member.name_source == "character" and c.character_id == member.name_character_id
+                ),
+                None,
+            )
+            return MemberCharacters(
+                nickname=member.display_name,
+                chosen=chosen,
+                approved=sorted((c.character_name for c in approved), key=str.casefold),
+                claimed_by_others=frozenset(fold(c.character_name) for c in claims if c.member_id != member_id),
+            )

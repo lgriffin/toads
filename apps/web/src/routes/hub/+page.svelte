@@ -9,6 +9,8 @@
     analyzerHome,
     guildHighlights,
     homeError,
+    myPerformance,
+    nextRaid,
     postsFeed,
     publicStory,
     raidTrend,
@@ -24,11 +26,15 @@
   import DeskList from '$lib/components/DeskList.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
   import NeedsList from '$lib/components/NeedsList.svelte';
+  import NextRaidCard from '$lib/components/NextRaidCard.svelte';
+  import PerformanceCard from '$lib/components/PerformanceCard.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
   import ProgressBars from '$lib/components/ProgressBars.svelte';
   import RaidTotals from '$lib/components/RaidTotals.svelte';
   import { isAnalyzer, shownIds, type HomeLayout, type HomeWidget, type WidgetId } from '$lib/home';
   import { PAGE_VERSION, widgetById, type AnalyzerPage } from '$lib/home-payload';
+  import type { NextRaidAnswer } from '$lib/next-raid';
+  import type { MyPerformance } from '$lib/performance';
   import Hub from '$lib/preview/Hub.svelte';
   import type { RaidHeadline } from '$lib/sheets';
 
@@ -47,6 +53,14 @@
   let story = $state<Loaded<ApiStory>>({ kind: 'loading' });
   let desk = $state<Loaded<DeskSummary>>({ kind: 'loading' });
   let analyzer = $state<Loaded<AnalyzerPage>>({ kind: 'loading' });
+  let next = $state<Loaded<NextRaidAnswer>>({ kind: 'loading' });
+  let perf = $state<Loaded<MyPerformance>>({ kind: 'loading' });
+  // Re-read each minute so the countdown stays current while the page is open.
+  let now = $state(new Date());
+  $effect(() => {
+    const tick = setInterval(() => (now = new Date()), 60_000);
+    return () => clearInterval(tick);
+  });
 
   function failure(e: unknown): string {
     if (e instanceof ApiError && e.status === 401) return 'Your session ended; sign in again.';
@@ -68,7 +82,9 @@
     posts: () => load(postsFeed(), (v) => (posts = v)),
     highlights: () => load(guildHighlights(), (v) => (highlights = v)),
     progression: () => load(publicStory(), (v) => (story = v)),
-    officer_desk: () => load(deskSummary(), (v) => (desk = v))
+    officer_desk: () => load(deskSummary(), (v) => (desk = v)),
+    next_raid: () => load(nextRaid(), (v) => (next = v)),
+    my_performance: () => load(myPerformance(), (v) => (perf = v))
   };
   const requested = new Set<Source>();
 
@@ -204,17 +220,24 @@
           {:else}{@render status(story)}{/if}
           <a href="{base}/recruit">How applying works</a>
         </section>
-      {:else}
-        <!-- Widgets whose data the API does not serve yet. -->
-        <section class="card" aria-labelledby="{id}-h">
-          <h2 id="{id}-h">{title(layout, id)}</h2>
-          {#if id === 'next_raid'}
-            <p class="muted">Shows the next raid and its signups once the hub reads Discord's scheduled events.</p>
-          {:else}
-            <p class="muted">Shows your last raid against the guild median once your characters' raids are analysed.</p>
-            <a href="{base}/me/claim">Claim your characters</a>
-          {/if}
-        </section>
+      {:else if id === 'next_raid'}
+        {#if next.kind === 'ok'}
+          <NextRaidCard raid={next.value.raid} {now} />
+        {:else}
+          <section class="card" aria-labelledby="next-h">
+            <h2 id="next-h">Next raid</h2>
+            {@render status(next)}
+          </section>
+        {/if}
+      {:else if id === 'my_performance'}
+        {#if perf.kind === 'ok'}
+          <PerformanceCard mine={perf.value} />
+        {:else}
+          <section class="card" aria-labelledby="perf-h">
+            <h2 id="perf-h">Your performance</h2>
+            {@render status(perf)}
+          </section>
+        {/if}
       {/if}
     {/snippet}
   </HomeView>

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,3 +23,7 @@ class Settings(BaseSettings):
     hub_api_url: str = "http://api:8000"
     hub_service_token: SecretStr = SecretStr("")
     raid_sheets_config: Path = Path("config/raid_sheets.yaml")
+    # `toads-worker schedule`: how often it rebuilds the hub's analyzer widgets and performance numbers, and imports
+    # the raid sheets. 0 turns that job off.
+    hub_refresh_minutes: int = Field(default=30, ge=0)
+    sheets_refresh_minutes: int = Field(default=360, ge=0)

@@ -2,8 +2,14 @@
 # @pending scenarios have no steps yet; add steps and drop @pending when the requirement is implemented.
 Feature: HUB HOME
 
-  @ears_event_driven @member @phase_2_4 @pending
+  @ears_event_driven @member @phase_2_4
   Scenario: REQ-HUB-HOME-001 When an officer creates or edits a Discord scheduled event, the Home page shall show it as the next raid within 5 minutes
+    Given a Wednesday raider signed in to the hub
+    And an officer has posted "Karazhan" as a Discord scheduled event for Wednesday evening
+    Then their next raid is "Karazhan" on Wednesday with a link to sign up in Discord
+    When the officer moves "Karazhan" an hour later
+    And 5 minutes pass
+    Then their next raid starts an hour later
 
   @ears_ubiquitous @member @phase_2_3
   Scenario: REQ-HUB-HOME-002 The hub home shall let each signed-in member choose which widgets it shows and in what order, and shall keep that choice for their next visit
@@ -30,3 +36,23 @@ Feature: HUB HOME
     Given a Wednesday raider in the Toads server
     When they complete Discord sign-in
     Then the hub sends them to their hub home
+
+  @ears_state_driven @member @phase_2_3
+  Scenario: REQ-HUB-HOME-006 While Discord has no scheduled event coming up, the hub home shall show the next raid from the raid days' configured start times
+    Given a Wednesday raider signed in to the hub
+    And Discord has no scheduled events
+    Then their next raid is the next Wednesday at the configured start time
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-007 The hub home's Your performance widget shall show the member's main character's primary number in the last analysed raid against the guild median for the same role
+    Given a Wednesday raider signed in to the hub
+    And they hold an approved claim on the healer "Lilypad"
+    When the worker publishes a raid where "Lilypad" healed 900 against a healer median of 700
+    Then their performance shows "Lilypad" at 900 healing against a median of 700
+
+  @ears_unwanted_behavior @member @phase_2_3
+  Scenario: REQ-HUB-HOME-008 If another member claims the character named like a member's server nickname, then the hub shall not show that character's numbers on the member's Your performance widget
+    Given a Wednesday raider nicknamed "Croak" signed in to the hub
+    And another member holds an approved claim on "Croak"
+    When the worker publishes a raid with "Croak" in it
+    Then their performance shows no character

@@ -77,6 +77,18 @@ services:
       redis: { condition: service_started }
       analyser-migrate: { condition: service_completed_successfully }
 
+  # Keeps the hub's analyzer widgets, performance numbers and raid sheets fresh (toads_worker.schedule); intervals
+  # come from TOADS_HUB_REFRESH_MINUTES and TOADS_SHEETS_REFRESH_MINUTES in services/worker/.env.
+  scheduler:
+    build: { context: .., dockerfile: services/worker/Dockerfile }
+    command: ["toads-worker", "schedule"]
+    env_file: ../services/worker/.env
+    volumes: [../config:/config:ro]
+    depends_on:
+      postgres: { condition: service_healthy }
+      analyser-migrate: { condition: service_completed_successfully }
+      api: { condition: service_started }
+
   bot:
     build: { context: .., dockerfile: services/bot/Dockerfile }
     env_file: ../services/bot/.env
