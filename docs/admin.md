@@ -5,6 +5,8 @@ officers. Above them sit a handful of **super admins**, named in the hub's confi
 to other members: directly, as a grant, or through an **officer token** the member redeems themselves. One of them may
 be the **break-glass admin**, who is always a super admin and is never hidden.
 
+For every other setting, first-time setup and routine operations, see the [admin guide](../ADMIN_GUIDE.md).
+
 ## Super admins
 
 - `TOADS_SUPER_ADMIN_IDS` in `services/api/.env`: Discord user ids, comma-separated. Empty: none.

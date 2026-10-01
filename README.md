@@ -56,4 +56,6 @@ Next, per the phased plan: the API reading wcl-store's tables and the character 
 (until then `POST /api/claims` answers 404), the bot draining the
 `#officers` outbox, and seed data for `just seed`.
 
+Running and maintaining it (settings, first-time setup, access control, secrets, backups): [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
+
 See [SECURITY.md](SECURITY.md) and [docs/requirements.md](docs/requirements.md).
