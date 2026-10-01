@@ -9,7 +9,9 @@ from urllib.parse import unquote
 
 import httpx
 import pytest
+from hub_db import AuditEntry, Member
 from pydantic import SecretStr
+from sqlalchemy import select
 from toads_api.bank import messages
 from toads_api.bank.client import BankClient, BankError, BankIdentity
 from toads_api.bank.events import BOT, DM, POST, BankEvent, BankEvents
@@ -90,8 +92,33 @@ def test_members_see_sources_inventory_and_the_replica(bank: Bank) -> None:
 def test_bank_me_says_where_the_caller_is_an_officer(bank: Bank) -> None:
     me = bank.get("/api/bank/me", bank.member).json()
     assert me["configured"] and me["officer_days"] == [] and me["discord_user_id"] == str(bank.member_user.user_id)
-    assert bank.get("/api/bank/me", bank.officer).json()["officer_days"] == ["wed"]
-    assert bank.get("/api/bank/me", bank.admin).json()["officer_days"] == ["wed", "sun"]
+    assert (me["import_days"], me["manage_days"], me["manages_grants"]) == ([], [], False)
+    officer = bank.get("/api/bank/me", bank.officer).json()
+    assert officer["officer_days"] == officer["import_days"] == officer["manage_days"] == ["wed"]
+    assert officer["manages_grants"] is False
+    assert (officer["sees_grants"], officer["super_admin"], officer["break_glass_admin"]) == (False, False, None)
+    admin = bank.get("/api/bank/me", bank.admin).json()
+    assert admin["officer_days"] == admin["import_days"] == admin["manage_days"] == ["wed", "sun"]
+    # The global tier sees the grants; only super admins change them (docs/admin.md).
+    assert (admin["sees_grants"], admin["manages_grants"], admin["super_admin"]) == (True, False, False)
+
+
+def test_bank_me_names_super_admins_and_shows_the_break_glass_admin_to_the_global_tier(bank: Bank) -> None:
+    root = bank.hub.user(nick="Leigh")
+    bank.hub.services.settings = make_settings(
+        bank_url=BANK_URL,
+        bank_service_token=TOKEN,
+        bank_bot_token=BOT_TOKEN,
+        super_admin_ids=str(bank.global_user.user_id),
+        break_glass_admin_id=str(root.user_id),
+    )
+    admin = bank.get("/api/bank/me", bank.admin).json()
+    assert (admin["manages_grants"], admin["super_admin"], admin["break_glass"]) == (True, True, False)
+    assert admin["break_glass_admin"] == str(root.user_id)
+    glass = bank.get("/api/bank/me", bank.hub.login(root)).json()
+    assert (glass["global_officer"], glass["super_admin"], glass["break_glass"]) == (True, True, True)
+    # Plain members are not told who holds it.
+    assert bank.get("/api/bank/me", bank.member).json()["break_glass_admin"] is None
 
 
 def test_a_request_reserves_stock_in_the_members_name(bank: Bank) -> None:
@@ -300,6 +327,79 @@ def test_a_raid_days_officer_cannot_import_another_days_bank(bank: Bank) -> None
     assert bank.post(f"{base}/{import_id}/accept", bank.officer).json()["error"]["code"] == "not_this_day"
 
 
+def test_super_admins_work_every_bank_on_every_day_with_no_role_or_grant(bank: Bank) -> None:
+    """Leigh: autonomy and trust. A super admin (and the break-glass admin) acts as a global officer on every raid day's
+    bank without any Discord role or grant, and the break-glass admin's changes stay marked on the audit log."""
+    root, glass = bank.hub.user(nick="Lilypad"), bank.hub.user(nick="Glass")
+    bank.hub.services.settings = make_settings(
+        bank_url=BANK_URL,
+        bank_service_token=TOKEN,
+        bank_bot_token=BOT_TOKEN,
+        super_admin_ids=str(root.user_id),
+        break_glass_admin_id=str(glass.user_id),
+    )
+    sunday = _sunday_bank(bank)
+    for user in (root, glass):
+        assert user.roles == set()
+        session = bank.hub.login(user)
+        me = bank.get("/api/bank/me", session).json()
+        assert (me["global_officer"], me["import_days"], me["manage_days"]) == (True, ["wed", "sun"], ["wed", "sun"])
+        asked = bank.post(
+            "/api/bank/requests",
+            bank.member,
+            {"sourceId": sunday["id"], "itemId": 22832, "quantity": 1, "character": "Frogmage"},
+        ).json()
+        seen = bank.get("/api/days/wed/bank/requests", session, scope="all").json()
+        assert asked["id"] in {r["id"] for r in seen}
+        approved = bank.post(f"/api/days/wed/bank/requests/{asked['id']}/approve", session, {"expectedRevision": 1})
+        assert approved.status_code == 200, approved.text
+        assert bank.post("/api/days/sun/bank/imports", session).status_code == 201
+    with bank.hub.db() as db:
+        marked = [a.target for a in db.scalars(select(AuditEntry).where(AuditEntry.action == "break_glass"))]
+    # Only the break-glass admin's changes are marked, each one of them.
+    assert marked == [f"POST /api/days/wed/bank/requests/{asked['id']}/approve", "POST /api/days/sun/bank/imports"]
+    # Global officers keep every bank power without a grant, too.
+    assert bank.hub.services.bank_grants.all_grants() == []
+
+
+def _member_id(bank: Bank, user: FakeUser) -> int:
+    with bank.hub.db() as db:
+        member_id = db.scalar(select(Member.id).where(Member.discord_user_id == user.user_id))
+    assert member_id is not None
+    return member_id
+
+
+def test_a_dayless_import_grant_never_reaches_an_officers_only_bank(bank: Bank) -> None:
+    """Qodo 4152357917: a grant with no raid day covers every bank the grantee can see, and no other."""
+    hidden = bank.state.add_source(
+        name="Officers bank", guild="Toads Officers", realm="Spineshatter", region="EU", audience="officers"
+    )
+    bank.hub.services.bank_grants.grant(
+        bank.member_user.user_id,
+        "Höpscotch",
+        "import_bank_snapshot",
+        None,
+        granted_by=_member_id(bank, bank.global_user),
+    )
+    snapshot = sample_snapshot(int(bank.hub.now) - 60, "spineshatter-officers-0001")
+    snapshot["source"] = {**snapshot["source"], "guild": hidden["guild"]}
+    base = "/api/days/sun/bank/imports"
+    import_id = bank.post(base, bank.member).json()["id"]
+    bank.post(f"{base}/{import_id}/parts", bank.member, {"text": "\n".join(encode_parts(snapshot))})
+    for r in (
+        bank.get(f"{base}/{import_id}/preview", bank.member),
+        bank.post(f"{base}/{import_id}/accept", bank.member),
+    ):
+        assert r.status_code == 403, r.text
+    assert "spineshatter-officers-0001" not in bank.state.receipts and hidden["id"] not in bank.state.snapshots
+    # The same grant does reach the members' bank, under any raid day's URL.
+    ours = sample_snapshot(int(bank.hub.now) - 60, "spineshatter-toads-0002")
+    import_id = bank.post(base, bank.member).json()["id"]
+    bank.post(f"{base}/{import_id}/parts", bank.member, {"text": "\n".join(encode_parts(ours))})
+    accepted = bank.post(f"{base}/{import_id}/accept", bank.member)
+    assert accepted.status_code == 200, accepted.text
+
+
 def test_only_the_global_tier_registers_sources(bank: Bank) -> None:
     body = {"name": "Alt bank", "guild": "Toads Alts", "realm": "Spineshatter", "region": "EU", "managers": ["1"]}
     assert bank.post("/api/admin/bank/sources", bank.officer, body).status_code == 403
@@ -327,6 +427,12 @@ def test_the_hub_names_the_member_and_their_standing() -> None:
     day_officer = identity_of(Principal(member_id=1, day_roles={"wed": HubRole.OFFICER}, discord_user_id=7))
     assert day_officer.roles == ("member", "officer")
     assert identity_of(Principal(member_id=1, discord_user_id=7)).roles == ("member",)
+    # On an import or queue route the hub has let them reach, it vouches for them as uploader or manager.
+    assert identity_of(Principal(member_id=1, discord_user_id=7), "uploader").roles == ("member", "uploader")
+    officer_manager = identity_of(
+        Principal(member_id=1, day_roles={"wed": HubRole.OFFICER}, discord_user_id=7), "manager"
+    )
+    assert officer_manager.roles == ("member", "officer", "manager")
     with pytest.raises(BankError) as info:
         identity_of(Principal(member_id=1))
     assert info.value.status == 403
@@ -357,6 +463,20 @@ async def test_the_client_sends_the_token_identity_and_key() -> None:
     assert request.headers["Authorization"] == f"Bearer {TOKEN}"
     assert (request.headers["X-Toads-Member"], request.headers["X-Toads-Roles"]) == ("42", "member")
     assert request.headers["Idempotency-Key"] == "key-1"
+    assert "X-Toads-Banks" not in request.headers
+
+
+@pytest.mark.anyio
+async def test_a_vouched_call_names_the_banks_it_may_touch() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[])
+
+    who = identity_of(Principal(member_id=1, discord_user_id=7), "manager", ("src_1", "src_2"))
+    await _client(handler).sources(who)
+    assert (seen[0].headers["X-Toads-Roles"], seen[0].headers["X-Toads-Banks"]) == ("member,manager", "src_1,src_2")
 
 
 @pytest.mark.anyio

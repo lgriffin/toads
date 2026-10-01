@@ -36,6 +36,7 @@ class BankApi(Protocol):
     async def manage(
         self, member: int, day: str, request_id: str, action: str, body: dict[str, Any], key: str
     ) -> dict[str, Any]: ...
+    async def redeem(self, member: int, token: str) -> dict[str, Any]: ...
 
 
 def _seg(value: str) -> str:
@@ -122,3 +123,7 @@ class HttpBankApi:
     ) -> dict[str, Any]:
         path = f"/api/days/{_seg(day)}/bank/requests/{_seg(request_id)}/{_seg(action)}"
         return await self._call("POST", path, member, json=body, key=key)
+
+    async def redeem(self, member: int, token: str) -> dict[str, Any]:
+        """An officer token for the grants it names (docs/admin.md); the hub answers every bad token the same way."""
+        return await self._call("POST", "/api/bank/redeem", member, json={"token": token})

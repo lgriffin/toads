@@ -5,7 +5,7 @@ from __future__ import annotations
 import hmac
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -15,9 +15,10 @@ from starlette.routing import BaseRoute
 
 from toads_api import audit
 from toads_api.identity import DiscordUnavailableError, NotAMemberError, acting_principal, refresh
-from toads_api.rbac.permissions import Permission, Principal, can
+from toads_api.rbac.permissions import GRANTABLE, Permission, Principal, can
 from toads_api.services import Services
 from toads_api.sessions import SESSION_COOKIE
+from toads_api.settings import Settings
 
 
 def get_services(request: Request) -> Services:
@@ -28,6 +29,9 @@ def get_services(request: Request) -> Services:
 
 
 ACTING_MEMBER_HEADER = "X-Toads-Acting-Member"
+# The audit action every change made by the break-glass admin is recorded under (docs/admin.md).
+BREAK_GLASS_ACTION = "break_glass"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # The routes a bot may call on a member's behalf (docs/bank.md): the bank's, nothing else.
 ACTING_PATHS = re.compile(r"^/api/(days/[a-z0-9_-]{1,32}/)?bank/(?!events$)")
 
@@ -59,9 +63,38 @@ async def _acting_member(request: Request, services: Services, raw: str) -> Prin
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Discord is unavailable") from None
 
 
+async def with_grants(services: Services, principal: Principal) -> Principal:
+    """The member's bank grants, read from the database on every request and never cached with their roles, so a
+    revoke takes effect on their next call, on the site and through the bank bot alike (docs/bank.md "Grants")."""
+    if principal.discord_user_id is None:
+        return principal
+    held = await anyio.to_thread.run_sync(services.bank_grants.held_by, principal.discord_user_id)
+    if not held:
+        return principal
+    return replace(principal, grants=frozenset((Permission(p), day) for p, day in held))
+
+
+def elevate(settings: Settings, principal: Principal) -> Principal:
+    """Super admins come from configuration alone (docs/admin.md): TOADS_SUPER_ADMIN_IDS, and the break-glass admin
+    TOADS_BREAK_GLASS_ADMIN_ID, who is a super admin whatever their roles or the list say, and is marked so."""
+    user = principal.discord_user_id
+    if user is None:
+        return principal
+    if settings.break_glass_admin_id is not None and user == settings.break_glass_admin_id:
+        return replace(principal, global_officer=True, super_admin=True, break_glass=True)
+    if user in settings.super_admins():
+        return replace(principal, global_officer=True, super_admin=True)
+    return principal
+
+
 async def get_principal(request: Request) -> Principal:
-    """Resolve the caller from their server-side session; roles come from Discord only (REQ-HUB-RBAC-001)."""
+    """Resolve the caller from their server-side session; roles come from Discord only (REQ-HUB-RBAC-001), super
+    admins from configuration. Bank grants are added by the guards that can use them (Require, /api/bank/me)."""
     services = get_services(request)
+    return elevate(services.settings, await _session_principal(request, services))
+
+
+async def _session_principal(request: Request, services: Services) -> Principal:
     acting = request.headers.get(ACTING_MEMBER_HEADER)
     if acting is not None:
         return await _acting_member(request, services, acting.strip())
@@ -78,6 +111,20 @@ async def get_principal(request: Request) -> Principal:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended; sign in again")
         data = refreshed
     return services.raid_days.principal_for(data.member_id, set(data.role_ids), data.display_name, data.discord_user_id)
+
+
+def _record_break_glass(
+    services: Services, principal: Principal, request: Request, raid_day: str | None, perm: str
+) -> None:
+    with services.db.begin() as db:
+        audit.record(
+            db,
+            actor=principal.member_id,
+            action=BREAK_GLASS_ACTION,
+            target=f"{request.method} {request.url.path}",
+            raid_day=raid_day,
+            detail=perm,
+        )
 
 
 def _record_denial(services: Services, principal: Principal, request: Request, raid_day: str, perm: str) -> None:
@@ -107,6 +154,9 @@ class Require:
             services = get_services(request)
             if services.raid_days.day(raid_day) is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown raid day")
+        if self.scoped and self.permission in GRANTABLE:
+            # Only raid-day bank routes can be opened by a grant, so only they read grants (one query per call).
+            principal = await with_grants(get_services(request), principal)
         if not can(principal, self.permission, raid_day):
             if raid_day is not None and principal.is_officer:
                 # REQ-HUB-DAY-011: an officer reaching into a sibling day's officer view is recorded.
@@ -114,6 +164,11 @@ class Require:
                     _record_denial, get_services(request), principal, request, raid_day, self.permission.value
                 )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        if principal.break_glass and request.method not in SAFE_METHODS:
+            # docs/admin.md: every change made through the break-glass admin is on the audit log, marked as such.
+            await anyio.to_thread.run_sync(
+                _record_break_glass, get_services(request), principal, request, raid_day, self.permission.value
+            )
         return principal
 
 

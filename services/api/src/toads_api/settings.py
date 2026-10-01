@@ -52,13 +52,23 @@ class Settings(BaseSettings):
     # where it says a manager could not be reached by DM. None: snapshot posts are skipped; fallbacks use the bank one.
     bank_channel_id: int | None = None
     bank_fallback_channel_id: int | None = None
+    # Super admins (docs/admin.md): Discord user ids, comma-separated, above the global officers. Configuration only,
+    # so nothing in the app can make someone one. Only they grant bank grants and mint officer tokens.
+    super_admin_ids: str = Field(default="", pattern=r"^\s*(\d{1,20}\s*(,\s*\d{1,20}\s*)*)?$")
+    # The break-glass admin (docs/admin.md): one Discord user id who is always a super admin, whatever their Discord
+    # roles or TOADS_SUPER_ADMIN_IDS say. Shown on the bank page and in /api/session, and every change they make is
+    # audit-logged as "break_glass". Empty: none.
+    break_glass_admin_id: int | None = Field(default=None, gt=0)
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)
     # How long a started login (state + PKCE verifier) stays usable.
     login_ttl_seconds: int = Field(default=600, gt=0)
 
-    @field_validator("bank_channel_id", "bank_fallback_channel_id", mode="before")
+    def super_admins(self) -> frozenset[int]:
+        return frozenset(int(part) for part in self.super_admin_ids.split(",") if part.strip())
+
+    @field_validator("bank_channel_id", "bank_fallback_channel_id", "break_glass_admin_id", mode="before")
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         """An empty channel line in .env means no channel."""

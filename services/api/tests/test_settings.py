@@ -55,6 +55,19 @@ def test_bank_is_off_by_default_and_blank_channels_mean_none(monkeypatch: pytest
     assert (s.bank_channel_id, s.bank_fallback_channel_id) == (None, 42)
 
 
+def test_super_admins_come_from_the_environment_and_default_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    _env(monkeypatch)
+    s = Settings()
+    assert (s.super_admins(), s.break_glass_admin_id) == (frozenset(), None)
+    monkeypatch.setenv("TOADS_SUPER_ADMIN_IDS", "41, 42")
+    monkeypatch.setenv("TOADS_BREAK_GLASS_ADMIN_ID", "43")
+    s = Settings()
+    assert (s.super_admins(), s.break_glass_admin_id) == ({41, 42}, 43)
+    monkeypatch.setenv("TOADS_SUPER_ADMIN_IDS", "leigh")
+    with pytest.raises(ValidationError, match="super_admin_ids"):
+        Settings()
+
+
 @pytest.mark.security
 @pytest.mark.parametrize(
     "secret",

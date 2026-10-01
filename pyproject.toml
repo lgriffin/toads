@@ -110,6 +110,20 @@ forbidden_modules = ["hub_db", "sqlalchemy"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+name = "Bank grant routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.bank_grants.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.bank_grants.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Bank grant rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.bank_grants.service", "toads_api.bank_grants.repository"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
 name = "Community routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.community.routes"]

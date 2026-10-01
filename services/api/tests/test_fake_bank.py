@@ -23,9 +23,13 @@ class Bank:
         self.client = TestClient(create_fake_bank(self.state))
         self.keys = 0
 
-    def headers(self, member: str = "7", roles: str = "member,officer", key: bool = True) -> dict[str, str]:
+    def headers(
+        self, member: str = "7", roles: str = "member,officer", key: bool = True, banks: str = ""
+    ) -> dict[str, str]:
         self.keys += 1
         h = {"Authorization": f"Bearer {TOKEN}", "X-Toads-Member": member, "X-Toads-Roles": roles}
+        if banks:
+            h["X-Toads-Banks"] = banks
         return {**h, "Idempotency-Key": f"k{self.keys}"} if key else h
 
     def post(self, path: str, body: Any = None, **who: Any) -> httpx.Response:
@@ -158,6 +162,40 @@ def test_a_snapshot_id_is_accepted_once(bank: Bank) -> None:
     assert _code(bank.post(f"/imports/{_import(bank, snapshot)}/accept")) == (409, "snapshot_conflict")
     stranger = _import(bank, sample_snapshot(NOW - 60, "spineshatter-bankalt-0010"), member="9", roles="member")
     assert _code(bank.post(f"/imports/{stranger}/accept", member="9", roles="member")) == (403, "forbidden")
+
+
+def test_the_hubs_vouched_roles_upload_and_manage_as_toadsbank_does(bank: Bank) -> None:
+    # ToadsBank TB-BM-17: `uploader` passes the upload check and `manager` the manager check, only on the banks named
+    # in X-Toads-Banks and only on banks the member may see, and nothing more.
+    as_manager: dict[str, Any] = {"member": "9", "roles": "member,manager", "banks": "src_1"}
+    as_uploader: dict[str, Any] = {"member": "9", "roles": "member,uploader", "banks": "src_1"}
+    unnamed: dict[str, Any] = {"member": "9", "roles": "member,uploader,manager", "banks": "src_404"}
+    import_id = _import(bank, sample_snapshot(NOW - 60, "spineshatter-bankalt-0011"), **as_manager)
+    assert _code(bank.post(f"/imports/{import_id}/accept", **as_manager)) == (403, "forbidden")
+    assert _code(bank.post(f"/imports/{import_id}/accept", **unnamed)) == (403, "forbidden")
+    assert bank.post(f"/imports/{import_id}/accept", **as_uploader).json()["duplicate"] is False
+    body = {"sourceId": "src_1", "itemId": 22832, "quantity": 1, "character": "Frog"}
+    created = bank.post("/requests", body, member="8", roles="member").json()
+    decision = {"expectedRevision": created["revision"]}
+    assert _code(bank.post(f"/requests/{created['id']}/approve", decision, **as_uploader)) == (403, "forbidden")
+    assert _code(bank.post(f"/requests/{created['id']}/approve", decision, **unnamed)) == (403, "forbidden")
+    assert bank.post(f"/requests/{created['id']}/approve", decision, **as_manager).json()["status"] == "approved"
+    sources = {"name": "Alts", "guild": "Toads Alts", "realm": "Spineshatter", "region": "EU", "managers": []}
+    assert _code(bank.post("/sources", sources, member="9", roles="member,manager,uploader")) == (403, "forbidden")
+
+
+def test_a_vouched_manager_never_sees_or_works_an_officers_only_bank(bank: Bank) -> None:
+    vault = bank.state.add_source(
+        name="Vault", guild="Toads Vault", realm="Spineshatter", region="EU", managers=["7"], audience="officers"
+    )
+    bank.state.store_snapshot(vault["id"], sample_snapshot(NOW - 60))
+    body = {"sourceId": vault["id"], "itemId": 22832, "quantity": 1, "character": "Gob"}
+    created = bank.post("/requests", body).json()
+    grantee: dict[str, Any] = {"member": "9", "roles": "member,manager", "banks": f"src_1,{vault['id']}"}
+    assert vault["id"] not in [s["id"] for s in bank.get("/sources", **grantee).json()]
+    assert bank.get("/requests?scope=all", **grantee).json() == []
+    decision = {"expectedRevision": created["revision"]}
+    assert _code(bank.post(f"/requests/{created['id']}/approve", decision, **grantee)) == (403, "forbidden")
 
 
 def test_events_go_to_the_hub_with_the_token() -> None:

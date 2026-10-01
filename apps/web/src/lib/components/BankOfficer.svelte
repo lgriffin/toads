@@ -21,10 +21,19 @@
     type ManagerAction
   } from '$lib/bank';
 
-  // Officer powers are scoped to a raid day: the queue and imports go through one of the officer's days.
-  let { day, days, onchange }: { day: string; days: string[]; onchange: () => Promise<void> } = $props();
+  // The bank's upkeep is scoped to a raid day: the queue and imports go through a day the member may work, by an
+  // officer role or a bank grant. A grant may cover imports only, or the queue only.
+  let {
+    day,
+    days,
+    importDays,
+    manageDays,
+    onchange
+  }: { day: string; days: string[]; importDays: string[]; manageDays: string[]; onchange: () => Promise<void> } = $props();
 
   let chosenDay = $state(untrack(() => day));
+  let canManage = $derived(manageDays.includes(chosenDay));
+  let canImport = $derived(importDays.includes(chosenDay));
   let queue = $state<BankRequest[]>([]);
   let message = $state('');
   let busy = $state(false);
@@ -37,6 +46,10 @@
   let receipt = $state('');
 
   async function loadQueue() {
+    if (!manageDays.includes(chosenDay)) {
+      queue = [];
+      return;
+    }
     try {
       queue = await requestQueue(chosenDay);
     } catch (e) {
@@ -112,7 +125,7 @@
 </script>
 
 <section class="card" aria-labelledby="officer-h">
-  <h2 id="officer-h">Officers: requests and imports</h2>
+  <h2 id="officer-h">Bank upkeep: requests and imports</h2>
   {#if days.length > 1}
     <div class="field day">
       <label for="officer-day">Acting for raid day</label>
@@ -123,6 +136,7 @@
   {/if}
   <p class="notice" role="status" aria-live="polite">{message}</p>
 
+  {#if canManage}
   <h3>Request queue</h3>
   {#if queue.length === 0}
     <p class="muted">Nothing waiting for you.</p>
@@ -157,7 +171,9 @@
       </table>
     </div>
   {/if}
+  {/if}
 
+  {#if canImport}
   <h3>Import a bank export</h3>
   <p class="muted">
     Paste the parts the ToadsBank addon shows, in any order and over several goes. Discord code fences are fine.
@@ -191,6 +207,7 @@
     </div>
   {/if}
   {#if receipt}<p class="ok" role="status">{receipt}</p>{/if}
+  {/if}
 </section>
 
 <style>

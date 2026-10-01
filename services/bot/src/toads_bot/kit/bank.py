@@ -3,8 +3,9 @@
 - Site to Discord: `bank.dm` sends a member a DM (a manager's carries Approve / Reject / Record delivery buttons) and
   `bank.post` posts in one of the bot's channels. Nothing it says can ping anyone, and the hub has already escaped
   every name in what it asks the bot to say.
-- Slash commands: `/bank import` (a modal to paste the addon's export parts), `/bank find <item>` and
-  `/bank request <item> <quantity> <character>`. Every answer is ephemeral.
+- Slash commands: `/bank import` (a modal to paste the addon's export parts), `/bank find <item>`,
+  `/bank request <item> <quantity> <character>` and `/bank redeem <token>` (an officer token a super admin minted,
+  docs/admin.md). Every answer is ephemeral.
 - Buttons carry what they act on in their custom id (`bank:<action>:<args>`), so they keep working across bot
   restarts. Manager buttons carry the request's revision: a stale one gets the request's current state (TB-BM-16).
 
@@ -38,6 +39,11 @@ LIST_LIMIT = 10
 MESSAGE_LIMIT = 1900
 # The hub's refusal when a raid day does not own the bank a manager route touches (toads_api.bank.routes).
 NOT_THIS_DAY = "not_this_day"
+# GET /api/bank/me's lists of the raid days a member may import on and work the request queue on.
+IMPORT_DAYS = "import_days"
+MANAGE_DAYS = "manage_days"
+NO_IMPORTS = "Only officers and members granted bank imports can import bank snapshots."
+NO_QUEUE = "Only officers and members granted the bank's request queue can manage bank requests."
 T = TypeVar("T")
 _MARKDOWN = re.compile(r"([\\*_~`|>#\-\[\]()<@:])")
 
@@ -170,6 +176,21 @@ def error_text(error: BankApiError) -> str:
 # ------------------------------------------------------------------- custom ids
 
 
+GRANT_WORDS = {"import_bank_snapshot": "import bank snapshots", "manage_bank": "run the request queue"}
+
+
+def redeemed_text(redeemed: dict[str, Any]) -> str:
+    """What a redeemed officer token gave the member."""
+    lines = []
+    for grant in redeemed.get("grants") or []:
+        what = GRANT_WORDS.get(str(grant.get("permission")), escape(grant.get("permission")))
+        day = grant.get("raid_day")
+        lines.append(f"- {what} on {'every bank' if day is None else escape(day) + ' banks'}")
+    if not lines:
+        return "Token redeemed, but it granted nothing new."
+    return "Token redeemed. You may now:\n" + "\n".join(lines)
+
+
 def custom_id(action: str, *args: object) -> str:
     """`bank:<action>:<arg>:...`, each argument percent-encoded so free text (a character name) cannot add a colon."""
     return ":".join([PREFIX, action, *(quote(str(a), safe="") for a in args)])
@@ -294,6 +315,11 @@ class Bank(Binding):
     ) -> None:
         await self.request(interaction, item, int(quantity), character)
 
+    @group.command(name="redeem", description="Redeem an officer token for the bank permissions it grants")
+    @app_commands.describe(token="The token a super admin gave you")  # noqa: S106 - a description, not a secret
+    async def redeem_command(self, interaction: discord.Interaction[Any], token: str) -> None:
+        await self.redeem(interaction, token)
+
     # ------------------------------------------------------------- the logic
 
     async def _reply(self, interaction: Any, content: str, view: discord.ui.View | None = None) -> None:
@@ -305,13 +331,16 @@ class Bank(Binding):
     async def _defer(self, interaction: Any) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-    async def _officer_days(self, member: int) -> list[str]:
-        """Manager routes are scoped to a raid day on the hub: the days the member is an officer for."""
-        return [str(d) for d in (await self.api.me(member)).get("officer_days") or []]
+    async def _days(self, member: int, kind: str) -> list[str]:
+        """Import and queue routes are scoped to a raid day on the hub: the days the member may use them on, by an
+        officer role or a bank grant (`import_days` / `manage_days`). An older hub sends only `officer_days`."""
+        me = await self.api.me(member)
+        days = me.get(kind)
+        return [str(d) for d in (days if isinstance(days, list) else me.get("officer_days") or [])]
 
     @staticmethod
     async def _on_days(days: list[str], call: Callable[[str], Awaitable[T]]) -> T:
-        """Runs a call on each of the member's officer days in turn until one owns the bank: the hub refuses a raid
+        """Runs a call on each of the member's permitted days in turn until one owns the bank: the hub refuses a raid
         day that does not with `not_this_day`. Any other answer, or the last day's refusal, is final."""
         for day in days[:-1]:
             try:
@@ -328,9 +357,9 @@ class Bank(Binding):
         await self._defer(interaction)
         member = int(interaction.user.id)
         try:
-            days = await self._officer_days(member)
+            days = await self._days(member, IMPORT_DAYS)
             if not days:
-                await self._reply(interaction, "Only officers can import bank snapshots.")
+                await self._reply(interaction, NO_IMPORTS)
                 return
             # Opening an import and adding parts touch no bank yet; the preview names the bank, and its day.
             import_id, result = await self._add_parts(member, days[0], text, str(interaction.id))
@@ -359,6 +388,16 @@ class Bank(Binding):
         import_id = str((await self.api.open_import(member, day, f"open:{key}"))["id"])
         self.imports[member] = import_id
         return import_id, await self.api.add_parts(member, day, import_id, text, f"parts:{key}")
+
+    async def redeem(self, interaction: Any, token: str) -> None:
+        """Ephemeral, so the token is never shown to the channel; the hub answers every bad token the same way."""
+        await self._defer(interaction)
+        try:
+            redeemed = await self.api.redeem(int(interaction.user.id), token.strip())
+        except BankApiError as error:
+            await self._reply(interaction, error_text(error))
+            return
+        await self._reply(interaction, redeemed_text(redeemed))
 
     async def find(self, interaction: Any, query: str) -> None:
         await self._defer(interaction)
@@ -423,9 +462,9 @@ class Bank(Binding):
         await self._defer(interaction)
         member = int(interaction.user.id)
         try:
-            days = await self._officer_days(member)
+            days = await self._days(member, MANAGE_DAYS)
             if not days:
-                await self._reply(interaction, "Only officers can manage bank requests.")
+                await self._reply(interaction, NO_QUEUE)
                 return
             body = {"expectedRevision": revision, **(extra or {})}
             # Keyed on the request's revision, so a double click is answered once and never applied twice.
@@ -479,9 +518,9 @@ class Bank(Binding):
     async def _accept(self, interaction: Any, member: int, import_id: str) -> None:
         await self._defer(interaction)
         try:
-            days = await self._officer_days(member)
+            days = await self._days(member, IMPORT_DAYS)
             if not days:
-                await self._reply(interaction, "Only officers can import bank snapshots.")
+                await self._reply(interaction, NO_IMPORTS)
                 return
             receipt = await self._on_days(
                 days, lambda day: self.api.accept(member, day, import_id, f"accept:{import_id}")

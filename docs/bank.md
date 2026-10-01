@@ -25,7 +25,7 @@ JSON through unchanged and forwards only the body fields the contract names.
 
 | Hub route | Permission | ToadsBank call |
 | --- | --- | --- |
-| `GET /api/bank/me` | `VIEW_BANK` | none: whether the bank is set up, and the caller's officer days |
+| `GET /api/bank/me` | `VIEW_BANK` | none: whether the bank is set up, the caller's officer days, the days they may import and work the queue on, whether they see or manage grants, whether they are a super admin or the break-glass admin, and (to the global tier) who the break-glass admin is |
 | `GET /api/bank/sources` | `VIEW_BANK` | `GET /v1/sources` |
 | `GET /api/bank/sources/{id}/replica` | `VIEW_BANK` | `GET /v1/sources/{id}/replica` |
 | `GET /api/bank/inventory?q=&sourceId=` | `VIEW_BANK` | `GET /v1/inventory` |
@@ -40,13 +40,21 @@ JSON through unchanged and forwards only the body fields the contract names.
 | `POST /api/days/{day}/bank/requests/{id}/approve\|reject\|deliveries` | `MANAGE_BANK` (scoped) | the same on `/v1` |
 | `POST /api/admin/bank/sources` | `MANAGE_BANK` (global tier) | `POST /v1/sources` |
 | `PATCH /api/admin/bank/sources/{id}` | `MANAGE_BANK` (global tier) | `PATCH /v1/sources/{id}` |
+| `GET /api/admin/bank/grants` | `MANAGE_BANK` (global tier) | none: see Grants |
+| `POST /api/admin/bank/grants` | `MANAGE_GRANTS` (super admins) | none |
+| `DELETE /api/admin/bank/grants/{id}` | `MANAGE_GRANTS` (super admins) | none |
+| `GET /api/admin/bank/tokens` | `MANAGE_GRANTS` (super admins) | none: see [admin.md](admin.md) |
+| `POST /api/admin/bank/tokens` | `MANAGE_GRANTS` (super admins) | none |
+| `DELETE /api/admin/bank/tokens/{id}` | `MANAGE_GRANTS` (super admins) | none |
+| `POST /api/bank/redeem` | `VIEW_BANK` | none: redeem an officer token |
 | `POST /api/bank/events` | ToadsBank's service token | none: see Events |
 
 Every guild member holds `VIEW_BANK` and `REQUEST_BANK_ITEMS`. `IMPORT_BANK_SNAPSHOT` and `MANAGE_BANK` are officer
 permissions and, like every officer power, are scoped to a raid day: a Wednesday officer works the bank under
-`/api/days/wed/bank/...`, a global officer under any day. Registering or editing a source is the global tier's
-(ToadsBank's `admin`). ToadsBank still applies a source's `audience` and its `managers` list, so a raid-day officer can
-only approve requests on banks they manage.
+`/api/days/wed/bank/...`, a global officer under any day. A super admin may also grant either one to another member
+(see Grants and [admin.md](admin.md)). Registering or editing a source is the global tier's (ToadsBank's `admin`);
+granting is the super admins' alone.
+ToadsBank still applies a source's `audience`, so a member who is not an officer does not see an officers-only bank.
 
 The URL's day decides who reaches a route; the hub also binds each officer route to the banks of that day (a source's
 `raidDay`), so a Wednesday officer cannot work Sunday's bank under `/api/days/wed/...`:
@@ -57,7 +65,8 @@ The URL's day decides who reaches a route; the hub also binds each officer route
   the global tier.
 
 A refusal is `403 not_this_day`. Global officers are not bound: they work every bank, including those with no raid
-day, under any day's URL. Opening an import and adding parts touch no bank, so they are not bound either. The bot,
+day, under any day's URL. A grant with no raid day covers every bank the member can see (a source's `audience` still
+applies), under any day's URL. Opening an import and adding parts touch no bank, so they are not bound either. The bot,
 which does not know a request's bank, tries the member's officer days in turn and moves on after `not_this_day`.
 
 ### Identity
@@ -68,7 +77,16 @@ The hub sends ToadsBank:
 - `X-Toads-Member`: the member's Discord user id;
 - `X-Toads-Name`: their display name, percent-encoded UTF-8;
 - `X-Toads-Roles`: `member`, plus `officer` when they hold officer powers on any raid day, plus `admin` for a global
-  officer.
+  officer, plus `uploader` on an import route or `manager` on a request queue route the hub has let them reach (by an
+  officer role or a grant);
+- `X-Toads-Banks`: with `uploader` or `manager`, and for anyone but the global tier, the source ids the call may touch:
+  the bank the snapshot matched on accept, the request's bank on approve, reject and deliveries, or the route's banks
+  (that day's banks the member can see, or every bank they can see for a grant with no raid day) on the queue.
+
+ToadsBank (TB-BM-17) lets an `uploader` accept a snapshot and a `manager` list and work requests, as a source's manager
+could, only on a bank named in `X-Toads-Banks` that the member can already see; the role never widens what they see,
+and gives no officer or admin powers. So ToadsBank does not need to know about raid days or grants, and a mistake in
+the hub's binding cannot reach an officers-only bank.
 
 ### Idempotency keys
 
@@ -121,6 +139,7 @@ Discord application.
 - `/bank import` opens a modal of five paragraph boxes (4,000 characters each, so two 1,800-character parts per box).
   The bot opens an import for the member if they have none open, adds the parts and answers with the parts received
   and missing; once the export is complete it shows the preview with Accept and Cancel buttons.
+- `/bank redeem <token>` redeems an officer token ([admin.md](admin.md)) through `POST /api/bank/redeem`.
 - `/bank find <item>` searches the inventory. `/bank request <item> <quantity> <character>` resolves the item by name
   and asks the bank holding the most of it; when stock is short it offers a Join the waitlist button.
 - Manager buttons carry the request id and revision. A stale revision answers with the request's current state
@@ -141,10 +160,39 @@ command or button in `X-Toads-Acting-Member: <discord user id>`. The hub then:
    in the server gets 403, and Discord being down gives 503. What Discord said is kept in Redis for
    `TOADS_ROLE_REFRESH_SECONDS` (at most 15 minutes, as for a signed-in session), so a busy bot does not run into
    Discord's rate limits; someone not in the server is not remembered;
-3. builds their Principal exactly as a login would, so the route's `require(...)` applies as usual.
+3. builds their Principal exactly as a login would (super admins from configuration included), so the route's
+   `require(...)` applies as usual. A raid day's bank routes read grants from the database on every call and never
+   remember them with the roles, so a revoke stops the bot on the member's next command.
 
-So the bot can do nothing the member could not do on the site. Manager actions use the raid days the member is an
-officer for (from `GET /api/bank/me`), in turn, until one owns the bank.
+So the bot can do nothing the member could not do on the site. Imports and manager actions use the raid days the
+member may work (`import_days` and `manage_days` from `GET /api/bank/me`: their officer days and any day a grant
+covers), in turn, until one owns the bank.
+
+## Grants
+
+Officers run the bank's upkeep through their Discord roles: a raid day's officers import snapshots and work the
+request queue for that day's banks, global officers for every bank. A super admin ([admin.md](admin.md)) can let one
+more member do either without making them an officer, directly or through an officer token the member redeems: a grant is one Discord user id, one permission (`import_bank_snapshot` or
+`manage_bank`) and either a raid day (that day's banks) or none (every bank). Officers never need one; a grant only
+adds to a member who is not an officer of that day.
+
+- Grants live in hub-db's `bank_grants` table (migration `0011`), with who granted them and when; "every bank" is
+  stored as `*`, so a unique constraint on (user, permission, raid day) keeps one row per grant even when two land at
+  once. Granting and revoking are written to the audit log. Granting something already held returns the existing grant
+  (`200`); a new one is `201`.
+- Only someone in the Toads server can be granted anything (`404` otherwise); an unknown raid day is `422`.
+- A raid day's bank routes read the member's grants on every call (`rbac.deps.with_grants`, only for routes a grant
+  can open) into their Principal, and
+  `can(...)` honours them only on a raid day taken from the route's path, never on a guild-wide route. So a grant opens
+  the same `/api/days/{day}/bank/...` routes an officer of that day uses, binds them to that day's banks the same way,
+  and never reaches `/api/admin/...`.
+- ToadsBank learns of a grant only through the per-call `uploader` / `manager` role above: nothing is copied into a
+  source's `managers`, so ToadsBank's `request.assigned` DMs still go to the listed managers only. A granted member
+  sees the queue on the site and through the bot, for the banks they can see.
+
+The Bank page shows the global tier the grants, and super admins the controls to grant, revoke and mint officer tokens.
+Any member can redeem a token there or with `/bank redeem`. The bank bot has no grant or mint commands: its
+acting-member token reaches only `/api/bank/...` and `/api/days/{day}/bank/...`, not the admin routes.
 
 ## Configuration
 
@@ -157,13 +205,16 @@ officer for (from `GET /api/bank/me`), in turn, until one owns the bank.
 | `TOADS_BANK_BOT_TOKEN` | The bank bot's token for acting as a member; the same value in the bank bot's env. Empty: the bot's commands and buttons are refused. |
 | `TOADS_BANK_CHANNEL_ID` | Where accepted snapshots are posted when the source's raid day has no `bank_requests` channel. |
 | `TOADS_BANK_FALLBACK_CHANNEL_ID` | Where the bot reports a manager it could not DM. Empty: the bank channel. |
+| `TOADS_SUPER_ADMIN_IDS` | Super admins' Discord user ids, comma-separated ([admin.md](admin.md)). |
+| `TOADS_BREAK_GLASS_ADMIN_ID` | The break-glass admin's Discord user id ([admin.md](admin.md)). |
 
 ToadsBank's side needs `TOADSBANK_SERVICE_TOKEN` (the same value) and `TOADSBANK_EVENTS_URL` set to
 `<hub>/api/bank/events`.
 
 ## Local development with the fake bank
 
-`toads_api.testing.fake_bank` is an in-memory implementation of the v1 contract: imports with the real `TOADSBANK/1`
+`toads_api.testing.fake_bank` is an in-memory implementation of the v1 contract, the `uploader` and `manager` roles
+included: imports with the real `TOADSBANK/1`
 reader (headers, base64, CRC-32), sources, replica, inventory, requests with idempotency keys and revisions, and the
 outbox events, which it POSTs to `FAKE_BANK_EVENTS_URL`. It seeds one bank, "Toads main bank", captured an hour before
 it started, managed by the fake Discord's dev user (1001) and assigned to the raid day `FAKE_BANK_RAID_DAY` (`wed`
