@@ -44,10 +44,21 @@ test('a token the officer mints gives the raider bank upkeep', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Import a bank export' })).toBeVisible();
 });
 
-test('an officer approves a request from the queue', async ({ page }) => {
+test('an officer approves and delivers a request, then a new capture accounts for it', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('bank/');
   const row = page.getByRole('row', { name: /10 × Super Mana Potion/ });
   await row.getByRole('button', { name: 'Approve Super Mana Potion for Croakley' }).click();
   await expect(row).toContainText('Approved');
+
+  const stock = page.getByRole('region', { name: 'Inventory' }).getByRole('row', { name: /Super Mana Potion/ });
+  await expect(stock.getByRole('cell')).toHaveText(['60', '0', '0', '10', '50', /Request/]);
+  await row.getByRole('button', { name: 'Record delivery of Super Mana Potion' }).click();
+  await expect(stock.getByRole('cell')).toHaveText(['60', '10', '0', '0', '50', /Request/]);
+
+  await page.getByLabel('Export parts').fill('TOADSBANK/1 demo export');
+  await page.getByRole('button', { name: 'Add parts' }).click();
+  await page.getByRole('button', { name: 'Accept snapshot' }).click();
+  await expect(page.getByText(/Snapshot accepted\. Tabs updated: 1, 2, 3\./)).toBeVisible();
+  await expect(stock.getByRole('cell')).toHaveText(['50', '0', '0', '0', '50', /Request/]);
 });

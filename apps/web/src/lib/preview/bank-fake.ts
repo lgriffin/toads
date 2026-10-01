@@ -204,7 +204,11 @@ function seed() {
     { ...used, secret: '' },
     { ...token(2, ['manage_bank'], 'sun', 'Sunday bank alt', 1), secret: '' }
   ];
-  return { banks, requests, grants, tokens, imports: new Map<string, string>(), next: 100 };
+  return { banks, requests, grants, tokens, imports: new Map<string, string>(),
+    /** Delivered since the last capture, per source and item: gone from the bank, not yet in a snapshot. */
+    outgoing: new Map<string, number>(),
+    next: 100
+  };
 }
 
 let state = seed();
@@ -263,6 +267,7 @@ const OPEN = new Set(['reserved', 'approved']);
 function stock(bank: Bank, itemId: number): SourceStock {
   const observed = bank.items.filter((i) => i.itemId === itemId).reduce((n, i) => n + i.count, 0);
   const raidHeld = bank.raidHeld[itemId] ?? 0;
+  const pendingOutgoing = state.outgoing.get(`${bank.source.id}:${itemId}`) ?? 0;
   const directReserved = state.requests
     .filter((r) => r.sourceId === bank.source.id && r.itemId === itemId && OPEN.has(r.status))
     .reduce((n, r) => n + r.outstanding, 0);
@@ -270,10 +275,10 @@ function stock(bank: Bank, itemId: number): SourceStock {
     sourceId: bank.source.id,
     observedAt: bank.source.lastObservedAt,
     observed,
-    pendingOutgoing: 0,
+    pendingOutgoing,
     raidHeld,
     directReserved,
-    available: Math.max(0, observed - raidHeld - directReserved)
+    available: Math.max(0, observed - pendingOutgoing - raidHeld - directReserved)
   };
 }
 
@@ -374,7 +379,12 @@ function dayRoute(day: string, rest: string[], method: string, body: Record<stri
     if (body.expectedRevision !== r.revision) return refuse(409, 'Changed since.', 'stale_revision', undefined, r);
     if (rest[2] === 'approve') return json(bump(r, { status: 'approved' }));
     if (rest[2] === 'reject') return json(bump(r, { status: 'rejected', managerNote: 'Rejected in the demo' }));
-    const delivered = Math.min(r.quantity, r.delivered + Number(body.quantity ?? r.outstanding));
+    const qty = Number(body.quantity ?? 0);
+    if (!Number.isInteger(qty) || qty < 1 || qty > r.outstanding)
+      return refuse(409, 'That is more than the request has outstanding.', 'over_allocated');
+    const key = `${r.sourceId}:${r.itemId}`;
+    state.outgoing.set(key, (state.outgoing.get(key) ?? 0) + qty);
+    const delivered = r.delivered + qty;
     return json(bump(r, { delivered, status: delivered >= r.quantity ? 'fulfilled' : r.status }));
   }
   if (rest[0] === 'imports') {
@@ -407,8 +417,13 @@ function dayRoute(day: string, rest: string[], method: string, body: Record<stri
       };
       return json(preview);
     }
-    // accept: the bank's copy is now as fresh as this capture.
+    // accept: the bank's copy is now as fresh as this capture, which no longer holds what was delivered since.
     const at = nowS() - 120;
+    for (const held of target.items) {
+      const key = `${sourceId}:${held.itemId}`;
+      held.count = Math.max(0, held.count - (state.outgoing.get(key) ?? 0));
+      state.outgoing.delete(key);
+    }
     Object.assign(target.source, { lastObservedAt: at, freshness: 'fresh', revision: target.source.revision + 1 });
     target.source.tabs = target.source.tabs.map((tab) => ({ ...tab, observedAt: at }));
     state.imports.delete(rest[1]);
@@ -456,6 +471,11 @@ function addGrant(ask: NewGrant): [BankGrant, boolean] {
   return [made, true];
 }
 
+/** An unused token past its expiry is expired, as the hub counts it. */
+function expire(t: BankToken) {
+  if (t.status === 'active' && Date.parse(t.expires_at) <= Date.now()) t.status = 'expired';
+}
+
 const strip = ({ secret: _secret, ...t }: BankToken & { secret: string }): BankToken => t;
 
 function newSecret(): string {
@@ -466,7 +486,10 @@ function newSecret(): string {
 
 function tokenRoute(rest: string[], method: string, body: Record<string, unknown>): Response {
   if (!officer()) return refuse(403, 'Super admins only.');
-  if (method === 'GET') return json(state.tokens.map(strip).reverse());
+  if (method === 'GET') {
+    state.tokens.forEach(expire);
+    return json(state.tokens.map(strip).reverse());
+  }
   if (method === 'DELETE') {
     const t = state.tokens.find((x) => x.id === Number(rest[0]));
     if (t && t.status === 'active') Object.assign(t, { status: 'revoked', revoked_at: iso(nowS()) });
@@ -496,6 +519,7 @@ function tokenRoute(rest: string[], method: string, body: Record<string, unknown
 }
 
 function redeem(body: Record<string, unknown>): Response {
+  state.tokens.forEach(expire);
   const t = state.tokens.find((x) => x.secret && x.secret === body.token && x.status === 'active');
   if (!t) return refuse(403, 'That token is not valid. Ask a super admin for a new one.');
   const grants = t.permissions
