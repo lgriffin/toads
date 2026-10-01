@@ -434,7 +434,7 @@ every process that reads it.
 | `TOADS_CREDENTIALS_KEYS` | Generate a key (`just credentials-key`) and put it **first**: `new,old`. Restart the API and worker. New writes use the new key and old rows still decrypt. A row is re-encrypted only when it is written again (a member saves their key, or the worker refreshes the reference login). Drop the old key only once you accept that members who have not re-saved must save their key again. |
 | Discord client secret or bot tokens | Reset in the Discord developer portal, update the env of the API and the bot that uses it, restart. |
 | Warcraft Logs client secret | Reset on warcraftlogs.com, update the worker and API env, restart. The reference login may need reconnecting. |
-| Database password | Change it in Postgres, update `TOADS_DATABASE_URL` in the API and worker, restart. |
+| Database password | Change the role's password in Postgres first (`\password <user>` in `psql`; the secret files alone do not change it), then update `TOADS_DATABASE_URL` in the API and worker, restart. |
 | Super admins or break-glass | Edit the env and restart the API (section 11). |
 | Officer tokens | Revoke unused tokens; they expire on their own after at most 30 days. |
 
@@ -444,14 +444,15 @@ Sign-ins live in Redis: flushing Redis signs everyone out (and drops queued jobs
 
 | What | Holds | Back up |
 | --- | --- | --- |
-| Hub Postgres | members, claims, settings, encrypted keys, reference login, community, layouts, grants, tokens, audit, sheets, and the analyzer's tables | yes: `pg_dump` daily, keep several days, copy off the host |
+| Hub Postgres | members, claims, settings, encrypted keys, reference login, community, layouts, grants, tokens, audit, sheets, and the analyzer's tables | yes: `pg_dump -Fc` daily (with `docker compose exec -T`, so no TTY corrupts the dump), keep several days, copy off the host |
 | ToadsBank Postgres | banks, snapshots, requests, deliveries, raid allocations | yes, see ToadsBank's guide |
 | `TOADS_CREDENTIALS_KEYS` and the other secrets | needed to read encrypted rows and run the stack | yes, in your secret store, never next to the database dump |
 | `config/*.yaml` | raid days, roles, channels, community copy, sheets | yes (they are git-ignored) |
 | Redis | sessions, queues, event dedup | no: losing it signs people out and drops queued jobs |
 
 A restore without the matching `TOADS_CREDENTIALS_KEYS` brings everything back except members' saved keys and the
-reference login. After restoring the hub database, run `hub-db-migrate` and `toads-worker-migrate` before starting the
+reference login. Restore with the API, worker and scheduler stopped, using `pg_restore --clean --if-exists --no-owner`
+into the same database. After restoring the hub database, run `hub-db-migrate` and `toads-worker-migrate` before starting the
 API and worker.
 
 ## 14. Troubleshooting
