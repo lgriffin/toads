@@ -8,6 +8,7 @@ It implements just what the hub uses, with the same paths and shapes as Discord:
                                                  URI and PKCE verifier; codes are single use
 - GET  /api/v10/users/@me/guilds/{id}/member     the token owner's guild member, 404 when not in the server
 - GET  /api/v10/guilds/{id}/roles                the server's roles (any `Bot` token)
+- GET  /api/v10/guilds/{id}/members/{user}       one member of the server (any `Bot` token), 404 when not in it
 - GET  /api/v10/guilds/{id}/scheduled-events     the server's scheduled events (any `Bot` token)
 
 Tests drive it in-process (httpx.ASGITransport / TestClient) and edit `FakeDiscordState` directly.
@@ -173,11 +174,23 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
         user = _bearer_user(request)
         if guild_id != state.guild_id or not user.in_guild:
             raise HTTPException(404, detail="Unknown Guild")
+        return _member_json(user)
+
+    def _member_json(user: FakeUser) -> dict[str, Any]:
         return {
             "user": {"id": str(user.user_id), "username": user.username, "global_name": user.global_name},
             "nick": user.nick,
             "roles": [str(r) for r in sorted(user.roles)],
         }
+
+    @app.get("/api/v10/guilds/{guild_id}/members/{user_id}")
+    async def guild_member(guild_id: int, user_id: int, request: Request) -> dict[str, Any]:
+        if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
+            raise HTTPException(401, detail="401: Unauthorized")
+        user = state.users.get(user_id)
+        if user is None or not user.in_guild:
+            raise HTTPException(404, detail="Unknown Member")
+        return _member_json(user)
 
     @app.get("/api/v10/guilds/{guild_id}/roles")
     async def roles(guild_id: int, request: Request) -> list[dict[str, str]]:

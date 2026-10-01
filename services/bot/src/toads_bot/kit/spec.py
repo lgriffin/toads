@@ -64,6 +64,8 @@ def build_bot(
         link=hub,
         gate=gate or OpenGate(),
         channel_ids=frozenset(settings.bot_channel_ids),
+        hub_api_url=settings.hub_api_url,
+        hub_service_token=settings.hub_service_token,
     )
 
     @bot.event

@@ -97,6 +97,19 @@ source_modules = ["toads_api.bots.bridge", "toads_api.bots.models"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Bank client, events and messages hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.bank.client", "toads_api.bank.events", "toads_api.bank.messages"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Bank routes hold no storage code: ToadsBank owns the bank's data"
+type = "forbidden"
+source_modules = ["toads_api.bank.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 name = "Community routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.community.routes"]

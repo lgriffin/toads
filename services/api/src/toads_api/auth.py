@@ -19,10 +19,9 @@ import anyio
 import structlog
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from hub_db import Member
-from sqlalchemy import select
 
-from toads_api.discord_api import SCOPES, DiscordAuthError, DiscordError, GuildMember
+from toads_api.discord_api import SCOPES, DiscordAuthError, DiscordError
+from toads_api.identity import upsert_member
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import HubRole, Permission, Principal
 from toads_api.services import Services
@@ -55,18 +54,6 @@ def _failed(message: str, code: int = status.HTTP_400_BAD_REQUEST) -> HTMLRespon
     response = HTMLResponse(body, status_code=code)
     _clear_cookie(response, LOGIN_COOKIE, path="/auth")
     return response
-
-
-def _upsert_member(services: Services, member: GuildMember) -> int:
-    with services.db.begin() as db:
-        row = db.scalar(select(Member).where(Member.discord_user_id == member.user_id))
-        if row is None:
-            row = Member(discord_user_id=member.user_id, display_name=member.server_name)
-            db.add(row)
-            db.flush()
-        else:
-            row.display_name = member.server_name
-        return row.id
 
 
 @router.get("/auth/login", include_in_schema=False)
@@ -126,7 +113,7 @@ async def callback(
     old = request.cookies.get(SESSION_COOKIE)
     if old:
         await services.sessions.delete(old)
-    member_id = await anyio.to_thread.run_sync(_upsert_member, services, member)
+    member_id = await anyio.to_thread.run_sync(upsert_member, services, member)
     session_id = await services.sessions.create(
         SessionData(
             member_id=member_id,

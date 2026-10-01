@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,8 +40,22 @@ class Settings(BaseSettings):
     wcl_site_url: str = "https://fresh.warcraftlogs.com"
     # Must be registered on the Warcraft Logs client. Empty: {public_base_url}/api/reference/login/callback.
     wcl_redirect_uri: str = ""
+    # The guild bank (docs/bank.md): toadsbank-api's base URL and the service token it shares with the hub, which also
+    # authenticates ToadsBank's events to POST /api/bank/events. Either empty: the bank routes answer 503.
+    bank_url: str = ""
+    bank_service_token: SecretStr = SecretStr("")
+    # Where the bank bot posts accepted snapshots (a raid day's channels.bank_requests wins for that day's sources), and
+    # where it says a manager could not be reached by DM. None: snapshot posts are skipped; fallbacks use the bank one.
+    bank_channel_id: int | None = None
+    bank_fallback_channel_id: int | None = None
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)
     # How long a started login (state + PKCE verifier) stays usable.
     login_ttl_seconds: int = Field(default=600, gt=0)
+
+    @field_validator("bank_channel_id", "bank_fallback_channel_id", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value: object) -> object:
+        """An empty channel line in .env means no channel."""
+        return None if isinstance(value, str) and not value.strip() else value

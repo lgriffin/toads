@@ -49,10 +49,14 @@ export interface Claim {
   reason: string | null;
 }
 
+/** A non-2xx answer. Bank routes also carry ToadsBank's error `code`, `details` and `current` (docs/bank.md). */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    message: string
+    message: string,
+    readonly code?: string,
+    readonly details?: unknown,
+    readonly current?: unknown
   ) {
     super(message);
   }
@@ -60,22 +64,26 @@ export class ApiError extends Error {
 
 export type Fetch = typeof fetch;
 
-/** One JSON call to the API; a non-2xx answer throws `ApiError` carrying the API's `detail`. */
+/** One JSON call to the API; a non-2xx answer throws `ApiError` carrying the API's `detail` (and `error`, if any). */
 export async function call<T>(f: Fetch, path: string, init: RequestInit = {}): Promise<T> {
+  const extra = (init.headers ?? {}) as Record<string, string>;
   const r = await f(path, {
     credentials: 'same-origin',
     ...init,
-    headers: { accept: 'application/json', ...(init.body ? { 'content-type': 'application/json' } : {}) }
+    headers: { accept: 'application/json', ...(init.body ? { 'content-type': 'application/json' } : {}), ...extra }
   });
   if (!r.ok) {
     let detail = r.statusText;
+    let error: { code?: unknown; details?: unknown; current?: unknown } | undefined;
     try {
       const body = await r.json();
       if (typeof body?.detail === 'string') detail = body.detail;
+      if (body?.error && typeof body.error === 'object') error = body.error;
     } catch {
       // non-JSON error body; keep the status text
     }
-    throw new ApiError(r.status, detail);
+    const code = typeof error?.code === 'string' ? error.code : undefined;
+    throw new ApiError(r.status, detail, code, error?.details, error?.current);
   }
   return (r.status === 204 ? undefined : await r.json()) as T;
 }

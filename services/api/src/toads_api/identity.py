@@ -1,12 +1,17 @@
-"""Turning a session cookie into a Principal, re-reading Discord roles when they go stale (REQ-HUB-RBAC-002)."""
+"""Turning a session cookie into a Principal, re-reading Discord roles when they go stale (REQ-HUB-RBAC-002), and
+the members a bot acts for."""
 
 from __future__ import annotations
 
 from dataclasses import replace
 
+import anyio
 import structlog
+from hub_db import Member
+from sqlalchemy import select
 
-from toads_api.discord_api import DiscordAuthError, GuildMember
+from toads_api.discord_api import DiscordAuthError, DiscordError, GuildMember
+from toads_api.rbac.permissions import Principal
 from toads_api.services import Services
 from toads_api.sessions import SessionData
 
@@ -47,3 +52,33 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
     )
     await services.sessions.save(session_id, updated)
     return updated
+
+
+def upsert_member(services: Services, member: GuildMember) -> int:
+    """The hub member row for a Discord member, created on first sight; returns its id."""
+    with services.db.begin() as db:
+        row = db.scalar(select(Member).where(Member.discord_user_id == member.user_id))
+        if row is None:
+            row = Member(discord_user_id=member.user_id, display_name=member.server_name)
+            db.add(row)
+            db.flush()
+        else:
+            row.display_name = member.server_name
+        return row.id
+
+
+class NotAMemberError(Exception):
+    """The Discord user a bot acts for is not in the Toads server."""
+
+
+async def acting_principal(services: Services, discord_user_id: int) -> Principal:
+    """The Principal of the Discord member a bot acts for (docs/bank.md). Roles come straight from Discord with the
+    hub's bot token, never from the bot, so the bot can only act as a member with that member's own powers."""
+    try:
+        member = await services.discord.guild_member(discord_user_id)
+    except DiscordError as exc:
+        raise DiscordUnavailableError from exc
+    if member is None:
+        raise NotAMemberError
+    member_id = await anyio.to_thread.run_sync(upsert_member, services, member)
+    return services.raid_days.principal_for(member_id, set(member.role_ids), member.server_name, member.user_id)

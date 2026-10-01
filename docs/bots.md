@@ -19,12 +19,20 @@ authenticate with the shared service token, and there is no per-member permissio
 | `services/bot/src/toads_bot/kit/link.py` | `HubLink` protocol and `HttpHubLink`, the bot's only door into the hub |
 | `services/bot/src/toads_bot/kit/gate.py` | `Gate` protocol; `OpenGate` lets everyone do everything for now |
 | `services/bot/src/toads_bot/kit/relay.py` | `Relay`, the example binding: `say` out, `message` in |
+| `services/bot/src/toads_bot/kit/bank.py` | `Bank`, the guild bank: `bank.dm` and `bank.post` out, `/bank` commands and buttons ([bank.md](bank.md)) |
 | `services/bot/src/toads_bot/kit/specs.py` | `SPECS`, every bot this repo can run |
 | `services/api/src/toads_api/bots/bridge.py` | `BotBridge`: registry, action queue with retries, event dedup and listeners |
 | `services/api/src/toads_api/bots/routes.py` | `/api/bots/*` routes, service token only |
 
 The wire models live in `toads_api.bots.models` and, as a copy, in `toads_bot.kit.contract`. The bot may not import
 `toads_api`, so `tests/test_bot_contract.py` checks that both copies describe the same JSON.
+
+## The bots
+
+| Spec | Bindings | What it does |
+| --- | --- | --- |
+| `relay` | `Relay` | The example: relays text both ways between the site and chosen channels. |
+| `bank` | `Bank` | The guild bank ([bank.md](bank.md)): manager and requester DMs, snapshot posts, `/bank import`, `/bank find`, `/bank request` and the manager buttons. It also calls the hub's bank routes as the member who used it (`X-Toads-Acting-Member`). |
 
 ## Contract
 
@@ -101,7 +109,8 @@ What the bot does about the hub going away:
 
 - **Permissions.** The routes take the bots' service token only. Every binding runs with `OpenGate`, and the site's
   listeners get the Discord user id unverified. A role-backed `Gate` and per-listener checks come later
-  (REQ-HUB-BOT-005).
+  (REQ-HUB-BOT-005). The bank bot is the exception for its own routes: it acts as the member through the hub, which
+  reads that member's roles from Discord (see bank.md, "Acting for a member").
 - **Storage.** `BotBridge` keeps its queue in memory (`InMemoryBridgeStore`), so an API restart drops unsent
   actions. A table behind `BridgeStore` replaces it without changing the rules.
 - **The Toad Bot.** The existing Toad Bot (`toads_bot.cogs.community`, `/api/bot/*`) still runs on its own outbox.

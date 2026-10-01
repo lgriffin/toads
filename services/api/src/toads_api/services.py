@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.account.service import AccountService
 from toads_api.account.sql import SqlAccountRepository
+from toads_api.bank.client import BankClient
+from toads_api.bank.events import BankEvents
 from toads_api.bots.bridge import BotBridge, InMemoryBridgeStore
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
@@ -62,10 +64,26 @@ class Services:
     reference: ReferenceService = field(init=False)
     wcl_login: WclLogin = field(init=False)
     bots: BotBridge = field(init=False)
+    # The guild bank (docs/bank.md): None until TOADS_BANK_URL and TOADS_BANK_SERVICE_TOKEN are set.
+    bank: BankClient | None = field(init=False)
+    bank_events: BankEvents = field(init=False)
 
     def __post_init__(self) -> None:
         # Two-way Discord bots (docs/bots.md). In memory until the bridge has a table: a restart drops queued actions.
         self.bots = BotBridge(InMemoryBridgeStore(), clock=lambda: self.clock())
+        self.bank = None
+        if self.settings.bank_url and self.settings.bank_service_token.get_secret_value():
+            if self.http is None:
+                self.http = httpx.AsyncClient(timeout=10.0)
+            self.bank = BankClient(self.http, self.settings.bank_url, self.settings.bank_service_token)
+        self.bank_events = BankEvents(
+            self.bots,
+            bank_channel=self.settings.bank_channel_id,
+            fallback_channel=self.settings.bank_fallback_channel_id,
+            day_channels={
+                d.id: channel for d in self.raid_days.raid_days if (channel := d.channels.bank_requests) is not None
+            },
+        )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
         home_repo = SqlHomeRepository(self.db)

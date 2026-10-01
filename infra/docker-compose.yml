@@ -57,6 +57,18 @@ services:
     healthcheck: { disable: true }
     ports: ["8081:8001"]  # the browser is redirected to http://localhost:8081/oauth2/authorize
 
+  # Dev stand-in for ToadsBank's toadsbank-api (services/api/src/toads_api/testing/fake_bank.py): one seeded bank,
+  # imports, requests and events, all in memory. Dev only; staging and prod point TOADS_BANK_URL at the real service.
+  fake-bank:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    command: ["uvicorn", "--factory", "toads_api.testing.fake_bank:app_from_env", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      FAKE_BANK_I_AM_DEV: "1"  # the fake refuses to start without this opt-in
+      FAKE_BANK_TOKEN: replace-me  # matches TOADS_BANK_SERVICE_TOKEN in services/api/.env.example
+      FAKE_BANK_MANAGER: "1001"  # the fake Discord's dev user manages the seeded bank
+      FAKE_BANK_EVENTS_URL: http://api:8000/api/bank/events
+    healthcheck: { disable: true }
+
   api:
     build: { context: .., dockerfile: services/api/Dockerfile }
     env_file: ../services/api/.env
@@ -94,6 +106,17 @@ services:
     env_file: ../services/bot/.env
     depends_on: [api]
     profiles: [bot]  # needs a real bot token; `docker compose --profile bot up`
+
+  # The guild bank's bot (docs/bank.md). Its own Discord application: set TOADS_DISCORD_BOT_TOKEN and
+  # TOADS_BOT_CHANNEL_IDS for it here, not the Toad Bot's.
+  bank-bot:
+    build: { context: .., dockerfile: services/bot/Dockerfile }
+    command: ["toads-botkit"]
+    env_file: ../services/bot/.env
+    environment:
+      TOADS_BOT_SPEC: bank
+    depends_on: [api]
+    profiles: [bot]
 
   web:
     build: { context: ../apps/web }

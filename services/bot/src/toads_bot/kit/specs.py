@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from toads_bot.kit.bank import Bank
 from toads_bot.kit.relay import Relay
 from toads_bot.kit.spec import BotSpec
 
@@ -13,4 +14,10 @@ RELAY = BotSpec(
     message_content=True,
 )
 
-SPECS: dict[str, BotSpec] = {spec.name: spec for spec in (RELAY,)}
+BANK = BotSpec(
+    name="bank",
+    description="The guild bank (ToadsBank): imports, search, requests and manager DMs. See docs/bank.md.",
+    bindings=(Bank,),
+)
+
+SPECS: dict[str, BotSpec] = {spec.name: spec for spec in (RELAY, BANK)}

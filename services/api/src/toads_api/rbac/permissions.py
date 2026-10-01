@@ -32,10 +32,18 @@ class Permission(enum.StrEnum):
     MANAGE_RECRUITMENT = "manage_recruitment"
     MANAGE_POSTS = "manage_posts"
     MANAGE_HIGHLIGHTS = "manage_highlights"
+    # Guild bank (ToadsBank, docs/bank.md). ToadsBank still applies a source's audience and its managers list.
+    VIEW_BANK = "view_bank"
+    REQUEST_BANK_ITEMS = "request_bank_items"
+    IMPORT_BANK_SNAPSHOT = "import_bank_snapshot"
+    MANAGE_BANK = "manage_bank"
 
 
-# Applicants join the Discord server first, so a plain member (no raid-day role) can apply.
-_MEMBER = frozenset({Permission.VIEW_GUILD_RAIDS, Permission.APPLY})
+# Applicants join the Discord server first, so a plain member (no raid-day role) can apply. Every guild member may see
+# the bank and ask it for items; importing snapshots and running the request queue are officers' work.
+_MEMBER = frozenset(
+    {Permission.VIEW_GUILD_RAIDS, Permission.APPLY, Permission.VIEW_BANK, Permission.REQUEST_BANK_ITEMS}
+)
 _TRIAL = _MEMBER | {Permission.VIEW_OWN_PERFORMANCE, Permission.CLAIM_CHARACTER}
 _RAIDER = _TRIAL | {Permission.UPLOAD_SCREENSHOTS, Permission.SUBMIT_HIGHLIGHT}
 _OFFICER = frozenset(Permission)
@@ -56,6 +64,8 @@ class Principal:
     global_officer: bool = False
     day_roles: dict[str, HubRole] = field(default_factory=dict)
     display_name: str = ""
+    # The member's Discord user id: the identity the hub vouches for to ToadsBank. None only in tests.
+    discord_user_id: int | None = None
 
     @property
     def is_officer(self) -> bool:
