@@ -17,7 +17,9 @@
     isOpen,
     listSources,
     myRequests,
+    keyFor,
     newKey,
+    outcomeKnown,
     observationAge,
     requestStatusLabel,
     slotsInOrder,
@@ -27,6 +29,7 @@
     type BankRequest,
     type BankSource,
     type Inventory,
+    type KeyedSend,
     type NewRequest,
     type Replica
   } from '$lib/bank';
@@ -57,7 +60,8 @@
   let quantity = $state(1);
   let character = $state('');
   let note = $state('');
-  let formKey = newKey();
+  // The last submission whose outcome is unknown, so a retry of the same form reuses its key.
+  let pending: KeyedSend | null = null;
   let offer = $state<{ body: NewRequest; available: number } | null>(null);
 
   let shown = $derived(filterItems(inventory.items, search));
@@ -106,15 +110,17 @@
     busy = true;
     notice = '';
     try {
-      const created = await createRequest(body, formKey);
-      formKey = newKey();
+      const attempt = keyFor(pending, body);
+      pending = attempt;
+      const created = await createRequest(body, attempt.key);
+      pending = null;
       offer = null;
       notice = `Request for ${created.quantity} × ${created.itemName}: ${requestStatusLabel(created).toLowerCase()}.`;
       quantity = 1;
       note = '';
       await refresh();
     } catch (e) {
-      formKey = newKey();
+      if (outcomeKnown(e)) pending = null;
       const available = waitlistOffer(e);
       if (available !== null) offer = { body, available };
       fail(e);

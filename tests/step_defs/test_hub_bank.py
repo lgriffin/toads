@@ -22,6 +22,7 @@ scenarios(str(Path(__file__).resolve().parents[1] / "features" / "hub_bank.featu
 # Built at runtime: a literal token-looking string trips the secret scanners.
 TOKEN = "-".join(("bdd", "bank", "token"))
 HUB_TOKEN = "test-service-token"  # noqa: S105  (conftest.make_settings)
+BOT_TOKEN = "-".join(("bdd", "bank", "bot"))
 BANK_URL = "http://bank.test"
 
 
@@ -30,6 +31,8 @@ class World:
         self.hub = hub
         self.officer_user = hub.user(("wed", "officer"), nick="Ribbit")
         self.member_user = hub.user(nick="Hopscotch")
+        self.global_user = hub.user(("global", "officer"), nick="Croak")
+        self.sunday: dict[str, Any] = {}
         self.state: FakeBankState | None = None
         self.seen: list[httpx.Request] = []
         self.response: httpx.Response | None = None
@@ -40,11 +43,15 @@ class World:
         self.keys = 0
 
     def configure(self, transport: httpx.AsyncBaseTransport) -> None:
-        self.hub.services.settings = make_settings(bank_url=BANK_URL, bank_service_token=TOKEN)
+        self.hub.services.settings = make_settings(
+            bank_url=BANK_URL, bank_service_token=TOKEN, bank_bot_token=BOT_TOKEN
+        )
         self.hub.services.bank = BankClient(httpx.AsyncClient(transport=transport), BANK_URL, SecretStr(TOKEN))
 
     def fake(self) -> None:
-        self.state = seeded_state(manager=str(self.officer_user.user_id), token=TOKEN, clock=lambda: self.hub.now)
+        self.state = seeded_state(
+            manager=str(self.officer_user.user_id), raid_day="wed", token=TOKEN, clock=lambda: self.hub.now
+        )
         self.configure(httpx.ASGITransport(app=create_fake_bank(self.state)))
 
     def session(self, user: FakeUser) -> str:
@@ -373,9 +380,9 @@ def no_pings() -> None:
 # ------------------------------------------------------------- REQ-BANK-030
 
 
-def _acting_open(world: World, user: FakeUser | int) -> int:
+def _acting_open(world: World, user: FakeUser | int, token: str = BOT_TOKEN) -> int:
     member = user.user_id if isinstance(user, FakeUser) else user
-    headers = {"Authorization": f"Bearer {HUB_TOKEN}", "X-Toads-Acting-Member": str(member), **world.key()}
+    headers = {"Authorization": f"Bearer {token}", "X-Toads-Acting-Member": str(member), **world.key()}
     return world.hub.client.post("/api/days/wed/bank/imports", headers=headers).status_code
 
 
@@ -392,3 +399,51 @@ def acting_member(world: World) -> None:
 @then("the bot acting for someone outside the server is refused")
 def acting_stranger(world: World) -> None:
     assert _acting_open(world, 424242) == 403
+
+
+@then("a caller with the hub's shared service token may not act for anyone")
+def acting_with_the_shared_token(world: World) -> None:
+    assert _acting_open(world, world.officer_user, token=HUB_TOKEN) == 401
+
+
+# ------------------------------------------------------------- REQ-BANK-031
+
+
+@given("a second bank assigned to Sunday that ToadsBank lets the Wednesday officer manage")
+def sunday_bank(world: World) -> None:
+    assert world.state is not None
+    world.sunday = world.state.add_source(
+        name="Sunday bank",
+        guild="Toads Sunday",
+        realm="Spineshatter",
+        region="EU",
+        managers=[str(world.officer_user.user_id)],
+        raidDay="sun",
+    )
+    world.state.store_snapshot(world.sunday["id"], sample_snapshot(int(world.hub.now) - 3600))
+
+
+@when("a member requests an item from the Sunday bank")
+def request_from_sunday(world: World) -> None:
+    body = {"sourceId": world.sunday["id"], "itemId": 22832, "quantity": 5, "character": "Frogmage"}
+    world.request = world.post("/api/bank/requests", world.session(world.member_user), body).json()
+
+
+@then("the Wednesday officer's queue for Wednesday leaves that request out")
+def queue_leaves_it_out(world: World) -> None:
+    queue = world.get("/api/days/wed/bank/requests", world.session(world.officer_user)).json()
+    assert world.request["id"] not in [r["id"] for r in queue]
+
+
+@then("the Wednesday officer may not approve it through Wednesday")
+def officer_refused(world: World) -> None:
+    path = f"/api/days/wed/bank/requests/{world.request['id']}/approve"
+    r = world.post(path, world.session(world.officer_user), {"expectedRevision": 1})
+    assert (r.status_code, r.json()["error"]["code"]) == (403, "not_this_day")
+
+
+@then("a global officer may approve it through Wednesday")
+def global_officer_approves(world: World) -> None:
+    path = f"/api/days/wed/bank/requests/{world.request['id']}/approve"
+    r = world.post(path, world.session(world.global_user), {"expectedRevision": 1})
+    assert r.json()["status"] == "approved"

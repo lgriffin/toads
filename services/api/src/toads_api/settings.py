@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # authenticates ToadsBank's events to POST /api/bank/events. Either empty: the bank routes answer 503.
     bank_url: str = ""
     bank_service_token: SecretStr = SecretStr("")
+    # The bank bot's own credential for acting as a member (X-Toads-Acting-Member on the bank routes). Kept apart from
+    # hub_service_token, which the worker and other bots hold, so only the bank bot can act for members. Empty: no bot
+    # can act for anyone.
+    bank_bot_token: SecretStr = SecretStr("")
     # Where the bank bot posts accepted snapshots (a raid day's channels.bank_requests wins for that day's sources), and
     # where it says a manager could not be reached by DM. None: snapshot posts are skipped; fallbacks use the bank one.
     bank_channel_id: int | None = None

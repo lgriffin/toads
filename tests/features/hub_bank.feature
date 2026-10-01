@@ -135,3 +135,13 @@ Feature: HUB BANK
     Then the bot acting for a Wednesday officer may open an import for Wednesday
     And the bot acting for a plain member may not
     And the bot acting for someone outside the server is refused
+    And a caller with the hub's shared service token may not act for anyone
+
+  @ears_unwanted_behavior @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-031 If a raid day's officer works a bank assigned to another raid day through their own day's routes, then the hub shall refuse it with not_this_day and leave that bank's requests out of their queue
+    Given the guild bank is set up with one captured bank
+    And a second bank assigned to Sunday that ToadsBank lets the Wednesday officer manage
+    When a member requests an item from the Sunday bank
+    Then the Wednesday officer's queue for Wednesday leaves that request out
+    And the Wednesday officer may not approve it through Wednesday
+    And a global officer may approve it through Wednesday

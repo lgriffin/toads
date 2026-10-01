@@ -334,6 +334,36 @@ def test_insufficient_stock_offers_a_waitlist_button_that_works() -> None:
     assert replied(press)[0].endswith("is waitlisted.")
 
 
+def test_a_waitlist_button_keeps_a_character_name_with_colons() -> None:
+    api = FakeApi()
+    api.items = [MANA]
+    api.fail["create_request"] = [
+        BankApiError(409, "insufficient_stock", "Not enough", {"available": 18, "canWaitlist": True})
+    ]
+    bank = binding(api)
+    i = interaction(user=MEMBER)
+    run(bank.request(i, "Super Mana Potion", 50, "Mage:A 100%"))
+    [waitlist] = custom_ids(replied(i)[1]["view"])
+    assert waitlist == "bank:waitlist:src_2:22832:50:Mage%3AA%20100%25"
+    press = interaction(user=MEMBER, interaction_id=44, custom_id=waitlist)
+    run(bank.on_interaction(press))
+    assert api.named("create_request")[-1][1] == {
+        "sourceId": "src_2",
+        "itemId": 22832,
+        "quantity": 50,
+        "character": "Mage:A 100%",
+        "waitlist": True,
+    }
+
+
+def test_an_unknown_bank_button_is_answered() -> None:
+    i = interaction(custom_id="bank:waitlist:src_2:22832:50:Mage:A")
+    run(binding().on_interaction(i))
+    i.response.send_message.assert_awaited_once_with(
+        "This button no longer works; run the command again.", ephemeral=True
+    )
+
+
 @pytest.mark.parametrize(
     ("items", "expected"),
     [
@@ -360,6 +390,40 @@ def test_approve_carries_the_revision_and_a_stable_key() -> None:
     run(binding(api).on_interaction(i))
     assert api.named("manage") == [(OFFICER, "wed", "req_1", "approve", {"expectedRevision": 2}, "approve:req_1:2")]
     assert replied(i)[0] == "Request req\\_1: 5 x Super Mana Potion for Frogmage is approved."
+
+
+def test_manager_buttons_find_the_raid_day_that_owns_the_bank() -> None:
+    api = FakeApi()
+    api.officer_days[OFFICER] = ["wed", "sun"]
+    api.fail["manage"] = [BankApiError(403, "not_this_day", "That bank does not belong to the wed raid day")]
+    i = interaction(custom_id="bank:approve:req_1:2")
+    run(binding(api).on_interaction(i))
+    assert [args[1] for args in api.named("manage")] == ["wed", "sun"]
+    assert replied(i)[0].endswith("is approved.")
+
+
+def test_imports_preview_and_accept_on_the_day_that_owns_the_bank() -> None:
+    api = FakeApi()
+    api.officer_days[OFFICER] = ["wed", "sun"]
+    api.parts_result = {"received": [1], "total": 1, "missing": [], "complete": True}
+    refused = BankApiError(403, "not_this_day", "That bank does not belong to the wed raid day")
+    api.fail["preview"] = [refused]
+    api.fail["accept"] = [refused]
+    bank = binding(api)
+    run(bank.import_text(interaction(), "TOADSBANK/1 part"))
+    assert [args[1] for args in api.named("preview")] == ["wed", "sun"]
+    run(bank.on_interaction(interaction(custom_id="bank:accept:imp_1")))
+    assert [args[1] for args in api.named("accept")] == ["wed", "sun"]
+
+
+def test_a_bank_no_officer_day_owns_is_refused() -> None:
+    api = FakeApi()
+    refused = BankApiError(403, "not_this_day", "That bank does not belong to the wed raid day")
+    api.fail["manage"] = [refused]
+    i = interaction(custom_id="bank:approve:req_1:2")
+    run(binding(api).on_interaction(i))
+    assert len(api.named("manage")) == 1
+    assert replied(i)[0].startswith("You can't do that.")
 
 
 def test_a_stale_button_shows_the_current_state() -> None:

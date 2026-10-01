@@ -42,6 +42,8 @@ log = structlog.get_logger(__name__)
 
 # ToadsBank retries an event for up to 24 hours; remember ids for a week.
 EVENT_MEMORY_SECONDS = 7 * 24 * 3600
+# The hub's own refusal when an officer route's raid day does not own the bank it would touch.
+NOT_THIS_DAY = "not_this_day"
 
 
 async def _day(day: str = Path(pattern=r"^[a-z0-9_-]{1,32}$")) -> str:
@@ -103,6 +105,27 @@ def officer_days(services: Services, principal: Principal) -> list[str]:
         for d in services.raid_days.raid_days
         if principal.global_officer or principal.day_roles.get(d.id) is HubRole.OFFICER
     ]
+
+
+async def day_sources(bank: BankClient, who: BankIdentity, day: str) -> set[str]:
+    """The ids of the sources assigned to this raid day (a source's `raidDay`)."""
+    rows = await bank.sources(who)
+    return {str(s.get("id")) for s in rows or [] if isinstance(s, dict) and s.get("raidDay") == day}
+
+
+async def bind_day(bank: BankClient, who: BankIdentity, principal: Principal, day: str, source_id: object) -> None:
+    """A raid day's officers work only that day's banks. The URL's day only decides who reaches a route, so every
+    officer route also checks that the source it touches belongs to that day. The global tier works every bank,
+    including those with no raid day."""
+    if principal.global_officer:
+        return
+    if source_id is None or str(source_id) not in await day_sources(bank, who, day):
+        raise BankError(403, NOT_THIS_DAY, f"That bank does not belong to the {day} raid day")
+
+
+async def _bind_import(bank: BankClient, who: BankIdentity, principal: Principal, day: str, shown: Any) -> None:
+    matched = shown.get("matchedSource") if isinstance(shown, dict) else None
+    await bind_day(bank, who, principal, day, matched.get("id") if isinstance(matched, dict) else None)
 
 
 # -------------------------------------------------------------------- member
@@ -179,12 +202,16 @@ async def add_parts(
 
 @day_officer.get("/imports/{import_id}/preview")
 async def preview(day: str, import_id: Id, principal: Importer, live: Live) -> Any:
-    return await bank_of(live).preview(identity_of(principal), import_id)
+    bank, who = bank_of(live), identity_of(principal)
+    shown = await bank.preview(who, import_id)
+    await _bind_import(bank, who, principal, day, shown)
+    return shown
 
 
 @day_officer.post("/imports/{import_id}/accept")
 async def accept(day: str, import_id: Id, request: Request, key: Key, principal: Importer, live: Live) -> Any:
     bank, who = bank_of(live), identity_of(principal)
+    await _bind_import(bank, who, principal, day, await bank.preview(who, import_id))
     return await bank.accept(who, import_id, derive_key(who, request, key))
 
 
@@ -196,13 +223,25 @@ async def queue(
     scope: Literal["queue", "all"] = "queue",
     status_: Annotated[str | None, Query(alias="status", pattern=r"^[a-z]{1,20}$")] = None,
 ) -> Any:
-    return await bank_of(live).requests(identity_of(principal), scope, status_)
+    bank, who = bank_of(live), identity_of(principal)
+    rows = await bank.requests(who, scope, status_)
+    if principal.global_officer or not isinstance(rows, list):
+        return rows
+    mine = await day_sources(bank, who, day)
+    return [r for r in rows if isinstance(r, dict) and str(r.get("sourceId")) in mine]
 
 
 async def _manage(
     live: Services, principal: Principal, request: Request, key: str, request_id: str, action: str, body: Any
 ) -> Any:
     bank, who = bank_of(live), identity_of(principal)
+    day = request.path_params["day"]
+    if not principal.global_officer:
+        rows = await bank.requests(who, "all")
+        target = next((r for r in rows or [] if isinstance(r, dict) and str(r.get("id")) == request_id), None)
+        if target is None:
+            raise BankError(404, "not_found", "No such request")
+        await bind_day(bank, who, principal, day, target.get("sourceId"))
     return await bank.act(who, request_id, action, body.model_dump(exclude_none=True), derive_key(who, request, key))
 
 

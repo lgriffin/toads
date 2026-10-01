@@ -23,6 +23,7 @@ from conftest import Hub, make_settings
 
 # Built at runtime: a literal token-looking string trips the secret scanners.
 TOKEN = "-".join(("test", "bank", "token"))
+BOT_TOKEN = "-".join(("test", "bank", "bot"))
 HUB_TOKEN = "test-service-token"  # noqa: S105  (conftest.make_settings)
 BANK_URL = "http://bank.test"
 
@@ -36,11 +37,11 @@ class Bank:
         self.member_user = hub.user(nick="Höpscotch *the* @everyone")
         self.global_user = hub.user(("global", "officer"), nick="Croak")
         self.state: FakeBankState = seeded_state(
-            manager=str(self.officer_user.user_id), token=TOKEN, clock=lambda: hub.now
+            manager=str(self.officer_user.user_id), raid_day="wed", token=TOKEN, clock=lambda: hub.now
         )
         self.fake = create_fake_bank(self.state)
         http = httpx.AsyncClient(transport=httpx.ASGITransport(app=self.fake))
-        hub.services.settings = make_settings(bank_url=BANK_URL, bank_service_token=TOKEN)
+        hub.services.settings = make_settings(bank_url=BANK_URL, bank_service_token=TOKEN, bank_bot_token=BOT_TOKEN)
         hub.services.bank = BankClient(http, BANK_URL, SecretStr(TOKEN))
         self.member = hub.login(self.member_user)
         self.officer = hub.login(self.officer_user)
@@ -231,6 +232,74 @@ def test_officer_routes_stay_on_the_officers_own_day(bank: Bank) -> None:
     assert bank.post("/api/days/sun/bank/imports", bank.admin).status_code == 201
 
 
+def _sunday_bank(bank: Bank) -> dict[str, Any]:
+    """A second bank, assigned to Sunday, that ToadsBank also lets the Wednesday officer manage."""
+    source = bank.state.add_source(
+        name="Sunday bank",
+        guild="Toads Sunday",
+        realm="Spineshatter",
+        region="EU",
+        managers=[str(bank.officer_user.user_id)],
+        raidDay="sun",
+    )
+    bank.state.store_snapshot(source["id"], sample_snapshot(int(bank.hub.now) - 3600))
+    return source
+
+
+def test_a_raid_days_officer_cannot_work_another_days_bank_through_their_own_day(bank: Bank) -> None:
+    sunday = _sunday_bank(bank)
+    theirs = bank.request(bank.member).json()
+    other = bank.post(
+        "/api/bank/requests",
+        bank.member,
+        {"sourceId": sunday["id"], "itemId": 22832, "quantity": 5, "character": "Frogmage"},
+    ).json()
+    queue = bank.get("/api/days/wed/bank/requests", bank.officer).json()
+    assert [r["id"] for r in queue] == [theirs["id"]]
+    assert [r["id"] for r in bank.get("/api/days/wed/bank/requests", bank.officer, scope="all").json()] == [
+        theirs["id"]
+    ]
+    for action, body in (
+        ("approve", {"expectedRevision": 1}),
+        ("reject", {"expectedRevision": 1}),
+        ("deliveries", {"expectedRevision": 1, "quantity": 1}),
+    ):
+        r = bank.post(f"/api/days/wed/bank/requests/{other['id']}/{action}", bank.officer, body)
+        assert (r.status_code, r.json()["error"]["code"]) == (403, "not_this_day"), action
+    assert bank.state.requests[other["id"]]["status"] == "reserved"
+    missing = bank.post("/api/days/wed/bank/requests/req_404/approve", bank.officer, {"expectedRevision": 1})
+    assert missing.status_code == 404
+    # The global tier works every day's bank.
+    approved = bank.post(f"/api/days/wed/bank/requests/{other['id']}/approve", bank.admin, {"expectedRevision": 1})
+    assert approved.json()["status"] == "approved"
+    assert {r["id"] for r in bank.get("/api/days/wed/bank/requests", bank.admin, scope="all").json()} == {
+        theirs["id"],
+        other["id"],
+    }
+
+
+def test_a_raid_days_officer_cannot_import_another_days_bank(bank: Bank) -> None:
+    sunday = _sunday_bank(bank)
+    snapshot = sample_snapshot(int(bank.hub.now) - 60, "spineshatter-sunday-0001")
+    snapshot["source"] = {**snapshot["source"], "guild": sunday["guild"]}
+    base = "/api/days/wed/bank/imports"
+    import_id = bank.post(base, bank.officer).json()["id"]
+    added = bank.post(f"{base}/{import_id}/parts", bank.officer, {"text": "\n".join(encode_parts(snapshot))}).json()
+    assert added["complete"]
+    for r in (
+        bank.get(f"{base}/{import_id}/preview", bank.officer),
+        bank.post(f"{base}/{import_id}/accept", bank.officer),
+    ):
+        assert (r.status_code, r.json()["error"]["code"]) == (403, "not_this_day")
+    assert bank.state.events == [] and "spineshatter-sunday-0001" not in bank.state.receipts
+    # An unregistered bank is the global tier's to accept, not a raid day's.
+    stranger = sample_snapshot(int(bank.hub.now) - 60, "spineshatter-stranger-0001")
+    stranger["source"] = {**stranger["source"], "guild": "Not Toads"}
+    import_id = bank.post(base, bank.officer).json()["id"]
+    bank.post(f"{base}/{import_id}/parts", bank.officer, {"text": "\n".join(encode_parts(stranger))})
+    assert bank.post(f"{base}/{import_id}/accept", bank.officer).json()["error"]["code"] == "not_this_day"
+
+
 def test_only_the_global_tier_registers_sources(bank: Bank) -> None:
     body = {"name": "Alt bank", "guild": "Toads Alts", "realm": "Spineshatter", "region": "EU", "managers": ["1"]}
     assert bank.post("/api/admin/bank/sources", bank.officer, body).status_code == 403
@@ -327,7 +396,7 @@ def test_without_configuration_the_bank_says_so(hub: Hub) -> None:
 # ------------------------------------------------------------ acting member
 
 
-def _acting(bank: Bank, user: FakeUser | int | str, token: str = HUB_TOKEN) -> dict[str, str]:
+def _acting(bank: Bank, user: FakeUser | int | str, token: str = BOT_TOKEN) -> dict[str, str]:
     member = str(user.user_id if isinstance(user, FakeUser) else user)
     return {"Authorization": f"Bearer {token}", "X-Toads-Acting-Member": member}
 
@@ -347,18 +416,53 @@ def test_the_bot_acts_as_a_member_with_that_members_own_roles(bank: Bank) -> Non
     ("path", "who", "token", "status"),
     [
         ("/api/bank/me", "member", "wrong", 401),
-        ("/api/me", "member", HUB_TOKEN, 401),  # the acting header opens the bank's routes only
-        ("/api/bank/me", "abc", HUB_TOKEN, 400),
-        ("/api/bank/me", "999999", HUB_TOKEN, 403),  # not in the server
-        ("/api/bank/me", "gone", HUB_TOKEN, 403),
+        # The shared hub token (the worker's and every bot's) cannot act for a member; only the bank bot's can.
+        ("/api/bank/me", "member", HUB_TOKEN, 401),
+        ("/api/days/wed/bank/requests", "officer", HUB_TOKEN, 401),
+        ("/api/me", "member", BOT_TOKEN, 401),  # the acting header opens the bank's routes only
+        ("/api/bank/me", "abc", BOT_TOKEN, 400),
+        ("/api/bank/me", "999999", BOT_TOKEN, 403),  # not in the server
+        ("/api/bank/me", "gone", BOT_TOKEN, 403),
     ],
 )
 def test_acting_member_calls_are_refused_when_they_should_be(
     bank: Bank, path: str, who: str, token: str, status: int
 ) -> None:
     gone = bank.hub.user(in_guild=False)
-    member: Any = {"member": bank.member_user, "gone": gone}.get(who, who)
+    member: Any = {"member": bank.member_user, "officer": bank.officer_user, "gone": gone}.get(who, who)
     assert bank.hub.client.get(path, headers=_acting(bank, member, token)).status_code == status
+
+
+def test_without_a_bank_bot_token_no_one_can_act_for_a_member(bank: Bank) -> None:
+    bank.hub.services.settings = make_settings(bank_url=BANK_URL, bank_service_token=TOKEN)
+    for token in ("", HUB_TOKEN, BOT_TOKEN):
+        r = bank.hub.client.get("/api/bank/me", headers=_acting(bank, bank.member_user, token))
+        assert r.status_code == 401
+
+
+def test_an_acting_members_roles_are_remembered_until_they_are_due_a_refresh(bank: Bank) -> None:
+    asked: list[int] = []
+    discord = bank.hub.services.discord
+    real = discord.guild_member
+
+    async def counting(user_id: int) -> Any:
+        asked.append(user_id)
+        return await real(user_id)
+
+    discord.guild_member = counting  # type: ignore[method-assign]
+    officer = _acting(bank, bank.officer_user)
+    for _ in range(3):
+        assert bank.hub.client.get("/api/bank/me", headers=officer).json()["officer_days"] == ["wed"]
+    assert asked == [bank.officer_user.user_id]
+
+    async def down(_user_id: int) -> None:
+        from toads_api.discord_api import DiscordError
+
+        raise DiscordError("rate limited")
+
+    discord.guild_member = down  # type: ignore[method-assign]
+    assert bank.hub.client.get("/api/bank/me", headers=officer).status_code == 200
+    assert bank.hub.client.get("/api/bank/me", headers=_acting(bank, bank.member_user)).status_code == 503
 
 
 def test_discord_being_down_is_a_503_for_acting_calls(bank: Bank) -> None:

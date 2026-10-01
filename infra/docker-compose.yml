@@ -66,6 +66,7 @@ services:
       FAKE_BANK_I_AM_DEV: "1"  # the fake refuses to start without this opt-in
       FAKE_BANK_TOKEN: replace-me  # matches TOADS_BANK_SERVICE_TOKEN in services/api/.env.example
       FAKE_BANK_MANAGER: "1001"  # the fake Discord's dev user manages the seeded bank
+      FAKE_BANK_RAID_DAY: wed  # the seeded bank belongs to this raid day's officers
       FAKE_BANK_EVENTS_URL: http://api:8000/api/bank/events
     healthcheck: { disable: true }
 

@@ -38,7 +38,7 @@ class BotContext:
     outbox: EventOutbox = field(default_factory=EventOutbox)
     # For bindings that call the hub's member routes on a member's behalf (the bank's), beyond the bridge.
     hub_api_url: str = ""
-    hub_service_token: SecretStr = field(default_factory=lambda: SecretStr(""))
+    bank_bot_token: SecretStr = field(default_factory=lambda: SecretStr(""))
 
     @property
     def name(self) -> str:

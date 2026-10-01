@@ -95,6 +95,33 @@ def test_a_payload_that_is_not_json_is_an_invalid_snapshot(bank: Bank) -> None:
     assert _code(r) == (422, "invalid_snapshot")
 
 
+@pytest.mark.parametrize(
+    ("snapshot", "issues"),
+    [
+        ({}, ["snapshotId", "source", "completedAt", "tabs"]),
+        ([], ["snapshot"]),
+        (
+            {
+                "snapshotId": "s1",
+                "source": {"guild": "Toads", "realm": "Spineshatter", "region": "EU"},
+                "completedAt": 1,
+                "tabs": [{"index": 1, "slots": [{"itemId": 1, "count": "2"}]}, {"name": "no index"}],
+            },
+            ["tabs[0].slots[0]", "tabs[1]"],
+        ),
+    ],
+)
+def test_a_snapshot_missing_what_the_bank_reads_is_refused(bank: Bank, snapshot: Any, issues: list[str]) -> None:
+    crc, data = _payload(json.dumps(snapshot))
+    import_id = bank.open()
+    r = bank.post(f"/imports/{import_id}/parts", {"text": _part("abcdefgh", 1, 1, crc, data)})
+    assert _code(r) == (422, "invalid_snapshot")
+    assert r.json()["error"]["details"] == {"issues": issues}
+    # Never a snapshot, so preview and accept answer as for an unfinished import rather than failing.
+    assert _code(bank.get(f"/imports/{import_id}/preview")) == (422, "incomplete")
+    assert _code(bank.post(f"/imports/{import_id}/accept", {})) == (422, "incomplete")
+
+
 def test_imports_belong_to_their_member_and_expire(bank: Bank) -> None:
     import_id = bank.open()
     assert _code(bank.get(f"/imports/{import_id}/preview", member="8")) == (404, "not_found")
@@ -145,13 +172,27 @@ def test_events_go_to_the_hub_with_the_token() -> None:
     assert bank.post("/requests", body, member="9", roles="member").status_code == 201
     assert [e["type"] for _, e in seen] == ["request.created", "request.assigned"]
     assert seen[0][0] == f"Bearer {TOKEN}"
+    # The hub's 503 is not a delivery: the event waits for the next attempt.
+    [refused] = bank.state.undelivered
+    assert refused["type"] == "request.assigned"
 
     def down(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down", request=request)
 
     bank.state.events_transport = httpx.MockTransport(down)
     assert bank.post("/requests", body, member="9", roles="member").status_code == 201
-    assert len(bank.state.events) == 4  # kept, though the hub never heard them
+    assert len(bank.state.events) == 4 and len(bank.state.undelivered) == 3  # kept, though the hub never heard them
+
+    delivered: list[str] = []
+
+    def back(request: httpx.Request) -> httpx.Response:
+        delivered.append(json.loads(request.content)["id"])
+        return httpx.Response(200)
+
+    bank.state.events_transport = httpx.MockTransport(back)
+    assert bank.post("/requests", body, member="9", roles="member").status_code == 201
+    assert delivered == [e["id"] for e in bank.state.events[1:]]  # the refused one first, in order
+    assert bank.state.undelivered == []
 
 
 def test_sources_are_admin_work(bank: Bank) -> None:

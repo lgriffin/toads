@@ -13,7 +13,7 @@ and Discord in this hub, so the hub:
 
 ```
  browser ──/api/bank/*──────────────▶ hub API ──/v1/* + service token + X-Toads-*──▶ toadsbank-api
- bank bot ─/api/bank/* + service ───▶ (RBAC)  ◀──POST /api/bank/events + token───── toadsbank-worker
+ bank bot ─/api/bank/* + bank bot ──▶ (RBAC)  ◀──POST /api/bank/events + token───── toadsbank-worker
            token + acting member        │
                                         └─ BotBridge: bank.dm / bank.post ──▶ bank bot ──▶ Discord
 ```
@@ -45,8 +45,20 @@ JSON through unchanged and forwards only the body fields the contract names.
 Every guild member holds `VIEW_BANK` and `REQUEST_BANK_ITEMS`. `IMPORT_BANK_SNAPSHOT` and `MANAGE_BANK` are officer
 permissions and, like every officer power, are scoped to a raid day: a Wednesday officer works the bank under
 `/api/days/wed/bank/...`, a global officer under any day. Registering or editing a source is the global tier's
-(ToadsBank's `admin`). The hub only opens the door; ToadsBank still applies a source's `audience` and its `managers`
-list, so a raid-day officer can only approve requests on banks they manage.
+(ToadsBank's `admin`). ToadsBank still applies a source's `audience` and its `managers` list, so a raid-day officer can
+only approve requests on banks they manage.
+
+The URL's day decides who reaches a route; the hub also binds each officer route to the banks of that day (a source's
+`raidDay`), so a Wednesday officer cannot work Sunday's bank under `/api/days/wed/...`:
+
+- the request queue lists only requests on that day's banks;
+- approve, reject and deliveries first look the request up (`GET /v1/requests?scope=all`) and check its source's day;
+- preview and accept check the day of the bank the snapshot matched (`matchedSource`); an unregistered bank needs
+  the global tier.
+
+A refusal is `403 not_this_day`. Global officers are not bound: they work every bank, including those with no raid
+day, under any day's URL. Opening an import and adding parts touch no bank, so they are not bound either. The bot,
+which does not know a request's bank, tries the member's officer days in turn and moves on after `not_this_day`.
 
 ### Identity
 
@@ -83,6 +95,11 @@ the same service token. The hub remembers each event `id` for a week in Redis an
 again. If it cannot act on an event (the bank bot's manifest lacks an action, say) it forgets the id and answers 503,
 so ToadsBank retries.
 
+Known gap: the DMs and posts an event becomes wait in the bot bridge's queue, which is still in memory
+(`InMemoryBridgeStore`, see bots.md "Not yet"). An API restart between acknowledging an event and the bank bot pulling
+its actions loses them, and ToadsBank will not resend an event it saw acknowledged. The bridge's table-backed store
+closes this for every bot.
+
 | Event | What the hub does |
 | --- | --- |
 | `request.assigned` | `bank.dm` to each manager, with Approve / Reject / Record delivery buttons for that revision. A DM the bot finally gives up on (five failed attempts) becomes a `bank.post` to the fallback channel (TB-BM-12). |
@@ -113,18 +130,21 @@ Every answer is ephemeral.
 
 ### Acting for a member
 
-The bot has no database credentials and no session. It calls the hub's bank routes with the hub service token
-(`TOADS_HUB_SERVICE_TOKEN`) and names the Discord member who used the command or button in
-`X-Toads-Acting-Member: <discord user id>`. The hub then:
+The bot has no database credentials and no session. It calls the hub's bank routes with its own token
+(`TOADS_BANK_BOT_TOKEN`, the same value on the API and the bank bot) and names the Discord member who used the
+command or button in `X-Toads-Acting-Member: <discord user id>`. The hub then:
 
 1. accepts the header only on `/api/bank/...` and `/api/days/{day}/bank/...` (never `/api/bank/events` or any other
-   route), and only with the service token;
+   route), and only with `TOADS_BANK_BOT_TOKEN`. The shared `TOADS_HUB_SERVICE_TOKEN`, which the worker and the
+   other bots hold, cannot act for anyone;
 2. reads that member's roles from Discord with the hub's bot token (`GET /guilds/{guild}/members/{user}`); someone not
-   in the server gets 403, and Discord being down gives 503;
+   in the server gets 403, and Discord being down gives 503. What Discord said is kept in Redis for
+   `TOADS_ROLE_REFRESH_SECONDS` (at most 15 minutes, as for a signed-in session), so a busy bot does not run into
+   Discord's rate limits; someone not in the server is not remembered;
 3. builds their Principal exactly as a login would, so the route's `require(...)` applies as usual.
 
-So the bot can do nothing the member could not do on the site. Manager actions use the first raid day the member is an
-officer for (from `GET /api/bank/me`).
+So the bot can do nothing the member could not do on the site. Manager actions use the raid days the member is an
+officer for (from `GET /api/bank/me`), in turn, until one owns the bank.
 
 ## Configuration
 
@@ -134,6 +154,7 @@ officer for (from `GET /api/bank/me`).
 | --- | --- |
 | `TOADS_BANK_URL` | `toadsbank-api`'s base URL. Empty: the bank is off. |
 | `TOADS_BANK_SERVICE_TOKEN` | The token shared with ToadsBank (its `TOADSBANK_SERVICE_TOKEN`). Empty: the bank is off. |
+| `TOADS_BANK_BOT_TOKEN` | The bank bot's token for acting as a member; the same value in the bank bot's env. Empty: the bot's commands and buttons are refused. |
 | `TOADS_BANK_CHANNEL_ID` | Where accepted snapshots are posted when the source's raid day has no `bank_requests` channel. |
 | `TOADS_BANK_FALLBACK_CHANNEL_ID` | Where the bot reports a manager it could not DM. Empty: the bank channel. |
 
@@ -145,7 +166,8 @@ ToadsBank's side needs `TOADSBANK_SERVICE_TOKEN` (the same value) and `TOADSBANK
 `toads_api.testing.fake_bank` is an in-memory implementation of the v1 contract: imports with the real `TOADSBANK/1`
 reader (headers, base64, CRC-32), sources, replica, inventory, requests with idempotency keys and revisions, and the
 outbox events, which it POSTs to `FAKE_BANK_EVENTS_URL`. It seeds one bank, "Toads main bank", captured an hour before
-it started and managed by the fake Discord's dev user (1001).
+it started, managed by the fake Discord's dev user (1001) and assigned to the raid day `FAKE_BANK_RAID_DAY` (`wed`
+in the dev stack).
 
 `just up` starts it as `fake-bank` (port 8002 inside the stack), and `services/api/.env.example` points the API at it.
 It refuses to start without `FAKE_BANK_I_AM_DEV=1`, as the fake Discord does, because its token opens everything.

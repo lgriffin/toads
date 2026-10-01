@@ -3,6 +3,7 @@ the members a bot acts for."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 import anyio
@@ -71,9 +72,32 @@ class NotAMemberError(Exception):
     """The Discord user a bot acts for is not in the Toads server."""
 
 
+def _acting_key(discord_user_id: int) -> str:
+    return f"acting:member:{discord_user_id}"
+
+
+async def _cached_acting(services: Services, discord_user_id: int) -> Principal | None:
+    raw = await services.redis.get(_acting_key(discord_user_id))
+    if raw is None:
+        return None
+    try:
+        seen = json.loads(raw)
+        member_id, role_ids, name = int(seen["member_id"]), {int(r) for r in seen["role_ids"]}, str(seen["name"])
+    except (ValueError, TypeError, KeyError):
+        return None
+    return services.raid_days.principal_for(member_id, role_ids, name, discord_user_id)
+
+
 async def acting_principal(services: Services, discord_user_id: int) -> Principal:
     """The Principal of the Discord member a bot acts for (docs/bank.md). Roles come straight from Discord with the
-    hub's bot token, never from the bot, so the bot can only act as a member with that member's own powers."""
+    hub's bot token, never from the bot, so the bot can only act as a member with that member's own powers.
+
+    What Discord said is kept in Redis for `role_refresh_seconds`, the same staleness a signed-in session is allowed
+    (REQ-HUB-RBAC-002), so a busy bot neither runs into Discord's rate limits nor rewrites the member row per call.
+    Someone not in the server is never remembered: they are asked about again next time."""
+    cached = await _cached_acting(services, discord_user_id)
+    if cached is not None:
+        return cached
     try:
         member = await services.discord.guild_member(discord_user_id)
     except DiscordError as exc:
@@ -81,4 +105,6 @@ async def acting_principal(services: Services, discord_user_id: int) -> Principa
     if member is None:
         raise NotAMemberError
     member_id = await anyio.to_thread.run_sync(upsert_member, services, member)
+    seen = {"member_id": member_id, "role_ids": sorted(member.role_ids), "name": member.server_name}
+    await services.redis.set(_acting_key(discord_user_id), json.dumps(seen), ex=services.settings.role_refresh_seconds)
     return services.raid_days.principal_for(member_id, set(member.role_ids), member.server_name, member.user_id)

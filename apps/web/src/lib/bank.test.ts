@@ -12,9 +12,11 @@ import {
   freshnessLabel,
   getInventory,
   isOpen,
+  keyFor,
   manageRequest,
   newKey,
   observationAge,
+  outcomeKnown,
   progressLabel,
   receiptLabel,
   requestQueue,
@@ -186,5 +188,31 @@ describe('errors', () => {
     expect(bankError(new ApiError(403, 'Forbidden'))).toMatch(/can’t do that/);
     expect(bankError(new ApiError(422, 'Bad paste', 'transport_error'))).toBe('Bad paste');
     expect(bankError('nope')).toMatch(/Something went wrong/);
+  });
+});
+
+describe('idempotency keys for the request form', () => {
+  const body = { sourceId: 's', itemId: 1, quantity: 2, character: 'Frogmage' };
+  it('reuses the key when the same submission is retried after an unknown outcome', () => {
+    const first = keyFor(null, body);
+    expect(keyFor(first, { ...body }).key).toBe(first.key);
+  });
+  it('uses a fresh key for a changed submission, including the waitlist', () => {
+    const first = keyFor(null, body);
+    expect(keyFor(first, { ...body, quantity: 3 }).key).not.toBe(first.key);
+    expect(keyFor(first, { ...body, waitlist: true }).key).not.toBe(first.key);
+  });
+  it('spends the key only on a definite answer', () => {
+    expect(outcomeKnown(new ApiError(409, 'x', 'insufficient_stock'))).toBe(true);
+    expect(outcomeKnown(new ApiError(422, 'x'))).toBe(true);
+    expect(outcomeKnown(new ApiError(502, 'x', 'bank_unavailable'))).toBe(false);
+    expect(outcomeKnown(new ApiError(503, 'x'))).toBe(false);
+    expect(outcomeKnown(new TypeError('Failed to fetch'))).toBe(false);
+  });
+});
+
+describe('raid days', () => {
+  it('explains a bank that belongs to another raid day', () => {
+    expect(bankError(new ApiError(403, 'x', 'not_this_day'))).toMatch(/another raid day/);
   });
 });

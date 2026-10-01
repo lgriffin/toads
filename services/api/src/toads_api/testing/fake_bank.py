@@ -137,6 +137,8 @@ class FakeBankState:
     outgoing: dict[str, dict[int, int]] = field(default_factory=dict)
     idempotency: dict[str, tuple[str, int, Any]] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
+    # Events the hub has not acknowledged with a 2xx yet, oldest first; each delivery attempt starts with them.
+    undelivered: list[dict[str, Any]] = field(default_factory=list)
     _ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
 
     def now(self) -> int:
@@ -168,6 +170,7 @@ class FakeBankState:
     def emit(self, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
         event = {"id": self.next_id("evt"), "type": kind, "occurredAt": self.now(), "payload": payload}
         self.events.append(event)
+        self.undelivered.append(event)
         return event
 
 
@@ -387,6 +390,41 @@ def act(state: FakeBankState, who: Who, request_id: str, action: str, body: dict
 # ------------------------------------------------------------------- imports
 
 
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _slot_issues(where: str, slots: object) -> list[str]:
+    if not isinstance(slots, list):
+        return [f"{where}.slots"]
+    return [
+        f"{where}.slots[{n}]"
+        for n, slot in enumerate(slots)
+        if not (isinstance(slot, dict) and _is_int(slot.get("itemId")) and _is_int(slot.get("count")))
+    ]
+
+
+def snapshot_issues(snapshot: object) -> list[str]:
+    """What a decoded export lacks of the fields the preview, acceptance and stock read; empty when it is usable."""
+    if not isinstance(snapshot, dict):
+        return ["snapshot"]
+    issues = [] if isinstance(snapshot.get("snapshotId"), str) and snapshot["snapshotId"] else ["snapshotId"]
+    source = snapshot.get("source")
+    if not (isinstance(source, dict) and all(isinstance(source.get(k), str) for k in ("guild", "realm", "region"))):
+        issues.append("source")
+    if not _is_int(snapshot.get("completedAt")):
+        issues.append("completedAt")
+    tabs = snapshot.get("tabs")
+    if not isinstance(tabs, list):
+        return [*issues, "tabs"]
+    for n, tab in enumerate(tabs):
+        if not (isinstance(tab, dict) and _is_int(tab.get("index"))):
+            issues.append(f"tabs[{n}]")
+        else:
+            issues += _slot_issues(f"tabs[{n}]", tab.get("slots", []))
+    return issues
+
+
 def add_parts(state: FakeBankState, imp: _Import, text: str) -> dict[str, Any]:
     for part in read_parts(text):
         if imp.export is None:
@@ -407,11 +445,15 @@ def add_parts(state: FakeBankState, imp: _Import, text: str) -> dict[str, Any]:
         if f"{zlib.crc32(payload) & 0xFFFFFFFF:08x}" != imp.crc:
             raise _transport_error("crc_mismatch")
         try:
-            imp.snapshot = json.loads(payload)
+            snapshot = json.loads(payload)
         except ValueError:
             raise BankFault(
                 422, "invalid_snapshot", "The export is not a snapshot", details={"issues": ["json"]}
             ) from None
+        issues = snapshot_issues(snapshot)
+        if issues:
+            raise BankFault(422, "invalid_snapshot", "The export is not a snapshot", details={"issues": issues})
+        imp.snapshot = snapshot
     return {
         "exportId": imp.export,
         "received": sorted(imp.parts),
@@ -528,16 +570,26 @@ def create_fake_bank(state: FakeBankState) -> FastAPI:
             error["current"] = exc.current
         return JSONResponse({"error": error}, status_code=exc.status)
 
-    async def _deliver(start: int) -> None:
+    async def _deliver() -> None:
+        """Sends the unacknowledged events in order. An event the hub refuses (any non-2xx, such as its 503 when it
+        cannot act yet) or never hears stays queued, with everything after it, for the next operation's attempt; the
+        real worker retries on a timer instead."""
         if not state.events_url:
             return
         async with httpx.AsyncClient(timeout=5.0, transport=state.events_transport) as http:
-            for event in state.events[start:]:
+            while state.undelivered:
+                event = state.undelivered[0]
                 try:
-                    await http.post(state.events_url, json=event, headers={"Authorization": f"Bearer {state.token}"})
+                    r = await http.post(
+                        state.events_url, json=event, headers={"Authorization": f"Bearer {state.token}"}
+                    )
                 except httpx.HTTPError:
-                    # The real worker retries for a day; the fake keeps the event in state.events and moves on.
                     log.warning("fake bank could not deliver event %s", event["id"])
+                    return
+                if not r.is_success:
+                    log.warning("the hub answered %s to event %s; it will be sent again", r.status_code, event["id"])
+                    return
+                state.undelivered.pop(0)
 
     async def _once(request: Request, who: Who, run: Callable[[], Any], status: int = 200) -> JSONResponse:
         """Idempotency-Key: a repeat returns the first answer; a different body under the same key is a conflict."""
@@ -550,10 +602,9 @@ def create_fake_bank(state: FakeBankState) -> FastAPI:
             if seen[0] != body:
                 raise BankFault(409, "idempotency_conflict", "This key was used for a different request")
             return JSONResponse(seen[2], status_code=seen[1])
-        start = len(state.events)
         result = run()
         state.idempotency[f"{who.member}:{key}"] = (body, status, result)
-        await _deliver(start)
+        await _deliver()
         return JSONResponse(result, status_code=status)
 
     def _import(who: Who, import_id: str) -> _Import:
@@ -728,11 +779,12 @@ def sample_snapshot(captured_at: int, snapshot_id: str = "spineshatter-bankalt-d
     }
 
 
-def seeded_state(manager: str = "1001", **kwargs: Any) -> FakeBankState:
-    """One registered bank, captured an hour ago, managed by the dev user."""
+def seeded_state(manager: str = "1001", raid_day: str | None = None, **kwargs: Any) -> FakeBankState:
+    """One registered bank, captured an hour ago, managed by the dev user and assigned to `raid_day` (none: only the
+    global tier works it on the hub)."""
     state = FakeBankState(**kwargs)
     source = state.add_source(
-        name="Toads main bank", guild="Toads", realm="Spineshatter", region="EU", managers=[manager]
+        name="Toads main bank", guild="Toads", realm="Spineshatter", region="EU", managers=[manager], raidDay=raid_day
     )
     state.store_snapshot(source["id"], sample_snapshot(state.now() - 3600))
     return state
@@ -745,6 +797,7 @@ def app_from_env() -> FastAPI:
     return create_fake_bank(
         seeded_state(
             manager=os.environ.get("FAKE_BANK_MANAGER", "1001"),
+            raid_day=os.environ.get("FAKE_BANK_RAID_DAY") or None,
             token=os.environ.get("FAKE_BANK_TOKEN", "replace-me"),
             events_url=os.environ.get("FAKE_BANK_EVENTS_URL", ""),
         )

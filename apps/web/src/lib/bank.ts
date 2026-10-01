@@ -157,6 +157,25 @@ export function newKey(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** A submission and the Idempotency-Key it was sent with. */
+export interface KeyedSend {
+  body: string;
+  key: string;
+}
+
+/** The key for sending `body`: the same key when resending the very submission whose outcome is unknown, so ToadsBank
+ * applies it once; a fresh key for anything else (a changed form, the waitlist instead). */
+export function keyFor(previous: KeyedSend | null, body: unknown): KeyedSend {
+  const text = JSON.stringify(body);
+  return previous && previous.body === text ? previous : { body: text, key: newKey() };
+}
+
+/** Whether a failed send got a definite answer (the hub or ToadsBank said no), after which its key is spent. A
+ * network error or a 5xx (including 502 bank_unavailable) leaves the outcome unknown, so the key is kept for a retry. */
+export function outcomeKnown(e: unknown): boolean {
+  return e instanceof ApiError && e.status < 500;
+}
+
 const enc = encodeURIComponent;
 
 function post<T>(f: Fetch, path: string, body: unknown, key: string): Promise<T> {
@@ -329,6 +348,8 @@ export function bankError(e: unknown): string {
       return 'That request changed since you loaded it; the list now shows its current state.';
     case 'import_expired':
       return 'That import expired after 30 minutes. Paste the parts again to start a new one.';
+    case 'not_this_day':
+      return 'That bank belongs to another raid day. Pick that day above, if you are one of its officers.';
     case 'unknown_source':
       return 'That export is from a bank the hub does not know yet. Ask a global officer to accept it, which registers it.';
   }

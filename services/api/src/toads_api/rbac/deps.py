@@ -32,9 +32,10 @@ ACTING_MEMBER_HEADER = "X-Toads-Acting-Member"
 ACTING_PATHS = re.compile(r"^/api/(days/[a-z0-9_-]{1,32}/)?bank/(?!events$)")
 
 
-def _is_service_token(request: Request, services: Services) -> bool:
+def _is_bank_bot_token(request: Request, services: Services) -> bool:
+    """The bank bot's own token (TOADS_BANK_BOT_TOKEN), never the shared hub service token."""
     scheme, _, token = request.headers.get("authorization", "").partition(" ")
-    expected = services.settings.hub_service_token.get_secret_value()
+    expected = services.settings.bank_bot_token.get_secret_value()
     return (
         scheme.lower() == "bearer"
         and bool(token)
@@ -44,9 +45,9 @@ def _is_service_token(request: Request, services: Services) -> bool:
 
 
 async def _acting_member(request: Request, services: Services, raw: str) -> Principal:
-    """A bot calling with the service token on behalf of the Discord member who used its command or button. The
+    """The bank bot calling with its own token on behalf of the Discord member who used its command or button. The
     member's roles are read from Discord, so the bot gains no power the member does not have."""
-    if not ACTING_PATHS.match(request.url.path) or not _is_service_token(request, services):
+    if not ACTING_PATHS.match(request.url.path) or not _is_bank_bot_token(request, services):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not signed in")
     if not raw.isdigit() or len(raw) > 20:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{ACTING_MEMBER_HEADER} must be a user id")

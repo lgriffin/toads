@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, ClassVar
+from collections.abc import Awaitable, Callable
+from typing import Any, ClassVar, TypeVar
+from urllib.parse import quote, unquote
 
 import discord
 from discord import app_commands
@@ -34,6 +36,9 @@ MODAL_FIELDS = 5
 FIELD_LIMIT = 4000
 LIST_LIMIT = 10
 MESSAGE_LIMIT = 1900
+# The hub's refusal when a raid day does not own the bank a manager route touches (toads_api.bank.routes).
+NOT_THIS_DAY = "not_this_day"
+T = TypeVar("T")
 _MARKDOWN = re.compile(r"([\\*_~`|>#\-\[\]()<@:])")
 
 
@@ -166,14 +171,15 @@ def error_text(error: BankApiError) -> str:
 
 
 def custom_id(action: str, *args: object) -> str:
-    return ":".join([PREFIX, action, *(str(a) for a in args)])
+    """`bank:<action>:<arg>:...`, each argument percent-encoded so free text (a character name) cannot add a colon."""
+    return ":".join([PREFIX, action, *(quote(str(a), safe="") for a in args)])
 
 
 def parse_custom_id(value: str) -> tuple[str, list[str]] | None:
     parts = value.split(":")
     if len(parts) < 2 or parts[0] != PREFIX:
         return None
-    return parts[1], parts[2:]
+    return parts[1], [unquote(p) for p in parts[2:]]
 
 
 def _view(*buttons: tuple[str, str, discord.ButtonStyle]) -> discord.ui.View:
@@ -243,7 +249,7 @@ class Bank(Binding):
 
     def __init__(self, bot: commands.Bot, ctx: BotContext, api: BankApi | None = None) -> None:
         super().__init__(bot, ctx)
-        self.api: BankApi = api or HttpBankApi(ctx.hub_api_url, ctx.hub_service_token)
+        self.api: BankApi = api or HttpBankApi(ctx.hub_api_url, ctx.bank_bot_token)
         # The import session each member is filling, by Discord user id. Lost on restart: the next paste opens anew.
         self.imports: dict[int, str] = {}
 
@@ -299,10 +305,21 @@ class Bank(Binding):
     async def _defer(self, interaction: Any) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-    async def _officer_day(self, member: int) -> str | None:
-        """Manager routes are scoped to a raid day on the hub: the first day the member is an officer for."""
-        days = (await self.api.me(member)).get("officer_days") or []
-        return str(days[0]) if days else None
+    async def _officer_days(self, member: int) -> list[str]:
+        """Manager routes are scoped to a raid day on the hub: the days the member is an officer for."""
+        return [str(d) for d in (await self.api.me(member)).get("officer_days") or []]
+
+    @staticmethod
+    async def _on_days(days: list[str], call: Callable[[str], Awaitable[T]]) -> T:
+        """Runs a call on each of the member's officer days in turn until one owns the bank: the hub refuses a raid
+        day that does not with `not_this_day`. Any other answer, or the last day's refusal, is final."""
+        for day in days[:-1]:
+            try:
+                return await call(day)
+            except BankApiError as error:
+                if error.code != NOT_THIS_DAY:
+                    raise
+        return await call(days[-1])
 
     async def open_import_modal(self, interaction: Any) -> None:
         await interaction.response.send_modal(ImportModal(self))
@@ -311,15 +328,16 @@ class Bank(Binding):
         await self._defer(interaction)
         member = int(interaction.user.id)
         try:
-            day = await self._officer_day(member)
-            if day is None:
+            days = await self._officer_days(member)
+            if not days:
                 await self._reply(interaction, "Only officers can import bank snapshots.")
                 return
-            import_id, result = await self._add_parts(member, day, text, str(interaction.id))
+            # Opening an import and adding parts touch no bank yet; the preview names the bank, and its day.
+            import_id, result = await self._add_parts(member, days[0], text, str(interaction.id))
             if not result.get("complete"):
                 await self._reply(interaction, progress_text(result))
                 return
-            preview = await self.api.preview(member, day, import_id)
+            preview = await self._on_days(days, lambda day: self.api.preview(member, day, import_id))
         except BankApiError as error:
             await self._reply(interaction, error_text(error))
             return
@@ -405,14 +423,14 @@ class Bank(Binding):
         await self._defer(interaction)
         member = int(interaction.user.id)
         try:
-            day = await self._officer_day(member)
-            if day is None:
+            days = await self._officer_days(member)
+            if not days:
                 await self._reply(interaction, "Only officers can manage bank requests.")
                 return
             body = {"expectedRevision": revision, **(extra or {})}
             # Keyed on the request's revision, so a double click is answered once and never applied twice.
             key = f"{action}:{request_id}:{revision}"
-            updated = await self.api.manage(member, day, request_id, action, body, key)
+            updated = await self._on_days(days, lambda day: self.api.manage(member, day, request_id, action, body, key))
         except BankApiError as error:
             await self._reply(interaction, error_text(error))
             return
@@ -454,15 +472,20 @@ class Bank(Binding):
             await self._create(interaction, member, body, f"waitlist:{interaction.id}")
         else:
             log.info("unknown bank button %s", action)
+            await interaction.response.send_message(
+                "This button no longer works; run the command again.", ephemeral=True
+            )
 
     async def _accept(self, interaction: Any, member: int, import_id: str) -> None:
         await self._defer(interaction)
         try:
-            day = await self._officer_day(member)
-            if day is None:
+            days = await self._officer_days(member)
+            if not days:
                 await self._reply(interaction, "Only officers can import bank snapshots.")
                 return
-            receipt = await self.api.accept(member, day, import_id, f"accept:{import_id}")
+            receipt = await self._on_days(
+                days, lambda day: self.api.accept(member, day, import_id, f"accept:{import_id}")
+            )
         except BankApiError as error:
             await self._reply(interaction, error_text(error))
             return
