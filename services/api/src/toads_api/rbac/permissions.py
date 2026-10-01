@@ -37,6 +37,12 @@ class Permission(enum.StrEnum):
     REQUEST_BANK_ITEMS = "request_bank_items"
     IMPORT_BANK_SNAPSHOT = "import_bank_snapshot"
     MANAGE_BANK = "manage_bank"
+    # Super admins only (docs/admin.md): grant and revoke bank grants, mint and revoke officer tokens.
+    MANAGE_GRANTS = "manage_grants"
+
+
+# Held by super admins alone, above every Discord role; never by an officer role or a grant.
+SUPER_ADMIN_ONLY = frozenset({Permission.MANAGE_GRANTS})
 
 
 # Applicants join the Discord server first, so a plain member (no raid-day role) can apply. Every guild member may see
@@ -46,7 +52,11 @@ _MEMBER = frozenset(
 )
 _TRIAL = _MEMBER | {Permission.VIEW_OWN_PERFORMANCE, Permission.CLAIM_CHARACTER}
 _RAIDER = _TRIAL | {Permission.UPLOAD_SCREENSHOTS, Permission.SUBMIT_HIGHLIGHT}
-_OFFICER = frozenset(Permission)
+_OFFICER = frozenset(Permission) - SUPER_ADMIN_ONLY
+
+# Permissions a super admin may grant one Discord user without making them an officer (docs/bank.md "Grants"):
+# the bank's upkeep. Officers hold them already through their role, so a grant only ever adds to a non-officer.
+GRANTABLE = frozenset({Permission.IMPORT_BANK_SNAPSHOT, Permission.MANAGE_BANK})
 
 ROLE_PERMISSIONS: dict[HubRole, frozenset[Permission]] = {
     HubRole.MEMBER: _MEMBER,
@@ -66,6 +76,21 @@ class Principal:
     display_name: str = ""
     # The member's Discord user id: the identity the hub vouches for to ToadsBank. None only in tests.
     discord_user_id: int | None = None
+    # Bank grants this member holds, read from the database on every request (never cached with the roles), so a
+    # revoke takes effect on their next call: (permission, raid day), where a None day covers every raid day.
+    grants: frozenset[tuple[Permission, str | None]] = frozenset()
+    # Above the global tier (docs/admin.md): named by Discord user id in TOADS_SUPER_ADMIN_IDS, never by a role or the
+    # database, so nothing in the app can make someone one. A super admin is always a global officer too.
+    super_admin: bool = False
+    # Made a super admin by TOADS_BREAK_GLASS_ADMIN_ID, whatever their roles or the super admin list say. Shown in
+    # /api/session and on the bank page, and every mutating call they make is audit-logged as "break_glass".
+    break_glass: bool = False
+
+    def __post_init__(self) -> None:
+        if self.break_glass and not self.super_admin:
+            object.__setattr__(self, "super_admin", True)
+        if self.super_admin and not self.global_officer:
+            object.__setattr__(self, "global_officer", True)
 
     @property
     def is_officer(self) -> bool:
@@ -87,6 +112,21 @@ class Principal:
             return min(max(self.day_roles.values(), default=HubRole.MEMBER), HubRole.RAIDER)
         return self.day_roles.get(raid_day, HubRole.MEMBER)
 
+    def granted(self, permission: Permission, raid_day: str) -> bool:
+        """A grant covers this raid day: one for that day, or one for every day. Grants hold only GRANTABLE
+        permissions and only ever on a raid day's routes, never on guild-wide (global tier) ones."""
+        return permission in GRANTABLE and ((permission, raid_day) in self.grants or (permission, None) in self.grants)
+
+    def unbound(self, permission: Permission) -> bool:
+        """Works every bank under any raid day's URL: the global tier, or a grant with no raid day."""
+        return self.global_officer or (permission in GRANTABLE and (permission, None) in self.grants)
+
 
 def can(principal: Principal, permission: Permission, raid_day: str | None = None) -> bool:
-    return permission in ROLE_PERMISSIONS[principal.role_for(raid_day)]
+    if permission in SUPER_ADMIN_ONLY:
+        return principal.super_admin
+    if permission in ROLE_PERMISSIONS[principal.role_for(raid_day)]:
+        return True
+    # Officers inherit every grantable permission through their role; a grant adds it for one more member, and only
+    # on a raid day taken from the route's path.
+    return raid_day is not None and principal.granted(permission, raid_day)

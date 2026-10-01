@@ -1,23 +1,48 @@
-"""REQ-HUB-BANK-021..030: the hub's adapter to ToadsBank, against the in-memory fake (docs/bank.md)."""
+"""REQ-HUB-BANK-021..041 and REQ-HUB-RBAC-003..004: the hub's adapter to ToadsBank, its bank grants, officer tokens,
+super admins and the break-glass admin, against the in-memory fake (docs/bank.md, docs/admin.md)."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+from hub_db import AuditEntry, BankGrantToken, Base
 from pydantic import SecretStr
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, parsers, scenario, scenarios, then, when
+from sqlalchemy import select
 from toads_api.bank.client import BankClient
 from toads_api.bank.events import BOT, DM, POST, BankEvents
+from toads_api.bank_grants.routes import REDEEM_ATTEMPTS
+from toads_api.bank_grants.service import REFUSED, hash_token
 from toads_api.bots.models import ActionResult
 from toads_api.testing.fake_bank import FakeBankState, create_fake_bank, encode_parts, sample_snapshot, seeded_state
 from toads_api.testing.fake_discord import FakeUser
 
 from conftest import Hub, make_settings
 
-scenarios(str(Path(__file__).resolve().parents[1] / "features" / "hub_bank.feature"))
+FEATURES = Path(__file__).resolve().parents[1] / "features"
+scenarios(str(FEATURES / "hub_bank.feature"))
+RBAC_FEATURE = str(FEATURES / "hub_rbac.feature")
+
+
+def _rbac_title(number: int) -> str:
+    prefix = f"Scenario: REQ-HUB-RBAC-{number:03d} "
+    line = next(x for x in Path(RBAC_FEATURE).read_text(encoding="utf-8").splitlines() if prefix in x)
+    return line.split("Scenario: ", 1)[1]
+
+
+@scenario(RBAC_FEATURE, _rbac_title(3))
+def test_rbac_003_super_admins() -> None:
+    pass
+
+
+@scenario(RBAC_FEATURE, _rbac_title(4))
+def test_rbac_004_break_glass() -> None:
+    pass
+
 
 # Built at runtime: a literal token-looking string trips the secret scanners.
 TOKEN = "-".join(("bdd", "bank", "token"))
@@ -26,12 +51,34 @@ BOT_TOKEN = "-".join(("bdd", "bank", "bot"))
 BANK_URL = "http://bank.test"
 
 
+class Recording(httpx.AsyncBaseTransport):
+    """Passes every call on to the fake ToadsBank and remembers it, so a step can check what ToadsBank heard."""
+
+    def __init__(self, inner: httpx.AsyncBaseTransport, seen: list[httpx.Request]) -> None:
+        self.inner = inner
+        self.seen = seen
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        self.seen.append(request)
+        return await self.inner.handle_async_request(request)
+
+
 class World:
     def __init__(self, hub: Hub) -> None:
         self.hub = hub
         self.officer_user = hub.user(("wed", "officer"), nick="Ribbit")
         self.member_user = hub.user(nick="Hopscotch")
         self.global_user = hub.user(("global", "officer"), nick="Croak")
+        self.sunday_officer_user = hub.user(("sun", "officer"), nick="Bufo")
+        # A plain member a super admin grants part of the bank's upkeep to.
+        self.grantee_user = hub.user(nick="Tadpole")
+        # Named in configuration (docs/admin.md): a super admin, and the break-glass admin.
+        self.super_user = hub.user(nick="Lilypad")
+        self.glass_user = hub.user(nick="Glass")
+        self.grant_id = 0
+        self.token = ""
+        self.token_id = 0
+        self.refusals = 0
         self.sunday: dict[str, Any] = {}
         self.state: FakeBankState | None = None
         self.seen: list[httpx.Request] = []
@@ -44,7 +91,11 @@ class World:
 
     def configure(self, transport: httpx.AsyncBaseTransport) -> None:
         self.hub.services.settings = make_settings(
-            bank_url=BANK_URL, bank_service_token=TOKEN, bank_bot_token=BOT_TOKEN
+            bank_url=BANK_URL,
+            bank_service_token=TOKEN,
+            bank_bot_token=BOT_TOKEN,
+            super_admin_ids=str(self.super_user.user_id),
+            break_glass_admin_id=str(self.glass_user.user_id),
         )
         self.hub.services.bank = BankClient(httpx.AsyncClient(transport=transport), BANK_URL, SecretStr(TOKEN))
 
@@ -52,7 +103,7 @@ class World:
         self.state = seeded_state(
             manager=str(self.officer_user.user_id), raid_day="wed", token=TOKEN, clock=lambda: self.hub.now
         )
-        self.configure(httpx.ASGITransport(app=create_fake_bank(self.state)))
+        self.configure(Recording(httpx.ASGITransport(app=create_fake_bank(self.state)), self.seen))
 
     def session(self, user: FakeUser) -> str:
         return self.hub.login(user)
@@ -447,3 +498,438 @@ def global_officer_approves(world: World) -> None:
     path = f"/api/days/wed/bank/requests/{world.request['id']}/approve"
     r = world.post(path, world.session(world.global_user), {"expectedRevision": 1})
     assert r.json()["status"] == "approved"
+
+
+# ------------------------------------------------------- REQ-BANK-032..036
+
+GRANTS = "/api/admin/bank/grants"
+TOKENS = "/api/admin/bank/tokens"
+
+
+def _grant(world: World, permission: str, day: str | None, by: FakeUser | None = None) -> httpx.Response:
+    body = {"discord_user_id": str(world.grantee_user.user_id), "permission": permission, "raid_day": day}
+    return world.post(GRANTS, world.session(by or world.super_user), body)
+
+
+@given(parsers.parse('a super admin has granted the grantee "{permission}" for "{day}"'))
+@when(parsers.parse('a super admin grants the grantee "{permission}" for "{day}"'))
+def grants_for_day(world: World, permission: str, day: str) -> None:
+    r = _grant(world, permission, day)
+    assert r.status_code == 201, r.text
+    world.grant_id = r.json()["id"]
+
+
+@given(parsers.parse('a super admin has granted the grantee "{permission}" for every bank'))
+def grants_everywhere(world: World, permission: str) -> None:
+    r = _grant(world, permission, None)
+    assert r.status_code == 201, r.text
+    world.grant_id = r.json()["id"]
+
+
+@then(parsers.parse('the grantee\'s bank standing lists "{day}" to import and nothing to manage'))
+def standing_imports(world: World, day: str) -> None:
+    me = world.get("/api/bank/me", world.session(world.grantee_user)).json()
+    assert (me["officer_days"], me["import_days"], me["manage_days"], me["manages_grants"]) == ([], [day], [], False)
+
+
+@then("the grantee's bank standing lists every raid day to manage and nothing to import")
+def standing_manages_everywhere(world: World) -> None:
+    me = world.get("/api/bank/me", world.session(world.grantee_user)).json()
+    assert (me["import_days"], me["manage_days"]) == ([], ["wed", "sun"])
+
+
+@then("the grantee may not list or work an officers-only bank's requests")
+def grantee_never_sees_hidden(world: World) -> None:
+    """Qodo 4152357910: a grant to work the queue never makes an officers-only bank visible."""
+    assert world.state is not None
+    hidden = world.state.add_source(
+        name="Officers bank", guild="Toads Officers", realm="Spineshatter", region="EU", audience="officers"
+    )
+    world.state.store_snapshot(hidden["id"], sample_snapshot(int(world.hub.now) - 3600))
+    officer_ask = world.post(
+        "/api/bank/requests",
+        world.session(world.global_user),
+        {"sourceId": hidden["id"], "itemId": 22832, "quantity": 1, "character": "Frogmage"},
+    )
+    assert officer_ask.status_code == 201, officer_ask.text
+    session = world.session(world.grantee_user)
+    for day in ("wed", "sun"):
+        for scope in ("queue", "all"):
+            rows = world.get(f"/api/days/{day}/bank/requests", session, scope=scope).json()
+            assert hidden["id"] not in {r.get("sourceId") for r in rows}, (day, scope)
+    approve = f"/api/days/wed/bank/requests/{officer_ask.json()['id']}/approve"
+    assert world.post(approve, session, {"expectedRevision": 1}).status_code in (403, 404)
+
+
+@then("the grantee may import and accept a Wednesday export")
+def grantee_imports(world: World) -> None:
+    session = world.session(world.grantee_user)
+    snapshot = sample_snapshot(int(world.hub.now) - 30, "spineshatter-bankalt-bdd-0032")
+    import_id = world.post("/api/days/wed/bank/imports", session).json()["id"]
+    added = world.post(
+        f"/api/days/wed/bank/imports/{import_id}/parts", session, {"text": "\n".join(encode_parts(snapshot))}
+    )
+    assert added.json()["complete"], added.text
+    world.seen.clear()
+    receipt = world.post(f"/api/days/wed/bank/imports/{import_id}/accept", session)
+    assert receipt.status_code == 200, receipt.text
+    assert receipt.json()["duplicate"] is False
+
+
+@then(parsers.parse('ToadsBank heard the grantee as "{roles}"'))
+def heard_grantee(world: World, roles: str) -> None:
+    accepts = [r for r in world.seen if r.url.path.endswith("/accept")]
+    assert accepts and {r.headers["X-Toads-Roles"] for r in accepts} == {roles}
+    assert {r.headers["X-Toads-Member"] for r in accepts} == {str(world.grantee_user.user_id)}
+
+
+@then("the grantee may not open an import through Sunday")
+def grantee_not_sunday(world: World) -> None:
+    assert world.post("/api/days/sun/bank/imports", world.session(world.grantee_user)).status_code == 403
+
+
+@then("the grantee may not list the Wednesday request queue on the site")
+def grantee_no_queue(world: World) -> None:
+    assert world.get("/api/days/wed/bank/requests", world.session(world.grantee_user)).status_code == 403
+
+
+@then("a Sunday officer that ToadsBank does not list as a manager may approve it through Sunday")
+def sunday_officer_approves(world: World) -> None:
+    assert str(world.sunday_officer_user.user_id) not in world.sunday["managers"]
+    world.seen.clear()
+    path = f"/api/days/sun/bank/requests/{world.request['id']}/approve"
+    r = world.post(path, world.session(world.sunday_officer_user), {"expectedRevision": 1})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "approved"
+
+
+@then(parsers.parse('ToadsBank heard the Sunday officer as "{roles}"'))
+def heard_sunday_officer(world: World, roles: str) -> None:
+    approvals = [r for r in world.seen if r.url.path.endswith("/approve")]
+    assert approvals and {r.headers["X-Toads-Roles"] for r in approvals} == {roles}
+
+
+def _acting_queue(world: World, user: FakeUser) -> int:
+    headers = {"Authorization": f"Bearer {BOT_TOKEN}", "X-Toads-Acting-Member": str(user.user_id)}
+    return world.hub.client.get("/api/days/wed/bank/requests", headers=headers).status_code
+
+
+@then("the bot acting for the grantee may list the Wednesday request queue")
+def acting_grantee_lists(world: World) -> None:
+    assert _acting_queue(world, world.grantee_user) == 200
+
+
+@when("the super admin revokes that grant")
+def revokes(world: World) -> None:
+    r = world.hub.client.delete(f"{GRANTS}/{world.grant_id}", headers=world.hub.as_(world.session(world.super_user)))
+    assert r.status_code == 204, r.text
+
+
+@then("the bot acting for the grantee may not list the Wednesday request queue")
+def acting_grantee_refused(world: World) -> None:
+    # The grantee's Discord roles are still remembered for the bot (REQ-HUB-RBAC-002); their grants never are.
+    assert _acting_queue(world, world.grantee_user) == 403
+
+
+@then("the grantee may approve it through Wednesday")
+def grantee_approves_anywhere(world: World) -> None:
+    path = f"/api/days/wed/bank/requests/{world.request['id']}/approve"
+    r = world.post(path, world.session(world.grantee_user), {"expectedRevision": 1})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "approved"
+
+
+def _grant_routes_refused(world: World, user: FakeUser) -> None:
+    session = world.session(user)
+    body = {"discord_user_id": str(user.user_id), "permission": "manage_bank", "raid_day": "wed"}
+    assert world.get(GRANTS, session).status_code == 403
+    assert world.post(GRANTS, session, body).status_code == 403
+    assert world.hub.client.delete(f"{GRANTS}/{world.grant_id}", headers=world.hub.as_(session)).status_code == 403
+
+
+@then("a Wednesday officer may not list, grant or revoke bank grants")
+def officer_cannot_grant(world: World) -> None:
+    _grant_routes_refused(world, world.officer_user)
+
+
+@then("the grantee may not list, grant or revoke bank grants")
+def grantee_cannot_grant(world: World) -> None:
+    _grant_routes_refused(world, world.grantee_user)
+    assert [g["id"] for g in world.get(GRANTS, world.session(world.super_user)).json()] == [world.grant_id]
+
+
+@then("a global officer may list bank grants but not grant or revoke them")
+def global_officer_lists_only(world: World) -> None:
+    session = world.session(world.global_user)
+    assert world.get(GRANTS, session).status_code == 200
+    assert _grant(world, "import_bank_snapshot", "sun", by=world.global_user).status_code == 403
+    if world.grant_id:
+        delete = world.hub.client.delete(f"{GRANTS}/{world.grant_id}", headers=world.hub.as_(session))
+        assert delete.status_code == 403
+    assert world.post(TOKENS, session, {"permissions": ["manage_bank"]}).status_code == 403
+
+
+@then("a super admin may not grant someone outside the server")
+def stranger_refused(world: World) -> None:
+    body = {"discord_user_id": "424242", "permission": "manage_bank", "raid_day": None}
+    assert world.post(GRANTS, world.session(world.super_user), body).status_code == 404
+
+
+@then("a super admin may not grant for an unknown raid day")
+def unknown_day_refused(world: World) -> None:
+    assert _grant(world, "manage_bank", "fri").status_code == 422
+
+
+# ------------------------------------------------------------- officer tokens
+
+
+def _mint(world: World, permission: str, day: str | None, *, by: FakeUser | None = None, **extra: Any) -> None:
+    body = {"permissions": [permission], "raid_day": day, **extra}
+    r = world.post(TOKENS, world.session(by or world.super_user), body)
+    assert r.status_code == 201, r.text
+    world.token, world.token_id = r.json()["token"], r.json()["id"]
+    world.response = r
+
+
+@given(parsers.parse('the super admin has minted a token for "{permission}" on "{day}"'))
+@when(parsers.parse('the super admin mints a token for "{permission}" on "{day}"'))
+def mints(world: World, permission: str, day: str) -> None:
+    _mint(world, permission, day)
+
+
+@when(parsers.parse('the super admin mints a token for "{permission}" on every bank'))
+def mints_everywhere(world: World, permission: str) -> None:
+    _mint(world, permission, None)
+
+
+def _tokens(world: World) -> list[dict[str, Any]]:
+    r = world.get(TOKENS, world.session(world.super_user))
+    assert r.status_code == 200, r.text
+    rows: list[dict[str, Any]] = r.json()
+    return rows
+
+
+def _listed(world: World) -> dict[str, Any]:
+    return next(t for t in _tokens(world) if t["id"] == world.token_id)
+
+
+@then("the token is shown once and lasts 7 days")
+def shown_once(world: World) -> None:
+    assert world.response is not None
+    body = world.response.json()
+    assert world.token.startswith("toads-bank-") and len(world.token) > 40
+    lasts = datetime.fromisoformat(body["expires_at"]) - datetime.fromisoformat(body["minted_at"])
+    assert lasts.days == 7 and (body["max_uses"], body["uses"]) == (1, 0)
+
+
+@then("the token list shows it as active without the token")
+def listed_active(world: World) -> None:
+    row = _listed(world)
+    assert row["status"] == "active" and "token" not in row and row["minted_by_name"]
+    assert world.token not in world.get(TOKENS, world.session(world.super_user)).text
+
+
+@then("only the token's hash is stored")
+def hash_only(world: World) -> None:
+    with world.hub.db() as db:
+        row = db.get(BankGrantToken, world.token_id)
+        assert row is not None and row.token_hash == hash_token(world.token)
+        assert world.token not in (row.token_hash, row.note)
+
+
+def _redeem_site(world: World, user: FakeUser, token: str) -> httpx.Response:
+    return world.post("/api/bank/redeem", world.session(user), {"token": token})
+
+
+@when("the bot acting for the grantee redeems the token")
+def bot_redeems(world: World) -> None:
+    headers = {"Authorization": f"Bearer {BOT_TOKEN}", "X-Toads-Acting-Member": str(world.grantee_user.user_id)}
+    r = world.hub.client.post("/api/bank/redeem", headers=headers, json={"token": world.token})
+    assert r.status_code == 200, r.text
+
+
+@given("the member redeems the token on the site")
+@when("the member redeems the token on the site")
+def member_redeems(world: World) -> None:
+    r = _redeem_site(world, world.member_user, world.token)
+    assert r.status_code == 200, r.text
+
+
+@then(parsers.parse('the grantee\'s bank standing lists "{day}" to manage'))
+def standing_manages(world: World, day: str) -> None:
+    me = world.get("/api/bank/me", world.session(world.grantee_user)).json()
+    assert (me["import_days"], me["manage_days"]) == ([], [day])
+
+
+@then("the member's bank standing lists every raid day to import")
+def member_imports_everywhere(world: World) -> None:
+    me = world.get("/api/bank/me", world.session(world.member_user)).json()
+    assert (me["import_days"], me["manage_days"]) == (["wed", "sun"], [])
+
+
+@then("the token list shows it used by the grantee")
+def listed_used(world: World) -> None:
+    row = _listed(world)
+    assert (row["status"], row["uses"], row["used_by"]) == ("used", 1, str(world.grantee_user.user_id))
+    assert row["used_at"] is not None
+
+
+@then("the audit log records the redemption under the token's id")
+def audited_redemption(world: World) -> None:
+    with world.hub.db() as db:
+        rows = [a for a in db.scalars(select(AuditEntry)) if a.action == "bank.token_redeemed"]
+    assert [a.target for a in rows] == [f"bank token {world.token_id}"]
+    assert "manage_bank" in (rows[0].detail or "")
+
+
+def _refused(world: World, token: str) -> None:
+    r = _redeem_site(world, world.grantee_user, token)
+    world.refusals += 1
+    assert (r.status_code, r.json()["detail"]) == (400, REFUSED), r.text
+
+
+@then("the grantee redeeming the same token is refused with the one answer")
+def same_token_refused(world: World) -> None:
+    _refused(world, world.token)
+
+
+@then("a token past its expiry is refused with the one answer")
+def expired_refused(world: World) -> None:
+    _mint(world, "manage_bank", "wed", days=1)
+    world.hub.pass_time(24 * 3600)
+    _refused(world, world.token)
+
+
+@then("a revoked token is refused with the one answer")
+def revoked_refused(world: World) -> None:
+    _mint(world, "manage_bank", "wed")
+    revoke_token(world)
+    _refused(world, world.token)
+
+
+@then("a made-up token is refused with the one answer")
+def made_up_refused(world: World) -> None:
+    _refused(world, world.token[:-6] + "abcdef")
+
+
+@then("the grantee holds no grants")
+def holds_nothing(world: World) -> None:
+    me = world.get("/api/bank/me", world.session(world.grantee_user)).json()
+    assert (me["import_days"], me["manage_days"]) == ([], [])
+
+
+@then(parsers.parse("after {attempts:d} refusals the grantee must wait"))
+def must_wait(world: World, attempts: int) -> None:
+    assert attempts == REDEEM_ATTEMPTS
+    while world.refusals < attempts:
+        _refused(world, "toads-bank-not-a-real-one")
+    r = _redeem_site(world, world.grantee_user, world.token)
+    assert r.status_code == 429, r.text
+
+
+@when("the super admin revokes the token")
+def revoke_token(world: World) -> None:
+    r = world.hub.client.delete(f"{TOKENS}/{world.token_id}", headers=world.hub.as_(world.session(world.super_user)))
+    assert r.status_code == 204, r.text
+
+
+@then("the token list shows it as revoked")
+def listed_revoked(world: World) -> None:
+    row = _listed(world)
+    assert row["status"] == "revoked" and row["revoked_at"] is not None
+
+
+@then("the super admin may not revoke a used token")
+def used_not_revoked(world: World) -> None:
+    _mint(world, "manage_bank", "wed")
+    member_redeems(world)
+    r = world.hub.client.delete(f"{TOKENS}/{world.token_id}", headers=world.hub.as_(world.session(world.super_user)))
+    assert r.status_code == 409, r.text
+
+
+def _token_routes_refused(world: World, user: FakeUser) -> None:
+    session = world.session(user)
+    assert world.post(TOKENS, session, {"permissions": ["manage_bank"]}).status_code == 403
+    assert world.get(TOKENS, session).status_code == 403
+    assert world.hub.client.delete(f"{TOKENS}/{world.token_id}", headers=world.hub.as_(session)).status_code == 403
+    assert _listed(world)["status"] == "active"
+
+
+@then("a global officer may not mint, list or revoke officer tokens")
+def global_no_tokens(world: World) -> None:
+    _token_routes_refused(world, world.global_user)
+
+
+@then("a Wednesday officer may not mint, list or revoke officer tokens")
+def officer_no_tokens(world: World) -> None:
+    _token_routes_refused(world, world.officer_user)
+
+
+@then("the grantee may not mint, list or revoke officer tokens")
+def grantee_no_tokens(world: World) -> None:
+    _token_routes_refused(world, world.grantee_user)
+
+
+# ------------------------------------------------- super admins and break glass
+
+
+@then("the super admin's session reports them as a super admin and a global officer")
+def super_session(world: World) -> None:
+    info = world.get("/api/session", world.session(world.super_user)).json()
+    assert (info["super_admin"], info["global_officer"], info["break_glass"]) == (True, True, False)
+    # They hold no Discord officer role: configuration alone makes them one.
+    assert world.super_user.roles == set()
+
+
+@then("the super admin may grant, list and revoke bank grants")
+def super_grants(world: World) -> None:
+    r = _grant(world, "manage_bank", "wed")
+    assert r.status_code == 201, r.text
+    world.grant_id = r.json()["id"]
+    session = world.session(world.super_user)
+    assert [g["id"] for g in world.get(GRANTS, session).json()] == [world.grant_id]
+    delete = world.hub.client.delete(f"{GRANTS}/{world.grant_id}", headers=world.hub.as_(session))
+    assert delete.status_code == 204, delete.text
+    r = _grant(world, "manage_bank", "wed")
+    world.grant_id = r.json()["id"]
+
+
+@then("no route or table makes anyone a super admin")
+def nothing_assigns_super_admins(world: World) -> None:
+    columns = {c.name for t in Base.metadata.tables.values() for c in t.columns}
+    assert not {c for c in columns if "super" in c or "admin" in c}
+    paths = {getattr(r, "path", "") for r in world.hub.app.routes}
+    assert not {p for p in paths if "super" in p}
+
+
+@then("the break-glass admin's session and bank standing say break glass")
+def glass_shown(world: World) -> None:
+    session = world.session(world.glass_user)
+    info = world.get("/api/session", session).json()
+    assert (info["super_admin"], info["break_glass"]) == (True, True)
+    me = world.get("/api/bank/me", session).json()
+    assert (me["break_glass"], me["manages_grants"], me["break_glass_admin"]) == (
+        True,
+        True,
+        str(world.glass_user.user_id),
+    )
+
+
+@then("the global tier's bank standing names the break-glass admin")
+def glass_named(world: World) -> None:
+    me = world.get("/api/bank/me", world.session(world.global_user)).json()
+    assert me["break_glass_admin"] == str(world.glass_user.user_id)
+    assert world.get("/api/bank/me", world.session(world.member_user)).json()["break_glass_admin"] is None
+
+
+@when("the break-glass admin mints an officer token")
+def glass_mints(world: World) -> None:
+    _mint(world, "import_bank_snapshot", None, by=world.glass_user)
+
+
+@then("the audit log marks the mint as a break-glass change")
+def glass_audited(world: World) -> None:
+    with world.hub.db() as db:
+        rows = [(a.action, a.target) for a in db.scalars(select(AuditEntry).order_by(AuditEntry.id))]
+    assert ("break_glass", f"POST {TOKENS}") in rows
+    assert ("bank.token_minted", f"bank token {world.token_id}") in rows

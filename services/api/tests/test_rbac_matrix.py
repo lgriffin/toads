@@ -17,7 +17,7 @@ import pytest
 from toads_api.main import create_app
 from toads_api.rbac import HubRole, Permission, Principal, RaidDaysConfig, can
 from toads_api.rbac.deps import RouteRule, get_principal, route_rules
-from toads_api.rbac.permissions import ROLE_PERMISSIONS
+from toads_api.rbac.permissions import GRANTABLE, ROLE_PERMISSIONS, SUPER_ADMIN_ONLY
 
 from conftest import Hub
 
@@ -50,9 +50,17 @@ SPEC: dict[str, set[Permission]] = {
         P.UPLOAD_SCREENSHOTS,
         P.SUBMIT_HIGHLIGHT,
     },
-    "officer": set(Permission),
+    # Everything but managing grants and tokens, which is the super admins' alone (docs/admin.md).
+    "officer": set(Permission) - {P.MANAGE_GRANTS},
 }
-TIERS = ("member", "trial", "raider", "officer", "global")
+# Super admins (TOADS_SUPER_ADMIN_IDS, docs/admin.md) hold everything a global officer has, and alone manage grants.
+SUPER_ONLY = {P.MANAGE_GRANTS}
+# What a super admin may grant one Discord user (docs/bank.md "Grants"): the bank's upkeep, on one raid day's banks
+# or on every bank. A grant only ever counts on a raid day's routes, never on guild-wide (global tier) ones.
+GRANTS = {P.IMPORT_BANK_SNAPSHOT, P.MANAGE_BANK}
+# "grantee": a plain member granted both bank permissions on their own day.
+# "super": a super admin from configuration; "break_glass": the break-glass admin, a super admin by another name.
+TIERS = ("member", "trial", "raider", "officer", "global", "grantee", "super", "break_glass")
 # Routes that are public by design: health, and the OAuth dance that creates the session.
 PUBLIC = {
     "GET /healthz",
@@ -70,16 +78,28 @@ SERVICE_PREFIXES = ("/api/bot/", "/api/bots", "/api/worker/", "/api/bank/events"
 
 
 def principal(tier: str, own_day: str) -> Principal:
+    if tier == "super":
+        return Principal(member_id=1, super_admin=True)
+    if tier == "break_glass":
+        return Principal(member_id=1, break_glass=True)
     if tier == "global":
         return Principal(member_id=1, global_officer=True)
     if tier == "member":
         return Principal(member_id=1)
+    if tier == "grantee":
+        return Principal(member_id=1, grants=frozenset((p, own_day) for p in GRANTS))
     return Principal(member_id=1, day_roles={own_day: HubRole[tier.upper()]})
 
 
 def expected_allowed(tier: str, own_day: str, permission: Permission, target_day: str | None) -> bool:
+    if tier in ("super", "break_glass"):
+        return True
+    if permission in SUPER_ONLY:
+        return False
     if tier == "global":
         return True
+    if tier == "grantee":
+        return permission in SPEC["member"] or (target_day == own_day and permission in GRANTS)
     if target_day is None:
         # Guild-wide routes: officer powers are only ever held for a day, so a day officer counts as a raider.
         effective = "raider" if tier == "officer" else tier
@@ -160,13 +180,51 @@ def test_officer_routes_are_scoped_and_have_sibling_denials() -> None:
     assert all("{day}" in r.path for r in scoped)
     for rule in scoped:
         assert any(c.rule == rule and c.tier == "officer" and c.sibling for c in matrix())
-    # Guild-wide officer routes live under /api/admin and are the global tier's alone: a day officer counts as
-    # a raider there, so only "global" is ever allowed.
+    # Guild-wide officer routes live under /api/admin and are the global tier's (and so the super admins') alone: a
+    # day officer counts as a raider there.
     for rule in (r for r in officer_rules if not r.scoped):
         assert rule.path.startswith(GLOBAL_ADMIN_PREFIX)
         assert {
             c.tier for c in matrix() if c.rule == rule and expected_allowed(c.tier, c.own_day, rule.permission, None)
-        } == {"global"}
+        } == {"global", "super", "break_glass"}
+
+
+def test_grant_and_token_routes_are_the_super_admins_alone() -> None:
+    super_rules = [r for r in RULES if r.permission in SUPER_ONLY]
+    assert {(r.method, r.path) for r in super_rules} == {
+        ("POST", "/api/admin/bank/grants"),
+        ("DELETE", "/api/admin/bank/grants/{grant_id}"),
+        ("GET", "/api/admin/bank/tokens"),
+        ("POST", "/api/admin/bank/tokens"),
+        ("DELETE", "/api/admin/bank/tokens/{token_id}"),
+    }
+    for rule in super_rules:
+        assert not rule.scoped
+        assert {
+            c.tier for c in matrix() if c.rule == rule and expected_allowed(c.tier, c.own_day, rule.permission, None)
+        } == {"super", "break_glass"}
+    # Global officers still list grants (docs/admin.md).
+    assert ("GET", "/api/admin/bank/grants", P.MANAGE_BANK) in {(r.method, r.path, r.permission) for r in RULES}
+
+
+def test_only_the_banks_upkeep_can_be_granted() -> None:
+    assert GRANTABLE == GRANTS
+    assert SUPER_ADMIN_ONLY == SUPER_ONLY
+    assert not (GRANTS & SUPER_ONLY)
+    assert GRANTS <= OFFICER_ONLY  # officers inherit every grantable permission through their role
+
+
+@pytest.mark.parametrize(("own_day", "target_day"), list(itertools.product(DAYS, DAYS)))
+def test_a_day_grant_is_scoped_to_its_day_and_a_dayless_grant_to_every_day(own_day: str, target_day: str) -> None:
+    for permission in GRANTS:
+        day_grant = Principal(member_id=1, grants=frozenset({(permission, own_day)}))
+        assert can(day_grant, permission, target_day) is (own_day == target_day)
+        assert can(Principal(member_id=1, grants=frozenset({(permission, None)})), permission, target_day)
+
+
+@pytest.mark.parametrize("permission", sorted(GRANTS))
+def test_a_grant_never_reaches_a_guild_wide_route(permission: Permission) -> None:
+    assert not can(Principal(member_id=1, grants=frozenset({(permission, None)})), permission, None)
 
 
 def test_matrix_matches_spec() -> None:
@@ -182,9 +240,32 @@ def test_day_officer_scoped_to_own_day(own_day: str, target_day: str, permission
     assert can(officer, permission, target_day) is (own_day == target_day)
 
 
-@pytest.mark.parametrize(("day", "permission"), list(itertools.product(DAYS, Permission)))
+@pytest.mark.parametrize(("day", "permission"), list(itertools.product(DAYS, set(Permission) - SUPER_ONLY)))
 def test_global_officer_everywhere(day: str, permission: Permission) -> None:
     assert can(Principal(member_id=1, global_officer=True), permission, day)
+
+
+@pytest.mark.parametrize(("day", "permission"), list(itertools.product((*DAYS, None), Permission)))
+def test_super_admin_and_break_glass_hold_everything(day: str | None, permission: Permission) -> None:
+    assert can(Principal(member_id=1, super_admin=True), permission, day)
+    assert can(Principal(member_id=1, break_glass=True), permission, day)
+
+
+@pytest.mark.parametrize("day", (*DAYS, None))
+def test_nobody_below_a_super_admin_manages_grants(day: str | None) -> None:
+    every_grant = frozenset((p, d) for p in Permission for d in (*DAYS, None))
+    for p in (
+        Principal(member_id=1, global_officer=True),
+        Principal(member_id=1, day_roles=dict.fromkeys(DAYS, HubRole.OFFICER)),
+        Principal(member_id=1, grants=every_grant),
+    ):
+        assert not can(p, P.MANAGE_GRANTS, day)
+
+
+def test_super_admin_is_a_global_officer_and_break_glass_a_super_admin() -> None:
+    assert Principal(member_id=1, super_admin=True).global_officer
+    glass = Principal(member_id=1, break_glass=True)
+    assert glass.super_admin and glass.global_officer
 
 
 @pytest.mark.parametrize("permission", OFFICER_ONLY)

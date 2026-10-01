@@ -43,7 +43,7 @@ Phase 2.0 (Foundations) scaffold plus phase 2.2 (Identity and RBAC):
 |---|---|
 | API | App factory, `/healthz`, OpenAPI at `/api/docs`, fail-fast settings, non-echoing validation errors; Discord OAuth2 + PKCE login, Redis sessions with 15-minute role refresh, RBAC with raid-day scoping and a route-generated matrix test, character claims with officer approve/reject/reassign, members directory, audit log, startup check of configured Discord roles |
 | Fake Discord | `toads_api.testing.fake_discord`: OAuth2 + member/roles endpoints for tests and the dev stack (no Discord app needed) |
-| Guild bank | `toads_api.bank`: the hub's adapter to ToadsBank (sources, inventory, requests, paste imports, events to the `bank` bot); `toads_api.testing.fake_bank` stands in for ToadsBank in tests and the dev stack. See [docs/bank.md](docs/bank.md) |
+| Guild bank | `toads_api.bank`: the hub's adapter to ToadsBank (sources, inventory, requests, paste imports, events to the `bank` bot); `toads_api.testing.fake_bank` stands in for ToadsBank in tests and the dev stack. See [docs/bank.md](docs/bank.md); super admins, the break-glass admin and officer tokens in [docs/admin.md](docs/admin.md) |
 | Worker | Report code / URL validation (fuzzed), sync diff, RQ entry point; on-demand analysis through wcl-app's `RaidService` (saved role overrides apply) stored in wcl-store's Postgres tables, migrated by `toads-worker-migrate` |
 | Bot | discord.py client with single-guild command sync |
 | hub-db | `members`, `character_claims`, `audit`, community tables, Alembic migrations (`hub-db-migrate`) |

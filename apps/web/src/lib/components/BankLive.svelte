@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { ApiError } from '$lib/api';
   import {
+    bankDays,
     bankError,
     bankTime,
     bestSource,
@@ -33,7 +34,9 @@
     type NewRequest,
     type Replica
   } from '$lib/bank';
+  import BankGrants from './BankGrants.svelte';
   import BankOfficer from './BankOfficer.svelte';
+  import BankRedeem from './BankRedeem.svelte';
 
   type View =
     | { kind: 'loading' }
@@ -67,7 +70,8 @@
   let shown = $derived(filterItems(inventory.items, search));
   let chosen = $derived(inventory.items.find((i) => i.itemId === itemId) ?? null);
   let sourceName = $derived(new Map(sources.map((s) => [s.id, s.name])));
-  let officerDay = $derived(me?.officer_days[0] ?? null);
+  let days = $derived(me ? bankDays(me) : { imports: [], manage: [], all: [] });
+  let officerDay = $derived(days.all[0] ?? null);
 
   function fail(e: unknown) {
     if (e instanceof ApiError && e.status === 401) view = { kind: 'signed-out' };
@@ -97,6 +101,16 @@
   }
 
   onMount(load);
+
+  /** After a redemption: the member's standing changed, so the import and queue days may have too. */
+  async function reloadMe() {
+    try {
+      me = await getBankMe();
+      await refresh();
+    } catch (e) {
+      fail(e);
+    }
+  }
 
   function pick(id: number, jump = false) {
     itemId = id;
@@ -353,7 +367,20 @@
   </section>
 
   {#if me && officerDay}
-    <BankOfficer day={officerDay} days={me.officer_days} onchange={refresh} />
+    <BankOfficer day={officerDay} days={days.all} importDays={days.imports} manageDays={days.manage} onchange={refresh} />
+  {/if}
+
+  {#if me}
+    <BankRedeem onredeemed={reloadMe} />
+  {/if}
+
+  {#if me?.sees_grants || me?.manages_grants}
+    <BankGrants
+      days={me.officer_days}
+      manage={me.manages_grants ?? false}
+      breakGlass={me.break_glass ?? false}
+      breakGlassAdmin={me.break_glass_admin ?? null}
+    />
   {/if}
 {/if}
 

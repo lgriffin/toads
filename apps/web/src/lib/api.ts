@@ -23,6 +23,10 @@ export interface Session {
   member_id: number;
   display_name: string;
   global_officer: boolean;
+  /** Named in the hub's configuration, above the global tier (docs/admin.md). Missing from an older hub. */
+  super_admin?: boolean;
+  /** The break-glass admin: always a super admin, and every change they make is audit-logged as such. */
+  break_glass?: boolean;
   day_roles: Record<string, 'trial' | 'raider' | 'officer'>;
   /** Days the member holds a trial, raider or officer role on, in config order. */
   raid_days: string[];

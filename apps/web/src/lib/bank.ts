@@ -145,8 +145,86 @@ export interface BankMe {
   discord_user_id: string | null;
   display_name: string;
   global_officer: boolean;
-  /** Raid days the member may import and work the queue on. */
+  /** Raid days the member holds officer powers on. */
   officer_days: string[];
+  /** Raid days the member may import on, and work the request queue on: their officer days plus any day a bank grant
+   * covers (every day for a grant with no raid day). Missing from an older hub: use officer_days. */
+  import_days?: string[];
+  manage_days?: string[];
+  /** Whether the member may see the bank grants (the global tier). */
+  sees_grants?: boolean;
+  /** Whether the member may grant and revoke bank grants and mint officer tokens (super admins, docs/admin.md). */
+  manages_grants?: boolean;
+  /** Named in the hub's configuration, above the global tier (docs/admin.md). */
+  super_admin?: boolean;
+  /** The caller is the break-glass admin: every change they make is audit-logged as such. */
+  break_glass?: boolean;
+  /** The break-glass admin's Discord user id, shown to the global tier; null when none is configured. */
+  break_glass_admin?: string | null;
+}
+
+/** The bank permissions a super admin may grant one member (docs/bank.md "Grants"). */
+export type GrantPermission = 'import_bank_snapshot' | 'manage_bank';
+
+export interface BankGrant {
+  id: number;
+  /** A string: Discord ids exceed Number.MAX_SAFE_INTEGER. */
+  discord_user_id: string;
+  display_name: string;
+  permission: GrantPermission;
+  /** null: every bank. */
+  raid_day: string | null;
+  granted_by: number | null;
+  granted_by_name: string | null;
+  granted_at: string;
+}
+
+export interface NewGrant {
+  discord_user_id: string;
+  permission: GrantPermission;
+  raid_day: string | null;
+}
+
+export type TokenStatus = 'active' | 'used' | 'expired' | 'revoked';
+
+/** An officer token as the list shows it: never the token itself (docs/admin.md). */
+export interface BankToken {
+  id: number;
+  permissions: GrantPermission[];
+  /** null: every bank. */
+  raid_day: string | null;
+  note: string;
+  minted_by: number | null;
+  minted_by_name: string | null;
+  minted_at: string;
+  expires_at: string;
+  max_uses: number;
+  uses: number;
+  /** The last redeemer's Discord user id, as a string. */
+  used_by: string | null;
+  used_at: string | null;
+  revoked_at: string | null;
+  status: TokenStatus;
+}
+
+/** A freshly minted token: `token` is shown this once and never again. */
+export interface MintedToken extends BankToken {
+  token: string;
+}
+
+export interface NewToken {
+  permissions: GrantPermission[];
+  raid_day: string | null;
+  /** 1 to 30; the hub defaults to 7. */
+  days?: number;
+  /** 1 to 25; the hub defaults to 1. */
+  max_uses?: number;
+  note?: string;
+}
+
+export interface Redeemed {
+  token_id: number;
+  grants: BankGrant[];
 }
 
 // --- calls ---------------------------------------------------------------------------------------
@@ -227,6 +305,58 @@ export const previewImport = (day: string, id: string, f: Fetch = fetch) =>
   call<ImportPreview>(f, `${dayBase(day)}/imports/${enc(id)}/preview`);
 export const acceptImport = (day: string, id: string, key: string, f: Fetch = fetch) =>
   post<ImportReceipt>(f, `${dayBase(day)}/imports/${enc(id)}/accept`, {}, key);
+
+/** The days the bank page offers for imports and for the request queue. */
+export function bankDays(me: BankMe): { imports: string[]; manage: string[]; all: string[] } {
+  const imports = me.import_days ?? me.officer_days;
+  const manage = me.manage_days ?? me.officer_days;
+  return { imports, manage, all: [...new Set([...manage, ...imports])] };
+}
+
+const GRANTS = '/api/admin/bank/grants';
+
+export const listGrants = (f: Fetch = fetch) => call<BankGrant[]>(f, GRANTS);
+export const grantBank = (body: NewGrant, f: Fetch = fetch) =>
+  call<BankGrant>(f, GRANTS, { method: 'POST', body: JSON.stringify(body) });
+export const revokeGrant = (id: number, f: Fetch = fetch) =>
+  call<void>(f, `${GRANTS}/${enc(String(id))}`, { method: 'DELETE' });
+
+const TOKENS = '/api/admin/bank/tokens';
+
+export const listTokens = (f: Fetch = fetch) => call<BankToken[]>(f, TOKENS);
+export const mintToken = (body: NewToken, f: Fetch = fetch) =>
+  call<MintedToken>(f, TOKENS, { method: 'POST', body: JSON.stringify(body) });
+export const revokeToken = (id: number, f: Fetch = fetch) =>
+  call<void>(f, `${TOKENS}/${enc(String(id))}`, { method: 'DELETE' });
+export const redeemToken = (token: string, f: Fetch = fetch) =>
+  call<Redeemed>(f, '/api/bank/redeem', { method: 'POST', body: JSON.stringify({ token: token.trim() }) });
+
+export const TOKEN_STATUS_LABELS: Record<TokenStatus, string> = {
+  active: 'Not yet used',
+  used: 'Used',
+  expired: 'Expired',
+  revoked: 'Revoked'
+};
+
+/** What a token or a redemption gives, in words: "Run the request queue on wed banks". */
+export function grantsText(permissions: GrantPermission[], day: string | null): string {
+  const what = permissions.map((p, i) => (i ? (GRANT_LABELS[p] ?? p).toLowerCase() : (GRANT_LABELS[p] ?? p))).join(' and ');
+  return `${what} on ${grantScope(day)}`;
+}
+
+/** A Discord user id as the hub takes it: digits only, no leading zero. */
+export function isDiscordId(value: string): boolean {
+  return /^[1-9]\d{0,19}$/.test(value.trim());
+}
+
+export const GRANT_LABELS: Record<GrantPermission, string> = {
+  import_bank_snapshot: 'Import bank snapshots',
+  manage_bank: 'Run the request queue'
+};
+
+export function grantScope(day: string | null): string {
+  return day === null ? 'every bank' : `${day} banks`;
+}
 
 // --- wording -------------------------------------------------------------------------------------
 
@@ -349,11 +479,11 @@ export function bankError(e: unknown): string {
     case 'import_expired':
       return 'That import expired after 30 minutes. Paste the parts again to start a new one.';
     case 'not_this_day':
-      return 'That bank belongs to another raid day. Pick that day above, if you are one of its officers.';
+      return 'That bank belongs to another raid day. Pick that day above, if you work its bank.';
     case 'unknown_source':
       return 'That export is from a bank the hub does not know yet. Ask a global officer to accept it, which registers it.';
   }
   if (e.status === 401) return 'Sign in with Discord to use the bank.';
-  if (e.status === 403) return 'You can’t do that here. Bank managers and officers handle imports and the request queue.';
+  if (e.status === 403) return 'You can’t do that here. Officers, and members granted it, handle imports and the request queue.';
   return e.message || 'Something went wrong; try again.';
 }

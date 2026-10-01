@@ -2,7 +2,8 @@
 hub decides who reaches a route and ToadsBank still applies a source's audience and its managers list.
 
 - /api/bank/*                    members: sources, replica, inventory, their own requests (and the bot acting for one)
-- /api/days/{day}/bank/*         that raid day's officers (and the global tier): imports and the request queue
+- /api/days/{day}/bank/*         that raid day's officers, members granted the bank's upkeep for that day or every
+                                 bank (bank_grants), and the global tier: imports and the request queue
 - /api/admin/bank/*              the global tier only: registering and editing sources
 - POST /api/bank/events          ToadsBank's worker, with the bank's service token
 
@@ -34,8 +35,8 @@ from toads_api.bank.schemas import (
     SourceCreate,
     SourcePatch,
 )
-from toads_api.rbac.deps import get_services, require
-from toads_api.rbac.permissions import HubRole, Permission, Principal
+from toads_api.rbac.deps import get_services, require, with_grants
+from toads_api.rbac.permissions import HubRole, Permission, Principal, can
 from toads_api.services import Services
 
 log = structlog.get_logger(__name__)
@@ -74,9 +75,16 @@ Id = Annotated[str, Path(pattern=ID)]
 # ------------------------------------------------------------------ adapters
 
 
-def identity_of(principal: Principal) -> BankIdentity:
+# The per-call roles ToadsBank reads as "the hub vouches this member uploads / manages the bank this call touches"
+# (ToadsBank TB-BM-17). Sent only on a raid-day route whose require(...) passed, after the route binds the bank.
+UPLOADER = "uploader"
+MANAGER = "manager"
+
+
+def identity_of(principal: Principal, vouch: str | None = None, banks: tuple[str, ...] = ()) -> BankIdentity:
     """The X-Toads-* identity for a member: always `member`, `officer` when they hold officer powers anywhere, `admin`
-    for the global tier."""
+    for the global tier, and `vouch` (uploader or manager) on an import or queue route the hub has let them reach,
+    whether through an officer role or a grant. ToadsBank gives that role no officer or admin powers."""
     if principal.discord_user_id is None:
         raise BankError(403, "forbidden", "Your hub session has no Discord identity; sign in again")
     roles = ["member"]
@@ -84,7 +92,9 @@ def identity_of(principal: Principal) -> BankIdentity:
         roles.append("officer")
     if principal.global_officer:
         roles.append("admin")
-    return BankIdentity(principal.discord_user_id, principal.display_name, tuple(roles))
+    if vouch is not None:
+        roles.append(vouch)
+    return BankIdentity(principal.discord_user_id, principal.display_name, tuple(roles), banks if vouch else ())
 
 
 def bank_of(services: Services) -> BankClient:
@@ -107,25 +117,42 @@ def officer_days(services: Services, principal: Principal) -> list[str]:
     ]
 
 
-async def day_sources(bank: BankClient, who: BankIdentity, day: str) -> set[str]:
-    """The ids of the sources assigned to this raid day (a source's `raidDay`)."""
-    rows = await bank.sources(who)
-    return {str(s.get("id")) for s in rows or [] if isinstance(s, dict) and s.get("raidDay") == day}
+def permitted_days(services: Services, principal: Principal, permission: Permission) -> list[str]:
+    """The raid days whose bank routes the member may use for `permission`: by an officer role or a grant."""
+    return [d.id for d in services.raid_days.raid_days if can(principal, permission, d.id)]
 
 
-async def bind_day(bank: BankClient, who: BankIdentity, principal: Principal, day: str, source_id: object) -> None:
-    """A raid day's officers work only that day's banks. The URL's day only decides who reaches a route, so every
-    officer route also checks that the source it touches belongs to that day. The global tier works every bank,
-    including those with no raid day."""
+async def route_banks(
+    bank: BankClient, principal: Principal, day: str, permission: Permission
+) -> frozenset[str] | None:
+    """The banks a raid-day route may touch for this member. None for the global tier: every bank. Otherwise the banks
+    they may see (ToadsBank applies a source's audience) that belong to this raid day (a source's `raidDay`), or every
+    one of those for a grant with no raid day. The URL's day only decides who reaches a route, so every officer route
+    also checks that the bank it touches is one of these."""
     if principal.global_officer:
-        return
-    if source_id is None or str(source_id) not in await day_sources(bank, who, day):
-        raise BankError(403, NOT_THIS_DAY, f"That bank does not belong to the {day} raid day")
+        return None
+    every_day = principal.unbound(permission)
+    rows = await bank.sources(identity_of(principal))
+    return frozenset(
+        str(s.get("id")) for s in rows or [] if isinstance(s, dict) and (every_day or s.get("raidDay") == day)
+    )
 
 
-async def _bind_import(bank: BankClient, who: BankIdentity, principal: Principal, day: str, shown: Any) -> None:
+def bind_bank(banks: frozenset[str] | None, day: str, source_id: object) -> None:
+    if banks is not None and (source_id is None or str(source_id) not in banks):
+        raise BankError(403, NOT_THIS_DAY, f"That bank is not one you work under the {day} raid day")
+
+
+def vouched(principal: Principal, role: str, banks: frozenset[str] | None, *touched: str) -> BankIdentity:
+    """The identity for a call the hub has bound: the uploader or manager role, naming the banks it may touch
+    (ToadsBank TB-BM-17). The global tier is ToadsBank's admin and needs no banks named."""
+    return identity_of(principal, role, () if banks is None else (touched or tuple(sorted(banks))))
+
+
+def _matched(shown: Any) -> str | None:
     matched = shown.get("matchedSource") if isinstance(shown, dict) else None
-    await bind_day(bank, who, principal, day, matched.get("id") if isinstance(matched, dict) else None)
+    source_id = matched.get("id") if isinstance(matched, dict) else None
+    return None if source_id is None else str(source_id)
 
 
 # -------------------------------------------------------------------- member
@@ -133,12 +160,22 @@ async def _bind_import(bank: BankClient, who: BankIdentity, principal: Principal
 
 @member.get("/me")
 async def me(principal: Viewer, live: Live) -> BankMe:
+    principal = await with_grants(live, principal)
+    glass = live.settings.break_glass_admin_id
     return BankMe(
         configured=live.bank is not None,
         discord_user_id=str(principal.discord_user_id) if principal.discord_user_id is not None else None,
         display_name=principal.display_name,
         global_officer=principal.global_officer,
         officer_days=officer_days(live, principal),
+        import_days=permitted_days(live, principal, Permission.IMPORT_BANK_SNAPSHOT),
+        manage_days=permitted_days(live, principal, Permission.MANAGE_BANK),
+        sees_grants=can(principal, Permission.MANAGE_BANK),
+        manages_grants=can(principal, Permission.MANAGE_GRANTS),
+        super_admin=principal.super_admin,
+        break_glass=principal.break_glass,
+        # docs/admin.md: the break-glass admin is never hidden from the global tier.
+        break_glass_admin=str(glass) if glass is not None and principal.global_officer else None,
     )
 
 
@@ -202,16 +239,19 @@ async def add_parts(
 
 @day_officer.get("/imports/{import_id}/preview")
 async def preview(day: str, import_id: Id, principal: Importer, live: Live) -> Any:
-    bank, who = bank_of(live), identity_of(principal)
-    shown = await bank.preview(who, import_id)
-    await _bind_import(bank, who, principal, day, shown)
+    bank = bank_of(live)
+    shown = await bank.preview(identity_of(principal), import_id)
+    bind_bank(await route_banks(bank, principal, day, Permission.IMPORT_BANK_SNAPSHOT), day, _matched(shown))
     return shown
 
 
 @day_officer.post("/imports/{import_id}/accept")
 async def accept(day: str, import_id: Id, request: Request, key: Key, principal: Importer, live: Live) -> Any:
-    bank, who = bank_of(live), identity_of(principal)
-    await _bind_import(bank, who, principal, day, await bank.preview(who, import_id))
+    bank = bank_of(live)
+    source_id = _matched(await bank.preview(identity_of(principal), import_id))
+    banks = await route_banks(bank, principal, day, Permission.IMPORT_BANK_SNAPSHOT)
+    bind_bank(banks, day, source_id)
+    who = vouched(principal, UPLOADER, banks, *(() if source_id is None else (source_id,)))
     return await bank.accept(who, import_id, derive_key(who, request, key))
 
 
@@ -223,25 +263,28 @@ async def queue(
     scope: Literal["queue", "all"] = "queue",
     status_: Annotated[str | None, Query(alias="status", pattern=r"^[a-z]{1,20}$")] = None,
 ) -> Any:
-    bank, who = bank_of(live), identity_of(principal)
-    rows = await bank.requests(who, scope, status_)
-    if principal.global_officer or not isinstance(rows, list):
+    bank = bank_of(live)
+    banks = await route_banks(bank, principal, day, Permission.MANAGE_BANK)
+    rows = await bank.requests(vouched(principal, MANAGER, banks), scope, status_)
+    if banks is None or not isinstance(rows, list):
         return rows
-    mine = await day_sources(bank, who, day)
-    return [r for r in rows if isinstance(r, dict) and str(r.get("sourceId")) in mine]
+    return [r for r in rows if isinstance(r, dict) and str(r.get("sourceId")) in banks]
 
 
 async def _manage(
     live: Services, principal: Principal, request: Request, key: str, request_id: str, action: str, body: Any
 ) -> Any:
-    bank, who = bank_of(live), identity_of(principal)
+    bank = bank_of(live)
     day = request.path_params["day"]
-    if not principal.global_officer:
+    banks = await route_banks(bank, principal, day, Permission.MANAGE_BANK)
+    who = vouched(principal, MANAGER, banks)
+    if banks is not None:
         rows = await bank.requests(who, "all")
         target = next((r for r in rows or [] if isinstance(r, dict) and str(r.get("id")) == request_id), None)
         if target is None:
             raise BankError(404, "not_found", "No such request")
-        await bind_day(bank, who, principal, day, target.get("sourceId"))
+        bind_bank(banks, day, target.get("sourceId"))
+        who = vouched(principal, MANAGER, banks, str(target.get("sourceId")))
     return await bank.act(who, request_id, action, body.model_dump(exclude_none=True), derive_key(who, request, key))
 
 

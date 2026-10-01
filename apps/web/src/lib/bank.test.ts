@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from './api';
 import {
   addParts,
+  bankDays,
   bankError,
   bestSource,
   cancelRequest,
@@ -11,6 +12,18 @@ import {
   freshnessClass,
   freshnessLabel,
   getInventory,
+  GRANT_LABELS,
+  grantBank,
+  grantScope,
+  grantsText,
+  isDiscordId,
+  listTokens,
+  mintToken,
+  redeemToken,
+  revokeToken,
+  TOKEN_STATUS_LABELS,
+  listGrants,
+  revokeGrant,
   isOpen,
   keyFor,
   manageRequest,
@@ -214,5 +227,76 @@ describe('idempotency keys for the request form', () => {
 describe('raid days', () => {
   it('explains a bank that belongs to another raid day', () => {
     expect(bankError(new ApiError(403, 'x', 'not_this_day'))).toMatch(/another raid day/);
+  });
+});
+
+describe('grants', () => {
+  const me = { configured: true, discord_user_id: '1', display_name: 'x', global_officer: false, officer_days: ['wed'] };
+  it('offers each day the member may use, from an older hub too', () => {
+    expect(bankDays(me)).toEqual({ imports: ['wed'], manage: ['wed'], all: ['wed'] });
+    expect(bankDays({ ...me, officer_days: [], import_days: ['sun'], manage_days: ['wed'] })).toEqual({
+      imports: ['sun'],
+      manage: ['wed'],
+      all: ['wed', 'sun']
+    });
+  });
+  it('lists, grants and revokes through the admin routes', async () => {
+    const { f, calls } = fakeFetch(200, []);
+    await listGrants(f);
+    await grantBank({ discord_user_id: '42', permission: 'manage_bank', raid_day: null }, f);
+    expect(calls.map((c) => [c.url, c.init.method ?? 'GET'])).toEqual([
+      ['/api/admin/bank/grants', 'GET'],
+      ['/api/admin/bank/grants', 'POST']
+    ]);
+    expect(JSON.parse(String(calls[1].init.body))).toEqual({
+      discord_user_id: '42',
+      permission: 'manage_bank',
+      raid_day: null
+    });
+    const revoked = fakeFetch(204);
+    await revokeGrant(7, revoked.f);
+    expect([revoked.calls[0].url, revoked.calls[0].init.method]).toEqual(['/api/admin/bank/grants/7', 'DELETE']);
+  });
+  it('takes Discord ids as digit strings', () => {
+    expect(isDiscordId(' 42 ')).toBe(true);
+    expect(['', '0123', '12a', '1'.repeat(21)].some(isDiscordId)).toBe(false);
+  });
+  it('words a grant', () => {
+    expect(GRANT_LABELS.import_bank_snapshot).toBe('Import bank snapshots');
+    expect([grantScope(null), grantScope('wed')]).toEqual(['every bank', 'wed banks']);
+  });
+});
+
+describe('officer tokens', () => {
+  it('mints, lists and revokes through the super admin routes', async () => {
+    const { f, calls } = fakeFetch(200, []);
+    await listTokens(f);
+    await mintToken({ permissions: ['manage_bank'], raid_day: 'wed', days: 3, note: 'for Tadpole' }, f);
+    expect(calls.map((c) => [c.url, c.init.method ?? 'GET'])).toEqual([
+      ['/api/admin/bank/tokens', 'GET'],
+      ['/api/admin/bank/tokens', 'POST']
+    ]);
+    expect(JSON.parse(String(calls[1].init.body))).toEqual({
+      permissions: ['manage_bank'],
+      raid_day: 'wed',
+      days: 3,
+      note: 'for Tadpole'
+    });
+    const revoked = fakeFetch(204);
+    await revokeToken(3, revoked.f);
+    expect([revoked.calls[0].url, revoked.calls[0].init.method]).toEqual(['/api/admin/bank/tokens/3', 'DELETE']);
+  });
+  it('redeems a pasted token, trimmed', async () => {
+    const { f, calls } = fakeFetch(200, { token_id: 3, grants: [] });
+    expect(await redeemToken('  toads-bank-abc  ', f)).toEqual({ token_id: 3, grants: [] });
+    expect([calls[0].url, calls[0].init.method]).toEqual(['/api/bank/redeem', 'POST']);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ token: 'toads-bank-abc' });
+  });
+  it('words a token', () => {
+    expect(grantsText(['import_bank_snapshot', 'manage_bank'], null)).toBe(
+      'Import bank snapshots and run the request queue on every bank'
+    );
+    expect(grantsText(['manage_bank'], 'sun')).toBe('Run the request queue on sun banks');
+    expect(TOKEN_STATUS_LABELS.active).toBe('Not yet used');
   });
 });

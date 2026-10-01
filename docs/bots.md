@@ -32,7 +32,7 @@ The wire models live in `toads_api.bots.models` and, as a copy, in `toads_bot.ki
 | Spec | Bindings | What it does |
 | --- | --- | --- |
 | `relay` | `Relay` | The example: relays text both ways between the site and chosen channels. |
-| `bank` | `Bank` | The guild bank ([bank.md](bank.md)): manager and requester DMs, snapshot posts, `/bank import`, `/bank find`, `/bank request` and the manager buttons. It also calls the hub's bank routes as the member who used it (`X-Toads-Acting-Member`). |
+| `bank` | `Bank` | The guild bank ([bank.md](bank.md)): manager and requester DMs, snapshot posts, `/bank import`, `/bank find`, `/bank request`, `/bank redeem` (an officer token, [admin.md](admin.md)) and the manager buttons. It also calls the hub's bank routes as the member who used it (`X-Toads-Acting-Member`). |
 
 ## Contract
 

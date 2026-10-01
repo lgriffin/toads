@@ -33,6 +33,8 @@ class FakeApi:
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
         self.fail: dict[str, list[BankApiError]] = {}
         self.officer_days = {OFFICER: ["wed"]}
+        # What a newer hub also says: the days a member may import / work the queue on, by role or grant.
+        self.granted: dict[int, dict[str, list[str]]] = {}
         self.parts_result: dict[str, Any] = {"received": [1], "total": 2, "missing": [2], "complete": False}
         self.items: list[dict[str, Any]] = []
         self.opened = 0
@@ -48,7 +50,7 @@ class FakeApi:
 
     async def me(self, member: int) -> dict[str, Any]:
         self._record("me", member)
-        return {"officer_days": self.officer_days.get(member, [])}
+        return {"officer_days": self.officer_days.get(member, []), **self.granted.get(member, {})}
 
     async def open_import(self, member: int, day: str, key: str) -> dict[str, Any]:
         self._record("open_import", member, day, key)
@@ -87,6 +89,16 @@ class FakeApi:
         self._record("create_request", member, body, key)
         status = "waitlisted" if body.get("waitlist") else "reserved"
         return {"id": "req_1", "itemName": "Super Mana Potion", "status": status, **body}
+
+    async def redeem(self, member: int, token: str) -> dict[str, Any]:
+        self._record("redeem", member, token)
+        return {
+            "token_id": 3,
+            "grants": [
+                {"permission": "manage_bank", "raid_day": "wed"},
+                {"permission": "import_bank_snapshot", "raid_day": None},
+            ],
+        }
 
     async def manage(
         self, member: int, day: str, request_id: str, action: str, body: dict[str, Any], key: str
@@ -252,7 +264,28 @@ def test_an_expired_import_is_reopened() -> None:
 def test_members_without_an_officer_day_cannot_import() -> None:
     i = interaction(user=MEMBER)
     run(binding().import_text(i, "parts"))
-    assert replied(i)[0] == "Only officers can import bank snapshots."
+    assert replied(i)[0] == b.NO_IMPORTS
+
+
+def test_a_member_granted_imports_imports_on_their_granted_day_but_cannot_work_the_queue() -> None:
+    api = FakeApi()
+    api.granted[MEMBER] = {"import_days": ["sun"], "manage_days": []}
+    run(binding(api).import_text(interaction(user=MEMBER), "parts"))
+    assert [args[:2] for args in api.named("open_import")] == [(MEMBER, "sun")]
+    i = interaction(user=MEMBER, custom_id="bank:approve:req_1:2")
+    run(binding(api).on_interaction(i))
+    assert replied(i)[0] == b.NO_QUEUE and api.named("manage") == []
+
+
+def test_a_member_granted_the_queue_works_it_on_their_granted_days() -> None:
+    api = FakeApi()
+    api.granted[MEMBER] = {"import_days": [], "manage_days": ["wed", "sun"]}
+    api.fail["manage"] = [BankApiError(403, "not_this_day", "That bank does not belong to the wed raid day")]
+    run(binding(api).on_interaction(interaction(user=MEMBER, custom_id="bank:approve:req_1:2")))
+    assert [args[:2] for args in api.named("manage")] == [(MEMBER, "wed"), (MEMBER, "sun")]
+    i = interaction(user=MEMBER)
+    run(binding(api).import_text(i, "parts"))
+    assert replied(i)[0] == b.NO_IMPORTS
 
 
 def test_a_bad_paste_says_what_was_wrong() -> None:
@@ -464,7 +497,7 @@ def test_members_cannot_work_the_queue_from_discord() -> None:
     api = FakeApi()
     i = interaction(user=MEMBER, custom_id="bank:approve:req_1:2")
     run(binding(api).on_interaction(i))
-    assert replied(i)[0] == "Only officers can manage bank requests."
+    assert replied(i)[0] == b.NO_QUEUE
     assert api.named("manage") == []
 
 
@@ -555,6 +588,49 @@ def test_the_http_api_acts_as_the_member_on_the_hubs_bank_routes() -> None:
     assert seen[2][2] == {"text": "text"} and seen[2][3]["Idempotency-Key"] == "parts:1"
     assert (stale.code, stale.current) == ("stale_revision", {"revision": 3})
     assert (unset.status, unset.code, unset.message) == (503, "http_503", "The guild bank is not set up")
+
+
+def test_redeem_gives_the_member_their_grants_in_an_ephemeral_reply() -> None:
+    api = FakeApi()
+    i = interaction(user=MEMBER)
+    run(binding(api).redeem(i, "  toads-bank-abc123xyz  "))
+    assert api.named("redeem") == [(MEMBER, "toads-bank-abc123xyz")]
+    i.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
+    text, _ = replied(i)
+    assert "run the request queue on wed banks" in text and "import bank snapshots on every bank" in text
+    assert "toads-bank-abc123xyz" not in text
+
+
+def test_a_refused_token_gets_the_hubs_one_answer() -> None:
+    api = FakeApi()
+    api.fail["redeem"] = [BankApiError(400, "http_400", "That token is not valid. Ask a super admin for a new one.")]
+    i = interaction(user=MEMBER)
+    run(binding(api).redeem(i, "nope-nope-nope"))
+    assert replied(i)[0] == "That token is not valid. Ask a super admin for a new one."
+    assert b.redeemed_text({"grants": []}) == "Token redeemed, but it granted nothing new."
+
+
+def test_the_redeem_command_is_registered() -> None:
+    names = {c.name for c in Bank.group.commands}
+    assert {"import", "find", "request", "redeem"} <= names
+
+
+def test_redeem_posts_the_token_as_the_member() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"token_id": 1, "grants": []})
+
+    api = HttpBankApi("http://hub", SecretStr("svc"), transport=httpx.MockTransport(handler))
+    assert run(api.redeem(MEMBER, "toads-bank-abc")) == {"token_id": 1, "grants": []}
+    [request] = seen
+    assert (request.method, request.url.path, json.loads(request.content)) == (
+        "POST",
+        "/api/bank/redeem",
+        {"token": "toads-bank-abc"},
+    )
+    assert request.headers[ACTING_MEMBER] == str(MEMBER)
 
 
 def test_an_unreachable_hub_is_an_error_the_member_can_read() -> None:

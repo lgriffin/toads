@@ -145,3 +145,105 @@ Feature: HUB BANK
     Then the Wednesday officer's queue for Wednesday leaves that request out
     And the Wednesday officer may not approve it through Wednesday
     And a global officer may approve it through Wednesday
+
+  # Grants (docs/bank.md "Grants", docs/admin.md): officers hold the bank's upkeep through their Discord roles; a super
+  # admin may grant it to one more Discord user, per bank permission, on one raid day's banks or on every bank, directly
+  # or through an officer token the member redeems. The hub vouches for whoever it lets through with ToadsBank's
+  # per-call `uploader` or `manager` role, naming the banks the call may touch (ToadsBank TB-BM-17).
+  @ears_event_driven @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-032 When a super admin grants a member bank imports for a raid day, the hub shall let that member import that day's banks and no other day's, and shall vouch for them to ToadsBank as an uploader with no officer powers
+    Given the guild bank is set up with one captured bank
+    When a super admin grants the grantee "import_bank_snapshot" for "wed"
+    Then the grantee's bank standing lists "wed" to import and nothing to manage
+    And the grantee may import and accept a Wednesday export
+    And ToadsBank heard the grantee as "member,uploader"
+    And the grantee may not open an import through Sunday
+    And the grantee may not list the Wednesday request queue on the site
+
+  @ears_ubiquitous @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-033 Officers shall hold every bank permission without a grant, a raid day's officers on that day's banks and global officers on every bank, and the hub shall vouch for them to ToadsBank as uploader or manager on the routes it lets them reach
+    Given the guild bank is set up with one captured bank
+    And a second bank assigned to Sunday that ToadsBank lets the Wednesday officer manage
+    When a member requests an item from the Sunday bank
+    Then a Sunday officer that ToadsBank does not list as a manager may approve it through Sunday
+    And ToadsBank heard the Sunday officer as "member,officer,manager"
+
+  @ears_event_driven @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-034 When a super admin revokes a member's grant, the hub shall refuse that member's next bank call on the site and through the bank bot
+    Given the guild bank is set up with one captured bank
+    And a super admin has granted the grantee "manage_bank" for "wed"
+    Then the bot acting for the grantee may list the Wednesday request queue
+    When the super admin revokes that grant
+    Then the bot acting for the grantee may not list the Wednesday request queue
+    And the grantee may not list the Wednesday request queue on the site
+
+  @ears_optional @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-035 Where a grant names no raid day, the member shall work every bank they can see under any raid day's routes, and never a bank whose audience hides it from them
+    Given the guild bank is set up with one captured bank
+    And a second bank assigned to Sunday that ToadsBank lets the Wednesday officer manage
+    And a super admin has granted the grantee "manage_bank" for every bank
+    When a member requests an item from the Sunday bank
+    Then the grantee may approve it through Wednesday
+    And the grantee's bank standing lists every raid day to manage and nothing to import
+    And the grantee may not list or work an officers-only bank's requests
+
+  @ears_unwanted_behavior @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-036 If anyone below the global tier lists bank grants, anyone but a super admin grants or revokes one, or a grant names someone outside the server or an unknown raid day, then the hub shall refuse it
+    Given the guild bank is set up with one captured bank
+    And a super admin has granted the grantee "manage_bank" for every bank
+    Then a Wednesday officer may not list, grant or revoke bank grants
+    And the grantee may not list, grant or revoke bank grants
+    And a global officer may list bank grants but not grant or revoke them
+    And a super admin may not grant someone outside the server
+    And a super admin may not grant for an unknown raid day
+
+  # Officer tokens (docs/admin.md): a super admin mints one, hands it over outside the hub, and the member redeems it on
+  # the site or with /bank redeem. Only its hash is kept.
+  @ears_event_driven @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-037 When a super admin mints an officer token naming bank permissions and optionally a raid day, the hub shall show the token once, keep only its hash, and list it to super admins with who minted it, its expiry (7 days unless they choose otherwise) and its uses, never the token itself
+    Given the guild bank is set up with one captured bank
+    When the super admin mints a token for "manage_bank" on "wed"
+    Then the token is shown once and lasts 7 days
+    And the token list shows it as active without the token
+    And only the token's hash is stored
+
+  @ears_event_driven @member @phase_2_6
+  Scenario: REQ-HUB-BANK-038 When a member redeems an officer token with /bank redeem or on the site, the hub shall give them the grants it names, record who redeemed it and when, and audit the grants under the token's id
+    Given the guild bank is set up with one captured bank
+    And the super admin has minted a token for "manage_bank" on "wed"
+    When the bot acting for the grantee redeems the token
+    Then the grantee's bank standing lists "wed" to manage
+    And the token list shows it used by the grantee
+    And the audit log records the redemption under the token's id
+    When the super admin mints a token for "import_bank_snapshot" on every bank
+    And the member redeems the token on the site
+    Then the member's bank standing lists every raid day to import
+
+  @ears_unwanted_behavior @member @phase_2_6
+  Scenario: REQ-HUB-BANK-039 If a token is wrong, expired, already used or revoked, then the hub shall refuse it with one and the same answer and grant nothing, and after 5 refusals in 15 minutes shall make the member wait
+    Given the guild bank is set up with one captured bank
+    And the super admin has minted a token for "manage_bank" on "wed"
+    And the member redeems the token on the site
+    Then the grantee redeeming the same token is refused with the one answer
+    And a token past its expiry is refused with the one answer
+    And a revoked token is refused with the one answer
+    And a made-up token is refused with the one answer
+    And the grantee holds no grants
+    And after 5 refusals the grantee must wait
+
+  @ears_event_driven @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-040 When a super admin revokes an officer token that has not been used up, the hub shall refuse it from then on and list it as revoked, and shall refuse to revoke one already used
+    Given the guild bank is set up with one captured bank
+    And the super admin has minted a token for "manage_bank" on "wed"
+    When the super admin revokes the token
+    Then the token list shows it as revoked
+    And the grantee redeeming the same token is refused with the one answer
+    And the super admin may not revoke a used token
+
+  @ears_unwanted_behavior @raid_leader @phase_2_6
+  Scenario: REQ-HUB-BANK-041 If anyone but a super admin mints, lists or revokes officer tokens, then the hub shall refuse it
+    Given the guild bank is set up with one captured bank
+    And the super admin has minted a token for "manage_bank" on "wed"
+    Then a global officer may not mint, list or revoke officer tokens
+    And a Wednesday officer may not mint, list or revoke officer tokens
+    And the grantee may not mint, list or revoke officer tokens

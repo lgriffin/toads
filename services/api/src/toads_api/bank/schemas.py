@@ -72,6 +72,17 @@ class BankMe(BaseModel):
     display_name: str
     global_officer: bool
     officer_days: list[str]
+    # The raid days whose import and queue routes the caller may use: their officer days, plus any day a grant covers
+    # (every day for a grant with no raid day).
+    import_days: list[str] = []
+    manage_days: list[str] = []
+    # Whether the caller may list bank grants (the global tier) and grant, revoke and mint tokens (super admins).
+    sees_grants: bool = False
+    manages_grants: bool = False
+    super_admin: bool = False
+    # The caller is the break-glass admin (docs/admin.md), and, for the global tier, who that is (a Discord id).
+    break_glass: bool = False
+    break_glass_admin: str | None = None
 
 
 class EventAck(BaseModel):

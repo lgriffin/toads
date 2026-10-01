@@ -53,6 +53,7 @@ def test_member_gets_secure_session(hub: Hub) -> None:
     assert info["display_name"] == "Hopscotch"
     assert info["day_roles"] == {"wed": "raider"}
     assert info["global_officer"] is False
+    assert (info["super_admin"], info["break_glass"]) == (False, False)
 
 
 @pytest.mark.security

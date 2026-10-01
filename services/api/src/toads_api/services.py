@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -17,6 +18,8 @@ from toads_api.account.service import AccountService
 from toads_api.account.sql import SqlAccountRepository
 from toads_api.bank.client import BankClient
 from toads_api.bank.events import BankEvents
+from toads_api.bank_grants.service import BankGrantService
+from toads_api.bank_grants.sql import SqlBankGrantRepository
 from toads_api.bots.bridge import BotBridge, InMemoryBridgeStore
 from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
@@ -67,6 +70,8 @@ class Services:
     # The guild bank (docs/bank.md): None until TOADS_BANK_URL and TOADS_BANK_SERVICE_TOKEN are set.
     bank: BankClient | None = field(init=False)
     bank_events: BankEvents = field(init=False)
+    # Who besides officers may import bank snapshots or run the request queue (docs/bank.md "Grants").
+    bank_grants: BankGrantService = field(init=False)
 
     def __post_init__(self) -> None:
         # Two-way Discord bots (docs/bots.md). In memory until the bridge has a table: a restart drops queued actions.
@@ -83,6 +88,11 @@ class Services:
             day_channels={
                 d.id: channel for d in self.raid_days.raid_days if (channel := d.channels.bank_requests) is not None
             },
+        )
+        self.bank_grants = BankGrantService(
+            SqlBankGrantRepository(self.db),
+            (d.id for d in self.raid_days.raid_days),
+            clock=lambda: datetime.fromtimestamp(self.clock(), UTC),
         )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))

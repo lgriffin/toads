@@ -1,8 +1,8 @@
 """Hub tables. Analyzer tables (raids, characters, *_performance) are owned by wcl-store.
 
-The H1/H2 tables are here and the community tables are in `community.py`; screenshots, albums, signups and the
-bank_* tables arrive with their milestones. Every change here needs a migration in
-`hub_db/migrations/versions/`; `test_migrations.py` fails when the two drift apart.
+The H1/H2 tables are here, the community tables are in `community.py` and bank grants in `bank.py` (the bank's own
+data lives in ToadsBank); screenshots, albums and signups arrive with their milestones. Every change here needs a
+migration in `hub_db/migrations/versions/`; `test_migrations.py` fails when the two drift apart.
 """
 
 from __future__ import annotations

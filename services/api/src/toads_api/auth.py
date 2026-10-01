@@ -153,6 +153,7 @@ async def session_info(
 
     raid_days: days the member holds a trial, raider or officer role on, in config order.
     officer_days: days they hold officer powers for; every configured day for a global officer.
+    super_admin / break_glass: above the global tier, from configuration (docs/admin.md).
     """
     days = [d.id for d in services.raid_days.raid_days]
     # The name the member chose to be shown by (REQ-HUB-PRIV-005). The principal keeps the Discord nickname, which
@@ -162,6 +163,9 @@ async def session_info(
         "member_id": principal.member_id,
         "display_name": names.get(principal.member_id, principal.display_name),
         "global_officer": principal.global_officer,
+        # docs/admin.md: super admins come from configuration; the break-glass admin is always shown as such.
+        "super_admin": principal.super_admin,
+        "break_glass": principal.break_glass,
         "day_roles": {day: role.name.lower() for day, role in principal.day_roles.items()},
         "raid_days": [d for d in days if d in principal.day_roles],
         "officer_days": [d for d in days if principal.global_officer or principal.day_roles.get(d) is HubRole.OFFICER],

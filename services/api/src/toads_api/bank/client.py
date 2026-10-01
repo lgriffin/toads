@@ -29,14 +29,20 @@ class BankIdentity:
     member: int
     name: str
     roles: tuple[str, ...] = ("member",)
+    # The banks (source ids) the hub vouches for on this call; the uploader / manager roles act on these alone
+    # (ToadsBank TB-BM-17).
+    banks: tuple[str, ...] = ()
 
     def headers(self) -> dict[str, str]:
-        return {
+        headers = {
             "X-Toads-Member": str(self.member),
             # Percent-encoded UTF-8, so any display name fits in a header.
             "X-Toads-Name": quote(self.name[:NAME_LIMIT], safe=""),
             "X-Toads-Roles": ",".join(self.roles),
         }
+        if self.banks:
+            headers["X-Toads-Banks"] = ",".join(self.banks)
+        return headers
 
 
 class BankError(Exception):

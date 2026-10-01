@@ -208,16 +208,31 @@ class Who:
     member: str
     name: str
     roles: frozenset[str]
+    # X-Toads-Banks: the banks the hub vouches for on this call (ToadsBank TB-BM-17).
+    banks: frozenset[str] = frozenset()
 
     @property
     def admin(self) -> bool:
         return "admin" in self.roles
 
+    def _vouched(self, role: str, source: dict[str, Any]) -> bool:
+        # ToadsBank TB-BM-17: a delegated role acts only on a bank the hub named on this call, and one the member sees.
+        return role in self.roles and source["id"] in self.banks and self.sees(source)
+
     def manages(self, source: dict[str, Any]) -> bool:
-        return self.admin or self.member in source["managers"]
+        return self.admin or self.member in source["managers"] or self._vouched("manager", source)
+
+    def uploads(self, source: dict[str, Any]) -> bool:
+        listed = self.member in source["managers"]
+        return listed or bool({"admin", "officer"} & self.roles) or self._vouched("uploader", source)
 
     def sees(self, source: dict[str, Any]) -> bool:
-        return source["audience"] == "members" or "officer" in self.roles or self.manages(source)
+        # Visibility never comes from a delegated role: audience, an officer role, or the source's own managers list.
+        return (
+            source["audience"] == "members"
+            or bool({"officer", "admin"} & self.roles)
+            or self.member in source["managers"]
+        )
 
 
 def _visible(state: FakeBankState, who: Who) -> list[dict[str, Any]]:
@@ -522,7 +537,7 @@ def accept(state: FakeBankState, who: Who, imp: _Import) -> dict[str, Any]:
             managers=[who.member],
             **{k: snap["source"][k] for k in ("guild", "realm", "region")},
         )
-    elif not (who.manages(source) or "officer" in who.roles):
+    elif not who.uploads(source):
         raise BankFault(403, "forbidden", "Only this bank's managers and officers can accept its snapshots")
     tabs = snap.get("tabs", [])
     receipt = {
@@ -554,7 +569,8 @@ def _who(request: Request, state: FakeBankState) -> Who:
     if not member.isdigit():
         raise BankFault(400, "bad_request", "X-Toads-Member is required")
     roles = frozenset(r.strip() for r in request.headers.get("x-toads-roles", "").split(",") if r.strip())
-    return Who(member, unquote(request.headers.get("x-toads-name", "")), roles)
+    banks = frozenset(b.strip() for b in request.headers.get("x-toads-banks", "").split(",") if b.strip())
+    return Who(member, unquote(request.headers.get("x-toads-name", "")), roles, banks)
 
 
 def create_fake_bank(state: FakeBankState) -> FastAPI:
