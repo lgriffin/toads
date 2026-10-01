@@ -254,6 +254,15 @@ export function outcomeKnown(e: unknown): boolean {
   return e instanceof ApiError && e.status < 500;
 }
 
+/** Where the bank's calls go when no `f` is given: the hub, unless the static preview answers them from sample data
+ * (`$lib/preview/bank-fake.ts`). */
+let bankFetch: Fetch = (input, init) => fetch(input, init);
+
+/** Preview only: answer every bank call with `f`. */
+export function useBankFetch(f: Fetch) {
+  bankFetch = f;
+}
+
 const enc = encodeURIComponent;
 
 function post<T>(f: Fetch, path: string, body: unknown, key: string): Promise<T> {
@@ -267,21 +276,21 @@ function query(params: Record<string, string | undefined>): string {
   return s ? `?${s}` : '';
 }
 
-export const getBankMe = (f: Fetch = fetch) => call<BankMe>(f, '/api/bank/me');
-export const listSources = (f: Fetch = fetch) => call<BankSource[]>(f, '/api/bank/sources');
-export const getReplica = (sourceId: string, f: Fetch = fetch) =>
+export const getBankMe = (f: Fetch = bankFetch) => call<BankMe>(f, '/api/bank/me');
+export const listSources = (f: Fetch = bankFetch) => call<BankSource[]>(f, '/api/bank/sources');
+export const getReplica = (sourceId: string, f: Fetch = bankFetch) =>
   call<Replica>(f, `/api/bank/sources/${enc(sourceId)}/replica`);
-export const getInventory = (q?: string, sourceId?: string, f: Fetch = fetch) =>
+export const getInventory = (q?: string, sourceId?: string, f: Fetch = bankFetch) =>
   call<Inventory>(f, `/api/bank/inventory${query({ q, sourceId })}`);
-export const myRequests = (f: Fetch = fetch) => call<BankRequest[]>(f, '/api/bank/requests');
-export const createRequest = (body: NewRequest, key: string, f: Fetch = fetch) =>
+export const myRequests = (f: Fetch = bankFetch) => call<BankRequest[]>(f, '/api/bank/requests');
+export const createRequest = (body: NewRequest, key: string, f: Fetch = bankFetch) =>
   post<BankRequest>(f, '/api/bank/requests', body, key);
-export const cancelRequest = (r: Pick<BankRequest, 'id' | 'revision'>, key: string, f: Fetch = fetch) =>
+export const cancelRequest = (r: Pick<BankRequest, 'id' | 'revision'>, key: string, f: Fetch = bankFetch) =>
   post<BankRequest>(f, `/api/bank/requests/${enc(r.id)}/cancel`, { expectedRevision: r.revision }, key);
 
 const dayBase = (day: string) => `/api/days/${enc(day)}/bank`;
 
-export const requestQueue = (day: string, scope: 'queue' | 'all' = 'queue', f: Fetch = fetch) =>
+export const requestQueue = (day: string, scope: 'queue' | 'all' = 'queue', f: Fetch = bankFetch) =>
   call<BankRequest[]>(f, `${dayBase(day)}/requests${query({ scope })}`);
 
 export type ManagerAction = 'approve' | 'reject' | 'deliveries';
@@ -292,18 +301,18 @@ export function manageRequest(
   action: ManagerAction,
   extra: { note?: string; quantity?: number },
   key: string,
-  f: Fetch = fetch
+  f: Fetch = bankFetch
 ): Promise<BankRequest> {
   return post<BankRequest>(f, `${dayBase(day)}/requests/${enc(r.id)}/${action}`, { expectedRevision: r.revision, ...extra }, key);
 }
 
-export const openImport = (day: string, key: string, f: Fetch = fetch) =>
+export const openImport = (day: string, key: string, f: Fetch = bankFetch) =>
   post<ImportSession>(f, `${dayBase(day)}/imports`, {}, key);
-export const addParts = (day: string, id: string, text: string, key: string, f: Fetch = fetch) =>
+export const addParts = (day: string, id: string, text: string, key: string, f: Fetch = bankFetch) =>
   post<ImportProgress>(f, `${dayBase(day)}/imports/${enc(id)}/parts`, { text }, key);
-export const previewImport = (day: string, id: string, f: Fetch = fetch) =>
+export const previewImport = (day: string, id: string, f: Fetch = bankFetch) =>
   call<ImportPreview>(f, `${dayBase(day)}/imports/${enc(id)}/preview`);
-export const acceptImport = (day: string, id: string, key: string, f: Fetch = fetch) =>
+export const acceptImport = (day: string, id: string, key: string, f: Fetch = bankFetch) =>
   post<ImportReceipt>(f, `${dayBase(day)}/imports/${enc(id)}/accept`, {}, key);
 
 /** The days the bank page offers for imports and for the request queue. */
@@ -315,20 +324,20 @@ export function bankDays(me: BankMe): { imports: string[]; manage: string[]; all
 
 const GRANTS = '/api/admin/bank/grants';
 
-export const listGrants = (f: Fetch = fetch) => call<BankGrant[]>(f, GRANTS);
-export const grantBank = (body: NewGrant, f: Fetch = fetch) =>
+export const listGrants = (f: Fetch = bankFetch) => call<BankGrant[]>(f, GRANTS);
+export const grantBank = (body: NewGrant, f: Fetch = bankFetch) =>
   call<BankGrant>(f, GRANTS, { method: 'POST', body: JSON.stringify(body) });
-export const revokeGrant = (id: number, f: Fetch = fetch) =>
+export const revokeGrant = (id: number, f: Fetch = bankFetch) =>
   call<void>(f, `${GRANTS}/${enc(String(id))}`, { method: 'DELETE' });
 
 const TOKENS = '/api/admin/bank/tokens';
 
-export const listTokens = (f: Fetch = fetch) => call<BankToken[]>(f, TOKENS);
-export const mintToken = (body: NewToken, f: Fetch = fetch) =>
+export const listTokens = (f: Fetch = bankFetch) => call<BankToken[]>(f, TOKENS);
+export const mintToken = (body: NewToken, f: Fetch = bankFetch) =>
   call<MintedToken>(f, TOKENS, { method: 'POST', body: JSON.stringify(body) });
-export const revokeToken = (id: number, f: Fetch = fetch) =>
+export const revokeToken = (id: number, f: Fetch = bankFetch) =>
   call<void>(f, `${TOKENS}/${enc(String(id))}`, { method: 'DELETE' });
-export const redeemToken = (token: string, f: Fetch = fetch) =>
+export const redeemToken = (token: string, f: Fetch = bankFetch) =>
   call<Redeemed>(f, '/api/bank/redeem', { method: 'POST', body: JSON.stringify({ token: token.trim() }) });
 
 export const TOKEN_STATUS_LABELS: Record<TokenStatus, string> = {

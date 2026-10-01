@@ -14,6 +14,10 @@ Sample-data versions of the hub pages, rendered only in the static preview build
 - Data comes from `$lib/mock/data.ts` and `$lib/mock/community.ts`. The preview visitor is Hopscotch, a Wednesday
   officer who raids both nights; the raider view signs in without the officer powers. The e2e suite signs in with
   `e2e/auth.ts`.
+- `Bank` is the real bank page (`$lib/components/BankLive.svelte`) answered by `bank-fake.ts`, an in-memory stand-in for
+  the hub's bank routes installed with `useBankFetch`. The officer view is also a super admin there, so the request
+  queue, imports, grants, officer tokens and the break-glass notice all show; a token minted as the officer can be
+  redeemed in the raider view. The state lasts until the page reloads.
 - `state.svelte.ts` holds in-memory copies of the community data and the preview visitor's home layout. Officer actions, spotlight consent and the compose
   form change only that state (kept across client-side navigation, reset on reload); nothing is sent anywhere, and the
   recruit form only shows its success message.

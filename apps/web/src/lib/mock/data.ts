@@ -45,23 +45,6 @@ export interface Raid {
   cancelledCasts: { player: string; count: number }[];
 }
 
-export interface BankSource {
-  id: string;
-  raidDay: RaidDay;
-  bankGuild: string;
-  character: string;
-  snapshot: string;
-  uploader: string;
-}
-
-export interface BankItem {
-  source: string;
-  name: string;
-  count: number;
-  tab: string;
-  quality: 'common' | 'uncommon' | 'rare' | 'epic';
-}
-
 export interface MeRaid {
   raidId: string;
   date: string;
@@ -246,39 +229,6 @@ const RAIDS: Raid[] = [
 
 /** Newest first, as the API will return them. */
 export const raids: Raid[] = [...RAIDS].sort((a, b) => b.date.localeCompare(a.date));
-
-export const bankSources: BankSource[] = [
-  {
-    id: 'wed-main',
-    raidDay: 'Wednesday',
-    bankGuild: 'Toads Bank',
-    character: 'Toadstash',
-    snapshot: '2026-09-24T22:05:00Z',
-    uploader: 'Croakley'
-  },
-  {
-    id: 'sun-main',
-    raidDay: 'Sunday',
-    bankGuild: 'Toads Bank II',
-    character: 'Pondkeeper',
-    snapshot: '2026-09-15T21:40:00Z',
-    uploader: 'Ribbitz'
-  }
-];
-
-export const bankItems: BankItem[] = [
-  { source: 'wed-main', name: 'Super Mana Potion', count: 60, tab: 'Consumables', quality: 'common' },
-  { source: 'wed-main', name: 'Elixir of Major Agility', count: 40, tab: 'Consumables', quality: 'common' },
-  { source: 'wed-main', name: 'Flask of Relentless Assault', count: 12, tab: 'Consumables', quality: 'common' },
-  { source: 'wed-main', name: 'Primal Might', count: 3, tab: 'Mats', quality: 'rare' },
-  { source: 'wed-main', name: 'Nether Vortex', count: 5, tab: 'Mats', quality: 'epic' },
-  { source: 'wed-main', name: 'Pattern: Belt of Deep Shadow', count: 1, tab: 'Recipes', quality: 'epic' },
-  { source: 'sun-main', name: 'Super Healing Potion', count: 45, tab: 'Consumables', quality: 'common' },
-  { source: 'sun-main', name: 'Flask of Mighty Restoration', count: 8, tab: 'Consumables', quality: 'common' },
-  { source: 'sun-main', name: 'Fire Protection Potion', count: 20, tab: 'Consumables', quality: 'common' },
-  { source: 'sun-main', name: 'Primal Nether', count: 4, tab: 'Mats', quality: 'rare' },
-  { source: 'sun-main', name: 'Enchant Weapon - Mongoose', count: 1, tab: 'Recipes', quality: 'epic' }
-];
 
 export const me = {
   name: 'Hopscotch',
