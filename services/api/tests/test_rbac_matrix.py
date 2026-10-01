@@ -31,13 +31,18 @@ OFFICER_ONLY = {
     P.MANAGE_RECRUITMENT,
     P.MANAGE_POSTS,
     P.MANAGE_HIGHLIGHTS,
+    P.IMPORT_BANK_SNAPSHOT,
+    P.MANAGE_BANK,
 }
 
 # The build spec's table: which tier holds which permission on its own raid day.
+# Every guild member may see the bank and ask it for items (docs/bank.md).
+BANK = {P.VIEW_BANK, P.REQUEST_BANK_ITEMS}
 SPEC: dict[str, set[Permission]] = {
-    "member": {P.VIEW_GUILD_RAIDS, P.APPLY},
-    "trial": {P.VIEW_GUILD_RAIDS, P.APPLY, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER},
+    "member": {P.VIEW_GUILD_RAIDS, P.APPLY, *BANK},
+    "trial": {P.VIEW_GUILD_RAIDS, P.APPLY, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER, *BANK},
     "raider": {
+        *BANK,
         P.VIEW_GUILD_RAIDS,
         P.APPLY,
         P.VIEW_OWN_PERFORMANCE,
@@ -60,8 +65,8 @@ PUBLIC = {
 }
 GLOBAL_ADMIN_PREFIX = "/api/admin/"
 # The bots' and the worker's routes: guarded by the service token (test_community.py, test_bots.py,
-# test_hub_sheets.py), not by a member's permission.
-SERVICE_PREFIXES = ("/api/bot/", "/api/bots", "/api/worker/")
+# test_hub_sheets.py), not by a member's permission; and ToadsBank's events, by the bank's token (test_bank.py).
+SERVICE_PREFIXES = ("/api/bot/", "/api/bots", "/api/worker/", "/api/bank/events")
 
 
 def principal(tier: str, own_day: str) -> Principal:

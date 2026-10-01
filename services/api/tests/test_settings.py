@@ -46,9 +46,27 @@ def test_role_refresh_cannot_exceed_15_minutes(monkeypatch: pytest.MonkeyPatch) 
         Settings()
 
 
+def test_bank_is_off_by_default_and_blank_channels_mean_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    _env(monkeypatch)
+    monkeypatch.setenv("TOADS_BANK_CHANNEL_ID", "")
+    monkeypatch.setenv("TOADS_BANK_FALLBACK_CHANNEL_ID", "42")
+    s = Settings()
+    assert (s.bank_url, s.bank_service_token.get_secret_value(), s.bank_bot_token.get_secret_value()) == ("", "", "")
+    assert (s.bank_channel_id, s.bank_fallback_channel_id) == (None, 42)
+
+
 @pytest.mark.security
 @pytest.mark.parametrize(
-    "secret", ["DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "DATABASE_URL", "HUB_SERVICE_TOKEN", "CREDENTIALS_KEYS"]
+    "secret",
+    [
+        "DISCORD_CLIENT_SECRET",
+        "DISCORD_BOT_TOKEN",
+        "DATABASE_URL",
+        "HUB_SERVICE_TOKEN",
+        "CREDENTIALS_KEYS",
+        "BANK_SERVICE_TOKEN",
+        "BANK_BOT_TOKEN",
+    ],
 )
 def test_secrets_are_not_in_repr(monkeypatch: pytest.MonkeyPatch, secret: str) -> None:
     _env(monkeypatch)
@@ -70,5 +88,11 @@ def test_env_example_secrets_are_placeholders() -> None:
 
     example = Path(__file__).resolve().parents[1] / ".env.example"
     values = dict(line.split("=", 1) for line in example.read_text().splitlines() if "=" in line and line[0] != "#")
-    for name in ("TOADS_DISCORD_CLIENT_SECRET", "TOADS_DISCORD_BOT_TOKEN", "TOADS_CREDENTIALS_KEYS"):
+    for name in (
+        "TOADS_DISCORD_CLIENT_SECRET",
+        "TOADS_DISCORD_BOT_TOKEN",
+        "TOADS_CREDENTIALS_KEYS",
+        "TOADS_BANK_SERVICE_TOKEN",
+        "TOADS_BANK_BOT_TOKEN",
+    ):
         assert values[name] == "replace-me"

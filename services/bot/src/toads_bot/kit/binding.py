@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from discord.ext import commands
+from pydantic import SecretStr
 
 from toads_bot.kit.contract import BotManifest, DiscordEvent, EventReceipt, SiteAction
 from toads_bot.kit.delivery import EventOutbox
@@ -35,6 +36,9 @@ class BotContext:
     gate: Gate
     channel_ids: frozenset[int] = frozenset()
     outbox: EventOutbox = field(default_factory=EventOutbox)
+    # For bindings that call the hub's member routes on a member's behalf (the bank's), beyond the bridge.
+    hub_api_url: str = ""
+    bank_bot_token: SecretStr = field(default_factory=lambda: SecretStr(""))
 
     @property
     def name(self) -> str:

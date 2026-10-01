@@ -28,6 +28,9 @@ class KitSettings(BaseSettings):
     # The channels this bot works in (JSON list, e.g. [111, 222]).
     bot_channel_ids: list[int] = []
     bot_poll_seconds: float = Field(default=15.0, ge=1.0)
+    # The bank bot's token for acting as a member on the hub's bank routes (the API's TOADS_BANK_BOT_TOKEN). Only the
+    # bank bot needs it; the hub refuses acting calls made with the shared TOADS_HUB_SERVICE_TOKEN.
+    bank_bot_token: SecretStr = SecretStr("")
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,8 @@ def build_bot(
         link=hub,
         gate=gate or OpenGate(),
         channel_ids=frozenset(settings.bot_channel_ids),
+        hub_api_url=settings.hub_api_url,
+        bank_bot_token=settings.bank_bot_token,
     )
 
     @bot.event

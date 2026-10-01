@@ -97,6 +97,11 @@ class DiscordAPI(Protocol):
         """Every role id that exists in the Toads server (bot token)."""
         ...
 
+    async def guild_member(self, user_id: int) -> GuildMember | None:
+        """One user's membership of the Toads server, or None when they are not in it (bot token). The bank bot's
+        acting-member calls use it to read that member's roles (docs/bank.md)."""
+        ...
+
     async def scheduled_events(self) -> list[ScheduledEvent]:
         """The Toads server's scheduled events that have not finished, with interested counts (bot token)."""
         ...
@@ -164,6 +169,17 @@ class HttpDiscord:
         if r.status_code != 200:
             raise DiscordError(f"Discord role listing failed with HTTP {r.status_code}")
         return {int(role["id"]) for role in r.json()}
+
+    async def guild_member(self, user_id: int) -> GuildMember | None:
+        r = await self._http.get(
+            f"{self._base}/guilds/{self._guild_id}/members/{int(user_id)}",
+            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+        )
+        if r.status_code == 404:
+            return None
+        if r.status_code != 200:
+            raise DiscordError(f"Discord member lookup failed with HTTP {r.status_code}")
+        return GuildMember.from_api(r.json())
 
     async def scheduled_events(self) -> list[ScheduledEvent]:
         r = await self._http.get(

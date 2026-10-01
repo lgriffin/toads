@@ -8,7 +8,9 @@ the API reads through `wcl-store`, both published from `lgriffin/warcraftlogs_pr
 ## Layout
 
 - `apps/web/` SvelteKit + TypeScript. Talks only to the API.
-- `services/api/` FastAPI: auth, RBAC (`toads_api/rbac/`), routes.
+- `services/api/` FastAPI: auth, RBAC (`toads_api/rbac/`), routes. `toads_api.bank` is the adapter to ToadsBank
+  (lgriffin/ToadsBank), which owns the guild bank's data; `toads_api.testing.fake_bank` stands in for it in dev and
+  tests. See `docs/bank.md`.
 - `services/worker/` RQ jobs; owns all Warcraft Logs traffic.
 - `services/bot/` discord.py; no DB credentials, calls the API with a service token. `toads_bot.kit` builds two-way
   bots (a spec of bindings; site actions out, Discord events in) against `toads_api.bots`; see `docs/bots.md`.
