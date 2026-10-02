@@ -1,6 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { APPS, TIERS, rank, standing, tierOf, unlocked } from './access';
+import {
+  APPS,
+  MORE,
+  RAID_ROLE_PERMISSIONS,
+  TIERS,
+  held,
+  needsRole,
+  raidRoleOf,
+  rank,
+  standing,
+  tierOf,
+  unlocked
+} from './access';
 import type { Session } from './api';
 
 // The hub's RBAC table, read as text so the toolkit cannot drift from it.
@@ -54,6 +66,21 @@ describe('the toolkit follows the RBAC table', () => {
     }
   });
 
+  it('knows what a trial and a raider role add', () => {
+    // One assignment only: `_TRIAL = _MEMBER | {...}` and `_RAIDER = _TRIAL | {...}` sit on consecutive lines.
+    const own = (name: string) => {
+      const stmt = RBAC.slice(RBAC.indexOf(`\n${name} = `) + 1).split(/\n(?=[A-Z_]+ = )|\n\n/)[0];
+      return [...stmt.matchAll(/Permission\.([A-Z_]+)/g)].map((m) => VALUES.get(m[1]) ?? m[1]);
+    };
+    const trial = own('_TRIAL');
+    expect([...RAID_ROLE_PERMISSIONS.trial].sort()).toEqual([...trial].sort());
+    expect([...RAID_ROLE_PERMISSIONS.raider].sort()).toEqual([...trial, ...own('_RAIDER')].sort());
+  });
+
+  it('says only super admins hand out bank tokens', () => {
+    expect(MORE.find((m) => m.title === 'Bank helper')?.body).toMatch(/super admin/);
+  });
+
   it('covers every app at every tier', () => {
     for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...TIERS]);
   });
@@ -67,6 +94,30 @@ describe('tiers', () => {
     expect(tierOf(session({ officer_days: ['wed'] }))).toBe('officer');
     expect(tierOf(session({ global_officer: true }))).toBe('officer');
     expect(tierOf(session({ global_officer: true, super_admin: true }))).toBe('admin');
+  });
+
+  it('reads the best raid role', () => {
+    expect(raidRoleOf(null)).toBe('member');
+    expect(raidRoleOf(session({}))).toBe('member');
+    expect(raidRoleOf(session({ day_roles: { wed: 'trial' } }))).toBe('trial');
+    expect(raidRoleOf(session({ day_roles: { wed: 'trial', sun: 'raider' } }))).toBe('raider');
+    expect(raidRoleOf(session({ day_roles: { wed: 'officer' } }))).toBe('raider');
+    expect(raidRoleOf(session({ global_officer: true }))).toBe('raider');
+  });
+
+  it('marks raider rows a member or trial does not hold yet', () => {
+    const claim = { text: 'Claim', permission: 'claim_character' };
+    const clip = { text: 'Clip', permission: 'submit_highlight' };
+    const bank = { text: 'Bank', permission: 'view_bank' };
+    expect(needsRole(claim)).toBe('trial');
+    expect(needsRole(clip)).toBe('raider');
+    expect(needsRole(bank)).toBeNull();
+    expect(needsRole({ text: 'App' })).toBeNull();
+    expect(held(bank, 'member')).toBe(true);
+    expect(held(claim, 'member')).toBe(false);
+    expect(held(claim, 'trial')).toBe(true);
+    expect(held(clip, 'trial')).toBe(false);
+    expect(held(clip, 'raider')).toBe(true);
   });
 
   it('unlocks rows up to the viewer', () => {

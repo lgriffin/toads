@@ -31,3 +31,22 @@ test('a super admin sees integrations, jobs and grants on the admin console', as
   const grants = page.getByRole('region', { name: /Super admins: who else runs the bank/ });
   await expect(grants.getByRole('cell', { name: 'Croakley (1002)' })).toBeVisible();
 });
+
+test('a super admin posts for either raid night', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/');
+  await page.getByLabel('Audience').selectOption('raid_day');
+  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday', 'Sunday']);
+  await page.getByLabel('Raid day').selectOption('Sunday');
+  await page.getByLabel('Title').fill('Sunday kara');
+  await page.getByLabel('Body').fill('Bring fire resistance gear for the opera.');
+  await page.getByRole('button', { name: 'Publish post' }).click();
+  await expect(page.getByText('Posted “Sunday kara”')).toBeVisible();
+});
+
+test('a Wednesday officer posts for Wednesday only', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('officers/');
+  await page.getByLabel('Audience').selectOption('raid_day');
+  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday']);
+});

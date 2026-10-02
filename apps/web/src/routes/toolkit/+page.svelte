@@ -1,7 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
-  import { APPS, LOCKED, MORE, TIER_LABEL, standing, tierOf, unlocked, type Tier } from '$lib/access';
+  import {
+    APPS,
+    LOCKED,
+    MORE,
+    TIER_LABEL,
+    held,
+    needsRole,
+    raidRoleOf,
+    standing,
+    tierOf,
+    unlocked,
+    type RaidRole,
+    type Tier
+  } from '$lib/access';
   import type { PreviewRole } from '$lib/preview/gate';
   import { previewSession } from '$lib/preview/session.svelte';
 
@@ -15,6 +28,9 @@
   let tier = $derived<Tier>(
     __PREVIEW__ ? (previewSession.role ? PREVIEW_TIER[previewSession.role] : 'visitor') : tierOf(session)
   );
+  // Raider rows a plain member or a trial does not hold yet are marked with the role they need. The preview's
+  // Hopscotch raids both nights.
+  let raidRole = $derived<RaidRole>(__PREVIEW__ ? 'raider' : raidRoleOf(session));
 </script>
 
 <svelte:head><title>Your toolkit · Toads</title></svelte:head>
@@ -38,7 +54,15 @@
           <h3>{row.tier === 'visitor' ? 'Everyone' : TIER_LABEL[row.tier]}</h3>
           {#if open}
             <ul>
-              {#each row.can as c (c.text)}<li>{c.text}</li>{/each}
+              {#each row.can as c (c.text)}
+                {#if held(c, raidRole)}
+                  <li>{c.text}</li>
+                {:else}
+                  <li class="needs" data-needs={needsRole(c)}>
+                    {c.text} <span class="muted">(needs a {needsRole(c)} role on a raid night)</span>
+                  </li>
+                {/if}
+              {/each}
             </ul>
           {:else}
             <p class="muted">{LOCKED[row.tier]}</p>

@@ -91,7 +91,7 @@ export const APPS: readonly App[] = [
           { text: 'Browse what every bank holds', permission: 'view_bank' },
           { text: 'Request items on the site or with /bank request', permission: 'request_bank_items' },
           { text: 'Your receipts on Me' },
-          { text: 'Redeem an officer’s token to help run the bank' }
+          { text: 'Redeem an officer token from a super admin to help run the bank' }
         ]
       },
       {
@@ -154,9 +154,40 @@ export function unlocked(row: Row, viewer: Tier): boolean {
   return rank(row.tier) <= rank(viewer);
 }
 
+/** A signed-in member's best raid-night role; officers count as raiders. */
+export type RaidRole = 'member' | 'trial' | 'raider';
+
+/**
+ * What a trial and a raider role hold beyond a plain member, from `_TRIAL` and `_RAIDER` in permissions.py
+ * (access.test.ts checks them). The raider tier groups all three, so these say which of its rows need a raid role.
+ */
+export const RAID_ROLE_PERMISSIONS: Record<Exclude<RaidRole, 'member'>, readonly string[]> = {
+  trial: ['view_own_performance', 'claim_character'],
+  raider: ['view_own_performance', 'claim_character', 'upload_screenshots', 'submit_highlight']
+};
+
+export function raidRoleOf(session: Session | null | undefined): RaidRole {
+  const roles = Object.values(session?.day_roles ?? {});
+  if (session?.global_officer || roles.some((r) => r === 'raider' || r === 'officer')) return 'raider';
+  return roles.includes('trial') ? 'trial' : 'member';
+}
+
+/** The raid role a capability needs on top of the raider tier, or null when every member has it. */
+export function needsRole(c: Capability): Exclude<RaidRole, 'member'> | null {
+  if (!c.permission) return null;
+  if (RAID_ROLE_PERMISSIONS.trial.includes(c.permission)) return 'trial';
+  return RAID_ROLE_PERMISSIONS.raider.includes(c.permission) ? 'raider' : null;
+}
+
+/** Whether a viewer holding `role` has a capability in a row they have unlocked. */
+export function held(c: Capability, role: RaidRole): boolean {
+  const needs = needsRole(c);
+  return !needs || role === 'raider' || (role === 'trial' && needs === 'trial');
+}
+
 /**
  * The viewer's tier from the hub session. A member with no raid-night role still counts as a raider here: they can
- * browse raids and the bank, and the page says what a raid role adds.
+ * browse raids and the bank, and the page marks the rows that need a trial or raider role (`held`).
  */
 export function tierOf(session: Session | null | undefined): Tier {
   if (!session) return 'visitor';
@@ -185,6 +216,9 @@ export const MORE: readonly { title: string; body: string }[] = [
     title: 'Trial to raider',
     body: 'Your raid night’s officers promote you in Discord, and the hub follows at your next sign-in.'
   },
-  { title: 'Bank helper', body: 'An officer gives you a token. Redeem it on the Bank page or with /bank redeem.' },
+  {
+    title: 'Bank helper',
+    body: 'A super admin gives you a single-use officer token. Redeem it on the Bank page or with /bank redeem.'
+  },
   { title: 'Officer', body: 'A Discord role for each raid night. Global officers cover both nights.' }
 ];
