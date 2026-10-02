@@ -5,9 +5,10 @@ export interface NavItem {
   officerOnly?: boolean;
 }
 
-/** The public face: the landing page, the outward story and recruitment. No login. */
+/** The public face: the landing page, how we raid, the outward story and recruitment. No login. */
 export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Home' },
+  { href: '/how-we-raid', label: 'How we raid' },
   { href: '/story', label: 'Story' },
   { href: '/recruit', label: 'Recruit' }
 ];

@@ -348,7 +348,7 @@ export const spotlights: Spotlight[] = [
 export const story: PublicStory = {
   guild: 'Toads',
   realm: 'Spineshatter EU',
-  tagline: 'A friendly, steady TBC Classic raiding guild. Two nights a week, no drama, lots of frogs.',
+  tagline: 'A friendly, steady TBC Classic raiding guild. Two nights a week, no drama, one big pond.',
   story: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
     'We raid Wednesday and Sunday evenings, 19:30 to 23:00 server time. Each night has its own team and officers, and plenty of people raid both. We clear content steadily, learn fights together and keep the loot rules boring and fair.',
