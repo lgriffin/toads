@@ -61,7 +61,7 @@ export const MODEL: readonly Pillar[] = [
     approach:
       'Arrive enchanted, gemmed and repaired, with the night’s resistance set if a fight needs it, and your addons up to date.',
     measure: 'The CBA raid sheet’s gear check counts missing enchants and gems for every raid.',
-    youSee: 'The raid’s gear check on the hub and on each raid log.'
+    youSee: 'The raid’s gear check in the raid totals on the hub.'
   },
   {
     id: 'flasks',
@@ -79,7 +79,7 @@ export const MODEL: readonly Pillar[] = [
     approach:
       'Potions on cooldown, runes for mana users, drums from leatherworkers, and sappers wherever a fight allows them.',
     measure: 'The analyzer counts every use from the combat log; the raid sheets total them per raid.',
-    youSee: 'Every raid’s consumables on its log page, and the badges they earn you on Me.'
+    youSee: 'The raid’s consumable totals on the hub, and the badges they earn you on Me.'
   },
   {
     id: 'speed',
@@ -87,7 +87,7 @@ export const MODEL: readonly Pillar[] = [
     summary: 'Clear times tracked every week, zone by zone.',
     approach: 'Clean pulls and short breaks. A faster clear is a better night for everyone.',
     measure: 'Clear times per zone from the CBA raid sheet, and each raid’s length from the analyzer.',
-    youSee: 'The clear time trend on the hub and each raid’s time on its log page.'
+    youSee: 'Each raid’s clear times in the raid totals on the hub.'
   },
   {
     id: 'badges',
@@ -103,10 +103,10 @@ export const MODEL: readonly Pillar[] = [
     title: 'Measured against ourselves',
     summary: 'Each week against our own last four. No targets.',
     approach:
-      'There is no number to hit. Each week is compared with our own average over the four raided weeks before it, and everyone sees the same numbers.',
+      'There is no number to hit. The guild’s healing each week is compared with its own average over the four raided weeks before it, and your own number with the guild median for your role.',
     measure:
-      'Healing per raid and per character week on week, and each player’s role number against the guild median for that role.',
-    youSee: 'The week-on-week charts on the hub, and your own line on Me.'
+      'The analyzer’s healing per raid and per character, week on week, and each player’s role number in every raid.',
+    youSee: 'The week-on-week healing charts and your performance against the role median, both on the hub.'
   }
 ];
 
@@ -140,7 +140,7 @@ export interface AppTile {
 export const MEMBER_APPS: readonly AppTile[] = [
   {
     title: 'Raid analyzer',
-    body: 'Every guild log broken down, your role against the guild median, and your badges. Also as a Windows app.'
+    body: 'Raid totals and week-on-week charts on the hub, your number against the role median, and your badges. Every log broken down in the Windows app.'
   },
   { title: 'Guild bank', body: 'Browse what the bank holds and request flasks, potions and mats for raid night.' },
   { title: 'Discord', body: 'Raid times, officer posts, highlight reels and the bank bot, joined up with the hub.' }

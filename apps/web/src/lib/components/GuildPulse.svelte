@@ -32,7 +32,13 @@
     {#if fastest}
       <p class="big">{fastest.zone} in {clearTime(fastest.seconds)}</p>
       <p class="muted">
-        {fastest.saved ? `${minutes(fastest.saved)} faster than on ${shortDate(fastest.since)}` : 'Our first timed clear'}
+        {#if fastest.saved}
+          {minutes(fastest.saved)} faster than on {shortDate(fastest.since)}
+        {:else if fastest.clears > 1}
+          Our best since {shortDate(fastest.since)}
+        {:else}
+          Our first timed clear
+        {/if}
       </p>
     {:else}
       <p class="muted">Clear times appear after the next raid sheet.</p>

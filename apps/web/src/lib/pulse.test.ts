@@ -46,6 +46,7 @@ describe('clear times', () => {
       seconds: 6512,
       date: '2026-09-23',
       saved: 915,
+      clears: 2,
       since: '2026-09-09'
     });
     expect(fastestClear([raid('2026-09-23', [['BT', 6000]])])?.saved).toBe(0);
@@ -54,6 +55,12 @@ describe('clear times', () => {
 
   it('ignores a zero clear time', () => {
     expect(clearTrend([raid('2026-09-23', [['BT', 0]])], 'BT')).toEqual([]);
+    expect(mainZone([raid('2026-09-30', [['BT', 0]]), raid('2026-09-23', [['MH', 4000]])])).toBe('MH');
+  });
+
+  it('saves nothing when the oldest clear is still the fastest', () => {
+    const slower = [raid('2026-09-23', [['BT', 7000]]), raid('2026-09-16', [['BT', 6500]])];
+    expect(fastestClear(slower)).toMatchObject({ seconds: 6500, saved: 0, clears: 2 });
   });
 
   it('reads the sample trend', () => {
@@ -90,5 +97,6 @@ describe('progress and wording', () => {
     expect(minutes(915)).toBe('15 minutes');
     expect(minutes(60)).toBe('1 minute');
     expect(minutes(10)).toBe('under a minute');
+    expect(minutes(45)).toBe('under a minute');
   });
 });

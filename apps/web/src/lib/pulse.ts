@@ -29,17 +29,23 @@ export function clearTrend(trend: readonly RaidHeadline[], zone: string): Point[
   return points.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** The newest timed raid's first zone, as its sheet title lists it (the night's main raid). */
+/** The newest timed raid's first timed zone, as its sheet title lists it (the night's main raid). */
 export function mainZone(trend: readonly RaidHeadline[]): string | null {
-  return trend.find((r) => r.clear_times.length)?.clear_times[0].zone ?? null;
+  for (const raid of trend) {
+    const clear = raid.clear_times.find((c) => c.seconds > 0);
+    if (clear) return clear.zone;
+  }
+  return null;
 }
 
 export interface Fastest {
   zone: string;
   seconds: number;
   date: string;
-  /** Seconds saved against the oldest clear in the trend; 0 when there is only one. */
+  /** Seconds saved against the oldest clear in the trend; 0 when the oldest is also the fastest. */
   saved: number;
+  /** How many timed clears of the zone the trend holds. */
+  clears: number;
   /** The date of that oldest clear. */
   since: string;
 }
@@ -54,6 +60,7 @@ export function fastestClear(trend: readonly RaidHeadline[], zone: string | null
     seconds: best.value,
     date: best.date,
     saved: Math.max(0, points[0].value - best.value),
+    clears: points.length,
     since: points[0].date
   };
 }
@@ -79,7 +86,7 @@ export function totalProgress(zones: readonly ZoneProgress[]): { killed: number;
 
 /** "15 minutes" or "1 minute"; under a minute reads as "under a minute". */
 export function minutes(seconds: number): string {
+  if (seconds < 60) return 'under a minute';
   const m = Math.round(seconds / 60);
-  if (m < 1) return 'under a minute';
   return m === 1 ? '1 minute' : `${m} minutes`;
 }
