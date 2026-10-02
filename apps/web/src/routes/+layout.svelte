@@ -5,7 +5,8 @@
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
-  import { previewGate } from '$lib/preview/gate';
+  import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
+  import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
@@ -16,17 +17,26 @@
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
-  let officer = $derived(__PREVIEW__ ? previewSession.role === 'officer' : (session?.officer_days.length ?? 0) > 0);
+  let officer = $derived(__PREVIEW__ ? hasOfficerPowers(previewSession.role) : (session?.officer_days.length ?? 0) > 0);
+  // The tier chip in the top bar opens the toolkit, which says what this tier can do.
+  const PREVIEW_TIER: Record<PreviewRole, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
+  let tier = $derived<Tier>(
+    __PREVIEW__ ? (previewSession.role ? PREVIEW_TIER[previewSession.role] : 'visitor') : tierOf(session)
+  );
+  const VIEWS: { role: PreviewRole; label: string }[] = [
+    { role: 'member', label: 'Switch to raider view' },
+    { role: 'officer', label: 'Switch to officer view' },
+    { role: 'admin', label: 'Switch to super admin view' }
+  ];
   let members = $derived(memberNav(officer));
   // Everything past the public pages opens on login, so the member links show only to a signed-in member.
   let signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : !!session);
   // The preview has no API to refuse a page, so it gates member pages and the officer console itself.
   let gate = $derived(__PREVIEW__ ? previewGate(path, previewSession.role) : 'open');
 
-  function switchView() {
-    const next = officer ? 'member' : 'officer';
+  function switchView(next: PreviewRole) {
     previewSignIn(next);
-    if (next === 'member' && previewGate(path, next) !== 'open') goto(`${base}/hub/`);
+    if (previewGate(path, next) !== 'open') goto(`${base}/hub/`);
   }
   function logOut() {
     previewSignOut();
@@ -61,8 +71,10 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <span class="pill">{officer ? 'Officer' : 'Raider'}</span></span>
-        <button type="button" onclick={switchView}>{officer ? 'Switch to raider view' : 'Switch to officer view'}</button>
+        <span>Signed in as Hopscotch <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
+          <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
+        {/each}
         <button type="button" onclick={logOut}>Log out</button>
       </div>
     {:else}
@@ -70,7 +82,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout">
-      <span>Signed in as {session.display_name}</span>
+      <span>Signed in as {session.display_name} <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}

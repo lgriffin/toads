@@ -4,6 +4,6 @@ import type { Page } from '@playwright/test';
 export const ROLE_KEY = 'toads-preview-role';
 
 /** Start every page load in this test signed in with the given view, as if the visitor had used /login. */
-export async function signIn(page: Page, role: 'member' | 'officer') {
+export async function signIn(page: Page, role: 'member' | 'officer' | 'admin') {
   await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [ROLE_KEY, role] as const);
 }

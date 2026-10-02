@@ -58,9 +58,10 @@
       <li class="card"><h3>{app.title}</h3><p>{app.body}</p></li>
     {/each}
   </ul>
-  {#if !member}
-    <p><a class="btn primary" href={loginHref} data-sveltekit-reload={reload}>Log in with Discord</a></p>
-  {/if}
+  <p class="cta">
+    {#if !member}<a class="btn primary" href={loginHref} data-sveltekit-reload={reload}>Log in with Discord</a>{/if}
+    <a class="btn" href="{base}/toolkit/">See what each role can do</a>
+  </p>
 </section>
 
 <div class="grid block">

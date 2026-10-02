@@ -25,3 +25,9 @@ Feature: DEV CI
     Then the landing page sends a signed-out visitor to it
     And it offers the raider and the officer view
     And the preview asks a signed-out visitor to sign in for member pages and keeps raiders out of the officer console
+
+  @ears_optional @maintainer @raid_leader @phase_2_5
+  Scenario: REQ-DEV-CI-006 Where the web app is built as the Pages preview, it shall also offer a pretend sign-in as a super admin, and only that view shall manage bank grants and officer tokens
+    Given the preview's pretend sign-in
+    Then it offers the super admin view
+    And only the super admin view manages bank grants and officer tokens in the preview bank
