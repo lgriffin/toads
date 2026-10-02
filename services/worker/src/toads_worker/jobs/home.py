@@ -35,6 +35,7 @@ HUB_WIDGETS = (
     "class_mix",
     "interrupts",
     "consumables",
+    "flasks",
 )
 
 

@@ -93,6 +93,12 @@ CATALOGUE: tuple[Widget, ...] = (
         "interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid.", default_shown=False
     ),
     _analyzer("consumables", "Consumables", "The top five consumable users in the last raid.", default_shown=False),
+    _analyzer(
+        "flasks",
+        "Flasks and elixirs",
+        "Who came prepared to the last raid: a flask or an elixir pair.",
+        default_shown=False,
+    ),
     Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
     Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
 )
@@ -100,7 +106,7 @@ MAX_WIDGETS = len(CATALOGUE)
 ANALYZER_IDS = frozenset(w.id for w in CATALOGUE if w.source is Source.ANALYZER)
 # The analyzer's HOME_SCHEMA_VERSION this hub understands; it changes only when a payload field changes meaning.
 ANALYZER_SCHEMA_VERSION = 1
-# The analyzer has 15 widgets today; far more than this is a broken publisher.
+# The analyzer has 16 widgets today; far more than this is a broken publisher.
 MAX_ANALYZER_WIDGETS = 50
 # Tiles, rows, items or bars in one widget: the analyzer sends at most a few dozen.
 MAX_ENTRIES = 200

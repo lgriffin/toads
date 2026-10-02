@@ -1,4 +1,4 @@
-"""The hub home: REQ-HUB-HOME-001 to 012. Thin steps over the `hub` fixture (root conftest.py)."""
+"""The hub home: REQ-HUB-HOME-001 to 013. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
@@ -88,6 +88,11 @@ def test_home_011() -> None:
 
 @_bind(12)
 def test_home_012() -> None:
+    pass
+
+
+@_bind(13)
+def test_home_013() -> None:
     pass
 
 
@@ -461,3 +466,39 @@ def officer_sees_roster(hub: Hub, ctx: dict[str, Any], name: str) -> None:
 def raider_sees_no_roster(hub: Hub, ctx: dict[str, Any]) -> None:
     assert "badges" not in [w["id"] for w in hub.get("/api/me/home", ctx["sid"]).json()["widgets"]]
     assert all(w["id"] != "badges" for w in hub.get("/api/home/analyzer", ctx["sid"]).json()["widgets"])
+
+
+@when("they place the flasks widget")
+def place_flasks(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = hub.client.put("/api/me/home", headers=hub.as_(ctx["sid"]), json={"shown": ["flasks"]})
+    assert r.status_code == 200, r.text
+
+
+@when(parsers.parse('the worker publishes the last raid\'s flasks table with "{name}" on a flask'))
+def publish_flasks(hub: Hub, name: str) -> None:
+    widget = {
+        "id": "flasks",
+        "title": "Flasks and elixirs",
+        "kind": "table",
+        "size": "half",
+        "subtitle": "SSC: 1 of 1 prepared",
+        "columns": [
+            {"key": "name", "label": "Name", "align": "left"},
+            {"key": "prepared", "label": "Prepared", "align": "left"},
+        ],
+        "rows": [
+            {"cells": {"name": name, "prepared": "Flask"}, "values": {"name": name, "prepared": "flask"}, "link": None},
+        ],
+    }
+    page = {"version": 1, "generated_at": "2026-10-02 08:00:00", "widgets": [widget]}
+    r = hub.client.put("/api/worker/home-page", headers=WORKER, json=page)
+    assert r.status_code == 200, r.text
+
+
+@then(parsers.parse('their home shows "{name}" prepared with a flask'))
+def shows_flasks(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    assert _shown(hub, ctx["sid"]) == ["flasks"]
+    page = hub.get("/api/home/analyzer", ctx["sid"]).json()
+    flasks = next(w for w in page["widgets"] if w["id"] == "flasks")
+    assert [(r["cells"]["name"], r["values"]["prepared"]) for r in flasks["rows"]] == [(name, "flask")]
+

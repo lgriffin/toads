@@ -9,7 +9,7 @@ Sample-data versions of the hub pages, rendered only in the static preview build
 - `Hub` is the customisable home: `$lib/components/HomeView.svelte` draws the member's widgets in their order and the
   customiser. Hub widgets use the mock data; analyzer widgets draw `$lib/mock/analyzer.ts`, a sample in the analyzer's
   home page contract (`$lib/home-payload.ts`), including the officers' badge roster from `$lib/mock/badges.ts`,
-  which also gives Hopscotch's own badges on `Me`. `Officers` is the officer view.
+  which also gives Hopscotch's own badges on `Me`. The `flasks` table (off by default; place it with Customise) follows wcl_app.home's `flasks` widget. `Officers` is the officer view.
 - The preview opens signed out on the landing page. Its "Log in with Discord" goes to a pretend sign-in at `/login`
   (preview only; the real site answers 404 there) where the visitor picks the raider, the officer or the super admin view.
   `session.svelte.ts` keeps the choice in localStorage; the top bar switches views and logs out, and the layout uses

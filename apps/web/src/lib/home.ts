@@ -26,6 +26,7 @@ export type WidgetId =
   | 'class_mix'
   | 'interrupts'
   | 'consumables'
+  | 'flasks'
   | 'healers_weekly'
   | 'progression'
   | 'recruiting';
@@ -108,6 +109,9 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
     defaultShown: false
   }),
   analyzer('consumables', 'Consumables', 'The top five consumable users in the last raid.', { defaultShown: false }),
+  analyzer('flasks', 'Flasks and elixirs', 'Who came prepared to the last raid: a flask or an elixir pair.', {
+    defaultShown: false
+  }),
   hub('progression', 'Progression', 'Bosses killed in each raid zone.', { defaultShown: false }),
   hub('recruiting', 'Recruiting', 'The classes and specs the guild is looking for.', { defaultShown: false })
 ];
