@@ -17,7 +17,7 @@ describe('isActive', () => {
 
 describe('nav groups', () => {
   it('splits public pages from member pages', () => {
-    expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/story', '/recruit']);
+    expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/how-we-raid', '/story', '/recruit']);
     expect(MEMBER_NAV.map((i) => i.href)).toEqual(['/hub', '/raids', '/highlights', '/bank', '/me', '/officers']);
   });
   it('shows Officers to officers only', () => {

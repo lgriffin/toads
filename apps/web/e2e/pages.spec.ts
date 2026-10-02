@@ -44,7 +44,7 @@ for (const route of ROUTES) {
 test('the nav splits public and member pages', async ({ page }) => {
   await page.goto('');
   const guild = page.getByRole('navigation', { name: 'Guild' });
-  await expect(guild.getByRole('link')).toHaveText(['Home', 'Story', 'Recruit']);
+  await expect(guild.getByRole('link')).toHaveText(['Home', 'How we raid', 'Story', 'Recruit']);
   const members = page.getByRole('navigation', { name: 'Members' });
   await expect(members.getByRole('link')).toHaveText(['Hub', 'Raids & Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
   await members.getByRole('link', { name: 'Hub' }).click();
