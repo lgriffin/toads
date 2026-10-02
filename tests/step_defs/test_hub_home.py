@@ -501,4 +501,3 @@ def shows_flasks(hub: Hub, ctx: dict[str, Any], name: str) -> None:
     page = hub.get("/api/home/analyzer", ctx["sid"]).json()
     flasks = next(w for w in page["widgets"] if w["id"] == "flasks")
     assert [(r["cells"]["name"], r["values"]["prepared"]) for r in flasks["rows"]] == [(name, "flask")]
-
