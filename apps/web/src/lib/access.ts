@@ -47,7 +47,7 @@ export const APPS: readonly App[] = [
   {
     id: 'analyzer',
     title: 'Raid analyzer',
-    where: 'The hub’s raid pages, the Windows app and the command line',
+    where: 'The hub, the Windows app and the command line',
     rows: [
       {
         tier: 'visitor',
@@ -56,7 +56,7 @@ export const APPS: readonly App[] = [
       {
         tier: 'raider',
         can: [
-          { text: 'Every guild raid log, broken down', permission: 'view_guild_raids' },
+          { text: 'Guild raid totals and week-on-week charts on the hub', permission: 'view_guild_raids' },
           { text: 'Your role number against the guild median', permission: 'view_own_performance' },
           { text: 'Your badges and the next tier', permission: 'view_own_performance' },
           { text: 'Claim your characters', permission: 'claim_character' },
