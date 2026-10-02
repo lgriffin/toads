@@ -27,7 +27,8 @@ const RULES: Rule[] = [
   { id: 'drums', name: 'Drummer', description: 'Drums of Battle', icon: 'drums', glyph: '🥁', unit: 'drums', thresholds: [10, 50, 150, 400] },
   { id: 'explosives', name: 'Sapper', description: 'Sapper charges, grenades and bombs', icon: 'explosive', glyph: '💣', unit: 'explosives', thresholds: [10, 50, 150, 400] },
   { id: 'weapon_enhancements', name: 'Sharpened', description: 'Weapon oils and stones', icon: 'weapon_enhancement', glyph: '✨', unit: 'applications', thresholds: [5, 20, 50, 120] },
-  { id: 'scrolls', name: 'Scholar', description: 'Scrolls of Agility and Strength', icon: 'scroll', glyph: '📜', unit: 'scrolls', thresholds: [5, 20, 50, 120] }
+  { id: 'scrolls', name: 'Scholar', description: 'Scrolls of Agility and Strength', icon: 'scroll', glyph: '📜', unit: 'scrolls', thresholds: [5, 20, 50, 120] },
+  { id: 'flasked', name: 'Flask Bearer', description: 'Raids with a flask or an elixir pair', icon: 'flask', glyph: '⚗️', unit: 'raids', thresholds: [5, 15, 40, 100] }
 ];
 
 const quality = (tier: number): Quality => (tier >= 1 && tier <= QUALITIES.length ? QUALITIES[tier - 1] : '');
@@ -56,7 +57,7 @@ function award(rule: Rule, value: number): Badge {
   };
 }
 
-/** Counts in catalogue order: raids, all consumables, mana, healing, combat, runes, drums, explosives, oils, scrolls. */
+/** Counts in catalogue order: raids, all consumables, mana, healing, combat, runes, drums, explosives, oils, scrolls, raids prepared. */
 function player(name: string, playerClass: string, counts: number[]): PlayerBadges {
   const badges = RULES.map((rule, i) => award(rule, counts[i] ?? 0));
   return { name, player_class: playerClass, score: badges.reduce((n, b) => n + b.tier, 0), badges };
@@ -64,13 +65,13 @@ function player(name: string, playerClass: string, counts: number[]): PlayerBadg
 
 /** The last raid's roster, most tiers first, as wcl_app.home's `badges` widget ranks it. */
 export const roster: PlayerBadges[] = [
-  player('Hopscotch', 'Rogue', [104, 812, 0, 118, 212, 64, 0, 172, 58, 44]),
-  player('Lilypadd', 'Shaman', [96, 690, 318, 41, 0, 122, 0, 0, 36, 0]),
-  player('Bogwalker', 'Warrior', [88, 540, 0, 96, 160, 0, 0, 48, 52, 38]),
-  player('Mossback', 'Priest', [71, 402, 246, 27, 0, 88, 0, 0, 22, 0]),
-  player('Wartsworth', 'Mage', [52, 318, 180, 22, 64, 30, 0, 0, 18, 0]),
-  player('Tadpole', 'Hunter', [23, 144, 0, 16, 42, 0, 12, 18, 9, 6]),
-  player('Croakwell', 'Priest', [9, 61, 38, 4, 0, 11, 0, 0, 3, 0])
+  player('Hopscotch', 'Rogue', [104, 812, 0, 118, 212, 64, 0, 172, 58, 44, 101]),
+  player('Lilypadd', 'Shaman', [96, 690, 318, 41, 0, 122, 0, 0, 36, 0, 90]),
+  player('Bogwalker', 'Warrior', [88, 540, 0, 96, 160, 0, 0, 48, 52, 38, 61]),
+  player('Mossback', 'Priest', [71, 402, 246, 27, 0, 88, 0, 0, 22, 0, 44]),
+  player('Wartsworth', 'Mage', [52, 318, 180, 22, 64, 30, 0, 0, 18, 0, 12]),
+  player('Tadpole', 'Hunter', [23, 144, 0, 16, 42, 0, 12, 18, 9, 6, 17]),
+  player('Croakwell', 'Priest', [9, 61, 38, 4, 0, 11, 0, 0, 3, 0, 2])
 ].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
 export const badgeHolders: BadgeHolder[] = roster.map((p) => ({

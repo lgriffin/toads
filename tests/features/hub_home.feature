@@ -85,3 +85,10 @@ Feature: HUB HOME
     When the worker publishes the last raid's badge roster
     Then the officer's home offers the badge roster with "Hopscotch" in it
     And the raider receives no badge roster
+
+  @ears_optional @member @phase_2_3
+  Scenario: REQ-HUB-HOME-013 Where a member places the flasks widget, the hub home shall show who in the last raid came prepared with a flask or an elixir pair, as the analyzer builds it
+    Given a Wednesday raider signed in to the hub
+    When they place the flasks widget
+    And the worker publishes the last raid's flasks table with "Hopscotch" on a flask
+    Then their home shows "Hopscotch" prepared with a flask

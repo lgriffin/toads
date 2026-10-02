@@ -218,6 +218,19 @@ export const analyzerPage: AnalyzerPage = {
       ['Wartsworth', 'Ranged', 11],
       ['Lilypadd', 'Healer', 9],
       ['Tadpole', 'Ranged', 8]
-    ])
+    ]),
+    // wcl_app.home's `flasks`: unprepared first, then elixir pairs, then flasks.
+    {
+      ...table('flasks', 'Flasks and elixirs', [col('name', 'Name'), col('role', 'Role'), col('prepared', 'Prepared'), col('using', 'Flasks and elixirs')], [
+        ['Croakwell', 'Healer', 'None', '-'],
+        ['Tadpole', 'Ranged', 'Elixirs', 'Elixir of Major Agility, Elixir of Major Defense'],
+        ['Bogwalker', 'Tank', 'Flask', 'Flask of Fortification'],
+        ['Hopscotch', 'Melee', 'Flask', 'Flask of Relentless Assault'],
+        ['Lilypadd', 'Healer', 'Flask', 'Flask of Mighty Restoration'],
+        ['Mossback', 'Healer', 'Flask', 'Flask of Mighty Restoration'],
+        ['Wartsworth', 'Ranged', 'Flask', 'Flask of Supreme Power']
+      ]),
+      subtitle: `${last.zone} · ${day(last.date)}: 6 of 7 prepared`
+    }
   ]
 };
