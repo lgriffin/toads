@@ -29,7 +29,9 @@
     {/if}
     <a class="btn" href="{base}/how-we-raid/">See how we raid</a>
   </div>
-  {#if member}<p class="muted welcome">Welcome back, {member}.</p>{/if}
+  {#if member}
+    <p class="muted welcome">Welcome back, {member}. New here? <a href="{base}/welcome/">Start with the checklist</a>.</p>
+  {/if}
 </section>
 
 {#if pulse}<GuildPulse {pulse} />{/if}

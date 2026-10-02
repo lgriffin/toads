@@ -3,6 +3,8 @@ export interface NavItem {
   label: string;
   /** Shown only to officers; the API is still the gate. */
   officerOnly?: boolean;
+  /** Shown only to super admins; the API is still the gate. */
+  adminOnly?: boolean;
 }
 
 /** The public face: the landing page, how we raid, the outward story and recruitment. No login. */
@@ -20,11 +22,15 @@ export const MEMBER_NAV: readonly NavItem[] = [
   { href: '/highlights', label: 'Highlights' },
   { href: '/bank', label: 'Bank' },
   { href: '/me', label: 'Me' },
-  { href: '/officers', label: 'Officers', officerOnly: true }
+  { href: '/officers', label: 'Officers', officerOnly: true },
+  { href: '/admin', label: 'Admin', adminOnly: true }
 ];
 
-export function memberNav(officer: boolean): NavItem[] {
-  return MEMBER_NAV.filter((i) => officer || !i.officerOnly);
+/** Member pages outside the nav: the first sign-in checklist. */
+export const MEMBER_EXTRA: readonly string[] = ['/welcome'];
+
+export function memberNav(officer: boolean, admin = false): NavItem[] {
+  return MEMBER_NAV.filter((i) => (officer || admin || !i.officerOnly) && (admin || !i.adminOnly));
 }
 
 export function isActive(pathname: string, href: string): boolean {

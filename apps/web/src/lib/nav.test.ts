@@ -18,10 +18,23 @@ describe('isActive', () => {
 describe('nav groups', () => {
   it('splits public pages from member pages', () => {
     expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/how-we-raid', '/story', '/recruit']);
-    expect(MEMBER_NAV.map((i) => i.href)).toEqual(['/hub', '/raids', '/highlights', '/bank', '/me', '/officers']);
+    expect(MEMBER_NAV.map((i) => i.href)).toEqual([
+      '/hub',
+      '/raids',
+      '/highlights',
+      '/bank',
+      '/me',
+      '/officers',
+      '/admin'
+    ]);
   });
   it('shows Officers to officers only', () => {
     expect(memberNav(false).some((i) => i.href === '/officers')).toBe(false);
     expect(memberNav(true).some((i) => i.href === '/officers')).toBe(true);
+  });
+  it('shows Admin to super admins only', () => {
+    expect(memberNav(true).some((i) => i.href === '/admin')).toBe(false);
+    expect(memberNav(false, true).map((i) => i.href)).toContain('/officers');
+    expect(memberNav(true, true).some((i) => i.href === '/admin')).toBe(true);
   });
 });

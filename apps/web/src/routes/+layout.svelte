@@ -28,7 +28,7 @@
     { role: 'officer', label: 'Switch to officer view' },
     { role: 'admin', label: 'Switch to super admin view' }
   ];
-  let members = $derived(memberNav(officer));
+  let members = $derived(memberNav(officer, tier === 'admin'));
   // Everything past the public pages opens on login, so the member links show only to a signed-in member.
   let signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : !!session);
   // The preview has no API to refuse a page, so it gates member pages and the officer console itself.
@@ -98,6 +98,14 @@
       <h1 id="gate-h">Sign in to see this</h1>
       <p>This page is for guild members. Log in to explore it with sample data.</p>
       <p><a class="btn primary" href="{base}/login/">Log in with Discord</a></p>
+    </section>
+  {:else if gate === 'admins-only'}
+    <section class="card gate" aria-labelledby="gate-h">
+      <h1 id="gate-h">Super admins only</h1>
+      <p>The admin console is for the guild's super admins. Switch to the super admin view to see it.</p>
+      <p>
+        <button class="btn primary" type="button" onclick={() => previewSignIn('admin')}>Switch to super admin view</button>
+      </p>
     </section>
   {:else if gate === 'officers-only'}
     <section class="card gate" aria-labelledby="gate-h">

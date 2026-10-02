@@ -33,7 +33,7 @@ const DAYS = ['wed', 'sun'];
 const HOPSCOTCH = '1001';
 const BREAK_GLASS = '1000';
 const MEMBERS: Record<string, string> = {
-  [BREAK_GLASS]: 'Leapfrog',
+  [BREAK_GLASS]: 'Pondkeeper',
   [HOPSCOTCH]: 'Hopscotch',
   '1002': 'Croakley',
   '1003': 'Ribbitz',
@@ -180,7 +180,7 @@ function seed() {
       permission: 'manage_bank',
       raid_day: null,
       granted_by: 2,
-      granted_by_name: 'Leapfrog',
+      granted_by_name: 'Pondkeeper',
       granted_at: iso(t - 3 * 24 * HOUR)
     }
   ];
