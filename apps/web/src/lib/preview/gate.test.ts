@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRole, previewGate } from './gate';
+import { hasOfficerPowers, parseRole, previewGate } from './gate';
 
 describe('previewGate', () => {
   it('keeps the public face open to everyone', () => {
@@ -18,6 +18,13 @@ describe('previewGate', () => {
     expect(previewGate('/officers/', 'member')).toBe('officers-only');
     expect(previewGate('/officers/reference/', 'member')).toBe('officers-only');
     expect(previewGate('/officers/reference/', 'officer')).toBe('open');
+    expect(previewGate('/officers/', 'admin')).toBe('open');
+  });
+  it('gives officer powers to the officer and super admin views', () => {
+    expect(hasOfficerPowers('officer')).toBe(true);
+    expect(hasOfficerPowers('admin')).toBe(true);
+    expect(hasOfficerPowers('member')).toBe(false);
+    expect(hasOfficerPowers(null)).toBe(false);
   });
   it('leaves unknown paths open so they reach the 404 page', () => {
     expect(previewGate('/does-not-exist/', null)).toBe('open');
@@ -26,10 +33,11 @@ describe('previewGate', () => {
 });
 
 describe('parseRole', () => {
-  it('accepts only the two roles', () => {
+  it('accepts only the three views', () => {
     expect(parseRole('member')).toBe('member');
     expect(parseRole('officer')).toBe('officer');
-    expect(parseRole('admin')).toBeNull();
+    expect(parseRole('admin')).toBe('admin');
+    expect(parseRole('root')).toBeNull();
     expect(parseRole(null)).toBeNull();
   });
 });
