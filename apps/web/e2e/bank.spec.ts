@@ -22,8 +22,8 @@ test('a raider requests an item, then cancels it', async ({ page }) => {
   await expect(mine.getByRole('row', { name: /5 × Super Mana Potion/ })).toContainText('Cancelled');
 });
 
-test('a token the officer mints gives the raider bank upkeep', async ({ page }) => {
-  await signIn(page, 'officer');
+test('a token the super admin mints gives the raider bank upkeep', async ({ page }) => {
+  await signIn(page, 'admin');
   await page.goto('bank/');
   const admin = page.getByRole('region', { name: /Super admins: who else runs the bank/ });
   await expect(admin.getByRole('note')).toContainText('Break-glass admin');

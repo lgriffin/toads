@@ -1,4 +1,4 @@
-"""REQ-DEV-CI-004 and 005: the GitHub Pages preview workflow and its pretend sign-in."""
+"""REQ-DEV-CI-004 to 006: the GitHub Pages preview workflow and its pretend sign-in."""
 
 from pathlib import Path
 from typing import Any
@@ -26,6 +26,15 @@ def test_pages_preview() -> None:
     "page and offer a pretend sign-in as a raider or an officer",
 )
 def test_preview_sign_in() -> None:
+    pass
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-DEV-CI-006 Where the web app is built as the Pages preview, it shall also offer a pretend sign-in as a super "
+    "admin, and only that view shall manage bank grants and officer tokens",
+)
+def test_preview_super_admin() -> None:
     pass
 
 
@@ -107,5 +116,19 @@ def offers_both_views(login: str) -> None:
 def gates_pages() -> None:
     gate = _read("lib/preview/gate.ts")
     assert "if (role === null) return 'sign-in';" in gate
-    assert "under(p, '/officers') && role !== 'officer'" in gate
+    assert "under(p, '/officers') && !hasOfficerPowers(role)" in gate
     assert "previewGate(path, previewSession.role)" in _read("routes/+layout.svelte")
+
+
+@then("it offers the super admin view")
+def offers_super_admin(login: str) -> None:
+    assert "role: 'admin'" in login
+    assert "Sign in as a super admin" in login
+    assert "'member' | 'officer' | 'admin'" in _read("lib/preview/gate.ts")
+
+
+@then("only the super admin view manages bank grants and officer tokens in the preview bank")
+def admin_manages_grants() -> None:
+    bank = _read("lib/preview/bank-fake.ts")
+    assert "const admin = () => previewSession.role === 'admin';" in bank
+    assert bank.count("if (!admin()) return refuse(403, 'Super admins only.');") == 2

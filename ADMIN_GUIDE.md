@@ -268,11 +268,14 @@ Rules worth knowing:
 - **Grants** give one non-officer `import_bank_snapshot` or `manage_bank`, for one raid day or every bank. They are read
   from the database on every call, so a revoke works on the member's next action. A grant never opens `/api/admin/...`,
   never reaches an officers-only bank and never allocates raid stock.
-- **Officer tokens** are the self-service way to hand out grants: a super admin mints one on the Bank page, passes it
-  on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
+- **Officer tokens** are the self-service way to hand out grants: a super admin mints one on the Bank page or the Admin
+  page, passes it on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
 - **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions.
+- **The Admin page** (`/admin`, shown in the nav to super admins only) gathers bank grants and officer tokens, the
+  scheduler's jobs and where each integration is set up. It reads `/api/session` and changes nothing the Bank page
+  cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 
 ## 7. Member settings and members' own Warcraft Logs keys
 

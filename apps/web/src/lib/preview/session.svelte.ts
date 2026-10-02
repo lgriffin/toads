@@ -1,10 +1,10 @@
 /**
  * The static preview's pretend sign-in. There is no Discord and no API: the visitor picks the member or officer view
- * on /login and the choice lives in this browser only (localStorage, so it survives reloads). Everyone is Hopscotch,
- * with or without Wednesday's raid leader powers, so the sample badges, performance and spotlight stay theirs.
+ * on /login and the choice lives in this browser only (localStorage, so it survives reloads). Everyone is Hopscotch:
+ * a raider, Wednesday's raid leader, or a super admin, so the sample badges, performance and spotlight stay theirs.
  */
 import { defaultLayout } from '$lib/home';
-import { parseRole, type PreviewRole } from './gate';
+import { hasOfficerPowers, parseRole, type PreviewRole } from './gate';
 import { home } from './state.svelte';
 
 const KEY = 'toads-preview-role';
@@ -29,14 +29,14 @@ export function loadPreviewSession() {
     role = null;
   }
   previewSession.role = role;
-  home.layout = defaultLayout(role === 'officer');
+  home.layout = defaultLayout(hasOfficerPowers(role));
   previewSession.ready = true;
 }
 
 export function previewSignIn(role: PreviewRole) {
   previewSession.role = role;
   // The hub offers officer widgets to officers only, so each role starts from its own default home.
-  home.layout = defaultLayout(role === 'officer');
+  home.layout = defaultLayout(hasOfficerPowers(role));
   store(role);
 }
 

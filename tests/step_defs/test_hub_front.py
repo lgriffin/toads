@@ -68,3 +68,80 @@ def guild_totals_only() -> None:
         assert not any(n in text for n in names), source
     # Only the preview has the sample data; the real site leaves the pulse out until a public summary exists.
     assert "const pulse: GuildPulse | null = __PREVIEW__" in _read("routes/+page.svelte")
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-002 The toolkit page shall show what raiders, officers and super admins can do in the raid "
+    "analyzer, the guild bank and Discord with the officers' Google Drive, unlock the rows up to the viewer's tier, "
+    "and name only permissions the hub's RBAC table gives that tier",
+)
+def test_toolkit() -> None:
+    pass
+
+
+@given("the toolkit page", target_fixture="toolkit")
+def toolkit() -> str:
+    return _read("routes/toolkit/+page.svelte")
+
+
+@then("it lists the raid analyzer, the guild bank and Discord and Drive, each with a row for every tier")
+def three_apps() -> None:
+    access = _read("lib/access.ts")
+    for app in ("Raid analyzer", "Guild bank", "Discord and Drive"):
+        assert f"title: '{app}'" in access
+    test = _read("lib/access.test.ts")
+    assert "for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...TIERS]);" in test
+
+
+@then("it unlocks rows up to the viewer's tier, read from their session")
+def unlocks_by_tier(toolkit: str) -> None:
+    assert "unlocked(row, tier)" in toolkit
+    assert "tierOf(session)" in toolkit
+
+
+@then("a unit test fails if a row names a permission the RBAC table lacks or gives another tier")
+def rbac_drift_test() -> None:
+    test = _read("lib/access.test.ts")
+    assert "services/api/src/toads_api/rbac/permissions.py" in test
+    assert "puts each permission in the tier that first holds it" in test
+
+
+@then("the top bar's tier chip opens it")
+def chip_opens_toolkit() -> None:
+    layout = _read("routes/+layout.svelte")
+    assert 'href="{base}/toolkit/"' in layout
+    assert "TIER_LABEL[tier]" in layout
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-003 When a member is new to the hub, it shall offer a welcome checklist, and it shall give super "
+    "admins one console for bank grants, officer tokens and the hub's integrations",
+)
+def test_welcome_and_admin() -> None:
+    pass
+
+
+@given("the welcome checklist", target_fixture="welcome")
+def welcome() -> str:
+    return _read("lib/welcome.ts")
+
+
+@then("it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the toolkit")
+def welcome_steps(welcome: str) -> None:
+    ids = re.findall(r"^    id: '(\w+)',$", welcome, re.MULTILINE)
+    assert ids == ["character", "name", "model", "bank", "apps", "toolkit"]
+    assert "WELCOME_STEPS" in _read("routes/welcome/+page.svelte")
+    assert 'href="{base}/welcome/"' in _read("lib/Landing.svelte")
+
+
+@then("the admin console shows integrations, scheduled jobs and bank grants to super admins only")
+def admin_console() -> None:
+    page = _read("routes/admin/+page.svelte")
+    assert "const allowed = $derived(__PREVIEW__ || !!session?.super_admin);" in page
+    assert "<BankGrants" in page
+    for name in ("INTEGRATIONS", "JOBS"):
+        assert name in page
+    assert "if (under(p, '/admin') && role !== 'admin') return 'admins-only';" in _read("lib/preview/gate.ts")
+    assert "{ href: '/admin', label: 'Admin', adminOnly: true }" in _read("lib/nav.ts")

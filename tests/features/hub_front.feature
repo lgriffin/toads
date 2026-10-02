@@ -9,3 +9,17 @@ Feature: HUB FRONT
     And each pillar says what we expect, how we measure it and what a member sees
     And it shows a raid week and the three apps a member gets
     And its guild pulse reads only guild totals from the raid sheets
+
+  @ears_ubiquitous @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-002 The toolkit page shall show what raiders, officers and super admins can do in the raid analyzer, the guild bank and Discord with the officers' Google Drive, unlock the rows up to the viewer's tier, and name only permissions the hub's RBAC table gives that tier
+    Given the toolkit page
+    Then it lists the raid analyzer, the guild bank and Discord and Drive, each with a row for every tier
+    And it unlocks rows up to the viewer's tier, read from their session
+    And a unit test fails if a row names a permission the RBAC table lacks or gives another tier
+    And the top bar's tier chip opens it
+
+  @ears_event_driven @member @maintainer @phase_2_5
+  Scenario: REQ-HUB-FRONT-003 When a member is new to the hub, it shall offer a welcome checklist, and it shall give super admins one console for bank grants, officer tokens and the hub's integrations
+    Given the welcome checklist
+    Then it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the toolkit
+    And the admin console shows integrations, scheduled jobs and bank grants to super admins only

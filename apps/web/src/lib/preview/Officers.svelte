@@ -15,6 +15,7 @@
     nextActions,
     type ApplicationStatus
   } from '$lib/recruitment';
+  import { previewSession } from './session.svelte';
   import { community } from './state.svelte';
 
   // Preview: every action below changes in-memory state only. The API is the real gate on each of them.
@@ -84,14 +85,20 @@
   }
 
   // --- Compose
-  const officerDays: RaidDay[] = viewer.globalOfficer ? ['Wednesday', 'Sunday'] : viewer.officerDays;
-  let draft = $state({ title: '', body: '', visibility: 'guild' as Visibility, raidDay: officerDays[0] ?? null, toDiscord: true });
+  // The super admin view acts as a global officer; the officer view keeps the sample viewer's Wednesday.
+  const globalOfficer = $derived(viewer.globalOfficer || previewSession.role === 'admin');
+  const officerDays: RaidDay[] = $derived(globalOfficer ? ['Wednesday', 'Sunday'] : viewer.officerDays);
+  let draft = $state({ title: '', body: '', visibility: 'guild' as Visibility, raidDay: null as RaidDay | null, toDiscord: true });
+  // Switching between the officer and super admin views changes the days on offer.
+  $effect(() => {
+    if (!draft.raidDay || !officerDays.includes(draft.raidDay)) draft.raidDay = officerDays[0] ?? null;
+  });
   let postErrors = $state<PostErrors>({});
   let composeNote = $state('');
   function compose(e: SubmitEvent) {
     e.preventDefault();
     const raidDay = draft.visibility === 'raid_day' ? draft.raidDay : null;
-    postErrors = validatePost({ ...draft, raidDay }, viewer.officerDays, viewer.globalOfficer);
+    postErrors = validatePost({ ...draft, raidDay }, officerDays, globalOfficer);
     if (Object.keys(postErrors).length) return;
     const at = now();
     community.posts.unshift({

@@ -13,9 +13,16 @@
     {
       role: 'officer',
       title: 'Sign in as an officer',
-      body: 'Everything a raider sees, plus Wednesday’s raid leader desk, the badge roster and the officer console.'
+      body: 'Everything a raider sees, plus Wednesday’s raid leader desk, the badge roster, the officer console and Wednesday’s bank.'
+    },
+    {
+      role: 'admin',
+      title: 'Sign in as a super admin',
+      body: 'Everything an officer sees on both nights, plus bank grants, officer tokens and the break-glass notice.'
     }
   ];
+
+  const VIEW: Record<PreviewRole, string> = { member: 'raider', officer: 'officer', admin: 'super admin' };
 
   function choose(role: PreviewRole) {
     previewSignIn(role);
@@ -32,7 +39,7 @@
     You can switch views or log out from the top bar at any time.
   </p>
   {#if previewSession.role}
-    <p class="muted">You are signed in with the {previewSession.role} view. Picking again switches views.</p>
+    <p class="muted">You are signed in with the {VIEW[previewSession.role]} view. Picking again switches views.</p>
   {/if}
   <div class="choices">
     {#each CHOICES as c (c.role)}

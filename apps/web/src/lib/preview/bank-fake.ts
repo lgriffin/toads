@@ -4,7 +4,8 @@
  * (kept across client-side navigation and view switches, reset on reload), so a visitor can mint an officer token as
  * the officer, switch to the raider view and redeem it.
  *
- * The officer view is also a super admin here, so the grants, officer tokens and break-glass notice show.
+ * The officer view is Wednesday's raid leader: Wednesday's queue and imports. The super admin view
+ * is a global officer who also manages grants and mints officer tokens, and sees the break-glass notice.
  */
 import type { Fetch } from '$lib/api';
 import type {
@@ -24,6 +25,7 @@ import type {
   ReplicaSlot,
   SourceStock
 } from '$lib/bank';
+import { hasOfficerPowers } from './gate';
 import { previewSession } from './session.svelte';
 
 const DAYS = ['wed', 'sun'];
@@ -31,7 +33,7 @@ const DAYS = ['wed', 'sun'];
 const HOPSCOTCH = '1001';
 const BREAK_GLASS = '1000';
 const MEMBERS: Record<string, string> = {
-  [BREAK_GLASS]: 'Leapfrog',
+  [BREAK_GLASS]: 'Pondkeeper',
   [HOPSCOTCH]: 'Hopscotch',
   '1002': 'Croakley',
   '1003': 'Ribbitz',
@@ -178,7 +180,7 @@ function seed() {
       permission: 'manage_bank',
       raid_day: null,
       granted_by: 2,
-      granted_by_name: 'Leapfrog',
+      granted_by_name: 'Pondkeeper',
       granted_at: iso(t - 3 * 24 * HOUR)
     }
   ];
@@ -220,7 +222,8 @@ export function resetPreviewBank() {
 
 // --- who is asking --------------------------------------------------------------------------------
 
-const officer = () => previewSession.role === 'officer';
+const officer = () => hasOfficerPowers(previewSession.role);
+const admin = () => previewSession.role === 'admin';
 
 /** The days a grant held by the raider view opens; null (every bank) opens every day. */
 function grantedDays(permission: GrantPermission): string[] {
@@ -233,7 +236,7 @@ function grantedDays(permission: GrantPermission): string[] {
 
 function me(): BankMe {
   const base = { configured: true, discord_user_id: HOPSCOTCH, display_name: 'Hopscotch', break_glass: false };
-  if (officer())
+  if (admin())
     return {
       ...base,
       global_officer: true,
@@ -244,6 +247,19 @@ function me(): BankMe {
       manages_grants: true,
       super_admin: true,
       break_glass_admin: BREAK_GLASS
+    };
+  // As the hub answers a day officer: their own day's upkeep. Grants are for the global tier and up.
+  if (officer())
+    return {
+      ...base,
+      global_officer: false,
+      officer_days: ['wed'],
+      import_days: ['wed'],
+      manage_days: ['wed'],
+      sees_grants: false,
+      manages_grants: false,
+      super_admin: false,
+      break_glass_admin: null
     };
   return {
     ...base,
@@ -441,7 +457,7 @@ function dayRoute(day: string, rest: string[], method: string, body: Record<stri
 }
 
 function grantRoute(rest: string[], method: string, body: Record<string, unknown>): Response {
-  if (!officer()) return refuse(403, 'Super admins only.');
+  if (!admin()) return refuse(403, 'Super admins only.');
   if (method === 'GET') return json(state.grants);
   if (method === 'DELETE') {
     state.grants = state.grants.filter((g) => g.id !== Number(rest[0]));
@@ -485,7 +501,7 @@ function newSecret(): string {
 }
 
 function tokenRoute(rest: string[], method: string, body: Record<string, unknown>): Response {
-  if (!officer()) return refuse(403, 'Super admins only.');
+  if (!admin()) return refuse(403, 'Super admins only.');
   if (method === 'GET') {
     state.tokens.forEach(expire);
     return json(state.tokens.map(strip).reverse());
