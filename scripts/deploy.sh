@@ -23,6 +23,8 @@ main() {
 	flock -n 9 || { echo "deploy: another deploy is running" >&2; exit 75; }
 
 	git fetch --quiet origin main
+	local previous
+	previous="$(git rev-parse HEAD)"
 	target="$(git rev-parse --verify "${sha:-origin/main}^{commit}")"
 	if ! git merge-base --is-ancestor "$target" origin/main; then
 		echo "deploy: $target is not on main" >&2
@@ -47,9 +49,15 @@ main() {
 		done
 		if [[ "$status" != healthy ]]; then
 			echo "deploy: $service is $status; see: docker compose -f infra/docker-compose.prod.yml logs $service" >&2
+			echo "deploy: to go back to the last deploy: $0 $previous" >&2
 			exit 1
 		fi
 	done
+	# Caddy has no health check of its own; it must at least be running to serve the site.
+	if [[ "$(docker inspect -f '{{.State.Running}}' "$("${compose[@]}" ps -q caddy)")" != true ]]; then
+		echo "deploy: caddy is not running; see: docker compose -f infra/docker-compose.prod.yml logs caddy" >&2
+		exit 1
+	fi
 
 	docker image prune -f >/dev/null
 	echo "$(date -u +%FT%TZ) $target" >>"$repo/.git/deploy.log"

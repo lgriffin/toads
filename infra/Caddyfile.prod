@@ -17,8 +17,8 @@ www.{$TOADS_DOMAIN} {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		# frame-src: highlight reels embed only from these three, and only after a visitor presses play.
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://streamable.com; frame-ancestors 'none'"
+		# Only where the response has none: the web app sends its own, with a nonce (apps/web/svelte.config.js).
+		?Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://streamable.com; frame-ancestors 'none'"
 		-Server
 	}
 	handle /api/* {
