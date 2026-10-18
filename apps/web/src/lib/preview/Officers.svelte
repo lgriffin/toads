@@ -3,7 +3,8 @@
   import { PROVIDER_LABELS } from '$lib/clips';
   import type { Application, Visibility } from '$lib/community';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
-  import { MOCK_NOW, type RaidDay } from '$lib/mock/data';
+  import MemberToads from '$lib/components/MemberToads.svelte';
+  import { MOCK_NOW, type RaidDay, type Role } from '$lib/mock/data';
   import { shortDate } from '$lib/format';
   import { viewer } from '$lib/mock/community';
   import { POST_LIMITS, validatePost, type PostErrors } from '$lib/posts';
@@ -164,6 +165,7 @@
         <article class="app" data-testid="application-{a.id}">
           <header class="app-head">
             <h4>{a.characterName}</h4>
+            <MemberToads className={a.className} role={a.role as Role} size={30} />
             <span class="pill status-{a.status}">{STATUS_LABELS[a.status]}</span>
             {#if a.interviewChannelId}
               <span class="pill room">{isFinal(a.status) ? 'Interview room locked' : 'Interview room open'}</span>

@@ -351,7 +351,7 @@ export const story: PublicStory = {
   tagline: 'A friendly, steady TBC Classic raiding guild. Two nights a week, no drama, one big pond.',
   story: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
-    'We raid Wednesday and Sunday evenings, 19:30 to 23:00 server time. Each night has its own team and officers, and plenty of people raid both. We clear content steadily, learn fights together and keep the loot rules boring and fair.',
+    'We have a Wednesday team and a Sunday team, each raiding 21:00 to midnight server time with its own officers, and plenty of people raid both. We clear content steadily, learn fights together and keep the loot rules boring and fair.',
     'Everything we do lives on the Toads Hub: logs, sign-ups, the guild bank and the posts you see below. Our Discord is where we talk, and where every applicant gets a private interview room with the officers.'
   ],
   discordInvite: 'https://discord.gg/example',

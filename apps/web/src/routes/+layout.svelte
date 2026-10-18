@@ -7,6 +7,7 @@
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
+  import MemberToads from '$lib/components/MemberToads.svelte';
   import ToadsMark from '$lib/components/ToadsMark.svelte';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
@@ -72,7 +73,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        <span>Signed in as Hopscotch <MemberToads {tier} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -83,7 +84,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout">
-      <span>Signed in as {session.display_name} <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}
