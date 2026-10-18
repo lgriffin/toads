@@ -10,13 +10,11 @@ export interface Value {
 
 export const LANDING = {
   guild: 'Toads',
-  realm: 'Spineshatter EU',
-  game: 'TBC Classic',
-  tagline: 'A friendly, steady raiding guild. Two nights a week, no drama, one big pond.',
+  tagline: 'A friendly, steady guild. Horde on the PvP side of WoW Forever, one big pond.',
   schedule: 'Wednesday and Sunday, 19:30 to 23:00 server time',
   who: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
-    'Each raid night has its own team and officers, and plenty of people raid both. We clear content steadily and learn fights together.'
+    'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, Europe: the same people, the same habits, a new continent to be unreasonably smug about.'
   ],
   values: [
     {
@@ -37,6 +35,44 @@ export const LANDING = {
     }
   ] satisfies Value[]
 };
+
+export interface Home {
+  /** Also the id of the section. */
+  id: 'forever' | 'tbc';
+  title: string;
+  status: string;
+  /** Faction and ruleset, as the guild plays it. */
+  line: string;
+  body: string;
+  logo: { src: string; alt: string };
+}
+
+/**
+ * Where the guild plays. The official logos are Blizzard's: download them from the press kit (see
+ * https://blizzard.gamespress.com/World-of-Warcraft-Forever-Classic) and save them under apps/web/static/brand/ with
+ * the file names below. Until they are there the section shows the game's name only.
+ */
+export const HOMES: readonly Home[] = [
+  {
+    id: 'forever',
+    title: 'World of Warcraft: Forever',
+    status: 'Launching 4 November 2026',
+    line: 'Horde · PvP · Europe',
+    body: 'Our new home. We are rolling together on the PvP ruleset in Europe, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
+    logo: { src: 'brand/wow-forever.png', alt: 'World of Warcraft: Forever' }
+  },
+  {
+    id: 'tbc',
+    title: 'Burning Crusade Classic',
+    status: 'Active now',
+    line: 'Alliance · Spineshatter · Europe',
+    body: 'The first pond is still full. Our Alliance team keeps raiding TBC Classic on Spineshatter, and its raids, logs and bank are what the hub was built for.',
+    logo: {
+      src: 'brand/tbc-anniversary.png',
+      alt: 'World of Warcraft: Burning Crusade Classic Anniversary Edition'
+    }
+  }
+];
 
 /**
  * How a Toads raid night works: the model behind the hub's numbers, shown to visitors before they apply. Each pillar
