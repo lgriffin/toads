@@ -54,7 +54,7 @@
       <ToadsMark size={168} title="The Toads medallion" />
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
-    <p class="line">Horde · PvP · Europe</p>
+    <p class="line">Horde · PvP ruleset · Europe (EU)</p>
     <p class="tagline">{LANDING.tagline}</p>
     <div class="cta">
       {#if member}
@@ -79,7 +79,7 @@
               <BrandLogo
                 src="{base}/{home.logo.src}"
                 alt={home.logo.alt}
-                height={home.id === 'forever' ? 120 : 96}
+                height={home.id === 'forever' ? 150 : 110}
                 bind:failed={logoFailed[home.id]}
               />
             </div>
@@ -246,7 +246,7 @@
   /* Two homes */
   .homes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
   .homes li { display: grid; gap: 0.5rem; align-content: start; }
-  .logo { min-height: 7.5rem; display: flex; align-items: flex-end; margin-bottom: 0.5rem; }
+  .logo { min-height: 9.5rem; display: flex; align-items: flex-end; margin-bottom: 0.5rem; }
   .status { color: var(--bronze-hi); font-weight: 700; letter-spacing: 0.05em; }
   .status.live::before { content: ''; display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--teal); margin-right: 0.5em; box-shadow: 0 0 0 3px rgb(63 214 200 / 0.25); }
   .faction { color: var(--muted); font-family: 'Cinzel', Georgia, serif; font-size: 0.9rem; letter-spacing: 0.1em; text-transform: uppercase; }

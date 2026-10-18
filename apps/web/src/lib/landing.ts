@@ -10,11 +10,11 @@ export interface Value {
 
 export const LANDING = {
   guild: 'Toads',
-  tagline: 'A friendly, steady guild. Horde on the PvP side of WoW Forever, one big pond.',
+  tagline: 'A friendly, steady guild on the European PvP ruleset of WoW Forever. Horde, one big pond.',
   schedule: 'Wednesday and Sunday, 19:30 to 23:00 server time',
   who: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
-    'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, Europe: the same people, the same habits, a new continent to be unreasonably smug about.'
+    'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, Europe (EU): the same people, the same habits, a new continent to be unreasonably smug about.'
   ],
   values: [
     {
@@ -57,15 +57,15 @@ export const HOMES: readonly Home[] = [
     id: 'forever',
     title: 'World of Warcraft: Forever',
     status: 'Launching 4 November 2026',
-    line: 'Horde · PvP · Europe',
-    body: 'Our new home. We are rolling together on the PvP ruleset in Europe, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
+    line: 'Horde · PvP ruleset · Europe (EU)',
+    body: 'Our new home. We are rolling together on the PvP ruleset in the European region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
     logo: { src: 'brand/wow-forever.png', alt: 'World of Warcraft: Forever' }
   },
   {
     id: 'tbc',
     title: 'Burning Crusade Classic',
     status: 'Active now',
-    line: 'Alliance · Spineshatter · Europe',
+    line: 'Alliance · Spineshatter · Europe (EU)',
     body: 'The first pond is still full. Our Alliance team keeps raiding TBC Classic on Spineshatter, and its raids, logs and bank are what the hub was built for.',
     logo: {
       src: 'brand/tbc-anniversary.png',
