@@ -40,3 +40,4 @@ just reqs       # regenerate docs/requirements.md
 - Python 3.12, ruff (line length 120), mypy strict. No `latest` image tags.
 - Config through environment only (pydantic-settings); keep each `.env.example` in sync. Never commit secrets.
 - All changes go through PRs; never push directly to main.
+- UI work in `apps/web` uses the Impeccable plugin (`.claude/settings.json`); see `docs/design.md`.

@@ -24,3 +24,4 @@ infra/certs/*.key
 infra/certs/*.crt
 infra/certs/*.caddy
 infra/certs/*.csr
+.impeccable/config.local.json
