@@ -5,8 +5,11 @@ Feature: DEV REL
   @ears_ubiquitous @maintainer @phase_2_0 @pending
   Scenario: REQ-DEV-REL-001 No compose file shall reference a latest image tag; production shall run only signed images
 
-  @ears_unwanted_behavior @maintainer @phase_2_1 @pending
+  @ears_unwanted_behavior @maintainer @phase_2_1
   Scenario: REQ-DEV-REL-002 If a migration fails during deploy, then no new API or worker container shall start serving
+    Given the production compose file
+    Then the API, worker and scheduler start only after both migrations complete successfully
+    And the deploy script runs both migrations before it replaces any running container
 
   @ears_event_driven @maintainer @phase_2_7 @pending
   Scenario: REQ-DEV-REL-003 When just rollback <tag> is run, the previous images shall be serving and the schema downgraded within 5 minutes; CI shall exercise this on every release
