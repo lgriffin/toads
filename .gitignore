@@ -19,3 +19,8 @@ apps/web/build/
 config/raid_days.yaml
 config/community.yaml
 config/raid_sheets.yaml
+infra/certs/*.pem
+infra/certs/*.key
+infra/certs/*.crt
+infra/certs/*.caddy
+infra/certs/*.csr

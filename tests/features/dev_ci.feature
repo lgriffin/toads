@@ -31,3 +31,11 @@ Feature: DEV CI
     Given the preview's pretend sign-in
     Then it offers the super admin view
     And only the super admin view manages bank grants and officer tokens in the preview bank
+
+  @ears_event_driven @maintainer @phase_2_0
+  Scenario: REQ-DEV-CI-007 When CI passes on a push to main and deployment is enabled, the deploy workflow shall roll that commit out to the production server over SSH, one deploy at a time
+    Given the deploy workflow
+    Then it runs after CI completes on main, or by hand
+    And it deploys only a successful push build while DEPLOY_ENABLED is true
+    And it sends only the commit sha over SSH with a pinned host key
+    And the deploy script accepts only a commit on main and takes a lock

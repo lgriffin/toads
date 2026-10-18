@@ -1,0 +1,33 @@
+# Production Caddyfile (infra/docker-compose.prod.yml). Caddy fetches and renews a Let's Encrypt certificate for
+# TOADS_DOMAIN by itself once DNS points at the server and ports 80 and 443 are open (docs/deploy.md).
+{
+	email {$TOADS_ACME_EMAIL}
+}
+
+www.{$TOADS_DOMAIN} {
+	redir https://{$TOADS_DOMAIN}{uri} permanent
+}
+
+{$TOADS_DOMAIN} {
+	# A certificate you bought instead of Let's Encrypt: infra/certs/tls.caddy on the server (docs/deploy.md, step 9).
+	# No file there (the default) means automatic Let's Encrypt.
+	import /certs/*.caddy
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# frame-src: highlight reels embed only from these three, and only after a visitor presses play.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://streamable.com; frame-ancestors 'none'"
+		-Server
+	}
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle /auth/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

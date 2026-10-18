@@ -1,0 +1,246 @@
+# Deploying the Toads hub to a VPS
+
+Step by step from a bare server to "merge to main and the site updates itself". Written for a **GoDaddy VPS running
+AlmaLinux 10** with a domain registered at GoDaddy; [what changes elsewhere](#what-changes-on-a-different-server) is at
+the end. The [admin guide](../ADMIN_GUIDE.md) explains every setting; this page is only the server and the pipeline.
+
+What you end up with:
+
+```
+push / merge to main ──> CI (GitHub Actions) ──green──> Deploy workflow ──SSH──> scripts/deploy.sh on the VPS
+                                                                                   │ git checkout <sha>
+                                                                                   │ docker compose build
+                                                                                   │ run both migrations
+                                                                                   └ restart the stack
+https://<your domain> ──> Caddy (ports 80/443, Let's Encrypt certificate) ──> web app / API
+```
+
+- Everything runs in Docker from `infra/docker-compose.prod.yml`. Postgres and Redis are not reachable from outside.
+- Caddy gets and renews the HTTPS certificate on its own (Let's Encrypt, free). No certbot or nginx needed. If you
+  already paid GoDaddy for a certificate, [step 9](#9-optional-use-a-certificate-bought-from-godaddy) uses it instead.
+- A deploy only happens after CI passes on main. If a database migration fails, the running site is left alone.
+- SELinux stays **enforcing**; the compose file labels its mounts for it.
+
+Never paste a password, token or private key into a chat, issue or commit. They go only on the server or in GitHub's
+secret settings.
+
+## 1. Point your GoDaddy domain at the server
+
+1. In the GoDaddy dashboard open your VPS and note its **public IPv4 address**.
+2. Go to **My Products → Domains → your domain → DNS → DNS Records**.
+3. Delete the existing `A` record for `@` whose value says **Parked** (or any other `A` record for `@`).
+4. Add, or edit, these records (TTL 1/2 hour is fine):
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | A | `@` | your VPS IP |
+   | CNAME | `www` | `@` |
+
+   To use a subdomain instead (say `hub.example.com`), add one `A` record with Name `hub` and leave `@` alone.
+5. If there is an `AAAA` record and your VPS has no IPv6 address, delete it: Let's Encrypt tries IPv6 first.
+6. If there is a `CAA` record, it must allow `letsencrypt.org` (or delete it).
+
+Check from your own computer (it can take a few minutes):
+
+```bash
+nslookup toads.example.com    # should print your VPS IP
+```
+
+If GoDaddy's VPS dashboard has its own firewall, allow inbound TCP 22, 80 and 443 (and UDP 443) there too.
+
+## 2. First login and your own password
+
+SSH in with the details GoDaddy gave you (Windows: PowerShell or PuTTY; Mac/Linux: Terminal):
+
+```bash
+ssh <user>@<VPS IP>
+passwd            # change your password to one only you know
+```
+
+Recommended: log in with a key instead of a password. On **your own computer**:
+
+```bash
+ssh-keygen -t ed25519            # once; press Enter for the defaults
+ssh-copy-id <user>@<VPS IP>      # Windows has no ssh-copy-id: append id_ed25519.pub to ~/.ssh/authorized_keys on the server
+ssh <user>@<VPS IP>              # should not ask for the server password now
+```
+
+Step 10 turns password logins off once keys work.
+
+## 3. Run the setup script
+
+On the server:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lgriffin/toads/main/scripts/server-setup.sh -o server-setup.sh
+less server-setup.sh                                   # read what it does first
+sudo bash server-setup.sh toads.example.com you@example.com
+```
+
+Use your real domain and an email address for Let's Encrypt's expiry warnings. The script
+([scripts/server-setup.sh](../scripts/server-setup.sh)):
+
+- updates the system and installs Docker CE (from Docker's RHEL repository) with the compose plugin;
+- turns on Docker's SELinux support and log rotation (`/etc/docker/daemon.json`);
+- opens SSH, HTTP and HTTPS in firewalld;
+- adds 2 GB of swap if the server has under 4 GB of RAM (image builds need it);
+- creates a `toads` user (member of the `docker` group) and clones the hub to `/opt/toads`;
+- writes `infra/.env` and every `services/*/.env` with fresh random secrets: the Postgres password, the hub service
+  token, the credentials key and the bank bot token. It points the API at the real Discord and at your domain and
+  turns the guild bank off until ToadsBank is deployed;
+- makes the SSH key GitHub will deploy with. That key can only run `scripts/deploy.sh`: no shell, no forwarding.
+
+It ends by printing the four GitHub secrets for [step 7](#7-let-github-deploy-on-every-push). Keep that window open, or
+run it again later: it never replaces a secret that is already set.
+
+## 4. Discord and Warcraft Logs applications
+
+Follow [admin guide section 2](../ADMIN_GUIDE.md#2-accounts-and-applications-to-create) to create the Discord
+application (and bot), and the Warcraft Logs client. On the Discord application, add this **OAuth2 redirect**:
+
+```
+https://toads.example.com/auth/callback
+```
+
+## 5. Fill in the values only you have
+
+Edit with `sudo -u toads nano <file>` (Ctrl-O saves, Ctrl-X quits). The setup script already filled everything that
+is not listed here.
+
+`/opt/toads/services/api/.env`
+
+| Setting | Value |
+| --- | --- |
+| `TOADS_DISCORD_CLIENT_ID`, `TOADS_DISCORD_CLIENT_SECRET` | Discord application → OAuth2 |
+| `TOADS_DISCORD_BOT_TOKEN` | Discord application → Bot → Reset Token |
+| `TOADS_DISCORD_GUILD_ID` | Discord: right-click the server → Copy Server ID (needs Developer Mode) |
+| `TOADS_SUPER_ADMIN_IDS`, `TOADS_BREAK_GLASS_ADMIN_ID` | your Discord user id, and the other super admins ([docs/admin.md](admin.md)) |
+| `TOADS_WCL_CLIENT_ID`, `TOADS_WCL_CLIENT_SECRET` | Warcraft Logs client (leave the id empty to turn the reference login off) |
+
+`/opt/toads/services/worker/.env`: `TOADS_WCL_CLIENT_ID`, `TOADS_WCL_CLIENT_SECRET`, `TOADS_WCL_GUILD_ID`.
+
+`/opt/toads/config/raid_days.yaml`, `community.yaml`, `raid_sheets.yaml`: real Discord role and channel ids, as
+[admin guide section 5](../ADMIN_GUIDE.md#5-config-files) describes. The API checks the raid-day roles against Discord
+when it starts, so it will not start with the example ids.
+
+Bots are optional at first. To run them, put the Toad Bot's token in `services/bot/.env` and the **bank bot's own**
+application token in `services/bot/.env.bank`, then set `COMPOSE_PROFILES=bot` in `/opt/toads/infra/.env`.
+
+## 6. First deploy, by hand
+
+```bash
+sudo -iu toads /opt/toads/scripts/deploy.sh
+```
+
+The first build takes a while. When it prints `... is live`, open `https://toads.example.com`: Caddy fetches the
+certificate on the first request, so the very first page can take a few seconds. Sign in with Discord and you should
+land on `/hub`. If something fails, see [troubleshooting](#troubleshooting).
+
+## 7. Let GitHub deploy on every push
+
+In GitHub: **lgriffin/toads → Settings → Environments → New environment**, name it `production`, then add these
+**environment secrets** (the setup script printed them; run it again to see them):
+
+| Secret | Value |
+| --- | --- |
+| `DEPLOY_HOST` | your domain (or the VPS IP) |
+| `DEPLOY_USER` | `toads` |
+| `DEPLOY_KNOWN_HOSTS` | the two `... ssh-ed25519 AAAA...` lines it printed (pins the server's identity) |
+| `DEPLOY_SSH_KEY` | the whole output of `sudo cat /root/toads-deploy-key`, including the BEGIN and END lines |
+
+Then delete the private key from the server: `sudo rm /root/toads-deploy-key /root/toads-deploy-key.pub`.
+
+Optional: under the environment's **Deployment branches**, allow only `main`.
+
+Finally, **Settings → Secrets and variables → Actions → Variables → New repository variable**: `DEPLOY_ENABLED` =
+`true`. Until this exists the Deploy workflow skips itself.
+
+Test it: **Actions → Deploy → Run workflow** (leave the sha empty). The run's log shows the server's output.
+
+## 8. Day to day
+
+- **Ship a change**: merge a PR into main. CI runs; when it is green, the Deploy workflow rolls that commit out. Only
+  one deploy runs at a time; a later one waits.
+- **Roll back**: Actions → Deploy → Run workflow, and paste the full sha of an earlier main commit. Migrations only run
+  forwards, so rolling back past a migration needs [admin guide section 11](../ADMIN_GUIDE.md#11-routine-operations).
+- **Pause deploys**: set `DEPLOY_ENABLED` to `false`.
+- **What's live**: `sudo -iu toads tail /opt/toads/.git/deploy.log`.
+- **Logs**: `cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml logs -f api` (or `web`,
+  `worker`, `caddy`).
+- **Change a setting**: edit the `.env` file, then run the deploy script by hand (step 6) to restart with it.
+- **Backups**: [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore). At minimum, a nightly
+  `docker compose -f infra/docker-compose.prod.yml exec -T postgres pg_dump -U toads toads` copied off the server.
+
+## 9. Optional: use a certificate bought from GoDaddy
+
+Skip this unless you have already paid for one: Let's Encrypt is free and renews itself, while a GoDaddy certificate
+must be re-downloaded and installed by hand each year.
+
+1. On the server, make a key and signing request:
+   ```bash
+   cd /opt/toads/infra/certs
+   sudo -u toads openssl req -new -newkey rsa:2048 -nodes -keyout privkey.pem -out request.csr \
+     -subj "/CN=toads.example.com"
+   cat request.csr
+   ```
+2. In GoDaddy: **SSL Certificates → your certificate → Manage → Re-key & Manage**, paste the CSR, submit, and wait for
+   it to be issued.
+3. **Download**, server type **Other**. Unzip; you get `<random>.crt` and `gd_bundle-g2-g1.crt`. Copy them to the
+   server (e.g. `scp`) and join them, your certificate first:
+   ```bash
+   cat <random>.crt gd_bundle-g2-g1.crt | sudo -u toads tee /opt/toads/infra/certs/fullchain.pem >/dev/null
+   sudo chmod 600 /opt/toads/infra/certs/privkey.pem
+   ```
+4. Tell Caddy to use them (this file is git-ignored, so deploys keep it):
+   ```bash
+   echo 'tls /certs/fullchain.pem /certs/privkey.pem' | sudo -u toads tee /opt/toads/infra/certs/tls.caddy
+   ```
+5. Run the deploy script (step 6). Set a reminder to repeat steps 1 to 3 before the certificate expires.
+
+## 10. Lock the server down
+
+Once key logins work (step 2) and the site is up:
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/50-toads.conf >/dev/null <<'EOF'
+PasswordAuthentication no
+PermitRootLogin no
+EOF
+sudo sshd -t && sudo systemctl reload sshd
+```
+
+Keep your current SSH session open and check that a **new** one still gets in before closing it. If GoDaddy only gave
+you `root`, create your own admin user first (`sudo useradd -m -G wheel <name>`, `sudo passwd <name>`, copy your key
+into its `~/.ssh/authorized_keys`).
+
+Automatic security updates:
+
+```bash
+sudo dnf -y install dnf-automatic
+sudo sed -i 's/^upgrade_type.*/upgrade_type = security/; s/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
+sudo systemctl enable --now dnf-automatic.timer
+```
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Browser says the certificate is invalid, or the site never loads | `logs caddy`. Usually DNS not pointing here yet (`nslookup`), port 80 or 443 closed in GoDaddy's panel, or a stray `AAAA`/`CAA` record (step 1). Caddy retries on its own once fixed. |
+| Deploy stops at a migration | The old site keeps running. `logs migrate` or run `docker compose -f infra/docker-compose.prod.yml run --rm migrate` to see the error. |
+| `api is unhealthy` | `logs api`. Most often a Discord value or a role id in `config/raid_days.yaml`. |
+| Permission denied reading `/config` or the Caddyfile | SELinux: `sudo ausearch -m avc -ts recent`. The mounts carry `z` labels; check `/etc/docker/daemon.json` has `"selinux-enabled": true` and Docker was restarted. |
+| Deploy workflow fails at SSH | `DEPLOY_KNOWN_HOSTS` must match the server (re-run the setup script to print it); `DEPLOY_SSH_KEY` must include the BEGIN/END lines. |
+| Build killed / out of memory | `free -h`; the setup script adds swap below 4 GB of RAM. A 2 GB VPS is the practical minimum. |
+| `another deploy is running` | Wait; one deploy at a time. |
+
+`logs X` above means `cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml logs X`.
+
+## What changes on a different server
+
+- **Ubuntu or Debian**: replace the `dnf` and Docker repository steps in the setup script with Docker's apt
+  instructions, and `firewalld` with `ufw allow 80,443/tcp`. There is no SELinux; the `z` labels are harmless.
+- **Podman instead of Docker**: not supported by these files; the stack relies on compose's
+  `service_completed_successfully` ordering. Keep Docker CE.
+- **No root access** (GoDaddy shared hosting rather than a VPS): this setup needs a VPS.
+- **ToadsBank**: deploy it next to the hub ([its operations guide](https://github.com/lgriffin/ToadsBank/blob/main/docs/operations.md)),
+  then set `TOADS_BANK_URL` and `TOADS_BANK_SERVICE_TOKEN` in `services/api/.env` (admin guide section 10).

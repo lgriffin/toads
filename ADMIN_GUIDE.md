@@ -56,18 +56,16 @@ lgriffin/warcraftlogs_project in the root `pyproject.toml`; see [Bumping the ana
 ### What the repository ships for deployment
 
 `infra/docker-compose.yml` is the **dev** stack (`just up`): it signs in through a fake Discord, talks to a fake bank,
-uses dev passwords, publishes Postgres and Redis ports and serves plain HTTP on port 8080. There is no production
-override yet, and CI builds images without pushing them anywhere. A production deployment needs, at least:
+uses dev passwords, publishes Postgres and Redis ports and serves plain HTTP on port 8080.
 
-- the `fake-discord` and `fake-bank` services removed, and the two `TOADS_DISCORD_*_URL` lines deleted from the API's
-  env so it uses the real Discord;
-- real values for every secret in [section 4](#4-settings-reference), from a secret store, not committed files;
-- Postgres and Redis not published to the host (drop their `ports:`), and a real Postgres password;
-- TLS: the Caddyfile turns automatic HTTPS off and listens on `:8080`; in production serve the public hostname with
-  HTTPS on, and add HSTS (the file says where);
-- the bank bot with its **own** env file: in the dev compose `bank-bot` reads `services/bot/.env` like the Toad Bot,
-  but it must use its own Discord application token and channel list;
-- ToadsBank deployed next to the hub on a private network (its guide covers that).
+`infra/docker-compose.prod.yml` is the **production** stack for one server, and [docs/deploy.md](docs/deploy.md) walks
+through setting it up on a VPS. It drops the fakes and MinIO, keeps Postgres and Redis off the host's ports, reads the
+Postgres password, domain and ACME email from `infra/.env`, serves the domain over HTTPS from `infra/Caddyfile.prod`
+(Let's Encrypt, HSTS), and gives the bank bot its own `services/bot/.env.bank`. `scripts/server-setup.sh` prepares an
+AlmaLinux 10 server and generates the internal secrets; `scripts/deploy.sh` deploys one commit of main, running both
+migrations before any container is replaced; `.github/workflows/deploy.yml` runs it over SSH after CI passes on main
+(off until the `DEPLOY_ENABLED` variable is `true`). Images are built on the server; CI still publishes none. ToadsBank
+is deployed separately, next to the hub (its guide covers that).
 
 ## 2. Accounts and applications to create
 
@@ -414,9 +412,11 @@ The scheduler does this every 30 minutes. To run a job now, in the worker image:
 
 ### Deploy an update
 
-Pull the new code, rebuild the images, run both migration jobs (`hub-db-migrate`, `toads-worker-migrate`), then
-restart the API, worker, scheduler, web and bots. Migrations are numbered Alembic revisions; they run forwards only in
-normal operation.
+Merge to main: once CI passes, the Deploy workflow runs `scripts/deploy.sh` on the server, which checks out the commit,
+rebuilds the images, runs both migration jobs (`hub-db-migrate`, `toads-worker-migrate`) and then restarts the API,
+worker, scheduler, web and bots. Run the script by hand (`sudo -iu toads /opt/toads/scripts/deploy.sh [sha]`) after
+changing an env file, or from Actions → Deploy → Run workflow to roll back ([docs/deploy.md](docs/deploy.md#8-day-to-day)).
+Migrations are numbered Alembic revisions; they run forwards only in normal operation.
 
 ### Bumping the analyzer
 
@@ -484,8 +484,8 @@ API and worker.
 - **Bot bridge queue is in memory** ([#25](https://github.com/lgriffin/toads/issues/25)). Actions waiting for a kit bot
   (bank DMs and posts) are lost if the API restarts before the bot pulls them, and ToadsBank will not resend an event
   the hub already acknowledged. Restart the API when the queue is quiet.
-- **No production deployment files yet**: only the dev compose ships; see [section 1](#1-what-runs-where). CI builds
-  images but publishes none.
+- **Single-server deploys build images on the server** ([docs/deploy.md](docs/deploy.md)); CI publishes none and
+  production images are not signed yet (REQ-DEV-REL-001).
 - **Claims answer 404** in production until the API reads the character list from wcl-store.
 - **Bot permissions**: kit bots other than the bank bot run with an open gate and the site trusts the Discord user id
   they send (REQ-HUB-BOT-005 pending). The Toad Bot still uses its own outbox at `/api/bot/*`.

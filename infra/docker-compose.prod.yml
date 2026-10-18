@@ -1,0 +1,125 @@
+# Production stack for one server (docs/deploy.md). scripts/deploy.sh runs it; nothing here is for local dev.
+# Differences from the dev stack: real Discord and no fakes, no MinIO, Postgres and Redis on the private network only,
+# Caddy on 80/443 with automatic HTTPS for TOADS_DOMAIN, and SELinux labels (`z`) on every bind mount.
+# Server-only values (domain, ACME email, Postgres password, bot profile) live in infra/.env (see infra/.env.example).
+name: toads
+
+x-config-mount: &config-mount ../config:/config:ro,z
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: toads
+      POSTGRES_DB: toads
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toads"]
+      interval: 5s
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes: [redisdata:/data]
+
+  # One-shot migrations. The API, worker and scheduler wait for both to exit 0, so a failed migration leaves the
+  # previous containers serving and starts no new ones (REQ-DEV-REL-002).
+  migrate:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    command: ["hub-db-migrate"]
+    env_file: ../services/api/.env
+    healthcheck: { disable: true }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  analyser-migrate:
+    build: { context: .., dockerfile: services/worker/Dockerfile }
+    command: ["toads-worker-migrate"]
+    env_file: ../services/worker/.env
+    healthcheck: { disable: true }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    restart: unless-stopped
+    env_file: ../services/api/.env
+    volumes: [*config-mount]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+      analyser-migrate: { condition: service_completed_successfully }
+
+  worker:
+    build: { context: .., dockerfile: services/worker/Dockerfile }
+    restart: unless-stopped
+    env_file: ../services/worker/.env
+    volumes: [*config-mount]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+      analyser-migrate: { condition: service_completed_successfully }
+
+  scheduler:
+    build: { context: .., dockerfile: services/worker/Dockerfile }
+    command: ["toads-worker", "schedule"]
+    restart: unless-stopped
+    env_file: ../services/worker/.env
+    volumes: [*config-mount]
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+      analyser-migrate: { condition: service_completed_successfully }
+      api: { condition: service_healthy }
+
+  # Bots run only with COMPOSE_PROFILES=bot in infra/.env; each needs its own Discord application token.
+  bot:
+    build: { context: .., dockerfile: services/bot/Dockerfile }
+    restart: unless-stopped
+    env_file: [{ path: ../services/bot/.env, required: false }]
+    depends_on: { api: { condition: service_healthy } }
+    profiles: [bot]
+
+  bank-bot:
+    build: { context: .., dockerfile: services/bot/Dockerfile }
+    command: ["toads-botkit"]
+    restart: unless-stopped
+    env_file: [{ path: ../services/bot/.env.bank, required: false }]
+    environment:
+      TOADS_BOT_SPEC: bank
+    depends_on: { api: { condition: service_healthy } }
+    profiles: [bot]
+
+  web:
+    build: { context: ../apps/web }
+    restart: unless-stopped
+    environment:
+      ORIGIN: https://${TOADS_DOMAIN:?set TOADS_DOMAIN in infra/.env}
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      TOADS_DOMAIN: ${TOADS_DOMAIN:?set TOADS_DOMAIN in infra/.env}
+      TOADS_ACME_EMAIL: ${TOADS_ACME_EMAIL:?set TOADS_ACME_EMAIL in infra/.env}
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro,z
+      - ./certs:/certs:ro,z  # empty unless you use a certificate you bought (docs/deploy.md, step 9)
+      - caddy_data:/data
+      - caddy_config:/config
+    ports: ["80:80", "443:443", "443:443/udp"]
+    depends_on: [web, api]
+
+secrets:
+  postgres_password:
+    environment: TOADS_POSTGRES_PASSWORD  # from infra/.env
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:  # Let's Encrypt account and certificates: keep it, or Caddy re-issues on every start
+  caddy_config:
