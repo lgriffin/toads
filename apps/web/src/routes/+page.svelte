@@ -22,6 +22,6 @@
   });
 </script>
 
-<svelte:head><title>Toads · Spineshatter EU</title></svelte:head>
+<svelte:head><title>Toads · Horde PvP guild in Europe, WoW Forever</title></svelte:head>
 
 <Landing {member} {pulse} loginHref={__PREVIEW__ ? `${base}/login/` : '/auth/login'} />

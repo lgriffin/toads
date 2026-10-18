@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/lib/components/BrandLogo.svelte"
+        ],
+        "createdAt": "2026-10-18T22:22:37.484Z",
+        "reason": "false positive: src is a component prop, the file is supplied under static/brand and failures fall back to text"
+      }
+    ]
+  }
+}

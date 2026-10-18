@@ -7,6 +7,7 @@
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
+  import ToadsMark from '$lib/components/ToadsMark.svelte';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
@@ -51,7 +52,7 @@
 {/if}
 
 <header>
-  <a class="brand" href="{base}/">Toads</a>
+  <a class="brand" href="{base}/"><ToadsMark size={28} />Toads</a>
   <nav aria-label="Guild">
     {#each PUBLIC_NAV as item}
       <a href="{base}{item.href}{item.href === '/' ? '' : '/'}" aria-current={isActive(path, item.href) ? 'page' : undefined}
@@ -210,7 +211,7 @@
   }
   nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
   .members { padding-left: 1rem; border-left: 1px solid var(--line); }
-  .brand { color: var(--text); font-weight: 700; }
+  .brand { color: var(--text); font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; }
   .skip { position: absolute; left: -999px; top: 0; background: var(--accent); color: #0f1411; padding: 0.5rem; z-index: 10; }
   .skip:focus { left: 0.5rem; }
   @media (max-width: 40rem) {
