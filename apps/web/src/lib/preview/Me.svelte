@@ -2,7 +2,10 @@
   import { base } from '$app/paths';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
   import { previewBadges } from '$lib/mock/badges';
+  import MemberToads from '$lib/components/MemberToads.svelte';
   import { me } from '$lib/mock/data';
+  import { previewSession } from './session.svelte';
+  import type { Tier } from '$lib/access';
   import TrendChart from './TrendChart.svelte';
 
   const MIN_RAIDS = 3;
@@ -10,9 +13,13 @@
   let character = $derived(me.characters.find((c) => c.name === selected)!);
   let history = $derived(me.history[selected] ?? []);
   let last = $derived(history.at(-1));
+  // The spec reads 'Combat Rogue': the class is its last word.
+  let className = $derived(character.spec.split(' ').at(-1));
+  const TIERS: Record<string, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
+  let tier = $derived(TIERS[previewSession.role ?? 'member'] ?? 'raider');
 </script>
 
-<h1>Your performance</h1>
+<h1>Your performance <MemberToads {tier} {className} role={character.role} size={40} /></h1>
 
 <div class="chars">
   {#each me.characters as c}

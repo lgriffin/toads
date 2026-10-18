@@ -3,6 +3,9 @@
  * words show in the static preview and on the live hub. Officers edit it here, in a PR.
  */
 
+import { CLASSES, CLASS_SPECS } from './application';
+import type { Role } from './mock/data';
+
 export interface Value {
   title: string;
   body: string;
@@ -11,7 +14,7 @@ export interface Value {
 export const LANDING = {
   guild: 'Toads',
   tagline: 'A friendly, steady guild on the European PvP side of WoW Forever. Horde, one big pond.',
-  schedule: 'Wednesday and Sunday, 19:30 to 23:00 server time',
+  schedule: 'a Wednesday team and a Sunday team, 21:00 to midnight server time',
   who: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
     'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, Europe (EU): the same people, the same habits, a new continent to be unreasonably smug about.'
@@ -34,6 +37,65 @@ export const LANDING = {
       body: 'Anyone can apply, and every applicant gets a private interview room with the officers on Discord. Trials are told where they stand.'
     }
   ] satisfies Value[]
+};
+
+export interface Recruiting {
+  id: 'healer' | 'damage' | 'tank';
+  title: string;
+  open: boolean;
+  /** One line under the status. */
+  note: string;
+  /** Classes (with the specs that fill the role) we are looking for; empty when the role is full. */
+  classes: { name: string; specs: string[] }[];
+}
+
+/** The roles of a spec list in the order the page shows them. */
+function classesFor(roles: readonly Role[]): { name: string; specs: string[] }[] {
+  return CLASSES.map((name) => ({
+    name,
+    specs: Object.entries(CLASS_SPECS[name])
+      .filter(([, r]) => r.some((x) => roles.includes(x)))
+      .map(([spec]) => spec)
+  })).filter((c) => c.specs.length > 0);
+}
+
+/**
+ * What we are recruiting right now. Officers change `open` here, in a PR, when a role fills or a spot comes up. The
+ * classes follow application.ts, so the page and the application form always agree on who can fill a role.
+ */
+export const RECRUITING: readonly Recruiting[] = [
+  {
+    id: 'healer',
+    title: 'Healers',
+    open: true,
+    note: 'We are recruiting healers. Every class that heals is welcome.',
+    classes: classesFor(['Healer'])
+  },
+  {
+    id: 'damage',
+    title: 'Damage',
+    open: true,
+    note: 'We are recruiting damage dealers, melee and ranged, of every class.',
+    classes: classesFor(['Melee', 'Ranged'])
+  },
+  {
+    id: 'tank',
+    title: 'Tanks',
+    open: false,
+    note: 'Full for now. This page changes when a spot opens.',
+    classes: []
+  }
+];
+
+export const SOCIAL = {
+  title: 'More pond than raid',
+  intro:
+    'Raid nights are two evenings a week. The rest of the pond is Discord: tactics, jokes, highlight reels and the odd world PvP dogpile. People stay for the company.',
+  points: [
+    { title: 'Always someone about', body: 'Discord is where the guild lives between raids, from gearing questions to who is up for a dungeon run.' },
+    { title: 'Seen and celebrated', body: 'Officers publish highlight reels and member spotlights to the hub and Discord, with the member’s say-so.' },
+    { title: 'Looked after', body: 'Every applicant gets a private interview room with the officers, and trials are told where they stand.' }
+  ]
 };
 
 export interface Home {
@@ -160,11 +222,11 @@ export const RAID_WEEK: readonly WeekDay[] = [
     raid: false,
     text: 'Officers fill bank requests and share the strategy and role sheets from Google Drive.'
   },
-  { day: 'Wed', raid: true, text: 'Raid, 19:30 to 23:00. The log is analysed within half an hour of the upload.' },
+  { day: 'Wed', raid: true, text: 'Wednesday team raids, 21:00 to midnight. The log is analysed within half an hour of the upload.' },
   { day: 'Thu', raid: false, text: 'Badges, raid totals and your performance update on the hub.' },
   { day: 'Fri', raid: false, text: 'Officers publish posts, highlights and spotlights to the hub and Discord.' },
   { day: 'Sat', raid: false, text: 'Fix anything the gear check found before Sunday.' },
-  { day: 'Sun', raid: true, text: 'Raid, 19:30 to 23:00. Same cycle.' }
+  { day: 'Sun', raid: true, text: 'Sunday team raids, 21:00 to midnight. Same cycle.' }
 ];
 
 export interface AppTile {

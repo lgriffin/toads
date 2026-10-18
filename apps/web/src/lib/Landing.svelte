@@ -5,7 +5,9 @@
   import '@fontsource/alegreya-sans/500.css';
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
-  import { HOMES, LANDING, MEMBER_APPS } from '$lib/landing';
+  import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
+  import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
+  import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
   import type { GuildPulse as Pulse } from '$lib/pulse';
   import BrandLogo from './components/BrandLogo.svelte';
   import GuildPulse from './components/GuildPulse.svelte';
@@ -26,6 +28,8 @@
 
   // Horde key art from Blizzard's press kit, saved by the guild as static/art/horde-key-art.jpg. Without the file the
   // painted pond scene stands alone.
+  const shortMonth = (iso: string) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   let logoFailed = $state<Record<string, boolean>>({ forever: false, tbc: false });
   let artFailed = $state(false);
   let mounted = $state(false);
@@ -93,13 +97,77 @@
     </ul>
   </section>
 
+  <section class="records band" aria-labelledby="records-h">
+    <div class="head">
+      <h2 id="records-h">Our fastest clears</h2>
+      <p>The best full-clear time we have logged in each raid, with the report to prove it.</p>
+    </div>
+    <div class="rec-groups">
+      {#each RECORD_GROUPS as g (g.id)}
+        <section aria-labelledby="rec-{g.id}">
+          <h3 id="rec-{g.id}">{g.title}</h3>
+          <p class="faction">{g.blurb}</p>
+          <ol class="rec">
+            {#each g.records as r (r.raid)}
+              <li>
+                <span class="raid">{r.raid}</span>
+                <a class="time" href={reportUrl(r.code)} rel="noopener noreferrer" target="_blank"
+                  >{clearClock(r.ms)}<span class="sr-only"> on Warcraft Logs, {shortMonth(r.date)}</span></a
+                >
+                <time class="when" datetime={r.date}>{shortMonth(r.date)}</time>
+              </li>
+            {/each}
+          </ol>
+        </section>
+      {/each}
+    </div>
+  </section>
+
+  <section class="recruit band" aria-labelledby="recruit-h">
+    <div class="head">
+      <h2 id="recruit-h">Who we are looking for</h2>
+      <p>Healers and damage dealers of every class are welcome. Tanks are full for now.</p>
+    </div>
+    <div class="roles">
+      {#each RECRUITING as role (role.id)}
+        {@const toad = roleToad(role.id === 'damage' ? 'Melee' : role.id === 'healer' ? 'Healer' : 'Tank')}
+        <section class="role" class:full={!role.open} aria-labelledby="role-{role.id}">
+          <div class="role-head">
+            {#if toad}<img src={toadSrc(base, toad, true)} alt="" width="110" height="132" loading="lazy" />{/if}
+            <div>
+              <h3 id="role-{role.id}">{role.title}</h3>
+              <p class="state" class:open={role.open}>{role.open ? 'Recruiting' : 'Full for now'}</p>
+            </div>
+          </div>
+          <p class="note">{role.note}</p>
+          {#if role.classes.length}
+            <ul class="classes">
+              {#each role.classes as c (c.name)}
+                {@const ct = classToad(c.name)}
+                <li style="--c: {CLASS_COLOUR[c.name.toLowerCase()]}">
+                  {#if ct}<img src={toadSrc(base, ct)} alt="" width="48" height="42" loading="lazy" />{/if}
+                  <span class="cname">{c.name}</span>
+                  <span class="specs">{c.specs.join(', ')}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </section>
+      {/each}
+    </div>
+    <p class="cta left">
+      <a class="medal" href="{base}/recruit/">Apply to raid with us</a>
+      <a class="ghost" href="{base}/how-we-raid/">See what we expect</a>
+    </p>
+  </section>
+
   {#if pulse}<div class="band pulse"><GuildPulse {pulse} /></div>{/if}
 
   <section class="who band" aria-labelledby="who-h">
     <h2 id="who-h">Who we are</h2>
     <div class="story">
       {#each LANDING.who as para}<p>{para}</p>{/each}
-      <p class="when">Raid nights: {LANDING.schedule}.</p>
+      <p class="when">We raid as {LANDING.schedule}.</p>
       <p><a href="{base}/story/">Read our story, progression and highlights</a></p>
     </div>
   </section>
@@ -111,6 +179,21 @@
         <li><h3>{v.title}</h3><p>{v.body}</p></li>
       {/each}
     </ol>
+  </section>
+
+  <section class="social band" aria-labelledby="social-h">
+    <div class="social-grid">
+      <div class="social-text">
+        <h2 id="social-h">{SOCIAL.title}</h2>
+        <p class="big">{SOCIAL.intro}</p>
+        <ul class="points">
+          {#each SOCIAL.points as p (p.title)}
+            <li><h3>{p.title}</h3><p>{p.body}</p></li>
+          {/each}
+        </ul>
+      </div>
+      <img class="pond-art" src="{base}/logos/pond-medallion.svg" alt="Toads sharing a pond: a croaking toad, one chasing a firefly and one asleep on a lily pad" width="300" height="300" loading="lazy" />
+    </div>
   </section>
 
   <section class="band" aria-labelledby="model-h">
@@ -193,6 +276,7 @@
 
   /* Hero */
   .hero {
+    overflow-x: clip;
     min-height: min(46rem, 92svh);
     padding: 3rem 0 4rem;
     justify-items: center;
@@ -268,6 +352,43 @@
   .apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
   .apps li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem; display: grid; gap: 0.3rem; align-content: start; }
   .cta:last-child { justify-content: flex-start; }
+
+
+  /* Fastest clears */
+  .rec-groups { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+  .rec { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+  .rec li { display: grid; grid-template-columns: 1fr auto 5.5rem; gap: 1rem; align-items: baseline; padding: 0.7rem 0; border-top: 1px solid var(--line); }
+  .rec li:last-child { border-bottom: 1px solid var(--line); }
+  .raid { font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.03em; }
+  .pond .time { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--bronze-hi); text-decoration: none; }
+  .pond .time:hover { color: var(--teal); text-decoration: underline; }
+  .when { color: var(--muted); text-align: right; font-size: 0.95rem; }
+
+  /* Recruiting */
+  .roles { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); align-items: start; }
+  .role { display: grid; gap: 0.7rem; align-content: start; }
+  .role-head { display: flex; gap: 1rem; align-items: center; }
+  .role-head img { width: 110px; height: auto; flex: none; }
+  .role.full .role-head img { filter: grayscale(0.85) brightness(0.8); }
+  .state { font-weight: 700; letter-spacing: 0.05em; color: var(--muted); }
+  .state.open { color: var(--teal); }
+  .state.open::before { content: ''; display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--teal); margin-right: 0.5em; box-shadow: 0 0 0 3px rgb(63 214 200 / 0.25); }
+  .note { color: var(--muted); }
+  .classes { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0; }
+  .classes li { display: grid; grid-template-columns: 3rem 1fr; grid-template-areas: 'i n' 'i s'; column-gap: 0.7rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+  .classes img { grid-area: i; width: 3rem; height: auto; }
+  .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) 70%, white); border-bottom: 2px solid var(--c); justify-self: start; line-height: 1.2; }
+  .specs { grid-area: s; color: var(--muted); font-size: 0.95rem; }
+  .cta.left { justify-content: flex-start; }
+
+  /* Social */
+  .social-grid { display: grid; gap: 2rem; align-items: center; }
+  @media (min-width: 52rem) { .social-grid { grid-template-columns: minmax(0, 1fr) 18rem; } }
+  .social-text { display: grid; gap: 1rem; }
+  .big { font-size: 1.25rem; }
+  .points { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+  .points li { display: grid; gap: 0.15rem; }
+  .pond-art { width: 100%; max-width: 18rem; height: auto; justify-self: center; filter: drop-shadow(0 10px 22px rgb(5 3 30 / 0.55)); }
 
   @keyframes ripple {
     from { transform: scale(0.8); opacity: 0.8; }
