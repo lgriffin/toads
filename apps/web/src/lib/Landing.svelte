@@ -208,8 +208,8 @@
     mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
   }
   .backdrop :global(svg) { position: absolute; inset: 0; }
-  .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; opacity: 0.9; }
-  .veil { position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(18 15 51 / 0.55), rgb(18 15 51 / 0.1) 38%, rgb(18 15 51 / 0.82)); }
+  .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; opacity: 1; }
+  .veil { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 55% at 50% 52%, rgb(18 15 51 / 0.72), transparent 75%), linear-gradient(to bottom, rgb(18 15 51 / 0.5), rgb(18 15 51 / 0.05) 35%, rgb(18 15 51 / 0.85)); }
   .hero > :not(.backdrop) { position: relative; }
   .seal { position: relative; display: grid; place-items: center; filter: drop-shadow(0 10px 22px rgb(5 3 30 / 0.6)); }
   .ripple {
