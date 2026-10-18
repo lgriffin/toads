@@ -54,7 +54,7 @@
       <ToadsMark size={168} title="The Toads medallion" />
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
-    <p class="line">Horde · PvP ruleset · Europe (EU)</p>
+    <p class="line">Horde · PvP · Europe (EU)</p>
     <p class="tagline">{LANDING.tagline}</p>
     <div class="cta">
       {#if member}

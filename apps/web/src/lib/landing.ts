@@ -10,7 +10,7 @@ export interface Value {
 
 export const LANDING = {
   guild: 'Toads',
-  tagline: 'A friendly, steady guild on the European PvP ruleset of WoW Forever. Horde, one big pond.',
+  tagline: 'A friendly, steady guild on the European PvP side of WoW Forever. Horde, one big pond.',
   schedule: 'Wednesday and Sunday, 19:30 to 23:00 server time',
   who: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
@@ -41,7 +41,7 @@ export interface Home {
   id: 'forever' | 'tbc';
   title: string;
   status: string;
-  /** Faction and ruleset, as the guild plays it. */
+  /** Faction and mode, as the guild plays it. */
   line: string;
   body: string;
   logo: { src: string; alt: string };
@@ -57,8 +57,8 @@ export const HOMES: readonly Home[] = [
     id: 'forever',
     title: 'World of Warcraft: Forever',
     status: 'Launching 4 November 2026',
-    line: 'Horde · PvP ruleset · Europe (EU)',
-    body: 'Our new home. We are rolling together on the PvP ruleset in the European region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
+    line: 'Horde · PvP · Europe (EU)',
+    body: 'Our new home. We are rolling together on the PvP side in the European region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
     logo: { src: 'brand/wow-forever.png', alt: 'World of Warcraft: Forever' }
   },
   {
