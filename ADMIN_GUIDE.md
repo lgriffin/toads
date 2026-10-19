@@ -347,11 +347,10 @@ Rules worth knowing:
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 - **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one
   coming-soon page (guild bank management, logs analysis, raid assistance) on every member page, and the Members nav
-  shows only Hub. Officers open the Hub, Raids & Logs, Bank and Officers pages as they are being built, on real data
-  where there is some (the hub and the logs carry historic TBC raids), so they can follow the work; Highlights and Me
-  show a "coming with the Forever launch" notice, and their Me tab shows their toads the way the open Me page does.
-  Super admins see exactly what officers see, plus the Admin console. The hold is in the web app only
-  (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`
+  shows only Hub. Officers see every member page as it is being built (the hub fills in from the historic TBC raids
+  the worker synced), except Bank, which shows what is coming with the Forever launch and a mockup until the bank has
+  data. Super admins see exactly what officers see, plus the Admin console. The hold is in the web app
+  only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`
   there in a PR and let it deploy.
 
 ## 7. Member settings and members' own Warcraft Logs keys
