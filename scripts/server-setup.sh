@@ -30,7 +30,8 @@ main() {
 
 	step "Updating the system and installing base packages"
 	dnf -y upgrade
-	dnf -y install dnf-plugins-core git curl tar openssl firewalld policycoreutils-python-utils util-linux
+	# kernel-modules-extra holds xt_addrtype and the other netfilter modules Docker's bridge network needs.
+	dnf -y install dnf-plugins-core git curl tar openssl firewalld policycoreutils-python-utils util-linux kernel-modules-extra
 
 	install_docker
 	configure_firewall
@@ -67,6 +68,12 @@ install_docker() {
 JSON
 	else
 		echo "/etc/docker/daemon.json exists; left as it is."
+	fi
+	if ! modprobe xt_addrtype 2>/dev/null; then
+		# The upgrade above usually installs a newer kernel, and the extra modules come for that kernel only.
+		echo "Docker needs the xt_addrtype kernel module, which the running kernel ($(uname -r)) cannot load." >&2
+		echo "Reboot (sudo reboot) into the upgraded kernel, then run this script again; it keeps what it has done." >&2
+		exit 1
 	fi
 	systemctl enable --now docker
 	systemctl restart docker

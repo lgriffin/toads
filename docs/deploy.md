@@ -264,6 +264,7 @@ sudo systemctl enable --now dnf-automatic.timer
 | Signing in lands on "members only" | That Discord account is not in the Toads server, or `TOADS_DISCORD_GUILD_ID` is another server's id. |
 | Permission denied reading `/config` or the Caddyfile | SELinux: `sudo ausearch -m avc -ts recent`. The mounts carry `z` labels; check `/etc/docker/daemon.json` has `"selinux-enabled": true` and Docker was restarted. |
 | Deploy workflow fails at SSH | `DEPLOY_KNOWN_HOSTS` must match the server (re-run the setup script to print it); `DEPLOY_SSH_KEY` must include the BEGIN/END lines. |
+| Setup stops at Docker: `failed to add jump rules` or `Extension addrtype ... missing kernel module` | The kernel lacks `xt_addrtype`. `sudo dnf -y install kernel-modules-extra`, `sudo reboot`, then run the setup script again. |
 | Build killed / out of memory | `free -h`; the setup script adds swap below 4 GB of RAM. A 2 GB VPS is the practical minimum. |
 | `another deploy is running` | Wait; one deploy at a time. |
 
