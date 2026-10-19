@@ -66,6 +66,8 @@ APPLICATION = {
     "class_name": "Shaman",
     "spec": "Restoration",
     "role": "Healer",
+    "secondary_role": "Ranged",
+    "why_toads": "A friend raids with you and says the pond is a good place to be.",
     "raid_days": ["wed"],
     "experience": "Cleared SSC on another server; happy to trial.",
     "availability": "Wednesdays and most Sundays",
@@ -425,7 +427,11 @@ def test_applicant_withdraws_only_their_own(as_: Any) -> None:
         ("logs_url", "https://user@warcraftlogs.com/x"),
         ("logs_url", "javascript:alert(1)"),
         ("experience", "x" * 1001),
+        ("why_toads", ""),
+        ("why_toads", "x" * 1001),
         ("role", "Bard"),
+        ("secondary_role", "Bard"),
+        ("secondary_role", "Healer"),  # the same as the primary role
     ],
 )
 @pytest.mark.security
@@ -433,6 +439,43 @@ def test_bad_applications_are_rejected(as_: Any, field: str, value: Any) -> None
     r = as_("applicant").post("/api/applications", json={**APPLICATION, field: value})
     assert r.status_code == 422
     assert str(value) not in r.text or len(str(value)) < 4
+
+
+def test_the_recruit_page_sends_only_the_five_questions(as_: Any) -> None:
+    body = {k: APPLICATION[k] for k in ("character_name", "class_name", "role", "secondary_role", "why_toads")}
+    app = as_("applicant").post("/api/applications", json=body)
+    assert app.status_code == 201, app.text
+    assert (app.json()["secondary_role"], app.json()["spec"], app.json()["raid_days"]) == ("Ranged", "", [])
+    without_secondary = as_("Wednesday raider").post("/api/applications", json={**body, "secondary_role": None})
+    assert without_secondary.json()["secondary_role"] is None
+
+
+@pytest.mark.security
+def test_someone_who_left_the_discord_cannot_apply(store: CommunityService) -> None:
+    """Sign-in checked the server once; applying checks again, because the room is opened in that server."""
+    gone = community_client(store, PRINCIPALS["applicant"], left_discord=frozenset({10_005}))
+    r = gone.post("/api/applications", json=APPLICATION)
+    assert r.status_code == 403
+    assert "Join it" in r.json()["detail"]
+    assert store.my_applications(5) == []
+    assert store.pending_jobs() == []
+
+
+def test_named_interviewers_get_a_room_the_moment_someone_applies(as_: Any, store: CommunityService) -> None:
+    store.config = store.config.model_copy(update={"interviewers": ["_gallagher", "hadur117"]})
+    app = as_("applicant").post("/api/applications", json=APPLICATION).json()
+    assert app["status"] == "interviewing"
+    assert [e["to_status"] for e in app["events"]] == ["applied", "interviewing"]
+    [job] = as_(None).get("/api/bot/outbox", headers=BOT).json()
+    payload = job["job"]["payload"]
+    assert job["job"]["kind"] == "create_interview_room"
+    assert payload["interviewers"] == ["_gallagher", "hadur117"]
+    assert payload["officer_role_ids"] == []  # just the applicant and the named interviewers
+    assert (payload["discord_user_id"], payload["role"], payload["secondary_role"]) == (10_005, "Healer", "Ranged")
+    assert payload["why_toads"] == APPLICATION["why_toads"]
+    # The officer's button is for rooms that have not opened yet.
+    r = as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app['id']}/interview-room")
+    assert r.status_code == 409
 
 
 def test_accented_character_names_are_fine(as_: Any) -> None:

@@ -12,6 +12,7 @@ import {
   type ApiStory,
   type DeskSummary
 } from './community-api';
+import type { toApiBody } from './application';
 import type { MyBadges } from './badges';
 import type { HomeLayout } from './home';
 import type { AnalyzerPage } from './home-payload';
@@ -133,6 +134,38 @@ export function statusLabel(c: Pick<Claim, 'status' | 'reason'>): string {
   if (c.status === 'approved') return 'Approved';
   if (c.status === 'pending') return 'Waiting for an officer';
   return c.reason ? `Rejected: ${c.reason}` : 'Rejected';
+}
+
+// --- applying to raid -----------------------------------------------------------------------------
+
+/** What the recruit page needs back from POST /api/applications. */
+export interface SentApplication {
+  id: number;
+  character_name: string;
+  status: 'applied' | 'interviewing' | 'trial_offered' | 'accepted' | 'declined' | 'withdrawn';
+}
+
+export const sendApplication = (body: ReturnType<typeof toApiBody>, f: Fetch = fetch) =>
+  call<SentApplication>(f, '/api/applications', { method: 'POST', body: JSON.stringify(body) });
+
+/** Why an application did not go through, and whether joining the Discord is the fix. */
+export function applicationError(e: unknown): { message: string; joinDiscord: boolean } {
+  if (!(e instanceof ApiError)) return { message: 'Something went wrong; try again.', joinDiscord: false };
+  switch (e.status) {
+    case 401:
+      return { message: 'Your sign-in has expired. Sign in with Discord again to send it.', joinDiscord: false };
+    case 403:
+      return {
+        message: 'We can’t find you in the Toads Discord. Join it, then send your application again.',
+        joinDiscord: true
+      };
+    case 409:
+      return { message: e.message || 'You already have an application open.', joinDiscord: false };
+    case 503:
+      return { message: 'Discord is not answering right now. Try again in a minute.', joinDiscord: false };
+    default:
+      return { message: e.message || 'Something went wrong; try again.', joinDiscord: false };
+  }
 }
 
 // --- the member's own settings -------------------------------------------------------------------

@@ -291,6 +291,8 @@ class CommunityService:
             raise Invalid("Unknown raid day")
         if data.logs_url is not None and not recruitment.valid_logs_url(data.logs_url):
             raise Invalid("Logs link must be an https link to warcraftlogs.com")
+        if data.secondary_role is not None and data.secondary_role == data.role:
+            raise Invalid("Your secondary role must differ from your primary role")
         now = self.clock()
         name = self.name_of(member_id)
         app = Application(
@@ -301,6 +303,8 @@ class CommunityService:
             class_name=data.class_name,
             spec=data.spec,
             role=data.role,
+            secondary_role=data.secondary_role,
+            why_toads=data.why_toads,
             raid_days=sorted(set(data.raid_days)),
             experience=data.experience,
             availability=data.availability,
@@ -314,7 +318,18 @@ class CommunityService:
             created_at=now,
         )
         self.repo.save_application(app)
+        if self.config.interviewers:
+            # The named interviewers see every applicant, so the room opens now rather than waiting for an officer.
+            self._move(app, ApplicationStatus.INTERVIEWING, member_id, "Interview room opened on applying")
+            self._request_room(app)
         return app
+
+    def discord_id_of(self, member_id: int) -> int:
+        """The Discord account a hub member signed in with, so the route can check they are still in the server."""
+        card = self.repo.member(member_id)
+        if card is None:
+            raise Conflict("Sign in to the hub with Discord before applying")
+        return card.discord_user_id
 
     def my_applications(self, member_id: int) -> list[Application]:
         mine = [a for a in self.repo.applications() if a.member_id == member_id]
@@ -392,6 +407,14 @@ class CommunityService:
             self._move(app, ApplicationStatus.INTERVIEWING, actor_id, "Interview room opened")
         elif app.status is not ApplicationStatus.INTERVIEWING:
             raise Conflict("Interview rooms are for applications being interviewed")
+        self._request_room(app)
+        self._audit(actor_id, "application.interview_room", f"application:{app.id}", scope)
+        return app
+
+    def _request_room(self, app: Application) -> None:
+        """The bot's job for a private room: the applicant plus the named interviewers when there are any, else the
+        officers of the days applied for and the global tier. The answers ride along so the room opens with them."""
+        interviewers = list(self.config.interviewers)
         self._enqueue(
             OutboxKind.CREATE_INTERVIEW_ROOM,
             {
@@ -399,11 +422,14 @@ class CommunityService:
                 "discord_user_id": self._discord_id(app),
                 "character_name": app.character_name,
                 "category_id": self.config.interview_category_id,
-                "officer_role_ids": self.raid_days.officer_role_ids(app.raid_days),
+                "officer_role_ids": [] if interviewers else self.raid_days.officer_role_ids(app.raid_days),
+                "interviewers": interviewers,
+                "class_name": app.class_name,
+                "role": app.role.value,
+                "secondary_role": app.secondary_role.value if app.secondary_role else None,
+                "why_toads": app.why_toads,
             },
         )
-        self._audit(actor_id, "application.interview_room", f"application:{app.id}", scope)
-        return app
 
     # ------------------------------------------------------------------ outbox
 

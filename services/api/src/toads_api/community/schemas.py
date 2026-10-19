@@ -111,6 +111,8 @@ class Application(BaseModel):
     class_name: str
     spec: str
     role: Role
+    secondary_role: Role | None = None
+    why_toads: str = ""
     raid_days: list[str]
     experience: str
     availability: str
@@ -127,10 +129,14 @@ class ApplicationCreate(BaseModel):
     # WoW character names: 2-12 letters, accented letters allowed, no digits or spaces.
     character_name: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^\W\d_]{2,12}$")]
     class_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
-    spec: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+    # The primary role; secondary_role is the one they would also play, never the same one.
     role: Role
+    secondary_role: Role | None = None
+    why_toads: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+    # Optional extras the recruit page no longer asks for; older clients and officers' notes still use them.
+    spec: Annotated[str, StringConstraints(strip_whitespace=True, max_length=30)] = ""
     raid_days: list[DayId] = Field(default_factory=list, max_length=7)
-    experience: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+    experience: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] = ""
     availability: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] = ""
     logs_url: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] | None = None
 
@@ -291,7 +297,7 @@ class OutboxJob(BaseModel):
 
     id: int
     kind: OutboxKind
-    payload: dict[str, str | int | list[int] | None]
+    payload: dict[str, str | int | list[int] | list[str] | None]
     created_at: datetime
     done: bool = False
 
