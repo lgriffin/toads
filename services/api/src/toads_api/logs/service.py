@@ -136,8 +136,8 @@ class LogService:
         hashes: Mapping[str, str] | None = None,
     ) -> list[str]:
         """Store the worker's list and boss history. `hashes` are the worker's hashes of the analyses it built, by
-        raid; a raid it could not read keeps the analysis held for it. Returns the raids whose analysis the hub still
-        needs (none held, an older version, or another build), newest first."""
+        raid; a raid it could not read keeps the analysis held for it. Returns the raids, of those it sent a hash for,
+        whose analysis the hub still needs (none held, an older version, or another build), newest first."""
         if version != PAGE_VERSION:
             raise LogError(f"This hub reads raid pages version {PAGE_VERSION}, not {version}", 422)
         hashes = hashes or {}
@@ -156,7 +156,8 @@ class LogService:
         if not self._repo.replace_index(generated_at, bosses, lines):
             # Two workers overlapping: the older build never replaces the newer one.
             raise LogError("A newer list is already stored", 409)
-        missing = [line.report_id for line in self._repo.raids() if _wanted(line)]
+        # Only raids this build could read: one the worker has no page for would take a slot every run.
+        missing = [line.report_id for line in self._repo.raids() if line.report_id in hashes and _wanted(line)]
         return missing[:MAX_MISSING]
 
     def publish_page(self, report_id: str, page: dict[str, Any], page_hash: str) -> None:

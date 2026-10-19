@@ -119,14 +119,23 @@ def test_the_overview_keeps_totals_and_drops_players() -> None:
 def test_the_worker_is_asked_only_for_missing_analysis() -> None:
     svc = LogService(InMemoryLogRepository(), WEEKDAYS)
     many = [_summary(f"r{i:03d}", WEDNESDAY, f"2026-10-{1 + i % 28:02d} 19:30:00") for i in range(MAX_MISSING + 5)]
-    assert len(svc.publish_index(1, GENERATED, many, [])) == MAX_MISSING
+    hashes = {r["report_id"]: _hash(r["report_id"]) for r in many}
+    assert len(svc.publish_index(1, GENERATED, many, [], hashes)) == MAX_MISSING
     svc.publish_page("r000", _page("r000"), _hash("r000"))
-    assert "r000" not in svc.publish_index(1, GENERATED, many, [])
+    assert "r000" not in svc.publish_index(1, GENERATED, many, [], hashes)
     # A raid gone from the analyzer leaves the list with its analysis.
-    assert svc.publish_index(1, GENERATED, many[1:2], []) == ["r001"]
+    assert svc.publish_index(1, GENERATED, many[1:2], [], hashes) == ["r001"]
     with pytest.raises(LogError) as gone:
         svc.raid("r000", Viewer(everything=True))
     assert gone.value.status == 404
+
+
+def test_raids_the_worker_could_not_read_are_never_asked_for() -> None:
+    svc = LogService(InMemoryLogRepository(), WEEKDAYS)
+    unreadable = [_summary(f"u{i:03d}", WEDNESDAY, "2026-10-28 19:30:00") for i in range(MAX_MISSING)]
+    readable = _summary("older", WEDNESDAY, "2026-10-01 19:30:00")
+    # Newer raids with no page to send leave the slots to the one the worker can send.
+    assert svc.publish_index(1, GENERATED, [*unreadable, readable], [], {"older": _hash("older")}) == ["older"]
 
 
 def test_a_rebuilt_analysis_is_asked_for_and_an_older_build_refused() -> None:
