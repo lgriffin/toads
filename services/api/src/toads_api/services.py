@@ -29,6 +29,8 @@ from toads_api.characters import CharacterDirectory, SqlCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
+from toads_api.comps.service import CompService
+from toads_api.comps.sql import SqlCompRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord, MismatchedDiscordApplicationError
 from toads_api.home.badges import BadgeService
 from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
@@ -68,6 +70,7 @@ class Services:
     awards: AwardService = field(init=False)
     absences: AbsenceService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
+    comps: CompService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -107,6 +110,7 @@ class Services:
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
         self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
         self.role_badges = RoleBadgeService(SqlRoleBadgeRepository(self.db))
+        self.comps = CompService(SqlCompRepository(self.db), self.account.shown_names)
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)

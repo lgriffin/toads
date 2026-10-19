@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { getSession, listMembers, type Session } from '$lib/api';
   import { giveAward, guildAwards, takeBackAward, type AwardsBackend } from '$lib/awards';
@@ -24,8 +25,20 @@
 
 <svelte:head><title>Officers · Toads</title></svelte:head>
 
+{#snippet compLink()}
+  <section class="card comp-link" aria-labelledby="comp-link-h">
+    <h2 id="comp-link-h">Raid comp builder</h2>
+    <p class="muted">
+      Drag specs into groups to see a comp's buffs, or switch to your night's roster and seat members by the primary and
+      secondary specs they set on Me.
+    </p>
+    <a class="btn primary" href="{base}/officers/comp">Open the comp builder</a>
+  </section>
+{/snippet}
+
 {#if __PREVIEW__}
   <Officers />
+  {@render compLink()}
   {#if globalTier}
     <AwardsDesk backend={previewAwards} />
   {:else}
@@ -34,6 +47,12 @@
 {:else}
   <h1>Officer console</h1>
   <p>Applications, the Discord curation queue, post composer, highlight review and spotlights arrive with the API.</p>
+  {@render compLink()}
   <ReferenceCard />
   {#if globalTier}<AwardsDesk backend={hub} />{/if}
 {/if}
+
+<style>
+  .comp-link { display: grid; gap: 0.6rem; justify-items: start; margin-block: 1rem; }
+  .comp-link h2, .comp-link p { margin: 0; }
+</style>

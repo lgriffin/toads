@@ -41,6 +41,8 @@ class Permission(enum.StrEnum):
     MANAGE_GRANTS = "manage_grants"
     # Give and take back members' awards (docs/awards.md). Awards are guild-wide, so only the global tier holds it.
     MANAGE_AWARDS = "manage_awards"
+    # Build and lock in a raid day's comps from its roster's specs (docs/comps.md).
+    BUILD_COMPS = "build_comps"
     # Super admins only (docs/role-badges.md): say which Discord roles earn which badge toads.
     MANAGE_ROLE_BADGES = "manage_role_badges"
     # Absences (docs/absences.md): a raid day's trials and raiders say which nights they will miss; its officers see
