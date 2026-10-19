@@ -57,7 +57,7 @@
     aspect-ratio: 16 / 9;
     border-radius: 8px;
     overflow: hidden;
-    background: radial-gradient(circle at 30% 30%, #2d4a35, #101712 70%);
+    background: radial-gradient(circle at 30% 30%, #2f2d78, #120f33 70%);
   }
   iframe, .poster { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
   .poster {
@@ -87,7 +87,7 @@
     top: 0.95rem;
     border-style: solid;
     border-width: 0.65rem 0 0.65rem 1.05rem;
-    border-color: transparent transparent transparent #0f1411;
+    border-color: transparent transparent transparent var(--ink, #120f33);
   }
   .poster:hover .play { filter: brightness(1.15); }
   .hint { font-size: 0.85rem; color: var(--text); }

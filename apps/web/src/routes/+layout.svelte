@@ -1,4 +1,6 @@
 <script lang="ts">
+  import '@fontsource/cinzel/600.css';
+  import '@fontsource/cinzel/700.css';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { page } from '$app/stores';
@@ -135,13 +137,20 @@
 </main>
 
 <style>
+  /* The pond at dusk, as on the homepage: twilight ink and violet, a teal accent, bronze and cream. */
   :global(:root) {
-    --bg: #0f1411;
-    --surface: #18201b;
-    --text: #e6efe8;
-    --muted: #93a79a;
-    --accent: #5fbf6a;
-    --line: #2a352e;
+    --ink: #120f33;
+    --dusk: #1b1a4d;
+    --teal: #3fd6c8;
+    --bronze: #d9a85a;
+    --bronze-hi: #f4dc9c;
+    --cream: #f7ecd2;
+    --bg: var(--ink);
+    --surface: #1d1c52;
+    --text: var(--cream);
+    --muted: #c4c0ea;
+    --accent: var(--teal);
+    --line: #3d3d86;
     --warn: #e0b04f;
     --bad: #e06a5f;
     color-scheme: dark;
@@ -194,7 +203,7 @@
   }
   :global(main a.btn) { color: var(--text); }
   :global(.btn:hover) { border-color: var(--muted); }
-  :global(.btn.primary), :global(main a.btn.primary) { background: var(--accent); border-color: var(--accent); color: #0f1411; font-weight: 600; }
+  :global(.btn.primary), :global(main a.btn.primary) { background: var(--accent); border-color: var(--accent); color: #0d0b28; font-weight: 600; }
   :global(.btn.danger) { border-color: var(--bad); color: #f0a39c; }
   :global(.btn:disabled) { opacity: 0.55; cursor: not-allowed; }
   :global(.field) { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
@@ -220,11 +229,12 @@
     gap: 0.75rem 1.25rem;
     align-items: center;
     padding: 0.75rem 1rem;
-    background: var(--surface);
+    background: #0d0b28;
+    border-bottom: 1px solid color-mix(in srgb, var(--bronze) 45%, transparent);
   }
   nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
   .members { padding-left: 1rem; border-left: 1px solid var(--line); }
-  .brand { color: var(--text); font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; }
+  .brand { color: var(--cream); font-family: 'Cinzel', Georgia, serif; font-weight: 700; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 0.5rem; }
   .skip { position: absolute; left: -999px; top: 0; background: var(--accent); color: #0f1411; padding: 0.5rem; z-index: 10; }
   .skip:focus { left: 0.5rem; }
   @media (max-width: 40rem) {

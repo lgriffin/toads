@@ -1,0 +1,79 @@
+/* The pond's page language, shared by the public pages (How we raid, Story, Recruit) so they read as the homepage
+   does: full-width bands that alternate ink and dusk, Cinzel headings in bronze, Alegreya Sans for reading, and the
+   bronze medal and ghost buttons. The colour tokens themselves live on :root (routes/+layout.svelte). */
+
+.pond-page {
+  font-family: 'Alegreya Sans', system-ui, sans-serif;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--text);
+  display: grid;
+}
+.pond-page a { color: var(--teal); }
+.pond-page a:hover { color: var(--bronze-hi); }
+.pond-page a:focus-visible,
+.pond-page button:focus-visible,
+.pond-page input:focus-visible,
+.pond-page select:focus-visible,
+.pond-page textarea:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 3px; }
+.pond-page ::selection { background: var(--bronze); color: var(--ink); }
+
+/* Each band paints edge to edge behind the centred column, without a horizontal scrollbar. */
+.pond-page .band {
+  position: relative;
+  background: var(--ink);
+  box-shadow: 0 0 0 100vmax var(--ink);
+  clip-path: inset(0 -100vmax);
+  padding: 3rem 0;
+  display: grid;
+  gap: 1.25rem;
+}
+.pond-page .band.dusk { background: var(--dusk); box-shadow: 0 0 0 100vmax var(--dusk); }
+
+.pond-page h1,
+.pond-page h2,
+.pond-page h3 { font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.03em; margin: 0; text-wrap: balance; }
+.pond-page .band > h2,
+.pond-page .band-head h2,
+.pond-page .head h2 { font-size: clamp(1.5rem, 4vw, 2.1rem); color: var(--bronze-hi); }
+.pond-page .card h2 { font-size: 1.3rem; color: var(--bronze-hi); }
+.pond-page h3 { font-size: 1.1rem; color: var(--cream); }
+.pond-page .head { display: grid; gap: 0.35rem; }
+.pond-page .head p { margin: 0; max-width: 62ch; color: var(--muted); }
+
+/* Cards on the pond: a dusk panel with a hairline, never a coloured side stripe. */
+.pond-page .card { background: rgb(32 30 92 / 0.72); border-color: var(--line); border-radius: 10px; }
+
+.pond-page .medal,
+.pond-page .ghost {
+  display: inline-block;
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s;
+}
+.pond-page a.medal,
+.pond-page button.medal {
+  background: linear-gradient(#f4dc9c, #c58f45);
+  color: #2a1706;
+  border: 1px solid #7a4f23;
+  box-shadow: 0 3px 10px rgb(5 3 30 / 0.5), inset 0 1px 0 #fff3c4;
+  cursor: pointer;
+}
+.pond-page a.medal:hover,
+.pond-page button.medal:hover:not(:disabled) { color: #2a1706; transform: translateY(-2px); }
+.pond-page button.medal:disabled { opacity: 0.55; cursor: not-allowed; }
+.pond-page a.ghost,
+.pond-page button.ghost { color: var(--cream); border: 1px solid var(--bronze); background: rgb(18 15 51 / 0.45); cursor: pointer; }
+.pond-page a.ghost:hover,
+.pond-page button.ghost:hover { background: rgb(63 214 200 / 0.18); color: var(--cream); }
+.pond-page .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pond-page .medal,
+  .pond-page .ghost { transition: none; }
+}

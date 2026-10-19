@@ -28,7 +28,7 @@ export const posts: Post[] = [
   {
     id: 'p-welcome',
     title: 'New to the pond? Start here',
-    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 19:30 server time. Invites go out at 19:15.\nSign up on the Hub before 18:00 on raid day so the raid leader can balance groups.',
+    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
     authorName: 'Ribbitz',
     origin: 'hub',
     visibility: 'public',
