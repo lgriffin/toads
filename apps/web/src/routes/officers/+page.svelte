@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { getSession, listMembers, type Session } from '$lib/api';
   import { giveAward, guildAwards, takeBackAward, type AwardsBackend } from '$lib/awards';
   import AwardsDesk from '$lib/components/AwardsDesk.svelte';
+  import ReferenceCard from '$lib/components/ReferenceCard.svelte';
   import Officers from '$lib/preview/Officers.svelte';
   import { previewAwards } from '$lib/preview/awards-fake';
   import { previewSession } from '$lib/preview/session.svelte';
@@ -34,6 +34,6 @@
 {:else}
   <h1>Officer console</h1>
   <p>Applications, the Discord curation queue, post composer, highlight review and spotlights arrive with the API.</p>
-  <p><a href="{base}/officers/reference">Reference comparison</a>: compare one of our raids with another guild's.</p>
+  <ReferenceCard />
   {#if globalTier}<AwardsDesk backend={hub} />{/if}
 {/if}
