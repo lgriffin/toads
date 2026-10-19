@@ -3,7 +3,20 @@
  * Pure functions so they can be tested without a server.
  */
 import type { ClipProvider } from './clips';
-import type { Highlight, NeedPriority, Post, PostOrigin, PostStatus, RecruitmentNeed, Visibility, ZoneProgress } from './community';
+import type {
+  Highlight,
+  NeedPriority,
+  Post,
+  PostOrigin,
+  PostStatus,
+  PublicStory,
+  RecruitmentNeed,
+  Spotlight,
+  SpotlightConsent,
+  SpotlightStatus,
+  Visibility,
+  ZoneProgress
+} from './community';
 import type { RaidDay, Role } from './mock/data';
 
 export interface ApiPost {
@@ -44,11 +57,36 @@ export interface ApiNeed {
   raid_days: string[];
 }
 
-/** GET /api/public/story, the parts the hub home uses. */
-export interface ApiStory {
+export interface ApiSpotlight {
+  id: number;
+  member_id: number;
+  member_name: string;
+  character_name: string;
+  class_name: string;
+  headline: string;
+  body: string;
+  written_by: string;
+  consent: SpotlightConsent;
+  status: SpotlightStatus;
+  created_at: string;
+}
+
+/** GET /api/public/story: the guild's words from config/community.yaml plus what officers published as public. */
+export interface ApiPublicStory {
+  guild: string;
+  realm: string;
+  tagline: string;
+  story: string[];
+  discord_invite: string | null;
   progression: ZoneProgress[];
   needs: ApiNeed[];
+  posts: ApiPost[];
+  highlights: ApiHighlight[];
+  spotlights: ApiSpotlight[];
 }
+
+/** The parts of the public story the hub home uses. */
+export type ApiStory = Pick<ApiPublicStory, 'progression' | 'needs'>;
 
 /** GET /api/desk */
 export interface DeskSummary {
@@ -98,6 +136,36 @@ export function highlightFromApi(h: ApiHighlight): Highlight {
 
 export function needFromApi(n: ApiNeed): RecruitmentNeed {
   return { className: n.class_name, spec: n.spec, role: n.role, priority: n.priority, raidDays: n.raid_days.map(day) };
+}
+
+export function spotlightFromApi(s: ApiSpotlight): Spotlight {
+  return {
+    id: String(s.id),
+    memberName: s.member_name,
+    characterName: s.character_name,
+    className: s.class_name,
+    headline: s.headline,
+    body: s.body,
+    writtenBy: s.written_by,
+    consent: s.consent,
+    status: s.status,
+    createdAt: s.created_at
+  };
+}
+
+export function storyFromApi(s: ApiPublicStory): PublicStory {
+  return {
+    guild: s.guild,
+    realm: s.realm,
+    tagline: s.tagline,
+    story: s.story,
+    discordInvite: s.discord_invite,
+    progression: s.progression,
+    needs: s.needs.map(needFromApi),
+    posts: s.posts.map(postFromApi),
+    highlights: s.highlights.map(highlightFromApi),
+    spotlights: s.spotlights.map(spotlightFromApi)
+  };
 }
 
 export interface DeskLine {

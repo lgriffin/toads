@@ -112,7 +112,8 @@ export interface PublicStory {
   realm: string;
   tagline: string;
   story: string[];
-  discordInvite: string;
+  /** Missing when community.yaml sets no invite. */
+  discordInvite: string | null;
   progression: ZoneProgress[];
   needs: RecruitmentNeed[];
   posts: Post[];
