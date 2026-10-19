@@ -13,12 +13,17 @@
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
+  import { LAUNCH_HOLD, heldNav, isMemberPath, launchHold } from '$lib/launch';
+  import ComingSoon from '$lib/components/ComingSoon.svelte';
+  import ForeverNotice from '$lib/components/ForeverNotice.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
   import ToadsMark from '$lib/components/ToadsMark.svelte';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
   let session = $state<Session | null | undefined>(undefined);
+  // The session request failed (not a 401): we cannot tell who this is, so held member pages stay closed.
+  let sessionFailed = $state(false);
   // Titles (banker, developer, Discord admin) are awards; they show as toads beside the rank toad.
   let titles = $state<Title[]>([]);
   onMount(async () => {
@@ -27,7 +32,10 @@
       titles = titlesOf(previewAwardsOf(1));
       return;
     }
-    session = await getSession().catch(() => null);
+    session = await getSession().catch(() => {
+      sessionFailed = true;
+      return null;
+    });
     if (session) titles = titlesOf(await myAwards().catch(() => []));
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
@@ -43,11 +51,15 @@
     { role: 'officer', label: 'Switch to officer view' },
     { role: 'admin', label: 'Switch to super admin view' }
   ];
-  let members = $derived(memberNav(officer, tier === 'admin'));
+  let members = $derived(heldNav(memberNav(officer, tier === 'admin'), tier));
   // Everything past the public pages opens on login, so the member links show only to a signed-in member.
   let signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : !!session);
   // The preview has no API to refuse a page, so it gates member pages and the officer console itself.
   let gate = $derived(__PREVIEW__ ? previewGate(path, previewSession.role) : 'open');
+  // Until the Forever launch, raiders get one coming-soon page and officers a notice on each tab (src/lib/launch.ts).
+  // The real site waits for the session on member pages so a held page never starts its own API calls.
+  let hold = $derived(launchHold(path, tier));
+  let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
   function switchView(next: PreviewRole) {
     previewSignIn(next);
@@ -107,7 +119,12 @@
 </header>
 
 <main id="main" tabindex="-1">
-  {#if __PREVIEW__ && gate !== 'open' && !previewSession.ready}
+  {#if holdPending && sessionFailed}
+    <section class="card gate" aria-labelledby="gate-h">
+      <h1 id="gate-h">The hub did not answer</h1>
+      <p>We could not check your sign-in just now. Reload the page to try again.</p>
+    </section>
+  {:else if (__PREVIEW__ && gate !== 'open' && !previewSession.ready) || holdPending}
     <p class="muted" role="status">Loading…</p>
   {:else if gate === 'sign-in'}
     <section class="card gate" aria-labelledby="gate-h">
@@ -131,6 +148,10 @@
         <button class="btn primary" type="button" onclick={() => previewSignIn('officer')}>Switch to officer view</button>
       </p>
     </section>
+  {:else if hold === 'coming-soon'}
+    <ComingSoon />
+  {:else if hold === 'forever-notice'}
+    <ForeverNotice {path} />
   {:else}
     {@render children()}
   {/if}

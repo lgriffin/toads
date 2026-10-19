@@ -146,3 +146,51 @@ def admin_console() -> None:
         assert name in page
     assert "if (under(p, '/admin') && role !== 'admin') return 'admins-only';" in _read("lib/preview/gate.ts")
     assert "{ href: '/admin', label: 'Admin', adminOnly: true }" in _read("lib/nav.ts")
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the "
+    "guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of "
+    "each page, and leave super admins every page",
+)
+def test_launch_hold() -> None:
+    pass
+
+
+@given("the launch hold", target_fixture="launch")
+def launch() -> str:
+    return _read("lib/launch.ts")
+
+
+@then("a raider's members nav is the hub link alone and every member page shows the coming-soon page")
+def raider_coming_soon(launch: str) -> None:
+    assert "export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;" in launch
+    for title in ("Guild bank management", "Logs analysis", "Raid assistance"):
+        assert f"title: '{title}'" in launch
+    layout = _read("routes/+layout.svelte")
+    assert "heldNav(memberNav(officer, tier === 'admin'), tier)" in layout
+    assert "{:else if hold === 'coming-soon'}\n    <ComingSoon />" in layout
+    assert "gives raiders the coming-soon page on every member page" in _read("lib/launch.test.ts")
+
+
+@then("an officer keeps every tab and each one shows the Forever launch notice")
+def officer_notice() -> None:
+    assert "{:else if hold === 'forever-notice'}\n    <ForeverNotice {path} />" in _read("routes/+layout.svelte")
+    assert "Coming with the Forever launch" in _read("lib/components/ForeverNotice.svelte")
+    assert "gives officers the Forever launch notice on every tab" in _read("lib/launch.test.ts")
+
+
+@then("super admins, visitors and the public pages are never held")
+def never_held(launch: str) -> None:
+    assert "if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';" in launch
+    assert "leaves super admins, visitors and the public pages alone" in _read("lib/launch.test.ts")
+
+
+@then("the real site waits for the session before a held page renders, so it never starts the page's own API calls")
+def waits_for_session() -> None:
+    layout = _read("routes/+layout.svelte")
+    assert "LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed)" in layout
+    assert "__LAUNCH_HOLD__: JSON.stringify(process.env.PREVIEW !== '1' || process.env.LAUNCH_HOLD === '1')" in (
+        WEB.parent / "vite.config.ts"
+    ).read_text(encoding="utf-8")

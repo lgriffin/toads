@@ -338,6 +338,12 @@ Rules worth knowing:
 - **The Admin page** (`/admin`, shown in the nav to super admins only) gathers bank grants and officer tokens, the
   scheduler's jobs and where each integration is set up. It reads `/api/session` and changes nothing the Bank page
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
+- **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one
+  coming-soon page (guild bank management, logs analysis, raid assistance) on every member page, and the Members nav
+  shows only Hub. Officers see all their tabs, each with a "coming with the Forever launch" notice in place of the page.
+  Super admins see everything, so add yourself to `TOADS_SUPER_ADMIN_IDS` to test pages before launch. The hold is in
+  the web app only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD`
+  to `false` there in a PR and let it deploy.
 
 ## 7. Member settings and members' own Warcraft Logs keys
 
