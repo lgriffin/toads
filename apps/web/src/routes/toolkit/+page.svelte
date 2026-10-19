@@ -10,6 +10,8 @@
 <svelte:head>
   <title>Hub features · Toads</title>
   <link rel="canonical" href="{base}/features/" />
+  <!-- Redirects without JavaScript too (crawlers, the static preview); goto() above handles the client side. -->
+  <meta http-equiv="refresh" content="0; url={base}/features/" />
 </svelte:head>
 
 <p>This page moved to <a href="{base}/features/">Hub features</a>.</p>
