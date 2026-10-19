@@ -73,7 +73,7 @@ sudo -iu toads /opt/toads/scripts/deploy.sh
 ```
 
 The scheduler starts `sync-guild` straight away, then every hour. Each run analyses up to `TOADS_SYNC_BATCH` of the
-guild's newest reports that are not stored yet, oldest of them first, and the publish jobs that follow it put them on
+guild's newest reports that are not stored yet, and the publish jobs that follow it put them on
 the hub. The sync stays off while the client id is empty or the guild id is `0`.
 
 ## 5. The first import
@@ -134,7 +134,7 @@ show a job that broke, with the reason.
 | No `sync-guild` in the scheduler's `schedule.started` line | `TOADS_WCL_CLIENT_ID` is empty, `TOADS_WCL_GUILD_ID` is `0`, or `TOADS_SYNC_REFRESH_MINUTES` is `0` in the worker's env. Fix it and rerun `deploy.sh`. |
 | `toads-worker sync` says to set `TOADS_WCL_GUILD_ID` | The guild id is still `0`; step 2. |
 | `401` or `invalid_client` from Warcraft Logs | The client id or secret is wrong, or the client was deleted. |
-| A report listed under `failed` every run | Warcraft Logs has no fights in it (an empty or trash-only log). It is retried each run and does no harm; it only takes one place in the batch. |
+| A report listed under `failed` every run | Warcraft Logs has no fights in it (an empty or trash-only log). It is retried each run and does not hold back older reports: the next one takes its place in the batch. |
 | The sync imports nothing, `remaining` is 0, but raids are missing | They are not on the guild's Warcraft Logs page (logged as personal reports). Import each with `toads-worker analyse <URL>`. |
 | `/hub` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
 | `429` errors in the worker's log | Warcraft Logs rate limit. Lower `TOADS_SYNC_BATCH` or raise `TOADS_WCL_THROTTLE_MS`. |

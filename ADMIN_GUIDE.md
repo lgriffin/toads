@@ -248,7 +248,7 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_HUB_REFRESH_MINUTES` | no | `30` | Scheduler: publish-home, publish-performance, publish-badges and publish-reference. `0` turns them off. |
 | `TOADS_SHEETS_REFRESH_MINUTES` | no | `360` | Scheduler: import-sheets, only when the sheets file exists. `0` turns it off. |
 | `TOADS_SYNC_REFRESH_MINUTES` | no | `60` | Scheduler: sync-guild, which analyses the guild's new Warcraft Logs reports. Off until `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_GUILD_ID` are set; `0` turns it off. [docs/logs-analysis.md](docs/logs-analysis.md) |
-| `TOADS_SYNC_BATCH` | no | `10` | The most reports one sync run analyses, newest first. |
+| `TOADS_SYNC_BATCH` | no | `10` | The most reports one sync run imports, newest first; failed ones do not count. |
 
 ### Toad Bot (`services/bot/.env`, `toads-bot`)
 

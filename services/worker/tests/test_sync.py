@@ -1,4 +1,4 @@
-"""The guild-report sync (REQ-DEV-OPS-004): new guild reports analysed in batches, oldest first."""
+"""The guild-report sync (REQ-DEV-OPS-004): new guild reports analysed in batches, newest first."""
 
 from __future__ import annotations
 
@@ -57,12 +57,26 @@ def test_new_report_codes_keep_the_order_given() -> None:
     assert sync.new_report_codes(["c", "b", "c", "a"], ["b"]) == ["c", "a"]
 
 
-def test_sync_imports_everything_new_oldest_first_when_it_fits_one_batch() -> None:
+def test_sync_imports_everything_new_newest_first_when_it_fits_one_batch() -> None:
     raids = FakeRaids(["A", "B", "C"], stored=set())
     result = sync.sync_guild_reports(_settings(wcl_guild_id=42), raids=raids)
-    assert raids.analysed == ["C", "B", "A"]
+    assert raids.analysed == ["A", "B", "C"]
     assert raids.guilds == [42]
-    assert result == {"imported": ["C", "B", "A"], "failed": {}, "remaining": 0}
+    assert result == {"imported": ["A", "B", "C"], "failed": {}, "remaining": 0}
+
+
+def test_reports_that_never_analyse_do_not_hold_back_older_ones() -> None:
+    raids = FakeRaids(["A", "B", "C", "D"], stored=set(), broken={"A"})
+    for _ in range(3):
+        sync.sync_guild_reports(_settings(sync_batch=1), raids=raids)
+    assert raids.stored == {"B", "C", "D"}
+
+
+def test_a_run_stops_after_twice_the_batch_in_attempts() -> None:
+    raids = FakeRaids(["A", "B", "C", "D", "E"], stored=set(), broken={"A", "B", "C", "D", "E"})
+    result = sync.sync_guild_reports(_settings(sync_batch=2), raids=raids)
+    assert raids.analysed == ["A", "B", "C", "D"]
+    assert result["imported"] == [] and result["remaining"] == 5
 
 
 def test_sync_with_nothing_new_analyses_nothing() -> None:
@@ -111,12 +125,13 @@ def run_sync(ctx: dict[str, Any], batch: int) -> None:
     ctx["result"] = sync.sync_guild_reports(_settings(sync_batch=batch), raids=ctx["raids"])
 
 
-@then(parsers.parse('"{ok}" is stored, "{bad}" is listed as failed and {left:d} report is left for the next run'))
+@then(parsers.parse('"{ok}" are stored, "{bad}" is listed as failed and {left:d} report is left for the next run'))
 def sync_result(ctx: dict[str, Any], ok: str, bad: str, left: int) -> None:
     result, raids = ctx["result"], ctx["raids"]
-    assert raids.analysed == [ok, bad]  # the newest batch, oldest first
-    assert ok in raids.stored and bad not in raids.stored
-    assert result["imported"] == [ok]
+    stored = [c.strip() for c in ok.split(",")]
+    assert raids.analysed == [bad, *stored]  # newest first; the next older report took the failed one's place
+    assert set(stored) <= raids.stored and bad not in raids.stored
+    assert result["imported"] == stored
     assert list(result["failed"]) == [bad]
     assert result["remaining"] == left
 

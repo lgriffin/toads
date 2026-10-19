@@ -3,7 +3,7 @@ have yet, through the analyzer's RaidService, on the guild key.
 
 `toads-worker schedule` runs it every TOADS_SYNC_REFRESH_MINUTES, before the publish jobs, so new raids reach the hub
 home, /me and the reference lists on the same turn. Run it by hand with `toads-worker sync`, or analyse one report with
-`toads-worker analyse <code or URL>`. Each run imports at most TOADS_SYNC_BATCH reports, oldest first, so a first run
+`toads-worker analyse <code or URL>`. Each run imports at most TOADS_SYNC_BATCH reports, newest first, so a first run
 on a guild with a long history fills in over several turns instead of holding the Warcraft Logs quota for hours.
 """
 
@@ -53,21 +53,24 @@ def raid_service(settings: Settings) -> RaidService:
 def sync_guild_reports(
     settings: Settings, *, raids: Raids | None = None, progress: Progress | None = None
 ) -> dict[str, Any]:
-    """Import up to TOADS_SYNC_BATCH of the guild's newest reports not stored yet, oldest of them first.
+    """Import up to TOADS_SYNC_BATCH of the guild's reports not stored yet, newest first.
 
-    A report that fails to analyse is logged and listed under `failed`; the others still import, and it is tried again
-    on the next run. `remaining` counts the new reports left for later runs.
+    A report that fails to analyse is logged and listed under `failed`, and the next older report takes its place, so a
+    log that never analyses cannot hold back the rest of the history. A run stops after twice the batch in attempts,
+    to bound the Warcraft Logs calls one run spends on failures; failed reports are tried again next run. `remaining`
+    counts the new reports still not stored, failed ones included.
     """
     if settings.wcl_guild_id <= 0:
         raise ValueError("Set TOADS_WCL_GUILD_ID to the guild's Warcraft Logs id before syncing")
     raids = raids or raid_service(settings)
-    # Warcraft Logs lists a guild's reports newest first; take the newest batch and import it oldest first.
+    # Warcraft Logs lists a guild's reports newest first, so the newest raids reach the hub first.
     remote = [r["code"] for r in raids.guild_reports(settings.wcl_guild_id)]
     new = new_report_codes(remote, raids.imported_codes())
-    batch = list(reversed(new[: settings.sync_batch]))
     imported: list[str] = []
     failed: dict[str, str] = {}
-    for code in batch:
+    for code in new[: settings.sync_batch * 2]:
+        if len(imported) == settings.sync_batch:
+            break
         try:
             raids.analyze_and_save(code, progress=progress)
         except Exception as exc:  # one broken report must not stop the rest; it is retried next run
@@ -75,6 +78,6 @@ def sync_guild_reports(
             failed[code] = str(exc) or type(exc).__name__
         else:
             imported.append(code)
-    remaining = len(new) - len(batch)
+    remaining = len(new) - len(imported)
     log.info("sync.done", imported=len(imported), failed=len(failed), remaining=remaining)
     return {"imported": imported, "failed": failed, "remaining": remaining}
