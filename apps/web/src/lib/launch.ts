@@ -19,14 +19,22 @@ const MEMBER = [...MEMBER_NAV.filter((i) => !i.adminOnly).map((i) => i.href), ..
 
 /** True for the held member pages (the Members nav except Admin, and the welcome checklist); `path` is relative to the base path. */
 export function isMemberPath(path: string): boolean {
-  const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';
-  return MEMBER.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+  return under(path, MEMBER);
 }
+
+function under(path: string, prefixes: readonly string[]): boolean {
+  const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';
+  return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+}
+
+// Officers run the guild from their console now (awards, the reference comparison), so it is never held for them.
+const OPEN_TO_OFFICERS = ['/officers'];
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
   if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';
-  return tier === 'officer' ? 'forever-notice' : 'coming-soon';
+  if (tier === 'officer') return under(path, OPEN_TO_OFFICERS) ? 'open' : 'forever-notice';
+  return 'coming-soon';
 }
 
 /** A raider's Members nav during the hold: the hub link alone, which opens the coming-soon page. */
@@ -85,31 +93,20 @@ export interface TabPreview {
   intent: string;
   sections: readonly PreviewSection[];
   /** A toad under static/logos/, without `.svg`, standing beside the intent. */
-  toad: string;
+  toad?: string;
+  /**
+   * The Me tab shows the officer's own toads instead, as the open /me page does: in the heading and as a "Your toads"
+   * row, in place of the greeting and the standing toad, so the page wears each toad once.
+   */
+  ownToads?: boolean;
   /** The bank tab also shows a mockup of the bank at work. */
   mockup?: 'bank';
   /** Badges to show off under the list, as files under static/logos/ without `.svg`. */
   showcase?: readonly { toad: string; label: string }[];
 }
 
-/** The tabs Leigh asked to preview in full. Only what the hub is being built to do; no dates beyond launch. */
+/** The held tabs Leigh asked to preview in full. Only what the hub is being built to do; no dates beyond launch. */
 export const TAB_PREVIEW: Record<string, TabPreview> = {
-  '/officers': {
-    intent:
-      'One desk for running raid night, so officers spend the evening leading the raid instead of chasing spreadsheets and Discord threads.',
-    toad: 'ranks/officer-badge',
-    sections: [
-      {
-        title: 'Coming to the officers’ desk',
-        items: [
-          'Raid strategies: a link to each fight’s plan and role sheet in the officers’ Google Drive, beside the raid it is for.',
-          'Attendance pulled from the logs automatically: who was in each raid, from Warcraft Logs, with no roll call to keep.',
-          'Badge capabilities: award and review Toads badges, see who is close to the next tier, and spot milestones worth a shout.',
-          'Warcraft Logs analysis output: each raid broken down by role, with medians, consumables, interrupts and week-on-week trends.'
-        ]
-      }
-    ]
-  },
   '/bank': {
     intent:
       'The bank exists to get raiders what they need for raid night, fairly and on the record: flasks, potions and mats go where the raid needs them, and anyone can see who got what and when.',
@@ -154,7 +151,7 @@ export const TAB_PREVIEW: Record<string, TabPreview> = {
   '/me': {
     intent:
       'Your own page: how you are doing against the median for your role, week on week, so you can improve against yourself rather than chase parses.',
-    toad: 'ranks/member-badge',
+    ownToads: true,
     showcase: [
       { toad: 'badges/always-flasked-badge', label: 'Always Flasked' },
       { toad: 'milestones/raids-50-badge', label: '50 Raids' },

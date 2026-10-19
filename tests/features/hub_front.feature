@@ -25,18 +25,19 @@ Feature: HUB FRONT
     And the admin console shows integrations, scheduled jobs and bank grants to super admins only
 
   @ears_state_driven @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of each page, and leave super admins every page
+  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of each page but their console, and leave super admins every page
     Given the launch hold
     Then a raider's members nav is the hub link alone and every member page shows the coming-soon page
-    And an officer keeps every tab and each one shows the Forever launch notice
+    And an officer keeps every tab, opens their console, and every other tab shows the Forever launch notice
     And super admins, visitors and the public pages are never held
     And the real site waits for the session before a held page renders, so it never starts the page's own API calls
 
   @ears_state_driven @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-005 While the launch hold is on, the Officers, Bank, Highlights and Me tabs shall show officers the tab's intent and the features coming to it, the Bank tab with a labelled mockup of stock, Discord requests, a ledger and a fairness view, and every signed-in member shall meet their own toad
+  Scenario: REQ-HUB-FRONT-005 While the launch hold is on, the Bank, Highlights and Me tabs shall show officers the tab's intent and the features coming to it, the Bank tab with a labelled mockup of stock, Discord requests, a ledger and a fairness view, the Me tab with their own toads as the open Me page shows them, and every signed-in member shall meet their own toad
     Given the tab previews
-    Then the Officers, Bank, Highlights and Me tabs each state their intent and list what is coming
+    Then the Bank, Highlights and Me tabs each state their intent and list what is coming
     And the Bank tab shows the bankers' features to officers and a mockup labelled as sample data
+    And the Me tab shows the officer's own toads once, in its heading and as a Your toads row, without the greeting
     And every signed-in member has a rank toad, raiders the member toad
     And raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home
 

@@ -8,8 +8,11 @@ describe('launch hold', () => {
       expect(launchHold(path, 'raider', true)).toBe('coming-soon');
   });
 
-  it('gives officers the Forever launch notice on every tab, their console included', () => {
-    for (const item of memberNav(true)) expect(launchHold(item.href, 'officer', true)).toBe('forever-notice');
+  it('gives officers the Forever launch notice on every tab but their console, which stays open', () => {
+    for (const item of memberNav(true).filter((i) => i.href !== '/officers'))
+      expect(launchHold(item.href, 'officer', true)).toBe('forever-notice');
+    for (const path of ['/officers', '/officers/', '/officers/reference']) expect(launchHold(path, 'officer', true)).toBe('open');
+    expect(launchHold('/officers', 'raider', true)).toBe('coming-soon');
   });
 
   it('leaves super admins, visitors and the public pages alone', () => {
@@ -45,16 +48,15 @@ describe('launch hold', () => {
     expect(UPCOMING.map((u) => u.title)).toEqual(['Guild bank management', 'Logs analysis', 'Raid assistance']);
   });
 
-  it('previews the officers, bank, highlights and me tabs with their intent and coming features', () => {
-    expect(Object.keys(TAB_PREVIEW).sort()).toEqual(['/bank', '/highlights', '/me', '/officers']);
+  it('previews the bank, highlights and me tabs with their intent and coming features', () => {
+    expect(Object.keys(TAB_PREVIEW).sort()).toEqual(['/bank', '/highlights', '/me']);
     for (const p of Object.values(TAB_PREVIEW)) {
       expect(p.intent).toBeTruthy();
       expect(p.sections.flatMap((s) => s.items).length).toBeGreaterThanOrEqual(4);
     }
-    const officers = TAB_PREVIEW['/officers'].sections.flatMap((s) => s.items).join(' ');
-    for (const word of ['strateg', 'ttendance', 'adge', 'Warcraft Logs']) expect(officers).toContain(word);
     expect(TAB_PREVIEW['/bank'].mockup).toBe('bank');
     expect(TAB_PREVIEW['/bank'].sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
     expect(TAB_PREVIEW['/me'].sections[0].items.join(' ')).toContain('alts');
+    expect(TAB_PREVIEW['/me'].ownToads).toBe(true);
   });
 });
