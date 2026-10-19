@@ -19,6 +19,7 @@ from toads_api.community import recruitment
 from toads_api.community.clips import parse_clip_url
 from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, SUN_OFFICER_ROLE, WED_CHAT, demo_service
 from toads_api.community.deps import audience_of, officer_scopes
+from toads_api.community.repository import InMemoryCommunityRepository, MemberCard
 from toads_api.community.schemas import (
     ApplicationCreate,
     ApplicationStatus,
@@ -427,6 +428,53 @@ def refused_not_in_discord(world: World) -> None:
 def nothing_recorded(world: World) -> None:
     assert world.store.repo.applications() == []
     assert world.store.repo.jobs() == []
+
+
+def discord_id_made(at: datetime) -> int:
+    """A Discord snowflake for an account created at this moment."""
+    return (int(at.timestamp() * 1000) - recruitment.DISCORD_EPOCH_MS) << 22
+
+
+@when(parsers.parse("an applicant whose Discord account is {days:d} days old applies for {day}"))
+def new_account_applies(world: World, days: int, day: str) -> None:
+    repo = world.store.repo
+    assert isinstance(repo, InMemoryCommunityRepository)
+    repo.members[5] = MemberCard("Newtonian", discord_id_made(world.now - timedelta(days=days)))
+    with pytest.raises(Conflict) as refused:
+        world.store.apply(5, world.application(DAYS[day]))
+    world.last = refused.value
+
+
+@then("the application is refused with 409 naming the day they can apply")
+def refused_new_account(world: World) -> None:
+    assert world.last.status_code == 409
+    assert "01 October" in str(world.last)
+
+
+@then("the same applicant is accepted once the account is 7 days old")
+def accepted_when_old_enough(world: World) -> None:
+    advance(world, 5)
+    assert world.store.apply(5, world.application("wed")).status is ApplicationStatus.APPLIED
+
+
+@given("the applicant has applied and withdrawn 3 times today")
+def apply_withdraw_loop(world: World) -> None:
+    for _ in range(3):
+        app = world.store.apply(5, world.application("wed"))
+        world.store.withdraw(5, app.id)
+        world.now += timedelta(minutes=5)
+
+
+@then("a fourth application is refused with 409")
+def fourth_refused(world: World) -> None:
+    with pytest.raises(Conflict, match="this week"):
+        world.store.apply(5, world.application("wed"))
+
+
+@then("an application 8 days later is accepted")
+def day_8(world: World) -> None:
+    advance(world, 8)
+    assert world.store.apply(5, world.application("wed")).status is ApplicationStatus.APPLIED
 
 
 @then("a Warcraft Logs link must be an https link to warcraftlogs.com")
