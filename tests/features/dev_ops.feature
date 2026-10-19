@@ -13,3 +13,10 @@ Feature: DEV OPS
     Given the scheduler with the default intervals
     When the hub is down for the first run
     Then the analyzer widgets and performance numbers are published again 30 minutes later
+
+  @ears_event_driven @maintainer @phase_2_1
+  Scenario: REQ-DEV-OPS-004 When the worker's sync runs, it shall analyse and store the guild's newest Warcraft Logs reports that are not stored yet, at most a batch per run and oldest first, and a report that fails shall not stop the others
+    Given the guild's reports on Warcraft Logs are "A, B, C, D", newest first, and "D" is stored
+    And "A" fails to analyse
+    When the sync runs with a batch of 2
+    Then "B" is stored, "A" is listed as failed and 1 report is left for the next run

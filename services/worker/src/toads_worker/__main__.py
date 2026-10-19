@@ -12,7 +12,13 @@ from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
 from toads_worker.jobs.sheets import import_raid_sheets
+from toads_worker.jobs.sync import raid_service, sync_guild_reports
+from toads_worker.reports import parse_report_input
 from toads_worker.settings import Settings
+
+
+def _progress(message: str) -> None:
+    print(message, file=sys.stderr)
 
 
 def main() -> None:
@@ -32,6 +38,16 @@ def main() -> None:
     if sys.argv[1:] == ["publish-badges"]:
         # Rebuild every raider's Toads badges for their /me page.
         print(json.dumps(publish_badges(settings), indent=2))
+        return
+    if sys.argv[1:] == ["sync"]:
+        # Import the guild's newest reports not stored yet (TOADS_SYNC_BATCH of them), as the scheduler does.
+        print(json.dumps(sync_guild_reports(settings, progress=_progress), indent=2))
+        return
+    if len(sys.argv) == 3 and sys.argv[1] == "analyse":
+        # Analyse and store one report by code or URL, e.g. one from before the sync's batch reaches it.
+        code = parse_report_input(sys.argv[2])
+        analysis = raid_service(settings).analyze_and_save(code, progress=_progress)
+        print(json.dumps({"imported": code, "title": analysis.metadata.title}, indent=2))
         return
     if sys.argv[1:] == ["schedule"]:
         # The scheduler container: runs the jobs above on their intervals (toads_worker.schedule).
