@@ -129,6 +129,9 @@ not technical. Send it to them together with the invite link from step 3. The we
    `https://discord.com/oauth2/authorize?client_id=<APPLICATION ID>&scope=bot+applications.commands&permissions=268520464`.
    Open it yourself and check that the list shows View Channels, Send Messages, Embed Links, Read Message History,
    Manage Channels and Manage Roles, then send it to the server admin.
+   The Toads application's link (Application ID `1561652680768626688`, not a secret) is
+   <https://discord.com/oauth2/authorize?client_id=1561652680768626688&permissions=268520464&integration_type=0&scope=bot+applications.commands>,
+   and docs/discord-setup.md already carries it.
 4. **Put the admin's three numbers into `config/community.yaml`**: the category id, plus user ids rather than
    usernames, so a renamed account can't take an interviewer's place:
 
