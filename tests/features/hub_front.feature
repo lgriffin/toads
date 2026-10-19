@@ -52,3 +52,9 @@ Feature: HUB FRONT
     Given the public launch hold
     Then the story page shows only the story while the hold is on and the full story page after it
     And the homepage and every public tab stay open to visitors
+
+  @ears_ubiquitous @member @phase_2_5
+  Scenario: REQ-HUB-FRONT-008 Every page shall show The Regular toad as its browser tab icon, as an SVG with an ICO fallback and a home-screen icon
+    Given the page shell
+    Then it links the toad as an SVG icon, an ICO icon and an Apple touch icon under the site's asset path
+    And the SVG icon is The Regular toad from the logo set and the icon files are in the web app's static folder
