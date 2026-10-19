@@ -26,7 +26,7 @@ export const LANDING = {
     },
     {
       title: 'Prepared, not sweaty',
-      body: 'Consumes, gear and tactics are expected on raid night, and the hub shows everyone the same numbers. Nobody is asked to raid more than two nights.'
+      body: 'Consumes, gear and tactics are expected on raid night, and the hub shows everyone the same numbers. You raid one night a week with your group; raiding with both is your choice.'
     },
     {
       title: 'Boring, fair loot',

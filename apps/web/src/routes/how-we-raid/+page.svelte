@@ -20,7 +20,7 @@
   <PondHero
     title="How we raid"
     line="Wednesday and Sunday · 21:00 to midnight"
-    lede="Two nights a week, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
+    lede="Two raid groups, one night each, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
     toads={['roles/tank-badge', 'roles/healer-badge', 'roles/damage-badge']}
   >
     <a class="medal" href="{base}/recruit/">Apply to raid with us</a>
