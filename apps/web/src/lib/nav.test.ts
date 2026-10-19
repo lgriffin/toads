@@ -8,9 +8,10 @@ describe('isActive', () => {
     expect(isActive('/hub/', '/')).toBe(false);
   });
   it('matches nested routes and trailing slashes', () => {
-    expect(isActive('/raids/abc', '/raids')).toBe(true);
-    expect(isActive('/raids/', '/raids')).toBe(true);
-    expect(isActive('/raidsx', '/raids')).toBe(false);
+    expect(isActive('/logs/abc', '/logs')).toBe(true);
+    expect(isActive('/logs/', '/logs')).toBe(true);
+    expect(isActive('/logsx', '/logs')).toBe(false);
+    expect(isActive('/raids', '/raid')).toBe(false);
     expect(isActive('/hub/', '/hub')).toBe(true);
   });
 });
@@ -20,7 +21,9 @@ describe('nav groups', () => {
     expect(PUBLIC_NAV.map((i) => i.href)).toEqual(['/', '/how-we-raid', '/features', '/story', '/recruit']);
     expect(MEMBER_NAV.map((i) => i.href)).toEqual([
       '/hub',
-      '/raids',
+      '/raid',
+      '/calendar',
+      '/logs',
       '/highlights',
       '/bank',
       '/me',

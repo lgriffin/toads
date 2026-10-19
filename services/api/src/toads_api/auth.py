@@ -159,6 +159,7 @@ async def session_info(
     discord_username: the member's Discord username, never their nickname.
     raid_days: days the member holds a trial, raider or officer role on, in config order.
     officer_days: days they hold officer powers for; every configured day for a global officer.
+    day_names: every configured raid day's name by id, in config order (the Raid page's switcher).
     super_admin / break_glass: above the global tier, from configuration (docs/admin.md).
     """
     days = [d.id for d in services.raid_days.raid_days]
@@ -178,4 +179,5 @@ async def session_info(
         "day_roles": {day: role.name.lower() for day, role in principal.day_roles.items()},
         "raid_days": [d for d in days if d in principal.day_roles],
         "officer_days": [d for d in days if principal.global_officer or principal.day_roles.get(d) is HubRole.OFFICER],
+        "day_names": {d.id: d.name for d in services.raid_days.raid_days},
     }

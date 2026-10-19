@@ -166,8 +166,9 @@ def admin_console() -> None:
 @scenario(
     str(FEATURE),
     "REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the "
-    "guild bank, logs analysis and raid assistance, show officers every page as it is being built except the bank, "
-    "which shows a Forever launch notice, and show super admins exactly the officers' view plus the Admin console",
+    "guild bank, logs analysis and raid assistance on every member page but Raid and Calendar, show officers every "
+    "page as it is being built except the bank, which shows a Forever launch notice, and show super admins exactly "
+    "the officers' view plus the Admin console",
 )
 def test_launch_hold() -> None:
     pass
@@ -178,7 +179,9 @@ def launch() -> str:
     return _read("lib/launch.ts")
 
 
-@then("a raider's members nav is the hub link alone and every member page shows the coming-soon page")
+@then(
+    "a raider's members nav is the hub, Raid and Calendar links and every other member page shows the coming-soon page"
+)
 def raider_coming_soon(launch: str) -> None:
     assert "export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;" in launch
     for title in ("Guild bank management", "Logs analysis", "Raid assistance"):
@@ -186,7 +189,9 @@ def raider_coming_soon(launch: str) -> None:
     layout = _read("routes/+layout.svelte")
     assert "heldNav(memberNav(officer, tier === 'admin'), tier)" in layout
     assert "{:else if hold === 'coming-soon'}\n    <ComingSoon {...me} />" in layout
+    assert "const OPEN_TO_MEMBERS = ['/raid', '/calendar'];" in launch
     assert "gives raiders the coming-soon page on every member page" in _read("lib/launch.test.ts")
+    assert "opens the Raid page and the Calendar to every signed-in tier" in _read("lib/launch.test.ts")
 
 
 @then("an officer opens every page but the bank, which shows the Forever launch notice")
