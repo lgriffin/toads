@@ -45,11 +45,19 @@
       <div class="side">
         <section class="card" aria-labelledby="prog-h">
           <h2 id="prog-h">Progression</h2>
-          <ProgressBars zones={story.progression} />
+          {#if story.progression.length}
+            <ProgressBars zones={story.progression} />
+          {:else}
+            <p class="muted">No bosses logged yet.</p>
+          {/if}
         </section>
         <section class="card" aria-labelledby="needs-h">
           <h2 id="needs-h">We’re recruiting</h2>
-          <NeedsList needs={story.needs} />
+          {#if story.needs.length}
+            <NeedsList needs={story.needs} />
+          {:else}
+            <p class="muted">No open spots right now, but we are always happy to hear from good people.</p>
+          {/if}
           <p><a href="{base}/recruit/">How applying works</a></p>
         </section>
       </div>
