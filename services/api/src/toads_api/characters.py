@@ -101,7 +101,8 @@ class SqlCharacters:
         q = query.strip()
         if len(_fold(q)) < MIN_QUERY:
             return []
-        escaped = q.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        # NFKC on the query folds full-width input; stored names are WoW names, which have no width forms.
+        escaped = unicodedata.normalize("NFKC", q).lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         lower = func.lower(_characters.c.name)
         stmt = (
             select(_characters.c.id, _characters.c.name, _characters.c.player_class)

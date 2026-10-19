@@ -28,17 +28,18 @@
   let searchFailed = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const mine = $derived(new Set(claims.map((c) => c.character_id)));
+  // A rejected claim can be made again, so only live claims hide the Claim button.
+  const mine = $derived(new Set(claims.filter((c) => c.status !== 'rejected').map((c) => c.character_id)));
 
   function oninput() {
     clearTimeout(timer);
     const q = query.trim();
-    if (q.length < MIN_CHARACTER_QUERY) {
-      matches = [];
-      searched = '';
-      searchFailed = false;
-      return;
-    }
+    if (q === searched && !searchFailed) return; // only whitespace changed
+    // Results for an older query never stay claimable while the new one runs.
+    matches = [];
+    searched = '';
+    searchFailed = false;
+    if (q.length < MIN_CHARACTER_QUERY) return;
     timer = setTimeout(async () => {
       let found: CharacterMatch[] = [];
       let failed = false;

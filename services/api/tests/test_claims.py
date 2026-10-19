@@ -282,3 +282,4 @@ def test_sql_directory_reads_wcl_stores_characters(sql_characters: tuple[SqlChar
     assert directory.search("HOP") == [Character(1, "Hopscotch", "Priest"), Character(2, "Shopkeep", "Rogue")]
     assert directory.search("o_") == [Character(3, "Ho_p", "Mage")]  # LIKE wildcards are matched literally
     assert directory.search(" h ") == []
+    assert directory.search("\uff28\uff4f\uff50") == directory.search("hop")  # full-width "Hop"
