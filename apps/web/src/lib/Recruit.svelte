@@ -1,6 +1,10 @@
 <script lang="ts">
   import '@fontsource/cinzel/600.css';
+  import '@fontsource/alegreya-sans/400.css';
+  import '@fontsource/alegreya-sans/700.css';
+  import '$lib/pond.css';
   import { base } from '$app/paths';
+  import PondHero from '$lib/components/PondHero.svelte';
   import { onMount, tick } from 'svelte';
   import {
     APPLICATION_LIMITS,
@@ -129,14 +133,15 @@
     `interview-${name.normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'applicant'}`;
 </script>
 
-<header class="intro">
-  <h1>Raid with the Toads</h1>
-  <p class="lede">
-    We raid Wednesday and Sunday evenings. Tell us who you play and why you want in, and you will be talking to our
-    officers in a private Discord room within a minute.
-  </p>
-</header>
+<div class="pond-page">
+<PondHero
+  title="Raid with the Toads"
+  line="Horde · PvP · Europe (EU)"
+  lede="We raid Wednesday and Sunday evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
+  toads={['roles/healer-badge', 'roles/damage-badge']}
+/>
 
+<section class="band dusk">
 <ol class="path" aria-label="How to apply">
   <li class="step">
     <span class="num" aria-hidden="true">1</span>
@@ -171,7 +176,9 @@
     </div>
   </li>
 </ol>
+</section>
 
+<section class="band">
 <div class="layout">
   <section class="card apply" aria-labelledby="apply-h">
     <h2 id="apply-h">Your application</h2>
@@ -335,20 +342,19 @@
     <p class="small">We ask for no age, email or real name. Only the officers in your room read your answers.</p>
   </aside>
 </div>
+</section>
+</div>
 
 <style>
-  .intro h1 { font-family: 'Cinzel', serif; font-weight: 600; font-size: clamp(1.9rem, 4vw, 2.6rem); letter-spacing: 0.01em; margin: 0 0 0.5rem; text-wrap: balance; }
-  .lede { max-width: 60ch; font-size: 1.05rem; margin: 0 0 1.5rem; }
-
-  .path { list-style: none; margin: 0 0 2rem; padding: 0; display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+  .path { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
   .step { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start; }
-  .step h2 { font-size: 1.05rem; margin: 0.2rem 0 0.25rem; }
+  .step h2 { font-size: 1.15rem; margin: 0.2rem 0 0.35rem; color: var(--bronze-hi); }
   .step p { margin: 0 0 0.6rem; max-width: 40ch; }
   .num {
     font-family: 'Cinzel', serif; font-weight: 600; font-size: 1.1rem; display: grid; place-items: center;
-    width: 2.25rem; height: 2.25rem; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent);
+    width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 2px solid var(--bronze); color: var(--bronze-hi); background: var(--ink);
   }
-  .step.complete .num { background: var(--accent); color: var(--bg); }
+  .step.complete .num { background: var(--teal); border-color: var(--teal); color: var(--ink); }
 
   .layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(min(100%, 16rem), 1fr); align-items: start; }
   @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }

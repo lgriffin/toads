@@ -1,4 +1,6 @@
 <script lang="ts">
+  import '$lib/pond.css';
+  import PondHero from '$lib/components/PondHero.svelte';
   import Story from '$lib/preview/Story.svelte';
 </script>
 
@@ -7,6 +9,12 @@
 {#if __PREVIEW__}
   <Story />
 {:else}
-  <h1>Our story</h1>
-  <p>The guild story, progression, recruitment needs and highlight reels land here once the public story API is live.</p>
+  <div class="pond-page">
+    <PondHero
+      title="Our story"
+      line="Horde · PvP · Europe (EU)"
+      lede="The guild story, progression, recruitment needs and highlight reels land here once the public story API is live."
+      toads={['pond-medallion']}
+    />
+  </div>
 {/if}

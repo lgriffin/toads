@@ -28,7 +28,7 @@ export const posts: Post[] = [
   {
     id: 'p-welcome',
     title: 'New to the pond? Start here',
-    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 19:30 server time. Invites go out at 19:15.\nSign up on the Hub before 18:00 on raid day so the raid leader can balance groups.',
+    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
     authorName: 'Ribbitz',
     origin: 'hub',
     visibility: 'public',
@@ -352,7 +352,7 @@ export const spotlights: Spotlight[] = [
 export const story: PublicStory = {
   guild: 'Toads',
   realm: 'Spineshatter EU',
-  tagline: 'A friendly, steady TBC Classic raiding guild. Two nights a week, no drama, one big pond.',
+  tagline: 'A friendly, steady raiding guild on the European PvP side of WoW Forever. Two raid groups, one night each, no drama, one big pond.',
   story: [
     'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
     'We have a Wednesday team and a Sunday team, each raiding 21:00 to midnight server time with its own officers, and plenty of people raid both. We clear content steadily, learn fights together and keep the loot rules boring and fair.',
