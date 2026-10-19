@@ -35,6 +35,8 @@ export interface Session {
   raid_days: string[];
   /** Days with officer powers; every day for a global officer. */
   officer_days: string[];
+  /** Every configured raid day's name by id, in config order. Missing from an older hub. */
+  day_names?: Record<string, string>;
 }
 
 export interface MemberEntry {

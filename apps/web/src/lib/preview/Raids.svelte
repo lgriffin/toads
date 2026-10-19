@@ -12,7 +12,7 @@
   let shown = $derived(filterRaids(raids, { zone, raidDay, size, lookbackDays }, MOCK_NOW));
 </script>
 
-<h1>Raids &amp; Logs</h1>
+<h1>Logs</h1>
 
 <form class="filters" onsubmit={(e) => e.preventDefault()}>
   <label>Zone
@@ -53,7 +53,7 @@
       {#each shown as raid}
         <tr>
           <td>{shortDate(raid.date)}</td>
-          <td><a href="{base}/raids/{raid.id}/">{raid.zone}</a></td>
+          <td><a href="{base}/logs/{raid.id}/">{raid.zone}</a></td>
           <td>{raid.raidDay}</td>
           <td class="num">{raid.size}</td>
           <td class="num">{raid.bosses.filter((b) => b.killed).length}/{raid.bosses.length}</td>

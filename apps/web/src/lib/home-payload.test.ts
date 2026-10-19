@@ -11,7 +11,7 @@ describe('analyzer payload links', () => {
     });
   });
   it('opens the sample raid page in the preview', () => {
-    expect(linkTarget(raid('ssc-0924'), '/toads', true)).toEqual({ href: '/toads/raids/ssc-0924', external: false });
+    expect(linkTarget(raid('ssc-0924'), '/toads', true)).toEqual({ href: '/toads/logs/ssc-0924', external: false });
   });
   it('refuses raid ids that are not id-shaped', () => {
     expect(linkTarget(raid('../admin'), '')).toBeNull();
