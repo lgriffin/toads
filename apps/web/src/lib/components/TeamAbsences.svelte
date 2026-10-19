@@ -4,14 +4,21 @@
   // A raid day's upcoming nights and who has said they will miss each one, for that day's officers. The API refuses
   // anyone else (view_absences on the day in the path); pages only show this to officers.
   // `heading` false leaves the title to the surrounding section (the Calendar's own "Team absences").
-  let { backend, day, name, heading = true }: { backend: AbsencesBackend; day: string; name: string; heading?: boolean } =
-    $props();
+  // `version` changes when the page knows the list changed (the viewer reported or cancelled one), to read it again.
+  let {
+    backend,
+    day,
+    name,
+    heading = true,
+    version = 0
+  }: { backend: AbsencesBackend; day: string; name: string; heading?: boolean; version?: number } = $props();
 
   let team = $state<TeamAbsences | null>(null);
   let error = $state('');
 
   $effect(() => {
     const d = day;
+    void version;
     team = null;
     error = '';
     backend.team(d).then(
@@ -24,8 +31,14 @@
     );
   });
 
+  // Absences still running after the last night shown, including ones that started within it.
+  const lastShown = $derived(team?.nights.at(-1)?.date ?? '');
   const later = $derived(
-    team ? team.absences.filter((a) => !team!.nights.some((n) => n.absent.some((x) => x.id === a.id))) : []
+    team
+      ? team.absences.filter(
+          (a) => a.nights.some((n) => n > lastShown) || !team!.nights.some((n) => n.absent.some((x) => x.id === a.id))
+        )
+      : []
   );
 </script>
 

@@ -257,12 +257,14 @@ export function sumBoss(boss: BossHistory, weekdays: number[]): BossSum | null {
   const players = new Map<string, BossPlayer>();
   for (const [, d] of seen) {
     for (const p of d.players ?? []) {
-      const mine = players.get(p.name) ?? { ...p, kills: 0, damage: 0, healing: 0, damage_taken: 0 };
+      // One row per character and role, as the analyzer keeps a respec apart.
+      const key = `${p.name}|${p.role}`;
+      const mine = players.get(key) ?? { ...p, kills: 0, damage: 0, healing: 0, damage_taken: 0 };
       mine.kills += p.kills;
       mine.damage += p.damage;
       mine.healing += p.healing;
       mine.damage_taken += p.damage_taken;
-      players.set(p.name, mine);
+      players.set(key, mine);
     }
   }
   return {

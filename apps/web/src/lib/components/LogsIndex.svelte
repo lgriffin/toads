@@ -131,15 +131,16 @@
                     <caption class="sr-only">{b.name}: each raider per kill</caption>
                     <thead>
                       <tr>
-                        <th scope="col">Raider</th><th scope="col">Class</th><th scope="col" class="num">Kills</th>
+                        <th scope="col">Raider</th><th scope="col">Class</th><th scope="col">Role</th><th scope="col" class="num">Kills</th>
                         <th scope="col" class="num">Damage per kill</th><th scope="col" class="num">Healing per kill</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {#each b.players as p (p.name)}
+                      {#each b.players as p (`${p.name}|${p.role}`)}
                         <tr>
                           <th scope="row">{p.name}</th>
                           <td>{p.player_class}</td>
+                          <td>{p.role}</td>
                           <td class="num">{p.kills}</td>
                           <td class="num">{compactNumber(p.damage_per_kill)}</td>
                           <td class="num">{compactNumber(p.healing_per_kill)}</td>
