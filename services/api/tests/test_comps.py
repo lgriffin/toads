@@ -56,6 +56,7 @@ def test_the_pool_is_the_raid_days_members_by_name_with_or_without_specs() -> No
 
 def test_a_comp_is_named_sized_and_seats_each_member_once() -> None:
     svc = _service()
+    svc.set_specs(2, "shaman", "shaman-restoration", None)
     slots: list[Seat | None] = [None] * 10
     slots[0] = Seat("shaman-elemental", 1)
     slots[1] = Seat("mage-frost")
@@ -71,6 +72,7 @@ def test_a_comp_is_named_sized_and_seats_each_member_once() -> None:
         ("Twice", 10, [Seat("mage-frost", 1), Seat("mage-fire", 1)] + [None] * 8),
         ("Spec", 10, [Seat("mage-nope")] + [None] * 9),
         ("Stranger", 10, [Seat("mage-frost", 42)] + [None] * 9),
+        ("Wrong class", 10, [Seat("mage-frost", 2)] + [None] * 9),
     ]
     for name, size, seats in bad:
         with pytest.raises(CompError) as info:
@@ -132,6 +134,17 @@ def test_signing_in_records_the_raid_days_the_roles_give(hub: Hub) -> None:
     with hub.db() as db:
         row = db.scalars(select(Member).where(Member.discord_user_id == user.user_id)).one()
     assert row.raid_days == ["wed", "sun"]
+
+
+def test_losing_a_nights_role_takes_the_member_off_its_roster(hub: Hub) -> None:
+    user = hub.user(("wed", "raider"))
+    sid = hub.login(user)
+    user.roles.clear()
+    hub.pass_time(hub.services.settings.role_refresh_seconds + 1)
+    assert hub.get("/api/session", sid).status_code == 401
+    with hub.db() as db:
+        row = db.scalars(select(Member).where(Member.discord_user_id == user.user_id)).one()
+    assert row.raid_days == []
 
 
 def test_officers_see_their_nights_roster_and_lock_in_comps(hub: Hub) -> None:

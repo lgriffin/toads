@@ -88,8 +88,12 @@
   async function loadDay(d: string) {
     poolError = '';
     try {
-      [pool, saved] = await Promise.all([backend.pool(d), backend.comps(d)]);
+      const [p, s] = await Promise.all([backend.pool(d), backend.comps(d)]);
+      // A slower answer for a night the officer has since switched away from is dropped.
+      if (d !== day) return;
+      [pool, saved] = [p, s];
     } catch (e) {
+      if (d !== day) return;
       pool = [];
       saved = [];
       poolError = compError(e);
@@ -212,9 +216,11 @@
 
   async function save(asNew: boolean) {
     const id = asNew || !current ? null : current.id;
+    const d = day;
     busy = true;
     try {
-      const c = await backend.save(day, id, name, slots);
+      const c = await backend.save(d, id, name, slots);
+      if (d !== day) return;
       current = c;
       saved = [...saved.filter((s) => s.id !== c.id), c].sort((a, b) => a.name.localeCompare(b.name));
       say(`Locked in ${c.name} for ${dayLabel(day)}.`);
@@ -226,9 +232,11 @@
   }
 
   async function remove(c: SavedComp) {
+    const d = day;
     busy = true;
     try {
-      await backend.remove(day, c.id);
+      await backend.remove(d, c.id);
+      if (d !== day) return;
       saved = saved.filter((s) => s.id !== c.id);
       if (current?.id === c.id) current = null;
       say(`Deleted ${c.name}.`);
@@ -298,7 +306,7 @@
       {#if days.length > 1}
         <div class="field">
           <label for="comp-day">Raid night</label>
-          <select id="comp-day" value={day} onchange={(e) => changeDay(e.currentTarget.value)}>
+          <select id="comp-day" value={day} disabled={busy} onchange={(e) => changeDay(e.currentTarget.value)}>
             {#each days as d (d)}<option value={d}>{dayLabel(d)}</option>{/each}
           </select>
         </div>

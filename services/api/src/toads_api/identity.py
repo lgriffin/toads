@@ -43,6 +43,10 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
     except Exception as exc:
         raise DiscordUnavailableError from exc
     if member is None or roles_removed(services, data, member):
+        # Off the old nights' rosters straight away: a member who left the server never signs in again.
+        await anyio.to_thread.run_sync(
+            record_raid_days, services, data.member_id, () if member is None else member.role_ids
+        )
         await services.sessions.delete(session_id)
         log.info("session.ended_on_refresh", member_id=data.member_id, left_server=member is None)
         return None

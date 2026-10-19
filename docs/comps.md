@@ -22,6 +22,8 @@ are stored, so never rename one.
   under "without specs yet" so officers can nudge them.
 - Drag a spec or member onto a seat, drag seats onto each other to swap them, or drag a seat back to the palette to
   remove it. On touch screens, tap the spec or member, then the seat. Raids seat 10, 20 or 40 in groups of five.
+- A comp can seat anyone in the hub, so a fill-in from the other night can be locked in, but a named member only in a
+  spec of the class they set. Switching raid night keeps the comp on the board as an unsaved draft.
 - **Lock in** saves the comp under a name for that raid night; officers of the night can open, replace or delete it.
   Saving and deleting are on the audit log (`comp.save`, `comp.delete`).
 
@@ -33,7 +35,7 @@ whole raid. Update `BUFFS` in `comp.ts` as Blizzard confirms changes.
 A member is on a raid night's roster when their Discord roles put them on that night (trial, raider or officer). The
 hub records those nights on the member's row at every sign-in and role refresh (`members.raid_days`, migration 0016);
 it is never a source of permissions. Someone who has not signed in since the roles changed shows on their old nights
-until they do.
+until they do; losing a night's role or leaving the server takes them off at the next role refresh.
 
 ## Permissions
 

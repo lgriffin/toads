@@ -143,6 +143,14 @@ class CompService:
             raise CompError("Unknown spec", status=422)
         if set(seated) - set(self._names(seated)):
             raise CompError("Someone in the comp is not a hub member", status=422)
+        # Officers may seat anyone in the hub (a fill-in from the other night) in any spec of their class, but never
+        # as another class.
+        classes = {r.member_id: r.wow_class for r in self.repo.specs(seated)}
+        for s in slots:
+            if s is not None and s.member_id in classes and SPECS[s.spec].wow_class != classes[s.member_id]:
+                raise CompError(
+                    f"{self._names([s.member_id])[s.member_id]} plays a {CLASSES[classes[s.member_id]]}", 422
+                )
         try:
             row = self.repo.save_comp(raid_day, comp_id, name, size, slots, by)
         except DuplicateCompError:
