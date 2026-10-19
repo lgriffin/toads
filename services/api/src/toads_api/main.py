@@ -42,12 +42,14 @@ def _record_sync(services: Services, principal: Principal, day: str) -> None:
 
 def create_app(services: Services | None = None) -> FastAPI:
     """Build the app. Without `services`, startup reads the environment and fails fast on anything missing
-    (REQ-DEV-CFG-001) or on a configured Discord role the server does not have (REQ-HUB-DAY-022)."""
+    (REQ-DEV-CFG-001), on a Discord client id and bot token from different applications (REQ-HUB-AUTH-003) or on a
+    configured Discord role the server does not have (REQ-HUB-DAY-022)."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         live = services if services is not None else build_services(Settings())
         try:
+            await live.verify_discord_application()
             await live.verify_discord_roles()
             app.state.services = live
             yield

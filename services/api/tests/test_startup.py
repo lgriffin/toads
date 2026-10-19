@@ -1,4 +1,4 @@
-"""Startup checks (REQ-HUB-DAY-022, REQ-DEV-CFG-001) and the Discord client's error handling."""
+"""Startup checks (REQ-HUB-AUTH-003, REQ-HUB-DAY-022, REQ-DEV-CFG-001) and the Discord client's error handling."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord
+from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord, MismatchedDiscordApplicationError
 from toads_api.main import create_app
 from toads_api.rbac import RaidDaysConfig, UnknownDiscordRoleError
 from toads_api.services import build_services
@@ -28,6 +28,18 @@ def test_startup_fails_naming_day_and_role() -> None:
     cfg.raid_days[1].officer_roles.append(424242)
     hub = Hub(raid_days=cfg)
     with pytest.raises(UnknownDiscordRoleError, match=r"raid day 'sun' officer role 424242"), hub.client:
+        pass
+
+
+def test_startup_fails_when_bot_token_is_another_application() -> None:
+    hub = Hub()
+    hub.fake.bot_application_id = "999"
+    with (
+        pytest.raises(
+            MismatchedDiscordApplicationError, match=r"TOADS_DISCORD_CLIENT_ID is toads-dev.*application 999"
+        ),
+        hub.client,
+    ):
         pass
 
 
@@ -98,6 +110,17 @@ async def test_member_lookup_errors() -> None:
 
 
 @pytest.mark.anyio
+async def test_bot_application_lookup() -> None:
+    assert await _discord(_answer(200, {"id": "1561652680768626688"})).bot_application_id() == "1561652680768626688"
+    with pytest.raises(DiscordAuthError, match="TOADS_DISCORD_BOT_TOKEN"):
+        await _discord(_answer(401)).bot_application_id()
+    with pytest.raises(DiscordError, match="HTTP 503"):
+        await _discord(_answer(503)).bot_application_id()
+    with pytest.raises(DiscordError, match="no id"):
+        await _discord(_answer(200, {})).bot_application_id()
+
+
+@pytest.mark.anyio
 async def test_role_listing_error() -> None:
     with pytest.raises(DiscordError, match="HTTP 403"):
         await _discord(_answer(403)).guild_role_ids()
@@ -152,3 +175,4 @@ def test_fake_endpoints_need_tokens(hub: Hub) -> None:
     assert hub.discord.get("/api/v10/users/@me/guilds/77/member").status_code == 401
     assert hub.discord.get("/api/v10/guilds/77/roles").status_code == 401
     assert hub.discord.get("/api/v10/guilds/77/roles", headers={"authorization": "Bot x"}).status_code == 200
+    assert hub.discord.get("/api/v10/oauth2/applications/@me").status_code == 401

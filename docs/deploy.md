@@ -95,12 +95,43 @@ run it again later: it never replaces a secret that is already set.
 
 ## 4. Discord and Warcraft Logs applications
 
-Follow [admin guide section 2](../ADMIN_GUIDE.md#2-accounts-and-applications-to-create) to create the Discord
-application (and bot), and the Warcraft Logs client. On the Discord application, add this **OAuth2 redirect**:
+Sign-in, the API's role reads and the Toad Bot all use **one Discord application**: the Toad Bot's. For Toads that is
+application **1561652680768626688**, the `client_id` in the bot's invite link. Its id is public; its **client
+secret** and **bot token** are not, and go only into the server's env files in [step 5](#5-fill-in-the-values-only-you-have).
+The API checks at startup that the bot token belongs to `TOADS_DISCORD_CLIENT_ID` and refuses to start, naming both
+settings, if they come from different applications.
 
-```
-https://toads.example.com/auth/callback
-```
+### Turn on Discord sign-in
+
+1. Open <https://discord.com/developers/applications> and sign in with the Discord account that made the Toad Bot.
+2. Click the **Toad Bot** application. **General Information** shows its **Application ID**; for Toads it is
+   `1561652680768626688`. That is the value of `TOADS_DISCORD_CLIENT_ID`.
+3. In the left menu click **OAuth2**.
+4. Under **Redirects** click **Add Redirect** and paste exactly this, with no slash at the end:
+
+   ```
+   https://toads.gg/auth/callback
+   ```
+
+   (On another domain use `https://<your domain>/auth/callback`. It must equal `TOADS_DISCORD_REDIRECT_URI`, which the
+   setup script already wrote.) Click **Save Changes** in the bar that appears at the bottom.
+5. Still on **OAuth2**, under **Client Secret** click **Reset Secret**, confirm, and click **Copy**. Paste it straight
+   into `TOADS_DISCORD_CLIENT_SECRET` in step 5. Discord shows it only once; if you lose it, reset it again.
+6. In the left menu click **Bot**. Under **Privileged Gateway Intents** switch on **Server Members Intent** and
+   **Message Content Intent**, then **Save Changes**. If you do not have the bot token on the server yet, click
+   **Reset Token**, copy it, and paste it into `TOADS_DISCORD_BOT_TOKEN` in step 5 (the API's env and
+   `services/bot/.env`). Resetting it logs out a running Toad Bot until its env has the new token.
+7. Nothing else is ticked on the application: the hub asks for the `identify` and `guilds.members.read` scopes itself
+   each time someone signs in, so you do not use the OAuth2 URL Generator for sign-in. (The generator is only for the
+   bot's invite link, [admin guide](../ADMIN_GUIDE.md#getting-the-toad-bot-onto-the-server).)
+
+Only members of the Toads Discord server can sign in. Anyone else who tries lands on a "members only" page and gets
+no session, so the bot must be in the server and `TOADS_DISCORD_GUILD_ID` must be the Toads server's id.
+
+### Warcraft Logs
+
+Follow [admin guide section 2](../ADMIN_GUIDE.md#2-accounts-and-applications-to-create) to create the Warcraft Logs
+client.
 
 ## 5. Fill in the values only you have
 
@@ -111,8 +142,9 @@ is not listed here.
 
 | Setting | Value |
 | --- | --- |
-| `TOADS_DISCORD_CLIENT_ID`, `TOADS_DISCORD_CLIENT_SECRET` | Discord application → OAuth2 |
-| `TOADS_DISCORD_BOT_TOKEN` | Discord application → Bot → Reset Token |
+| `TOADS_DISCORD_CLIENT_ID` | the Toad Bot's Application ID (`1561652680768626688` for Toads) |
+| `TOADS_DISCORD_CLIENT_SECRET` | Toad Bot application → OAuth2 → Reset Secret (step 4) |
+| `TOADS_DISCORD_BOT_TOKEN` | Toad Bot application → Bot → Reset Token (step 4) |
 | `TOADS_DISCORD_GUILD_ID` | Discord: right-click the server → Copy Server ID (needs Developer Mode) |
 | `TOADS_SUPER_ADMIN_IDS`, `TOADS_BREAK_GLASS_ADMIN_ID` | your Discord user id, and the other super admins ([docs/admin.md](admin.md)) |
 | `TOADS_WCL_CLIENT_ID`, `TOADS_WCL_CLIENT_SECRET` | Warcraft Logs client (leave the id empty to turn the reference login off) |
@@ -134,7 +166,7 @@ sudo -iu toads /opt/toads/scripts/deploy.sh
 
 The first build takes a while. When it prints `... is live`, open `https://toads.example.com`: Caddy fetches the
 certificate on the first request, so the very first page can take a few seconds. Sign in with Discord and you should
-land on `/hub`. If something fails, see [troubleshooting](#troubleshooting).
+land on `/hub` (the first time, Discord asks you to authorize **Toad Bot**; that is the sign-in). If something fails, see [troubleshooting](#troubleshooting).
 
 ## 7. Let GitHub deploy on every push
 
@@ -227,7 +259,9 @@ sudo systemctl enable --now dnf-automatic.timer
 | --- | --- |
 | Browser says the certificate is invalid, or the site never loads | `logs caddy`. Usually DNS not pointing here yet (`nslookup`), port 80 or 443 closed in GoDaddy's panel, or a stray `AAAA`/`CAA` record (step 1). Caddy retries on its own once fixed. |
 | Deploy stops at a migration | The old site keeps running. `logs migrate` or run `docker compose -f infra/docker-compose.prod.yml run --rm migrate` to see the error. |
-| `api is unhealthy` | `logs api`. Most often a Discord value or a role id in `config/raid_days.yaml`. |
+| `api is unhealthy` | `logs api`. Most often a Discord value or a role id in `config/raid_days.yaml`. "belongs to application" means the client id and bot token are from different Discord applications (step 4). |
+| Discord says `Invalid OAuth2 redirect_uri` | The redirect on the Toad Bot's OAuth2 page is not exactly `https://<your domain>/auth/callback` (step 4). |
+| Signing in lands on "members only" | That Discord account is not in the Toads server, or `TOADS_DISCORD_GUILD_ID` is another server's id. |
 | Permission denied reading `/config` or the Caddyfile | SELinux: `sudo ausearch -m avc -ts recent`. The mounts carry `z` labels; check `/etc/docker/daemon.json` has `"selinux-enabled": true` and Docker was restarted. |
 | Deploy workflow fails at SSH | `DEPLOY_KNOWN_HOSTS` must match the server (re-run the setup script to print it); `DEPLOY_SSH_KEY` must include the BEGIN/END lines. |
 | Build killed / out of memory | `free -h`; the setup script adds swap below 4 GB of RAM. A 2 GB VPS is the practical minimum. |

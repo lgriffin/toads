@@ -27,7 +27,7 @@ from toads_api.characters import CharacterDirectory, NoCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
-from toads_api.discord_api import DiscordAPI, HttpDiscord
+from toads_api.discord_api import DiscordAPI, HttpDiscord, MismatchedDiscordApplicationError
 from toads_api.home.badges import BadgeService
 from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
 from toads_api.home.performance import PerformanceService
@@ -141,6 +141,12 @@ class Services:
             timezone=ZoneInfo(self.raid_days.timezone),
             clock=lambda: self.clock(),
         )
+
+    async def verify_discord_application(self) -> None:
+        """REQ-HUB-AUTH-003: refuse to start when the client id and the bot token are from different applications."""
+        app_id = await self.discord.bot_application_id()
+        if app_id != self.settings.discord_client_id.strip():
+            raise MismatchedDiscordApplicationError(self.settings.discord_client_id, app_id)
 
     async def verify_discord_roles(self) -> None:
         """REQ-HUB-DAY-022: refuse to start when the raid-day config names a role the server lacks."""
