@@ -227,7 +227,7 @@ def test_interviewers_missing_from_the_cache_are_asked_of_discord() -> None:
     hadur.name, lookalike.name = "hadur117", "hadur1170"
     guild.query_members = AsyncMock(return_value=[lookalike, hadur])
     assert run(find_interviewer(guild, "hadur117")) is hadur
-    guild.query_members.assert_awaited_once_with(query="hadur117", limit=10)
+    guild.query_members.assert_awaited_once_with(query="hadur117", limit=100)
 
 
 def test_application_embed_copes_with_an_older_job_and_long_answers() -> None:

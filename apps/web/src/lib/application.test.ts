@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { EMPTY_APPLICATION, rolesForClass, toApiBody, validateApplication, type ApplicationInput } from './application';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  EMPTY_APPLICATION,
+  RECRUIT_DRAFT_KEY,
+  forgetRecruitDraft,
+  rolesForClass,
+  toApiBody,
+  validateApplication,
+  type ApplicationInput
+} from './application';
 
 const good: ApplicationInput = {
   characterName: 'Bogwalker',
@@ -89,5 +97,27 @@ describe('toApiBody', () => {
       secondary_role: null,
       why_toads: 'Friends.'
     });
+  });
+});
+
+describe('forgetRecruitDraft', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('drops the saved answers and nothing else', () => {
+    const store = new Map([
+      [RECRUIT_DRAFT_KEY, '{"characterName":"Bogwalker"}'],
+      ['other', 'kept']
+    ]);
+    vi.stubGlobal('sessionStorage', { removeItem: (k: string) => store.delete(k) });
+    forgetRecruitDraft();
+    expect([...store.keys()]).toEqual(['other']);
+  });
+  it('shrugs off blocked storage', () => {
+    vi.stubGlobal('sessionStorage', {
+      removeItem: () => {
+        throw new Error('blocked');
+      }
+    });
+    expect(() => forgetRecruitDraft()).not.toThrow();
   });
 });

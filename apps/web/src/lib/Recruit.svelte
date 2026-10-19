@@ -7,6 +7,7 @@
     CLASSES,
     DISCORD_INVITE,
     EMPTY_APPLICATION,
+    RECRUIT_DRAFT_KEY as DRAFT_KEY,
     ROLES,
     rolesForClass,
     validateApplication,
@@ -34,9 +35,6 @@
     /** Resolves with the new application's status; rejects with what to tell the applicant. */
     send: (input: ApplicationInput) => Promise<{ status: string }>;
   } = $props();
-
-  // A signed-out visitor can fill the form in; the answers wait in this tab while they sign in with Discord.
-  const DRAFT_KEY = 'toads:recruit-draft';
 
   let form = $state<ApplicationInput>({ ...EMPTY_APPLICATION });
   let errors = $state<ApplicationErrors>({});

@@ -65,7 +65,8 @@ async def find_interviewer(guild: discord.Guild, name: str) -> discord.Member | 
             return None
     if (found := next((m for m in guild.members if m.name == name), None)) is not None:
         return found
-    return next((m for m in await guild.query_members(query=name, limit=10) if m.name == name), None)
+    # 100 is Discord's most per search, so many members sharing the name's prefix still leave the exact one in.
+    return next((m for m in await guild.query_members(query=name, limit=100) if m.name == name), None)
 
 
 def application_embed(payload: dict[str, Any]) -> discord.Embed:

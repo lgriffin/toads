@@ -25,6 +25,18 @@ export const CLASS_SPECS: Readonly<Record<string, Readonly<Record<string, readon
 
 export const CLASSES = Object.keys(CLASS_SPECS);
 
+/** A signed-out visitor's answers wait in this tab (sessionStorage) while they sign in with Discord. */
+export const RECRUIT_DRAFT_KEY = 'toads:recruit-draft';
+
+/** Signing out forgets the draft, so the next person at this browser tab doesn't see it. */
+export function forgetRecruitDraft(): void {
+  try {
+    sessionStorage.removeItem(RECRUIT_DRAFT_KEY);
+  } catch {
+    // no storage, so no draft
+  }
+}
+
 export const APPLICATION_LIMITS = { whyToads: 1000 } as const;
 
 export interface ApplicationInput {
