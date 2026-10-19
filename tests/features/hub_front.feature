@@ -45,3 +45,10 @@ Feature: HUB FRONT
     Given the Story page's words
     Then the API serves the tagline and story from the repository, not from config/community.yaml
     And the static preview shows the same words
+
+  @ears_state_driven @member @phase_2_5
+  Scenario: REQ-HUB-FRONT-007 While the launch hold is on, the public site shall be our story alone: the homepage shows the story and the Discord link, the public nav names only the story, and the other public pages send visitors to it
+    Given the public launch hold
+    Then the homepage shows only the story while the hold is on and the full landing page after it
+    And the public nav names only the story and the other public pages send visitors to the homepage
+    And member pages do not link into the held public pages

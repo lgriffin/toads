@@ -10,10 +10,10 @@
   import { previewAwardsOf } from '$lib/preview/awards-fake';
   import type { Title } from '$lib/toads';
   import { forgetRecruitDraft } from '$lib/application';
-  import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
+  import { isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
-  import { LAUNCH_HOLD, heldNav, isMemberPath, launchHold } from '$lib/launch';
+  import { LAUNCH_HOLD, heldNav, isHeldPublic, isMemberPath, launchHold, publicNav } from '$lib/launch';
   import ComingSoon from '$lib/components/ComingSoon.svelte';
   import ForeverNotice from '$lib/components/ForeverNotice.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
@@ -67,6 +67,11 @@
       : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles }
   );
   let isHubHome = $derived(path === '/hub' || path === '/hub/');
+  // Until the launch the public site is our story alone; the other public pages send visitors to it.
+  let heldPublic = $derived(isHeldPublic(path));
+  $effect(() => {
+    if (heldPublic) goto(`${base}/`, { replaceState: true });
+  });
   let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
   function switchView(next: PreviewRole) {
@@ -89,7 +94,7 @@
 <header>
   <a class="brand" href="{base}/"><ToadsMark size={28} />Toads</a>
   <nav aria-label="Guild">
-    {#each PUBLIC_NAV as item}
+    {#each publicNav() as item}
       <a href="{base}{item.href}{item.href === '/' ? '' : '/'}" aria-current={isActive(path, item.href) ? 'page' : undefined}
         >{item.label}</a
       >
@@ -107,7 +112,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -118,7 +123,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a></span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}
@@ -156,6 +161,8 @@
         <button class="btn primary" type="button" onclick={() => previewSignIn('officer')}>Switch to officer view</button>
       </p>
     </section>
+  {:else if heldPublic}
+    <p class="muted" role="status">Taking you to our story…</p>
   {:else if hold === 'coming-soon'}
     <ComingSoon {...me} />
   {:else if hold === 'forever-notice'}

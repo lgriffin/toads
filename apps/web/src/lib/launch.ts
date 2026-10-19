@@ -5,7 +5,7 @@
  * setting LAUNCH_HOLD to false.
  */
 import type { Tier } from './access';
-import { MEMBER_EXTRA, MEMBER_NAV, type NavItem } from './nav';
+import { MEMBER_EXTRA, MEMBER_NAV, PUBLIC_NAV, type NavItem } from './nav';
 
 /** The real site holds; the static preview keeps the full sample-data demo unless built with LAUNCH_HOLD=1. */
 export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;
@@ -27,6 +27,29 @@ export function isMemberPath(path: string): boolean {
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
   if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';
   return tier === 'officer' ? 'forever-notice' : 'coming-soon';
+}
+
+/**
+ * The public pages that wait for the launch. Until then the public site is our story alone, on the homepage: How we
+ * raid, Hub features, the old toolkit address, Story and Recruit send visitors there. This holds for every tier.
+ */
+export const HELD_PUBLIC: readonly string[] = ['/how-we-raid', '/features', '/toolkit', '/story', '/recruit'];
+
+/** True for a public page that sends visitors to the homepage while the hold is on; `path` is relative to the base path. */
+export function isHeldPublic(path: string, hold = LAUNCH_HOLD): boolean {
+  const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';
+  return hold && HELD_PUBLIC.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+}
+
+/** Where the server sends a request for a held public page (`pathname` includes the base path), or null to serve it. */
+export function heldPublicRedirect(pathname: string, basePath: string, hold = LAUNCH_HOLD): string | null {
+  if (!pathname.startsWith(basePath)) return null;
+  return isHeldPublic(pathname.slice(basePath.length) || '/', hold) ? `${basePath}/` : null;
+}
+
+/** The public nav: our story alone while the hold is on, every public page after it. */
+export function publicNav(hold = LAUNCH_HOLD): readonly NavItem[] {
+  return hold ? [{ href: '/', label: 'Our story' }] : PUBLIC_NAV;
 }
 
 /** A raider's Members nav during the hold: the hub link alone, which opens the coming-soon page. */

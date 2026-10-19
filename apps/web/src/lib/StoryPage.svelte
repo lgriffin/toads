@@ -15,7 +15,8 @@
   import { visibleFeed } from '$lib/posts';
 
   // The public story page, from GET /api/public/story on the live hub and from sample data in the preview.
-  let { story }: { story: PublicStory } = $props();
+  // `storyOnly` is the launch hold's public site: the hero, the Discord link and our story, nothing else.
+  let { story, storyOnly = false }: { story: PublicStory; storyOnly?: boolean } = $props();
 
   // The outward story is what an anonymous visitor sees, even in the signed-in preview.
   const reels = $derived(visibleHighlights(story.highlights, ANONYMOUS).slice(0, 3));
@@ -30,18 +31,19 @@
     lede={story.tagline}
     toads={['pond-medallion', '01-the-regular', '05-croak']}
   >
-    <a class="medal" href="{base}/recruit/">Apply to raid with us</a>
+    {#if !storyOnly}<a class="medal" href="{base}/recruit/">Apply to raid with us</a>{/if}
     {#if story.discordInvite}
-      <a class="ghost" href={story.discordInvite} target="_blank" rel="noopener noreferrer">Join our Discord</a>
+      <a class={storyOnly ? 'medal' : 'ghost'} href={story.discordInvite} target="_blank" rel="noopener noreferrer">Join our Discord</a>
     {/if}
   </PondHero>
 
   <section class="band dusk" aria-labelledby="story-h">
-    <div class="story-grid">
+    <div class="story-grid" class:alone={storyOnly}>
       <div class="story">
         <h2 id="story-h">Our story</h2>
         {#each story.story as para}<p>{para}</p>{/each}
       </div>
+      {#if !storyOnly}
       <div class="side">
         <section class="card" aria-labelledby="prog-h">
           <h2 id="prog-h">Progression</h2>
@@ -61,8 +63,11 @@
           <p><a href="{base}/recruit/">How applying works</a></p>
         </section>
       </div>
+      {/if}
     </div>
   </section>
+
+  {#if !storyOnly}
 
   <section class="band" aria-labelledby="reels-h">
     <div class="band-head">
@@ -98,11 +103,12 @@
       </section>
     </div>
   </section>
+  {/if}
 </div>
 
 <style>
   .story-grid { display: grid; gap: 2rem; align-items: start; }
-  @media (min-width: 56rem) { .story-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
+  @media (min-width: 56rem) { .story-grid:not(.alone) { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
   .story { display: grid; gap: 1rem; font-size: 1.2rem; }
   .story h2 { font-size: clamp(1.5rem, 4vw, 2.1rem); color: var(--bronze-hi); }
   .story p { margin: 0; max-width: 62ch; }
