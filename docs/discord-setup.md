@@ -13,8 +13,9 @@ The Toad Bot is an automatic Discord account that the website controls. You neve
 download anything. You **add it to the server once** by opening a link, much like inviting a person. After that it
 appears in the member list, and the website tells it what to do.
 
-**Hadur sends you that link** (it starts with `https://discord.com/oauth2/authorize`). If you don't have it yet, ask
-Hadur before you start.
+This is the link:
+
+<https://discord.com/oauth2/authorize?client_id=1561652680768626688&permissions=268520464&integration_type=0&scope=bot+applications.commands>
 
 > **Never paste a bot token into Discord, a chat or an e-mail.** The token is the bot's password. You never need it,
 > and if anyone asks you for it, the answer is no.
@@ -24,7 +25,7 @@ Every step below ends with a **Check** line. If what you see doesn't match it, s
 
 ## Step 1: Add the Toad Bot to the server
 
-1. Open the link from Hadur in a web browser where you are logged in to Discord.
+1. Open [this link](https://discord.com/oauth2/authorize?client_id=1561652680768626688&permissions=268520464&integration_type=0&scope=bot+applications.commands) in a web browser where you are logged in to Discord.
 2. Under **Add to server**, pick **Toads**.
 3. Press **Continue**. Discord shows a list of permissions with ticks. **Leave every tick on**, because the bot needs
    them all. Press **Authorize**.
@@ -87,7 +88,7 @@ You're done. Server admins can always see every channel, so you will see intervi
 
 | What you see | What to do |
 | --- | --- |
-| The link says "Unknown application" or "Invalid client" | The link was copied incompletely. Ask Hadur for it again. |
+| The link says "Unknown application" or "Invalid client" | The link was copied incompletely. Use the link at the top of this guide, or ask Hadur. |
 | Toads isn't in the **Add to server** list | You don't have permission to manage the server. Ask the server owner to give you the **Manage Server** permission, or to do Step 1 themselves. |
 | No **Copy ... ID** option on the right-click menu | Developer Mode is off. Do Step 2 again. |
 | No channel appears after someone applies | Tell Hadur. Check first that the Toad Bot is shown as online in the member list. |
