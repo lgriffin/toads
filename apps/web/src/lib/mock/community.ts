@@ -352,11 +352,11 @@ export const spotlights: Spotlight[] = [
 export const story: PublicStory = {
   guild: 'Toads',
   realm: 'Spineshatter EU',
-  tagline: 'A friendly, steady raiding guild on the European PvP side of WoW Forever. Two raid groups, one night each, no drama, one big pond.',
+  tagline: 'A very social raiding guild on the EU PvP side of WoW Forever, locked in on speed and execution. Two 40-man teams, one big pond.',
   story: [
-    'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
-    'We have a Wednesday team and a Sunday team, each raiding 21:00 to midnight server time with its own officers, and plenty of people raid both. We clear content steadily, learn fights together and keep the loot rules boring and fair.',
-    'Everything we do lives on the Toads Hub: logs, sign-ups, the guild bank and the posts you see below. Our Discord is where we talk, and where every applicant gets a private interview room with the officers.'
+    'Toads cut its teeth on Classic Fresh on Spineshatter: a social guild that locked in on raid night and took Molten Core, Blackwing Lair, Ahn’Qiraj and Naxxramas with a focus on speed runs.',
+    'We carried the same habits into The Burning Crusade, from Karazhan to Black Temple and Mount Hyjal. A balanced raid, full consumes and clean pulls: progression first, then the clock. Every clear is on Warcraft Logs.',
+    'World of Warcraft: Forever will follow the same pattern. Two 40-man teams, Wednesday and Sunday, clearing in one night wherever we can, with Discord as the pond in between.'
   ],
   discordInvite: 'https://discord.gg/example',
   progression: progressionFromRaids(raids),

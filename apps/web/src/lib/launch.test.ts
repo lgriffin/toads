@@ -17,7 +17,7 @@ describe('launch hold', () => {
     // An officer who opens the admin console meets its own super-admins-only refusal, not the notice.
     expect(launchHold('/admin', 'officer', true)).toBe('open');
     expect(launchHold('/hub', 'visitor', true)).toBe('open');
-    for (const path of ['/', '/how-we-raid', '/story', '/recruit', '/toolkit', '/members-only', '/hubbub'])
+    for (const path of ['/', '/how-we-raid', '/story', '/recruit', '/features', '/toolkit', '/members-only', '/hubbub'])
       expect(launchHold(path, 'raider', true)).toBe('open');
   });
 

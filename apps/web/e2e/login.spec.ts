@@ -87,23 +87,24 @@ test('a visitor sees how a raid night works without anyone being named', async (
   const model = page.getByRole('region', { name: 'How a Toads raid night works' });
   await expect(model.getByRole('link')).toHaveText([
     'Prep',
-    'Flasks and elixirs',
-    'Consumes',
+    'Flasks and consumes',
     'Speed',
-    'Badges',
     'Measured against ourselves',
     'Read how we raid in full'
   ]);
   await expect(page.getByRole('region', { name: 'The guild right now' }).getByText('BT in 1:48:32')).toBeVisible();
-  await expect(page.getByRole('list', { name: 'A raid week' }).getByRole('listitem')).toHaveCount(7);
+  await expect(page.getByRole('heading', { name: 'A raid week in the pond' })).toHaveCount(0);
   // Guild totals only: the sample sheets' low-consumables names and the preview visitor stay behind the login.
   for (const name of ['Croakley', 'Lilypadma', 'Hopscotch']) await expect(page.getByText(name)).toHaveCount(0);
 
-  await model.getByRole('link', { name: 'Flasks and elixirs' }).click();
+  await model.getByRole('link', { name: 'Flasks and consumes' }).click();
   await expect(page).toHaveURL(/\/toads\/how-we-raid\/#flasks$/);
   const flasks = page.getByRole('article', { name: 'Flasks and elixirs' });
   await expect(flasks.getByText('Buff consumable uptime on bosses, last four raids')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'How we raid', level: 1 })).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Loot Council' }).getByRole('link', { name: /thatsmybis\.com/ })).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Badges' })).toHaveCount(0);
+  await expect(page.getByText('We are aiming for two 40-man raiding teams', { exact: false })).toBeVisible();
 });
 
 test('a signed-out applicant is asked to sign in with Discord and keeps their answers', async ({ page }) => {

@@ -13,7 +13,7 @@
     children
   }: {
     title: string;
-    /** The small bronze line under the title, such as "Horde · PvP · Europe (EU)". */
+    /** The small bronze line under the title, such as "Horde · PvP · EU". */
     line?: string;
     lede: string;
     /** Badge files under static/logos/, without `.svg`, standing in a row. */

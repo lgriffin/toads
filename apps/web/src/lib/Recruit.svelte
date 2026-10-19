@@ -136,7 +136,7 @@
 <div class="pond-page">
 <PondHero
   title="Raid with the Toads"
-  line="Horde · PvP · Europe (EU)"
+  line="Horde · PvP · EU"
   lede="We raid Wednesday and Sunday evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
   toads={['roles/healer-badge', 'roles/damage-badge']}
 />

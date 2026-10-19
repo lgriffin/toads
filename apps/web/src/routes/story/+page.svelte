@@ -33,7 +33,7 @@
   <div class="pond-page">
     <PondHero
       title="Our story"
-      line="Horde · PvP · Europe (EU)"
+      line="Horde · PvP · EU"
       lede={live.kind === 'loading' ? 'Loading the story…' : 'The story did not load. Refresh the page to try again.'}
       toads={['pond-medallion']}
     />

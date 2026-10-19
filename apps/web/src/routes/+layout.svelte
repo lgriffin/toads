@@ -41,7 +41,7 @@
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
   let officer = $derived(__PREVIEW__ ? hasOfficerPowers(previewSession.role) : (session?.officer_days.length ?? 0) > 0);
-  // The tier chip in the top bar opens the toolkit, which says what this tier can do.
+  // The tier chip in the top bar opens Hub features, which says what this tier can do.
   const PREVIEW_TIER: Record<PreviewRole, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
   let tier = $derived<Tier>(
     __PREVIEW__ ? (previewSession.role ? PREVIEW_TIER[previewSession.role] : 'visitor') : tierOf(session)
@@ -99,7 +99,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a></span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -110,7 +110,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}

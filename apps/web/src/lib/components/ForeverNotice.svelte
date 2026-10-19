@@ -25,7 +25,7 @@
       launch day.
     </p>
     <div class="actions">
-      <a class="ghost" href="{base}/toolkit/">See what officers can do</a>
+      <a class="ghost" href="{base}/features/">See what officers can do</a>
     </div>
   </section>
 </div>

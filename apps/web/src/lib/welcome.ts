@@ -32,7 +32,7 @@ export const WELCOME_STEPS: readonly WelcomeStep[] = [
   {
     id: 'model',
     title: 'Read how we raid',
-    body: 'Prep, flasks and elixirs, consumes, speed and badges: what we expect on raid night and how it is measured.',
+    body: 'Prep, flasks and consumes, speed, the Loot Council and how we measure ourselves: what we expect on raid night.',
     href: '/how-we-raid',
     action: 'How we raid'
   },
@@ -51,11 +51,11 @@ export const WELCOME_STEPS: readonly WelcomeStep[] = [
     action: 'Download the analyzer'
   },
   {
-    id: 'toolkit',
+    id: 'features',
     title: 'See what you can do',
-    body: 'Everything your role opens across the analyzer, the bank and Discord, and how to get more.',
-    href: '/toolkit',
-    action: 'Your toolkit'
+    body: 'Everything your role opens across the analyzer, the bank and Discord.',
+    href: '/features',
+    action: 'Hub features'
   }
 ];
 
