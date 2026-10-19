@@ -40,6 +40,8 @@ from toads_api.home.sql import SqlHomeRepository
 from toads_api.logs.service import LogService
 from toads_api.logs.sql import SqlLogRepository
 from toads_api.notify import Notifier, RedisOutbox
+from toads_api.officer_board.service import OfficerBoardService
+from toads_api.officer_board.sql import SqlBoardRepository
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
 from toads_api.raid_sheets.service import RaidSheetService
@@ -74,6 +76,7 @@ class Services:
     logs: LogService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
     comps: CompService = field(init=False)
+    officer_board: OfficerBoardService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -114,6 +117,12 @@ class Services:
         self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
         self.role_badges = RoleBadgeService(SqlRoleBadgeRepository(self.db))
         self.comps = CompService(SqlCompRepository(self.db), self.account.shown_names)
+        guild_time = ZoneInfo(self.raid_days.timezone)
+        self.officer_board = OfficerBoardService(
+            SqlBoardRepository(self.db),
+            self.account.shown_names,
+            today=lambda: datetime.fromtimestamp(self.clock(), guild_time).date(),
+        )
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)

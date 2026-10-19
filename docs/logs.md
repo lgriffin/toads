@@ -15,7 +15,7 @@ the analyzer's contract, `guides/raid_pages.md` in lgriffin/warcraftlogs_project
    at most 100 a turn so a first run fills in over a few turns. An older build never replaces a newer one (409).
 2. `PUT /api/worker/logs/{report}` sends one raid's analysis.
 
-Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migration 0017).
+Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migration 0018).
 
 ## Who sees what
 
