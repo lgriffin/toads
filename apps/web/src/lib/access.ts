@@ -1,5 +1,5 @@
 /**
- * The toolkit: what each tier can do in the three apps a Toads member gets (the raid analyzer, the guild bank and
+ * Hub features: what each tier can do in the three apps a Toads member gets (the raid analyzer, the guild bank and
  * Discord with the officers' Google Drive). It mirrors the hub's RBAC table (services/api/src/toads_api/rbac/
  * permissions.py), and access.test.ts fails if a permission named here is missing there or sits in another tier. The
  * page only explains; every route still checks its own permission.
@@ -10,6 +10,10 @@ export type Tier = 'visitor' | 'raider' | 'officer' | 'admin';
 
 export const TIERS: readonly Tier[] = ['visitor', 'raider', 'officer', 'admin'];
 
+/** The tiers the Hub features page lists; super admins see it as officers do. */
+export type FeatureTier = Exclude<Tier, 'admin'>;
+export const FEATURE_TIERS: readonly FeatureTier[] = ['visitor', 'raider', 'officer'];
+
 export const TIER_LABEL: Record<Tier, string> = {
   visitor: 'Visitor',
   raider: 'Raider',
@@ -18,11 +22,17 @@ export const TIER_LABEL: Record<Tier, string> = {
 };
 
 /** Shown on a row the viewer has not unlocked: who holds it, or how to get it. */
-export const LOCKED: Record<Tier, string> = {
+export const LOCKED: Record<FeatureTier, string> = {
   visitor: 'Open to everyone',
   raider: 'Log in with Discord to unlock',
-  officer: 'For the officers of each raid night',
-  admin: 'For super admins only'
+  officer: 'For the officers of each raid night'
+};
+
+/** The column heading for each tier on the Hub features page. */
+export const FEATURE_LABEL: Record<FeatureTier, string> = {
+  visitor: 'Everyone',
+  raider: 'Raiders',
+  officer: 'Officers'
 };
 
 export interface Capability {
@@ -32,7 +42,7 @@ export interface Capability {
 }
 
 export interface Row {
-  tier: Tier;
+  tier: FeatureTier;
   can: Capability[];
 }
 
@@ -73,10 +83,6 @@ export const APPS: readonly App[] = [
           { text: 'Approve character claims', permission: 'approve_claims' },
           { text: 'Give members their award toads (global officers)', permission: 'manage_awards' }
         ]
-      },
-      {
-        tier: 'admin',
-        can: [{ text: 'Connect the guild’s Warcraft Logs login' }, { text: 'Refresh schedule and job health' }]
       }
     ]
   },
@@ -92,7 +98,7 @@ export const APPS: readonly App[] = [
           { text: 'Browse what every bank holds', permission: 'view_bank' },
           { text: 'Request items on the site or with /bank request', permission: 'request_bank_items' },
           { text: 'Your receipts on Me' },
-          { text: 'Redeem an officer token from a super admin to help run the bank' }
+          { text: 'Redeem a bank helper token to help run the bank' }
         ]
       },
       {
@@ -100,13 +106,6 @@ export const APPS: readonly App[] = [
         can: [
           { text: 'Run your night’s request queue', permission: 'manage_bank' },
           { text: 'Import bank snapshots from the addon', permission: 'import_bank_snapshot' }
-        ]
-      },
-      {
-        tier: 'admin',
-        can: [
-          { text: 'Give bank grants and single-use officer tokens', permission: 'manage_grants' },
-          { text: 'Every bank, with break-glass changes audited' }
         ]
       }
     ]
@@ -138,10 +137,6 @@ export const APPS: readonly App[] = [
           { text: 'Interview rooms and recruiting needs', permission: 'manage_recruitment' },
           { text: 'Write the strategy and role sheets in Google Drive' }
         ]
-      },
-      {
-        tier: 'admin',
-        can: [{ text: 'Bots, their tokens and the site bridge' }, { text: 'Settings from the admin guide' }]
       }
     ]
   }
@@ -149,6 +144,11 @@ export const APPS: readonly App[] = [
 
 export function rank(tier: Tier): number {
   return TIERS.indexOf(tier);
+}
+
+/** The tier the Hub features page shows a viewer as: super admins as officers. */
+export function featureTier(tier: Tier): FeatureTier {
+  return tier === 'admin' ? 'officer' : tier;
 }
 
 export function unlocked(row: Row, viewer: Tier): boolean {
@@ -199,27 +199,12 @@ export function tierOf(session: Session | null | undefined): Tier {
 
 /** One line under the heading that says where the viewer stands. */
 export function standing(tier: Tier): string {
-  switch (tier) {
+  switch (featureTier(tier)) {
     case 'visitor':
       return 'You are not signed in. Everything is listed so you can see what joining gets you.';
     case 'raider':
-      return 'The three apps are yours. What officers and super admins have is shown dimmed, with who holds it.';
+      return 'The raider column is yours. What officers hold is shown dimmed.';
     case 'officer':
       return 'You have everything raiders do, plus your raid night’s bank, curation and insights.';
-    case 'admin':
-      return 'Everything is unlocked. Changes made as the break-glass admin are shown and audited.';
   }
 }
-
-/** How a member gets more than they have. */
-export const MORE: readonly { title: string; body: string }[] = [
-  {
-    title: 'Trial to raider',
-    body: 'Your raid night’s officers promote you in Discord, and the hub follows at your next sign-in.'
-  },
-  {
-    title: 'Bank helper',
-    body: 'A super admin gives you a single-use officer token. Redeem it on the Bank page or with /bank redeem.'
-  },
-  { title: 'Officer', body: 'A Discord role for each raid night. Global officers cover both nights.' }
-];

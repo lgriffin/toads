@@ -13,11 +13,11 @@ export interface Value {
 
 export const LANDING = {
   guild: 'Toads',
-  tagline: 'A friendly, steady guild on the European PvP side of WoW Forever. Horde, one big pond.',
-  schedule: 'a Wednesday team and a Sunday team, 21:00 to midnight server time',
+  tagline: 'A very social guild that locks in on raid night, on the EU PvP side of WoW Forever. Horde, one big pond.',
+  schedule: 'two 40-man teams, Wednesday and Sunday, 21:00 to midnight server time',
   who: [
-    'Toads started as a handful of levelling friends on Spineshatter who kept ending up in the same dungeon groups. By the Dark Portal we had enough people for Karazhan, and by Gruul we had two raid teams.',
-    'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, Europe (EU): the same people, the same habits, a new continent to be unreasonably smug about.'
+    'We are a very social guild that locks into raiding with a focus on speed and execution. We don’t stack classes: we bring a balanced raid group, and our players step up with consumes and the level of play we expect. We have done this from Classic Fresh to TBC, and now Forever awaits us.',
+    'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, EU: the same people, the same habits, a new continent to be unreasonably smug about.'
   ],
   values: [
     {
@@ -30,7 +30,7 @@ export const LANDING = {
     },
     {
       title: 'Boring, fair loot',
-      body: 'Loot rules are written down, the same for everyone and never changed mid-tier. Officers explain every call.'
+      body: 'Our Loot Council looks at each role and weighs the mega drops across the whole raid. Every call is made in the open, with the loot tables public on thatsmybis.com.'
     },
     {
       title: 'Open doors',
@@ -90,7 +90,7 @@ export const RECRUITING: readonly Recruiting[] = [
 export const SOCIAL = {
   title: 'More pond than raid',
   intro:
-    'Raid nights are two evenings a week. The rest of the pond is Discord: tactics, jokes, highlight reels and the odd world PvP dogpile. People stay for the company.',
+    'We run multiple raid groups, each aiming to clear all the relevant content in one night, and only stretching to two when it is new, challenging content. We come zoned in to make that happen. The rest of the pond is Discord: tactics, jokes, highlight reels and the odd world PvP dogpile.',
   points: [
     { title: 'Always someone about', body: 'Discord is where the guild lives between raids, from gearing questions to who is up for a dungeon run.' },
     { title: 'Seen and celebrated', body: 'Officers publish highlight reels and member spotlights to the hub and Discord, with the member’s say-so.' },
@@ -119,15 +119,15 @@ export const HOMES: readonly Home[] = [
     id: 'forever',
     title: 'World of Warcraft: Forever',
     status: 'Launching 4 November 2026',
-    line: 'Horde · PvP · Europe (EU)',
-    body: 'Our new home. We are rolling together on the PvP side in the European region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
+    line: 'Horde · PvP · EU',
+    body: 'Our new home. We are rolling together on the PvP side in the EU region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
     logo: { src: 'brand/wow-forever.png', alt: 'World of Warcraft: Forever' }
   },
   {
     id: 'tbc',
     title: 'Burning Crusade Classic',
     status: 'Active now',
-    line: 'Alliance · Spineshatter · Europe (EU)',
+    line: 'Alliance · Spineshatter · EU',
     body: 'The first pond is still full. Our Alliance team keeps raiding TBC Classic on Spineshatter, and its raids, logs and bank are what the hub was built for.',
     logo: {
       src: 'brand/tbc-anniversary.png',
@@ -142,91 +142,98 @@ export const HOMES: readonly Home[] = [
  */
 export interface Pillar {
   /** Also the anchor on /how-we-raid. */
-  id: 'prep' | 'flasks' | 'consumes' | 'speed' | 'badges' | 'standard';
+  id: 'prep' | 'flasks' | 'consumes' | 'speed' | 'loot' | 'standard';
   title: string;
-  /** One line for the homepage card. */
-  summary: string;
   approach: string;
   measure: string;
   youSee: string;
+  /** An outside page the pillar points to, such as the public loot tables. */
+  link?: { href: string; label: string };
 }
 
+export const LOOT_TABLES = 'https://thatsmybis.com';
+
+/** The full write-up on /how-we-raid. */
 export const MODEL: readonly Pillar[] = [
   {
     id: 'prep',
     title: 'Prep',
-    summary: 'Enchanted, gemmed, repaired and addons current before the first pull.',
     approach:
-      'Arrive enchanted, gemmed and repaired, with the night’s resistance set if a fight needs it, and your addons up to date.',
+      'Arrive enchanted, gemmed and repaired, with your addons up to date and your role for the raid understood. Flasks, elixirs, potions and every other consume are expected, and expected to be used in volume.',
     measure: 'The CBA raid sheet’s gear check counts missing enchants and gems for every raid.',
     youSee: 'The raid’s gear check in the raid totals on the hub.'
   },
   {
     id: 'flasks',
     title: 'Flasks and elixirs',
-    summary: 'A flask, or a battle and guardian elixir pair, on every progression pull.',
     approach:
-      'A flask, or a battle and guardian elixir pair, on every progression pull. The guild bank keeps raid stock of the common flasks, so gold is never the reason to go without.',
+      'A flask, or a battle and guardian elixir pair, on every progression pull. The guild bank will aim to support the team, especially early in Forever; as we mature, this should become less of a challenge.',
     measure: 'The CBA raid sheet records buff consumable uptime on bosses and flags anyone under 80%.',
     youSee: 'The raid’s consumable uptime on the hub, and a bank request for anything you are short of.'
   },
   {
     id: 'consumes',
     title: 'Consumes',
-    summary: 'Potions on cooldown, runes, drums, sappers, oils and scrolls.',
     approach:
-      'Potions on cooldown, runes for mana users, drums from leatherworkers, and sappers wherever a fight allows them.',
+      'Potions on cooldown, runes for mana users, and sappers, oils and scrolls wherever a fight allows them. Professions play a large part: as a raid group we may all opt for one profession, as with Engineering in Classic Fresh.',
     measure: 'The analyzer counts every use from the combat log; the raid sheets total them per raid.',
-    youSee: 'The raid’s consumable totals on the hub, and the badges they earn you on Me.'
+    youSee: 'The raid’s consumable totals on the hub.'
   },
   {
     id: 'speed',
     title: 'Speed',
-    summary: 'Clear times tracked every week, zone by zone.',
-    approach: 'Clean pulls and short breaks. A faster clear is a better night for everyone.',
+    approach:
+      'Clean pulls and short breaks. Understand the trash pulls and your role in keeping them quick. Speed is what pushes us as a group to progress at pace and challenge ourselves.',
     measure: 'Clear times per zone from the CBA raid sheet, and each raid’s length from the analyzer.',
     youSee: 'Each raid’s clear times in the raid totals on the hub.'
   },
   {
-    id: 'badges',
-    title: 'Badges',
-    summary: 'Ten awards for turning up and coming prepared, in four item-quality tiers.',
+    id: 'loot',
+    title: 'Loot Council',
     approach:
-      'We reward turning up and coming prepared, not topping meters. Each badge has four tiers named after item quality: Uncommon, Rare, Epic and Legendary.',
-    measure: 'The analyzer counts them across every guild raid. Pug logs never count.',
-    youSee: 'Your badges and how far you are from the next tier on Me. Raid leaders see the roster’s.'
+      'We have a Loot Council to keep loot distribution fair across the whole group. It looks at each role, and weighs the mega drops across the whole raid.',
+    measure: 'Attendance, performance, consumes and guild presence.',
+    youSee: 'Our loot tables, public on thatsmybis.com, so everyone knows the drop order.',
+    link: { href: LOOT_TABLES, label: 'Our loot tables on thatsmybis.com' }
   },
   {
     id: 'standard',
     title: 'Measured against ourselves',
-    summary: 'Each week against our own last four. No targets.',
     approach:
-      'There is no number to hit. The guild’s healing each week is compared with its own average over the four raided weeks before it, and your own number with the guild median for your role.',
-    measure:
-      'The analyzer’s healing per raid and per character, week on week, and each player’s role number in every raid.',
-    youSee: 'The week-on-week healing charts and your performance against the role median, both on the hub.'
+      'There is no number to hit. Each role is compared week on week with its own average over the four raided weeks before it, to help the whole group and to help you as a player. We don’t chase parses, but we support and encourage those who want to, and our composition and consumes will back them.',
+    measure: 'The analyzer’s numbers per raid and per character, week on week, and each player’s role number in every raid.',
+    youSee: 'The week-on-week charts and your performance against the median for your role, both on the hub.'
   }
 ];
 
-export interface WeekDay {
-  day: string;
-  raid: boolean;
-  text: string;
+export interface HomePillar {
+  /** The /how-we-raid anchor it links to. */
+  id: Pillar['id'];
+  title: string;
+  summary: string;
 }
 
-/** When each part of the model happens in a normal raid week. */
-export const RAID_WEEK: readonly WeekDay[] = [
-  { day: 'Mon', raid: false, text: 'Ask the guild bank for flasks and mats, on the hub or with /bank request in Discord.' },
+/** The homepage's short version: a line each, linking to the full write-up. */
+export const HOME_PILLARS: readonly HomePillar[] = [
+  { id: 'prep', title: 'Prep', summary: 'Enchanted, repaired, addons up to date and your role for the raid understood.' },
   {
-    day: 'Tue',
-    raid: false,
-    text: 'Officers fill bank requests and share the strategy and role sheets from Google Drive.'
+    id: 'flasks',
+    title: 'Flasks and consumes',
+    summary: 'A flask or elixir pair on every progression pull, potions on cooldown and every consume used in volume.'
   },
-  { day: 'Wed', raid: true, text: 'Wednesday team raids, 21:00 to midnight. The log is analysed within half an hour of the upload.' },
-  { day: 'Thu', raid: false, text: 'Badges, raid totals and your performance update on the hub.' },
-  { day: 'Fri', raid: false, text: 'Officers publish posts, highlights and spotlights to the hub and Discord.' },
-  { day: 'Sat', raid: false, text: 'Fix anything the gear check found before Sunday.' },
-  { day: 'Sun', raid: true, text: 'Sunday team raids, 21:00 to midnight. Same cycle.' }
+  { id: 'speed', title: 'Speed', summary: 'Understand the trash pulls and your role in helping us clear fast.' },
+  {
+    id: 'standard',
+    title: 'Measured against ourselves',
+    summary: 'Each week against our own last four raids. No targets.'
+  }
+];
+
+/** How the two raid teams work, on /how-we-raid. */
+export const RAID_TEAMS: readonly string[] = [
+  'We are aiming for two 40-man raiding teams, one on Wednesday and one on Sunday. Both groups work as one to support each other, with alts helping out where possible to cover life events.',
+  'We do not expect 100% attendance. We recognise life happens, and with two raid teams we can bench and rotate as needed.',
+  'Discord provides our support, our tactics and our strategy, and our raid leaders on the night drive it home.'
 ];
 
 export interface AppTile {
@@ -238,7 +245,7 @@ export interface AppTile {
 export const MEMBER_APPS: readonly AppTile[] = [
   {
     title: 'Raid analyzer',
-    body: 'Raid totals and week-on-week charts on the hub, your number against the role median, and your badges. Every log broken down in the Windows app.'
+    body: 'Raid totals and week-on-week charts on the hub, and your number against the median for your role. Every log broken down in the Windows app.'
   },
   { title: 'Guild bank', body: 'Browse what the bank holds and request flasks, potions and mats for raid night.' },
   { title: 'Discord', body: 'Raid times, officer posts, highlight reels and the bank bot, joined up with the hub.' }

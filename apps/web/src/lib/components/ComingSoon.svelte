@@ -5,9 +5,13 @@
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
   import { FOREVER_LAUNCH, UPCOMING } from '$lib/launch';
+  import type { MemberFacts } from '$lib/toads';
   import PondHero from './PondHero.svelte';
+  import ToadGreeting from './ToadGreeting.svelte';
 
-  // The one page a raider sees while the launch hold is on: what the hub will open with, in the public pages' pond.
+  // The one page a raider sees while the launch hold is on: their own member toad, then what the hub will open with,
+  // in the public pages' pond.
+  let { name, ...facts }: MemberFacts & { name: string } = $props();
 </script>
 
 <svelte:head><title>Coming soon · Toads</title></svelte:head>
@@ -22,6 +26,8 @@
     <a class="medal" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the Toads Discord</a>
     <a class="ghost" href="{base}/how-we-raid/">See how we raid</a>
   </PondHero>
+
+  <ToadGreeting {name} {...facts} />
 
   <section class="band dusk" aria-labelledby="soon-h">
     <div class="head">

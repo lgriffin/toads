@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   APPS,
-  MORE,
+  FEATURE_TIERS,
+  featureTier,
   RAID_ROLE_PERMISSIONS,
   TIERS,
   held,
@@ -15,7 +16,7 @@ import {
 } from './access';
 import type { Session } from './api';
 
-// The hub's RBAC table, read as text so the toolkit cannot drift from it.
+// The hub's RBAC table, read as text so Hub features cannot drift from it.
 const RBAC = readFileSync(
   new URL('../../../../services/api/src/toads_api/rbac/permissions.py', import.meta.url),
   'utf-8'
@@ -43,7 +44,7 @@ const session = (s: Partial<Session>): Session => ({
   ...s
 });
 
-describe('the toolkit follows the RBAC table', () => {
+describe('Hub features follow the RBAC table', () => {
   const rows = APPS.flatMap((a) => a.rows.flatMap((r) => r.can.map((c) => ({ tier: r.tier, ...c }))));
 
   it('reads the table', () => {
@@ -60,8 +61,10 @@ describe('the toolkit follows the RBAC table', () => {
   it('puts each permission in the tier that first holds it', () => {
     for (const r of rows.filter((x) => x.permission)) {
       const p = r.permission as string;
-      // Applying is open to anyone in the Discord server, so the toolkit shows it to visitors.
-      const tier = p === 'apply' ? 'visitor' : ADMIN_ONLY.has(p) ? 'admin' : RAIDER.has(p) ? 'raider' : 'officer';
+      // Applying is open to anyone in the Discord server, so the page shows it to visitors.
+      // Super admin powers are configuration, not features: the page names none of them.
+      expect(ADMIN_ONLY.has(p), r.text).toBe(false);
+      const tier = p === 'apply' ? 'visitor' : RAIDER.has(p) ? 'raider' : 'officer';
       expect(r.tier, r.text).toBe(tier);
     }
   });
@@ -77,12 +80,14 @@ describe('the toolkit follows the RBAC table', () => {
     expect([...RAID_ROLE_PERMISSIONS.raider].sort()).toEqual([...trial, ...own('_RAIDER')].sort());
   });
 
-  it('says only super admins hand out bank tokens', () => {
-    expect(MORE.find((m) => m.title === 'Bank helper')?.body).toMatch(/super admin/);
+  it('never mentions super admins', () => {
+    for (const r of rows) expect(r.text, r.text).not.toMatch(/super admin|break-glass/i);
   });
 
-  it('covers every app at every tier', () => {
-    for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...TIERS]);
+  it('covers every app at every listed tier, and shows super admins the officer view', () => {
+    for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...FEATURE_TIERS]);
+    expect(featureTier('admin')).toBe('officer');
+    expect(TIERS).toContain('admin');
   });
 });
 

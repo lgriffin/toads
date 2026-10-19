@@ -5,7 +5,7 @@
   import { base } from '$app/paths';
   import ModelPillars from '$lib/components/ModelPillars.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
-  import RaidWeek from '$lib/components/RaidWeek.svelte';
+  import { RAID_TEAMS } from '$lib/landing';
   import { sheetTrend } from '$lib/mock/sheets';
 
   // How a Toads raid night works, in full: the same pillars as the homepage, each with its approach, how it is
@@ -20,7 +20,7 @@
   <PondHero
     title="How we raid"
     line="Wednesday and Sunday · 21:00 to midnight"
-    lede="Two raid groups, one night each, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
+    lede="Two 40-man raid teams, one night each, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
     toads={['roles/tank-badge', 'roles/healer-badge', 'roles/damage-badge']}
   >
     <a class="medal" href="{base}/recruit/">Apply to raid with us</a>
@@ -37,7 +37,9 @@
 
   <section class="band" aria-labelledby="week-h">
     <h2 id="week-h">A raid week in the pond</h2>
-    <RaidWeek />
+    <div class="teams">
+      {#each RAID_TEAMS as para}<p>{para}</p>{/each}
+    </div>
   </section>
 
   <section class="band dusk close" aria-labelledby="next-h">
@@ -53,4 +55,6 @@
 <style>
   .close { justify-items: start; }
   .close p { margin: 0; max-width: 56ch; }
+  .teams { display: grid; gap: 0.75rem; max-width: 68ch; }
+  .teams p { margin: 0; }
 </style>

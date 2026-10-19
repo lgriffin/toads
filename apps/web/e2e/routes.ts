@@ -5,7 +5,7 @@ export const ROUTES = [
   'story/',
   'recruit/',
   'login/',
-  'toolkit/',
+  'features/',
   'highlights/',
   'hub/',
   'officers/',

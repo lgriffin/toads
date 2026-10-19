@@ -6,6 +6,7 @@
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
+  import { FOREVER_LAUNCH } from '$lib/launch';
   import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
   import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
   import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
@@ -14,7 +15,6 @@
   import GuildPulse from './components/GuildPulse.svelte';
   import ModelPillars from './components/ModelPillars.svelte';
   import PondScene from './components/PondScene.svelte';
-  import RaidWeek from './components/RaidWeek.svelte';
   import ToadsMark from './components/ToadsMark.svelte';
 
   // null: signed out; a name: signed in. The page is the same for both apart from the calls to action.
@@ -59,7 +59,7 @@
       <ToadsMark size={168} title="The Toads medallion" />
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
-    <p class="line">Horde · PvP · Europe (EU)</p>
+    <p class="line">Horde · PvP · EU</p>
     <p class="tagline">{LANDING.tagline}</p>
     <div class="cta">
       {#if member}
@@ -213,16 +213,15 @@
     <p><a href="{base}/how-we-raid/">Read how we raid in full</a></p>
   </section>
 
-  <section class="band" aria-labelledby="week-h">
-    <h2 id="week-h">A raid week in the pond</h2>
-    <RaidWeek />
-  </section>
-
   <section class="band" aria-labelledby="apps-h">
     <div class="head">
       <h2 id="apps-h">What opens when you join</h2>
       <p>Sign in with the Discord account you use in the Toads server. Officers get more on top.</p>
     </div>
+    <p class="opens">
+      Once World of Warcraft: Forever releases on {FOREVER_LAUNCH.label}, our raid analyser and guild bank open to
+      members through the hub.
+    </p>
     <ul class="apps">
       {#each MEMBER_APPS as app (app.title)}
         <li><h3>{app.title}</h3><p>{app.body}</p></li>
@@ -230,7 +229,7 @@
     </ul>
     <p class="cta">
       {#if !member}<a class="medal" href={loginHref} data-sveltekit-reload={reload}>Log in with Discord</a>{/if}
-      <a class="ghost" href="{base}/toolkit/">See what each role can do</a>
+      <a class="ghost" href="{base}/features/">See the hub’s features</a>
     </p>
   </section>
 </div>
@@ -357,6 +356,7 @@
   }
   .rules h3 { font-size: 1.3rem; color: var(--bronze-hi); }
 
+  .opens { margin: 0; max-width: 62ch; padding: 0.8rem 1.1rem; border: 1px solid var(--bronze); border-radius: 10px; background: rgb(217 168 90 / 0.1); color: var(--cream); }
   .apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
   .apps li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem; display: grid; gap: 0.3rem; align-content: start; }
   .cta:last-child { justify-content: flex-start; }

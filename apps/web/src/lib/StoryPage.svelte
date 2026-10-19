@@ -26,7 +26,7 @@
 <div class="pond-page">
   <PondHero
     title={story.guild}
-    line="Horde · PvP · Europe (EU)"
+    line="Horde · PvP · EU"
     lede={story.tagline}
     toads={['pond-medallion', '01-the-regular', '05-croak']}
   >

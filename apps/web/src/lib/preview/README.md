@@ -3,7 +3,7 @@ Sample-data versions of the hub pages, rendered only in the static preview build
 
 - `/` is the public landing page (`$lib/Landing.svelte`, copy in `$lib/landing.ts`), the same in every build apart
   from the guild pulse, which only the preview draws from the sample raid sheets. `/how-we-raid` has the raid night
-  model in full, `/toolkit` what each tier can do (`$lib/access.ts`), `Story` the rest of the public face (`$lib/StoryPage.svelte`,
+  model in full, `/features` (Hub features) what each tier can do (`$lib/access.ts`), `Story` the rest of the public face (`$lib/StoryPage.svelte`,
   shared with the real site, which reads `/api/public/story`) and
   `/recruit` the application page (`$lib/Recruit.svelte`, shared with the real site; the preview sends nothing); everything else opens after sign-in. `/welcome` is the first sign-in checklist (`$lib/welcome.ts`), and
   `/admin` the super admins' console (`$lib/admin.ts`, with the bank's grants answered by `bank-fake.ts`).

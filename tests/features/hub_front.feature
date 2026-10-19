@@ -3,25 +3,25 @@
 Feature: HUB FRONT
 
   @ears_ubiquitous @member @phase_2_5
-  Scenario: REQ-HUB-FRONT-001 The public homepage shall explain how a Toads raid night works (prep, flasks and elixirs, consumes, speed, badges and how the guild measures itself) and shall show only guild-level numbers, never a player's name
+  Scenario: REQ-HUB-FRONT-001 The public homepage shall explain how a Toads raid night works (prep, flasks and consumes, speed and how the guild measures itself) and shall show only guild-level numbers, never a player's name
     Given the public homepage
-    Then it shows the six pillars of how we raid, each linking to its full write-up on How we raid
-    And each pillar says what we expect, how we measure it and what a member sees
-    And it shows a raid week and the three apps a member gets
+    Then it shows the raid-night pillars, each linking to its full write-up on How we raid
+    And How we raid says for each of its six pillars what we expect, how we measure it and what a member sees, with the Loot Council in place of badges
+    And it shows the three apps a member gets and that they open through the hub at the Forever launch
     And its guild pulse reads only guild totals from the raid sheets
 
   @ears_ubiquitous @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-002 The toolkit page shall show what raiders, officers and super admins can do in the raid analyzer, the guild bank and Discord with the officers' Google Drive, unlock the rows up to the viewer's tier, and name only permissions the hub's RBAC table gives that tier
-    Given the toolkit page
-    Then it lists the raid analyzer, the guild bank and Discord and Drive, each with a row for every tier
-    And it unlocks rows up to the viewer's tier, read from their session
-    And a unit test fails if a row names a permission the RBAC table lacks or gives another tier
-    And the top bar's tier chip opens it
+  Scenario: REQ-HUB-FRONT-002 The public Hub features page shall show what everyone, raiders and officers can do in the raid analyzer, the guild bank and Discord with the officers' Google Drive, mark the steps up to the viewer's tier, and name only permissions the hub's RBAC table gives that tier
+    Given the Hub features page
+    Then it lists the raid analyzer, the guild bank and Discord and Drive, each with a step for every tier
+    And it marks the steps up to the viewer's tier, read from their session, and shows super admins the officers' steps
+    And a unit test fails if a step names a permission the RBAC table lacks or gives another tier
+    And it is in the public nav, the top bar's tier chip opens it and the old toolkit address redirects to it
 
   @ears_event_driven @member @maintainer @phase_2_5
   Scenario: REQ-HUB-FRONT-003 When a member is new to the hub, it shall offer a welcome checklist, and it shall give super admins one console for bank grants, officer tokens and the hub's integrations
     Given the welcome checklist
-    Then it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the toolkit
+    Then it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the hub's features
     And the admin console shows integrations, scheduled jobs and bank grants to super admins only
 
   @ears_state_driven @member @raid_leader @phase_2_5
@@ -31,3 +31,11 @@ Feature: HUB FRONT
     And an officer keeps every tab and each one shows the Forever launch notice
     And super admins, visitors and the public pages are never held
     And the real site waits for the session before a held page renders, so it never starts the page's own API calls
+
+  @ears_state_driven @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-005 While the launch hold is on, the Officers, Bank, Highlights and Me tabs shall show officers the tab's intent and the features coming to it, the Bank tab with a labelled mockup of stock, Discord requests, a ledger and a fairness view, and every signed-in member shall meet their own toad
+    Given the tab previews
+    Then the Officers, Bank, Highlights and Me tabs each state their intent and list what is coming
+    And the Bank tab shows the bankers' features to officers and a mockup labelled as sample data
+    And every signed-in member has a rank toad, raiders the member toad
+    And raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home

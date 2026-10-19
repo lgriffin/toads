@@ -17,6 +17,7 @@
   import ComingSoon from '$lib/components/ComingSoon.svelte';
   import ForeverNotice from '$lib/components/ForeverNotice.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
+  import ToadGreeting from '$lib/components/ToadGreeting.svelte';
   import ToadsMark from '$lib/components/ToadsMark.svelte';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
@@ -41,7 +42,7 @@
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
   let officer = $derived(__PREVIEW__ ? hasOfficerPowers(previewSession.role) : (session?.officer_days.length ?? 0) > 0);
-  // The tier chip in the top bar opens the toolkit, which says what this tier can do.
+  // The tier chip in the top bar opens Hub features, which says what this tier can do.
   const PREVIEW_TIER: Record<PreviewRole, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
   let tier = $derived<Tier>(
     __PREVIEW__ ? (previewSession.role ? PREVIEW_TIER[previewSession.role] : 'visitor') : tierOf(session)
@@ -59,6 +60,13 @@
   // Until the Forever launch, raiders get one coming-soon page and officers a notice on each tab (src/lib/launch.ts).
   // The real site waits for the session on member pages so a held page never starts its own API calls.
   let hold = $derived(launchHold(path, tier));
+  // The signed-in member's own toad greets them on the hub home and on the held pages (ToadGreeting).
+  let me = $derived(
+    __PREVIEW__
+      ? { name: 'Hopscotch', tier, username: 'hopscotch', titles, className: 'Rogue', role: 'Melee' as const }
+      : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles }
+  );
+  let isHubHome = $derived(path === '/hub' || path === '/hub/');
   let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
   function switchView(next: PreviewRole) {
@@ -99,7 +107,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a></span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -110,7 +118,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}
@@ -149,10 +157,13 @@
       </p>
     </section>
   {:else if hold === 'coming-soon'}
-    <ComingSoon />
+    <ComingSoon {...me} />
   {:else if hold === 'forever-notice'}
-    <ForeverNotice {path} />
+    <ForeverNotice {path} {...me} />
   {:else}
+    {#if signedIn && isHubHome}
+      <ToadGreeting {...me} />
+    {/if}
     {@render children()}
   {/if}
 </main>
