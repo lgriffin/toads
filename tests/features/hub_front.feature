@@ -23,3 +23,11 @@ Feature: HUB FRONT
     Given the welcome checklist
     Then it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the toolkit
     And the admin console shows integrations, scheduled jobs and bank grants to super admins only
+
+  @ears_state_driven @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of each page, and leave super admins every page
+    Given the launch hold
+    Then a raider's members nav is the hub link alone and every member page shows the coming-soon page
+    And an officer keeps every tab and each one shows the Forever launch notice
+    And super admins, visitors and the public pages are never held
+    And the real site waits for the session before a held page renders, so it never starts the page's own API calls
