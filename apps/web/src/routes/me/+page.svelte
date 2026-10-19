@@ -3,15 +3,21 @@
   import { onMount } from 'svelte';
   import { ApiError, myBadges } from '$lib/api';
   import type { MyBadges } from '$lib/badges';
+  import { myAwards, type AwardOut } from '$lib/awards';
+  import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
   import Me from '$lib/preview/Me.svelte';
 
   type Loaded = { kind: 'loading' } | { kind: 'ok'; value: MyBadges } | { kind: 'error'; message: string };
   let badges = $state<Loaded>({ kind: 'loading' });
+  let awards = $state<AwardOut[] | null>(null);
 
   // Every failure lands in the page as a message; nothing here throws to the error page.
   onMount(async () => {
     if (__PREVIEW__) return;
+    myAwards()
+      .then((a) => (awards = a))
+      .catch(() => (awards = []));
     try {
       badges = { kind: 'ok', value: await myBadges() };
     } catch (e) {
@@ -45,5 +51,6 @@
       {/if}
     </section>
   {/if}
+  {#if awards}<AwardsCard {awards} />{/if}
   <p><a href="{base}/me/claim">Claim your characters</a> · <a href="{base}/me/settings">Your name and Warcraft Logs key</a></p>
 {/if}

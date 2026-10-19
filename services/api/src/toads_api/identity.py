@@ -49,6 +49,7 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
         data,
         role_ids=sorted(member.role_ids),
         display_name=member.server_name,
+        discord_username=member.username,
         refreshed_at=services.clock(),
     )
     await services.sessions.save(session_id, updated)
@@ -60,11 +61,14 @@ def upsert_member(services: Services, member: GuildMember) -> int:
     with services.db.begin() as db:
         row = db.scalar(select(Member).where(Member.discord_user_id == member.user_id))
         if row is None:
-            row = Member(discord_user_id=member.user_id, display_name=member.server_name)
+            row = Member(
+                discord_user_id=member.user_id, display_name=member.server_name, discord_username=member.username
+            )
             db.add(row)
             db.flush()
         else:
             row.display_name = member.server_name
+            row.discord_username = member.username
         return row.id
 
 
@@ -83,9 +87,10 @@ async def _cached_acting(services: Services, discord_user_id: int) -> Principal 
     try:
         seen = json.loads(raw)
         member_id, role_ids, name = int(seen["member_id"]), {int(r) for r in seen["role_ids"]}, str(seen["name"])
+        username = str(seen.get("username", ""))
     except (ValueError, TypeError, KeyError):
         return None
-    return services.raid_days.principal_for(member_id, role_ids, name, discord_user_id)
+    return services.raid_days.principal_for(member_id, role_ids, name, discord_user_id, username)
 
 
 async def acting_principal(services: Services, discord_user_id: int) -> Principal:
@@ -105,6 +110,13 @@ async def acting_principal(services: Services, discord_user_id: int) -> Principa
     if member is None:
         raise NotAMemberError
     member_id = await anyio.to_thread.run_sync(upsert_member, services, member)
-    seen = {"member_id": member_id, "role_ids": sorted(member.role_ids), "name": member.server_name}
+    seen = {
+        "member_id": member_id,
+        "role_ids": sorted(member.role_ids),
+        "name": member.server_name,
+        "username": member.username,
+    }
     await services.redis.set(_acting_key(discord_user_id), json.dumps(seen), ex=services.settings.role_refresh_seconds)
-    return services.raid_days.principal_for(member_id, set(member.role_ids), member.server_name, member.user_id)
+    return services.raid_days.principal_for(
+        member_id, set(member.role_ids), member.server_name, member.user_id, member.username
+    )

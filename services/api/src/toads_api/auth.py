@@ -122,6 +122,7 @@ async def callback(
             role_ids=sorted(member.role_ids),
             access_token=token,
             refreshed_at=services.clock(),
+            discord_username=member.username,
         )
     )
     log.info("auth.signed_in", member_id=member_id)
@@ -151,6 +152,7 @@ async def session_info(
 ) -> dict[str, Any]:
     """Who is signed in and their standing per raid day (REQ-HUB-DAY-004), for the web app and community pages.
 
+    discord_username: the member's Discord username, never their nickname.
     raid_days: days the member holds a trial, raider or officer role on, in config order.
     officer_days: days they hold officer powers for; every configured day for a global officer.
     super_admin / break_glass: above the global tier, from configuration (docs/admin.md).
@@ -162,6 +164,9 @@ async def session_info(
     return {
         "member_id": principal.member_id,
         "display_name": names.get(principal.member_id, principal.display_name),
+        # The Discord account's username: unlike the server nickname it rarely changes, so the web app uses it where a
+        # member must be recognised exactly (the guild master's Archtoad).
+        "discord_username": principal.discord_username,
         "global_officer": principal.global_officer,
         # docs/admin.md: super admins come from configuration; the break-glass admin is always shown as such.
         "super_admin": principal.super_admin,

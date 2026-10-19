@@ -29,6 +29,10 @@ class Member(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     discord_user_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    # The member's Discord username (the account handle, not a server nickname), refreshed at every sign-in. Members
+    # change their nicknames often; the username is what the hub names people by when it must be exact, such as the
+    # guild master's Archtoad. Null for rows written before the hub stored it, until that member signs in again.
+    discord_username: Mapped[str | None] = mapped_column(String(32))
     # The member's server nickname, refreshed at every sign-in. The name the hub shows may differ: see name_source.
     display_name: Mapped[str] = mapped_column(String(100))
     # Which name the hub shows for this member: "discord" (display_name) or "character" (name_character_id's name,

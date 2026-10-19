@@ -1,5 +1,6 @@
 """Tables the hub needs that the analyzer never had (members, claims, audit, community, raid sheets, WCL keys, ...)."""
 
+from hub_db.awards import MemberAward
 from hub_db.bank import EVERY_DAY, BankGrant, BankGrantToken
 from hub_db.community import (
     Application,
@@ -52,6 +53,7 @@ __all__ = [
     "CredentialDecryptError",
     "Highlight",
     "Member",
+    "MemberAward",
     "MemberHomeLayout",
     "RaidSheetSnapshot",
     "RecruitmentNeed",

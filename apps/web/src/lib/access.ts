@@ -70,7 +70,8 @@ export const APPS: readonly App[] = [
           { text: 'Anyone’s numbers and the roster’s badges', permission: 'view_others' },
           { text: 'Reference raid comparisons', permission: 'view_insights' },
           { text: 'Sync logs and set roles', permission: 'sync_logs' },
-          { text: 'Approve character claims', permission: 'approve_claims' }
+          { text: 'Approve character claims', permission: 'approve_claims' },
+          { text: 'Give members their award toads (global officers)', permission: 'manage_awards' }
         ]
       },
       {

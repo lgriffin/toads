@@ -39,6 +39,8 @@ class Permission(enum.StrEnum):
     MANAGE_BANK = "manage_bank"
     # Super admins only (docs/admin.md): grant and revoke bank grants, mint and revoke officer tokens.
     MANAGE_GRANTS = "manage_grants"
+    # Give and take back members' awards (docs/awards.md). Awards are guild-wide, so only the global tier holds it.
+    MANAGE_AWARDS = "manage_awards"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.
@@ -76,6 +78,8 @@ class Principal:
     display_name: str = ""
     # The member's Discord user id: the identity the hub vouches for to ToadsBank. None only in tests.
     discord_user_id: int | None = None
+    # The member's Discord username (account handle, not the server nickname). "" in tests and old sessions.
+    discord_username: str = ""
     # Bank grants this member holds, read from the database on every request (never cached with the roles), so a
     # revoke takes effect on their next call: (permission, raid day), where a None day covers every raid day.
     grants: frozenset[tuple[Permission, str | None]] = frozenset()

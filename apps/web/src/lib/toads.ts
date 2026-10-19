@@ -45,22 +45,23 @@ const RANK_TOAD: Partial<Record<Tier, { id: string; label: string }>> = {
 };
 
 /**
- * The Archtoad is the guild master and leader, and belongs to one person: the Discord account `_gallagher`. The hub's
- * session carries the name the member shows in the server, so it is matched on that, ignoring case and a leading @.
- * (If the nickname ever differs, expose the Discord username on the session and match that instead.)
+ * The Archtoad is the guild master and leader, and belongs to one person: the Discord account `_gallagher`. It is
+ * matched on the Discord username the hub's session carries (never the server nickname, which members change often),
+ * ignoring case and a leading @.
  */
-export const ARCHTOAD_DISCORD_NAME = '_gallagher';
+export const ARCHTOAD_DISCORD_USERNAME = '_gallagher';
 
-export function isArchtoad(name: string | null | undefined): boolean {
-  return (name ?? '').trim().replace(/^@/, '').toLowerCase() === ARCHTOAD_DISCORD_NAME;
+export function isArchtoad(username: string | null | undefined): boolean {
+  return (username ?? '').trim().replace(/^@/, '').toLowerCase() === ARCHTOAD_DISCORD_USERNAME;
 }
 
 /** Jobs a member does for the guild; each has its own toad. */
-export type Title = 'banker' | 'developer';
+export type Title = 'banker' | 'developer' | 'discord-admin';
 
 const TITLE_TOAD: Record<Title, { id: string; label: string }> = {
   banker: { id: 'ranks/banker', label: 'Banker' },
-  developer: { id: 'ranks/developer', label: 'Developer' }
+  developer: { id: 'ranks/developer', label: 'Developer' },
+  'discord-admin': { id: 'ranks/discord-admin', label: 'Discord Admin' }
 };
 
 export function titleToad(title: Title): Toad {
@@ -79,16 +80,16 @@ export function roleToad(role: Role | null | undefined): Toad | null {
 }
 
 /** The Archtoad for the guild master, otherwise the officer toad for officers and admins. */
-export function rankToad(tier: Tier, name?: string | null): Toad | null {
-  if (isArchtoad(name)) return { kind: 'rank', id: 'ranks/archtoad', label: 'Archtoad' };
+export function rankToad(tier: Tier, username?: string | null): Toad | null {
+  if (isArchtoad(username)) return { kind: 'rank', id: 'ranks/archtoad', label: 'Archtoad' };
   const t = RANK_TOAD[tier];
   return t ? { kind: 'rank', ...t } : null;
 }
 
 export interface MemberFacts {
   tier?: Tier;
-  /** The name the member shows in the server; picks out the Archtoad. */
-  name?: string | null;
+  /** The member's Discord username (not their nickname); picks out the Archtoad. */
+  username?: string | null;
   titles?: readonly Title[];
   className?: string | null;
   role?: Role | null;
@@ -98,8 +99,8 @@ export interface MemberFacts {
  * The toads a member earns, rank first, then any guild jobs: an officer banker who plays a Priest healer gets Officer,
  * Banker, Priest and Healer.
  */
-export function memberToads({ tier = 'raider', name, titles = [], className, role }: MemberFacts): Toad[] {
-  return [rankToad(tier, name), ...titles.map(titleToad), classToad(className), roleToad(role)].filter(
+export function memberToads({ tier = 'raider', username, titles = [], className, role }: MemberFacts): Toad[] {
+  return [rankToad(tier, username), ...titles.map(titleToad), classToad(className), roleToad(role)].filter(
     (t): t is Toad => t !== null
   );
 }

@@ -30,6 +30,8 @@ class SessionData:
     # Discord user token, kept server-side only, used to re-read roles (REQ-HUB-RBAC-002).
     access_token: str
     refreshed_at: float
+    # The Discord username (account handle). Defaulted so sessions written before it was stored still load.
+    discord_username: str = ""
 
 
 @dataclass(frozen=True)

@@ -72,7 +72,12 @@ class RaidDaysConfig(BaseModel):
             raise UnknownDiscordRoleError(f"Discord server has no such role: {names}")
 
     def principal_for(
-        self, member_id: int, discord_role_ids: set[int], display_name: str = "", discord_user_id: int | None = None
+        self,
+        member_id: int,
+        discord_role_ids: set[int],
+        display_name: str = "",
+        discord_user_id: int | None = None,
+        discord_username: str = "",
     ) -> Principal:
         """Map a member's Discord role ids to hub roles; several matches give the highest per day."""
         day_roles: dict[str, HubRole] = {}
@@ -92,4 +97,5 @@ class RaidDaysConfig(BaseModel):
             global_officer=bool(discord_role_ids & set(self.global_officer_roles)),
             day_roles=day_roles,
             discord_user_id=discord_user_id,
+            discord_username=discord_username,
         )

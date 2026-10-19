@@ -22,6 +22,8 @@ import type { RaidHeadline, RaidSheets, RaidSummary } from './sheets';
 export interface Session {
   member_id: number;
   display_name: string;
+  /** The Discord account's username, not the server nickname; missing from an older hub. */
+  discord_username?: string;
   global_officer: boolean;
   /** Named in the hub's configuration, above the global tier (docs/admin.md). Missing from an older hub. */
   super_admin?: boolean;
