@@ -75,3 +75,18 @@ Feature: HUB RECRUIT
     When a Toads Discord member signs in from the recruit page
     Then they land back on the recruit page
     And a sign-in that asks to return to another site lands on the hub home
+
+  @ears_unwanted_behavior @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-011 If someone applies from a Discord account less than 7 days old, then the hub shall refuse the application with 403 and say when they can apply
+    Given the demo guild
+    When an applicant whose Discord account is 2 days old applies for Wednesday
+    Then the application is refused with 403 naming the day they can apply
+    And no application or interview room is recorded
+    And the same applicant is accepted once the account is 7 days old
+
+  @ears_unwanted_behavior @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-012 If an applicant has sent 3 applications in the last 7 days, then the hub shall refuse another one with 409, so withdrawing and reapplying cannot keep opening interview rooms
+    Given the demo guild
+    And the applicant has applied and withdrawn 3 times today
+    Then a fourth application is refused with 409
+    And an application 8 days later is accepted

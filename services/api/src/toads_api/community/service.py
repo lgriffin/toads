@@ -287,6 +287,7 @@ class CommunityService:
         cutoff = self.clock() - timedelta(days=recruitment.REAPPLY_COOLDOWN_DAYS)
         if any(a.status is ApplicationStatus.DECLINED and a.events[-1].at > cutoff for a in mine):
             raise Conflict(f"You can apply again {recruitment.REAPPLY_COOLDOWN_DAYS} days after a decision")
+        self._check_spam_guards(member_id, mine)
         if set(data.raid_days) - self.raid_days.day_ids:
             raise Invalid("Unknown raid day")
         if data.logs_url is not None and not recruitment.valid_logs_url(data.logs_url):
@@ -324,6 +325,25 @@ class CommunityService:
             self._request_room(app)
             self._audit(member_id, "application.interview_room", f"application:{app.id}", None)
         return app
+
+    def _check_spam_guards(self, member_id: int, mine: list[Application]) -> None:
+        now = self.clock()
+        card = self.repo.member(member_id)
+        if card is not None:
+            ready = recruitment.discord_account_created(card.discord_user_id) + timedelta(
+                days=recruitment.MIN_DISCORD_ACCOUNT_AGE_DAYS
+            )
+            if ready > now:
+                raise Forbidden(
+                    f"Your Discord account needs to be {recruitment.MIN_DISCORD_ACCOUNT_AGE_DAYS} days old to apply; "
+                    f"try again on {ready:%d %B}"
+                )
+        window = now - timedelta(days=recruitment.APPLICATION_WINDOW_DAYS)
+        if sum(a.created_at > window for a in mine) >= recruitment.APPLICATION_LIMIT:
+            raise Conflict(
+                f"You have sent {recruitment.APPLICATION_LIMIT} applications this week; "
+                "talk to an officer in Discord or try again later"
+            )
 
     def discord_id_of(self, member_id: int) -> int:
         """The Discord account a hub member signed in with, so the route can check they are still in the server."""
