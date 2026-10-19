@@ -43,20 +43,30 @@
   const laneName = (id: LaneId) => LANES.find((l) => l.id === id)?.name ?? id;
   const total = $derived(lanes.reduce((n, l) => n + l.cards.length, 0));
 
+  // Answers for a night the page has since switched away from are dropped, so one night's cards never show (or get
+  // sent) under another night's heading.
   async function load() {
+    const night = day;
     try {
-      const board = await backend.board(day);
+      const board = await backend.board(night);
+      if (night !== day) return;
       lanes = board.lanes;
       assignees = board.assignees;
       loadError = '';
     } catch (e) {
+      if (night !== day) return;
+      lanes = [];
       loadError = boardError(e);
     } finally {
-      loaded = true;
+      if (night === day) loaded = true;
     }
   }
   $effect(() => {
     void day;
+    lanes = [];
+    assignees = [];
+    loaded = false;
+    loadError = '';
     editing = null;
     message = '';
     load();
@@ -67,11 +77,15 @@
     failed = error;
   }
 
-  async function attempt(action: () => Promise<void>) {
+  /** Runs a change against the night shown now; `still()` turns false once the page has switched nights. */
+  async function attempt(action: (still: () => boolean) => Promise<void>) {
+    const night = day;
+    const still = () => night === day;
     busy = true;
     try {
-      await action();
+      await action(still);
     } catch (e) {
+      if (!still()) return;
       say(boardError(e), true);
       await load();
     } finally {
@@ -83,12 +97,13 @@
     event.preventDefault();
     const text = title.trim();
     if (!text) return;
-    attempt(async () => {
+    attempt(async (still) => {
       const card = await backend.add(day, {
         title: text,
         assignee_member_id: assignee === '' ? null : assignee,
         due_on: due || null
       });
+      if (!still()) return;
       lanes = lanes.map((l) => (l.id === card.lane ? { ...l, cards: [...l.cards, card] } : l));
       title = '';
       due = '';
@@ -100,11 +115,13 @@
   function move(card: BoardCard, lane: LaneId, position: number) {
     const before = lanes;
     lanes = moved(lanes, card.id, lane, position);
-    attempt(async () => {
+    attempt(async (still) => {
       try {
-        lanes = await backend.move(day, card.id, lane, position);
+        const after = await backend.move(day, card.id, lane, position);
+        if (!still()) return;
+        lanes = after;
       } catch (e) {
-        lanes = before;
+        if (still()) lanes = before;
         throw e;
       }
       say(lane === card.lane ? `Moved “${card.title}”.` : `Moved “${card.title}” to ${laneName(lane)}.`);
@@ -129,13 +146,14 @@
 
   function save(event: SubmitEvent, card: BoardCard) {
     event.preventDefault();
-    attempt(async () => {
+    attempt(async (still) => {
       const updated = await backend.edit(day, card.id, {
         title: draft.title.trim(),
         notes: draft.notes,
         assignee_member_id: draft.assignee === '' ? null : draft.assignee,
         due_on: draft.due || null
       });
+      if (!still()) return;
       lanes = lanes.map((l) => ({ ...l, cards: l.cards.map((c) => (c.id === card.id ? updated : c)) }));
       editing = null;
       say(`Saved “${updated.title}”.`);
@@ -147,8 +165,9 @@
       confirmRemove = true;
       return;
     }
-    attempt(async () => {
+    attempt(async (still) => {
       await backend.remove(day, card.id);
+      if (!still()) return;
       lanes = lanes.map((l) => ({ ...l, cards: l.cards.filter((c) => c.id !== card.id) }));
       editing = null;
       say(`Removed “${card.title}”.`);
@@ -183,8 +202,11 @@
     <p class="muted">Tasks for {dayName}’s officers: who has what, and when it is due. Only {dayName} officers see it.</p>
   </div>
 
-  {#if loadError && lanes.length === 0}
+  {#if loadError}
     <p class="err" role="alert">{loadError}</p>
+    <button class="btn" type="button" onclick={() => load()}>Try again</button>
+  {:else if !loaded}
+    <p class="muted" role="status">Loading the board…</p>
   {:else}
     <form class="add" onsubmit={add} aria-label="Add a card">
       <div class="field grow">

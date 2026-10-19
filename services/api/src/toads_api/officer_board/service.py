@@ -121,8 +121,13 @@ class OfficerBoardService:
         """Move a card to `position` in `lane` (clamped to the lane's length); returns the board as it now stands."""
         if lane not in LANES:
             raise BoardError("Unknown lane", status=422)
-        lanes = {current.id: [v.card.id for v in current.cards] for current in self.board(raid_day)}
-        source = next((lane_id for lane_id, ids in lanes.items() if card_id in ids), None)
+        # Stored lanes, not board()'s view: a card in a retired lane keeps its lane when its neighbours move.
+        lanes: dict[str, list[int]] = {lane_id: [] for lane_id in LANES}
+        source = None
+        for c in self.repo.cards(raid_day):
+            lanes.setdefault(c.lane, []).append(c.id)
+            if c.id == card_id:
+                source = c.lane
         if source is None:
             raise BoardError("No such card on this board", status=404)
         lanes[source].remove(card_id)

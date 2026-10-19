@@ -96,10 +96,22 @@ def test_overdue_is_before_today_and_never_in_done() -> None:
     assert done.overdue is False
 
 
-def test_a_card_in_a_retired_lane_shows_under_to_do() -> None:
+def test_a_card_in_a_retired_lane_shows_under_to_do_and_keeps_its_lane() -> None:
     repo = InMemoryBoardRepository()
-    repo.add("wed", "blocked", CardFields("Old lane"), by=1)
-    assert _titles(_svc(repo))["todo"] == ["Old lane"]
+    old = repo.add("wed", "blocked", CardFields("Old lane"), by=1).id
+    svc = _svc(repo)
+    card = svc.add("wed", title="Flasks", by=1).card.id
+    assert _titles(svc)["todo"] == ["Old lane", "Flasks"]
+    svc.move("wed", card, lane="todo", position=0, by=1)
+    svc.move("wed", card, lane="done", position=0, by=1)
+    assert next(c.lane for c in repo.cards("wed") if c.id == old) == "blocked"
+
+
+def test_a_move_stamps_the_moved_card() -> None:
+    svc = _svc()
+    card = svc.add("wed", title="Flasks", by=1).card
+    after = svc.move("wed", card.id, lane="done", position=0, by=1)[2].cards[0].card
+    assert after.updated_at > card.updated_at
 
 
 def test_cards_belong_to_their_day() -> None:

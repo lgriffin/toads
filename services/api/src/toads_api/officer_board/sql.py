@@ -93,6 +93,9 @@ class SqlBoardRepository:
                         row.lane = lane
                         row.position = position
             moved = next(lane for lane, ids in lanes.items() if card_id in ids)
+            row = self._row(db, raid_day, card_id)
+            if row is not None:
+                row.updated_at = datetime.now(UTC)
             audit.record(db, actor=by, action="board.move", target=_target(card_id), raid_day=raid_day, detail=moved)
             return True
 

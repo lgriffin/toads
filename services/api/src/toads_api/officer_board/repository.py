@@ -83,7 +83,8 @@ class InMemoryBoardRepository:
             for position, cid in enumerate(ids):
                 i = self._index(raid_day, cid)
                 if i is not None:
-                    self.rows[i] = replace(self.rows[i], lane=lane, position=position)
+                    stamp = datetime.now(UTC) if cid == card_id else self.rows[i].updated_at
+                    self.rows[i] = replace(self.rows[i], lane=lane, position=position, updated_at=stamp)
         return True
 
     def remove(self, raid_day: str, card_id: int, by: int) -> bool:
