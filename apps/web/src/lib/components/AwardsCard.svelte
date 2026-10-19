@@ -1,21 +1,33 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { awardable, monthLabel, type AwardOut } from '$lib/awards';
+  import { toadSrc, type Toad } from '$lib/toads';
 
-  // A member's awards as their badges, newest first. `heading` names the card; `empty` is what a member with none sees.
+  // A member's toads as badges: first the ones they wear beside their name (rank, member, guild jobs, the badges their
+  // Discord roles earn, class and role), then their awards, newest first. `heading` names the card; `empty` is what a
+  // member with neither sees.
   let {
     awards,
+    toads = [],
     heading = 'Your toads',
     empty = 'No awards yet. Officers give them for milestones, history and achievements.'
-  }: { awards: AwardOut[]; heading?: string; empty?: string } = $props();
+  }: { awards: AwardOut[]; toads?: readonly Toad[]; heading?: string; empty?: string } = $props();
+  // Guild jobs are awards too; the award's own entry (with its date and note) shows them once.
+  const worn = $derived(toads.filter((t) => !awards.some((a) => awardable(a.award_id)?.file === t.id)));
 </script>
 
 <section class="card" aria-labelledby="awards-h">
   <h2 id="awards-h">{heading}</h2>
-  {#if awards.length === 0}
+  {#if awards.length === 0 && worn.length === 0}
     <p class="muted">{empty}</p>
   {:else}
     <ul class="awards">
+      {#each worn as t (t.id)}
+        <li>
+          <img src={toadSrc(base, t, true)} alt="" width="96" height="115" loading="lazy" />
+          <span class="name">{t.label}</span>
+        </li>
+      {/each}
       {#each awards as a (a.id)}
         {@const art = awardable(a.award_id)}
         <li>

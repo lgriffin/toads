@@ -71,3 +71,16 @@ test('a super admin wears the super admin and member toads', async ({ page }) =>
   await expect(header.getByRole('img', { name: 'Member', exact: true })).toBeVisible();
   await expect(header.getByRole('img', { name: 'Wednesday Toad' })).toBeVisible();
 });
+
+test('a super admin sees the same toads on their own page as beside their name', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('me/');
+  const heading = page.getByRole('heading', { name: /Your performance/, level: 1 });
+  for (const name of ['Super admin', 'Member', 'Wednesday Toad', 'Healer']) {
+    await expect(heading.getByRole('img', { name, exact: true })).toBeVisible();
+  }
+  const card = page.getByRole('region', { name: 'Your toads' });
+  for (const name of ['Super admin', 'Member', 'Wednesday Toad', 'Healer']) {
+    await expect(card.getByText(name, { exact: true })).toBeVisible();
+  }
+});

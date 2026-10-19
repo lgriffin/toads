@@ -223,3 +223,35 @@ def refused_invalid(people: dict[str, Any]) -> None:
 def no_role_badge(hub: Hub) -> None:
     with hub.db() as db:
         assert db.scalars(select(DiscordRoleBadge)).all() == []
+
+
+WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
+
+
+@given("the member's own page", target_fixture="me_page")
+def me_page() -> dict[str, str]:
+    return {
+        name: (WEB / path).read_text(encoding="utf-8")
+        for name, path in (
+            ("layout", "routes/+layout.svelte"),
+            ("page", "routes/me/+page.svelte"),
+            ("preview", "lib/preview/Me.svelte"),
+            ("card", "lib/components/AwardsCard.svelte"),
+        )
+    }
+
+
+@then("its heading wears the same toads as the header")
+def me_heading(me_page: dict[str, str]) -> None:
+    # The layout loads the facts once (session, awards, role badges) and hands /me the same object the header uses.
+    assert "setMe(() => me);" in me_page["layout"]
+    assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["page"]
+    assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["preview"]
+
+
+@then('its "Your toads" card shows each of those toads as a badge ahead of the awards')
+def me_card(me_page: dict[str, str]) -> None:
+    assert "<AwardsCard {awards} {toads} />" in me_page["page"]
+    assert "<AwardsCard {awards} {toads} />" in me_page["preview"]
+    card = me_page["card"]
+    assert card.index("{#each worn as t (t.id)}") < card.index("{#each awards as a (a.id)}")
