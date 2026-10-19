@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # the raid sheets. 0 turns that job off.
     hub_refresh_minutes: int = Field(default=30, ge=0)
     sheets_refresh_minutes: int = Field(default=360, ge=0)
-    # The guild-report sync (jobs/sync.py): minutes between runs (0 turns it off) and the most reports one run imports.
-    sync_refresh_minutes: int = Field(default=60, ge=0)
-    sync_batch: int = Field(default=10, ge=1)
+    # The guild-report sync (jobs/sync.py): minutes between runs (0 turns it off), the share of the guild key's hourly
+    # Warcraft Logs points it leaves for everything else, and an optional cap on reports per run (0: the rate limit
+    # alone decides).
+    sync_refresh_minutes: int = Field(default=15, ge=0)
+    sync_reserve_percent: int = Field(default=20, ge=0, le=90)
+    sync_batch: int = Field(default=0, ge=0)

@@ -4,7 +4,7 @@ Runs in its own container (infra/docker-compose.yml, service `scheduler`) on the
 start, then again each interval. A job that fails is logged and tried again at its next turn; it never stops the
 others. Intervals come from the environment, and 0 turns a job off:
 
-- sync-guild: every TOADS_SYNC_REFRESH_MINUTES (default 60), first, so the publish jobs see the raids it imports;
+- sync-guild: every TOADS_SYNC_REFRESH_MINUTES (default 15), first, so the publish jobs see the raids it imports;
   only once TOADS_WCL_CLIENT_ID and TOADS_WCL_GUILD_ID are set
 - publish-home, publish-performance, publish-badges and publish-reference: every TOADS_HUB_REFRESH_MINUTES (default 30)
 - import-sheets: every TOADS_SHEETS_REFRESH_MINUTES (default 360), only when the raid sheets config exists

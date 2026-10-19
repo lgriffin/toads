@@ -60,11 +60,23 @@ sudo -u toads nano /opt/toads/services/worker/.env
 | `TOADS_WCL_CLIENT_SECRET` | its secret |
 | `TOADS_WCL_GUILD_ID` | the number from step 2 |
 | `TOADS_WCL_API_URL` | leave the default (`https://fresh.warcraftlogs.com/api/v2/client`) for Anniversary realms |
-| `TOADS_SYNC_REFRESH_MINUTES` | optional; how often the sync looks for new reports (default `60`, `0` turns it off) |
-| `TOADS_SYNC_BATCH` | optional; the most reports one sync analyses (default `10`) |
+| `TOADS_SYNC_REFRESH_MINUTES` | optional; how often the sync looks for new reports (default `15`, `0` turns it off) |
+| `TOADS_SYNC_RESERVE_PERCENT` | optional; the share of the guild key's hourly Warcraft Logs points the sync leaves unspent (default `20`) |
+| `TOADS_SYNC_BATCH` | optional; a cap on reports per sync run on top of the rate limit (default `0`, no cap) |
 
 Leave `TOADS_HUB_SERVICE_TOKEN` and `TOADS_CREDENTIALS_KEYS` as the setup script wrote them: they must match the
-API's. If an older env file has no `TOADS_SYNC_` lines, the defaults apply.
+API's. If an older env file has no `TOADS_SYNC_` lines, the defaults apply. An env file written before October 2026
+says `TOADS_SYNC_REFRESH_MINUTES=60` and `TOADS_SYNC_BATCH=10`, which hold the sync to ten reports an hour: change them
+to `15` and `0`, or delete both lines.
+
+### How much one sync imports
+
+Warcraft Logs gives each API client a number of points an hour, and every query spends some. Before each report the
+sync asks Warcraft Logs how many points the guild key has spent this hour (its `rateLimitData`), and it keeps going
+while what is left, less the `TOADS_SYNC_RESERVE_PERCENT` reserve, still covers the dearest report it has imported so
+far. A run also stops when the hour's points reset, so the publish jobs get their turn; the next run, 15 minutes later,
+spends the new hour's points. The scheduler's log line `sync.done` says why each run stopped (`stopped`) and how many
+points it left (`points_left`).
 
 ## 4. Restart with the new settings
 
@@ -72,19 +84,27 @@ API's. If an older env file has no `TOADS_SYNC_` lines, the defaults apply.
 sudo -iu toads /opt/toads/scripts/deploy.sh
 ```
 
-The scheduler starts `sync-guild` straight away, then every hour. Each run analyses up to `TOADS_SYNC_BATCH` of the
-guild's newest reports that are not stored yet, and the publish jobs that follow it put them on
-the hub. The sync stays off while the client id is empty or the guild id is `0`.
+The scheduler starts `sync-guild` straight away, then every 15 minutes. Each run analyses the guild's newest reports
+that are not stored yet, as many as the rate limit allows, and the publish jobs that follow it put them on the hub. The sync stays off while the client id is empty or the guild id is `0`.
 
 ## 5. The first import
 
-The scheduler will work through the guild's history ten reports an hour. To fill the hub now, run the sync by hand a
-few times (each run prints what it imported and how many reports are left):
+The scheduler's sync looks at the guild's newest 350 reports. To import **every** report the guild has on Warcraft
+Logs, run the backfill once. It works oldest first (the scheduler takes the newest, so the two do not race), spends the
+same rate-limit budget, waits for the hour's points to reset whenever they run out, and finishes on its own once
+everything is stored or only reports that never analyse are left. A long history takes hours, so start it in `tmux`
+or `screen`:
 
 ```bash
+tmux new -s backfill
 cd /opt/toads
-sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker toads-worker sync
+sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker toads-worker backfill
 ```
+
+It prints each report as it goes and "Waiting N min for the Warcraft Logs points to reset" while it waits; detach with
+Ctrl+B then D and come back with `tmux attach -t backfill`. Ctrl+C stops it safely: run it again and it carries on.
+At the end it prints how many reports it imported and lists the ones that failed. `toads-worker sync` runs one
+scheduler-style pass by hand.
 
 To analyse one particular report, for example an older raid the batches have not reached yet, give its code or URL:
 
@@ -107,13 +127,18 @@ approved at once, otherwise approve it in the Officers console.
 
 ## 6. Optional: the reference comparison login
 
-Comparing guild raids with another guild's report needs a Warcraft Logs **user** login, which needs a redirect URL on
-the client:
+Comparing guild raids with another guild's report needs a Warcraft Logs **user** login on the guild's behalf; your own
+super admin Warcraft Logs account is fine. It needs a redirect URL on the client:
 
 1. On the Warcraft Logs client, add the redirect URL `https://toads.gg/api/reference/login/callback` (keep the
    localhost one if the desktop app uses it).
 2. In `/opt/toads/services/api/.env`, set `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_CLIENT_SECRET` to the same client.
-3. Rerun `deploy.sh`, open `/officers/reference` and connect the guild's dedicated Warcraft Logs account.
+3. Rerun `deploy.sh`, open the officer console, choose **Add reference reports** and connect the login, signing in to
+   Warcraft Logs as the account that acts for the guild.
+
+Only the client id and secret go in env files. The login's access and refresh tokens are stored encrypted in the hub's
+database (with `TOADS_CREDENTIALS_KEYS`) and the worker refreshes them; Warcraft Logs rotates them, so they cannot live
+in env files. Your Warcraft Logs password never reaches the hub.
 
 [Admin guide section 8](../ADMIN_GUIDE.md#8-the-reference-comparison-login) has the details.
 
@@ -124,7 +149,8 @@ cd /opt/toads
 sudo -u toads docker compose -f infra/docker-compose.prod.yml logs --since 2h scheduler | grep -E 'sync|schedule'
 ```
 
-`sync.done` lines show how many reports each run imported, failed and left for later; `schedule.job_failed` lines
+`sync.done` lines show how many reports each run imported, failed and left for later, why it stopped and how many
+rate-limit points it left; `schedule.job_failed` lines
 show a job that broke, with the reason.
 
 ## Troubleshooting
@@ -137,7 +163,9 @@ show a job that broke, with the reason.
 | A report listed under `failed` every run | Warcraft Logs has no fights in it (an empty or trash-only log). It is retried each run and does not hold back older reports: the next one takes its place in the batch. |
 | The sync imports nothing, `remaining` is 0, but raids are missing | They are not on the guild's Warcraft Logs page (logged as personal reports). Import each with `toads-worker analyse <URL>`. |
 | `/hub` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
-| `429` errors in the worker's log | Warcraft Logs rate limit. Lower `TOADS_SYNC_BATCH` or raise `TOADS_WCL_THROTTLE_MS`. |
+| `429` errors or `sync.rate_limited` in the worker's log | Something else spent the guild key's points (officer imports, a second deployment on the same client). Raise `TOADS_SYNC_RESERVE_PERCENT`. |
+| Still about ten reports an hour | The env file still says `TOADS_SYNC_BATCH=10`; set it to `0` (step 3). |
+| `sync.rate_limit_unreadable` in the log | Warcraft Logs did not answer the rate-limit query; that run falls back to ten reports. |
 
 ## Optional: the analyzer itself on AlmaLinux
 
