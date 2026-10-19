@@ -4,8 +4,9 @@
   import '$lib/pond.css';
   import { base } from '$app/paths';
   import { FOREVER_LAUNCH, TAB_PREVIEW, TAB_PURPOSE, tabOf } from '$lib/launch';
-  import type { MemberFacts } from '$lib/toads';
+  import { memberToads, toadSrc, type MemberFacts } from '$lib/toads';
   import BankMockup from './BankMockup.svelte';
+  import MemberToads from './MemberToads.svelte';
   import ToadGreeting from './ToadGreeting.svelte';
   import ToadsMark from './ToadsMark.svelte';
 
@@ -14,23 +15,34 @@
   let { path, name, ...facts }: MemberFacts & { path: string; name: string } = $props();
   let tab = $derived(tabOf(path));
   let preview = $derived(tab ? TAB_PREVIEW[tab.href] : undefined);
+  let toads = $derived(memberToads(facts));
 </script>
 
 <svelte:head><title>{tab?.label ?? 'Coming soon'} · Toads</title></svelte:head>
 
 <div class="pond-page">
-  <ToadGreeting {name} {...facts} />
+  {#if !preview?.ownToads}<ToadGreeting {name} {...facts} />{/if}
 
   {#if preview && tab}
     <section class="band notice preview" aria-labelledby="notice-h">
       <div class="intro">
         <div>
           <p class="line">Coming with the Forever launch · <time datetime={FOREVER_LAUNCH.date}>{FOREVER_LAUNCH.label}</time></p>
-          <h1 id="notice-h">{tab.label}</h1>
+          <h1 id="notice-h">{tab.label} {#if preview.ownToads}<MemberToads {...facts} size={40} />{/if}</h1>
           <p class="intent">{preview.intent}</p>
         </div>
-        <img src="{base}/logos/{preview.toad}.svg" alt="" width="132" height="158" />
+        {#if preview.toad}<img src="{base}/logos/{preview.toad}.svg" alt="" width="132" height="158" />{/if}
       </div>
+      {#if preview.ownToads && toads.length}
+        <div class="section" role="region" aria-labelledby="own-toads-h">
+          <h2 id="own-toads-h">Your toads</h2>
+          <ul class="showcase">
+            {#each toads as t (t.id)}
+              <li><img src={toadSrc(base, t, true)} alt="" width="96" height="115" /><span>{t.label}</span></li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
       {#each preview.sections as s (s.title)}
         <div class="section">
           <h2>{s.title}</h2>
