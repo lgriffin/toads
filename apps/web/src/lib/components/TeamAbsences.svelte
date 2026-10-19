@@ -15,18 +15,21 @@
 
   let team = $state<TeamAbsences | null>(null);
   let error = $state('');
+  // Each read's number: only the latest one's answer is shown, so an earlier read finishing late never undoes it.
+  let latest = 0;
 
   $effect(() => {
     const d = day;
     void version;
+    const read = ++latest;
     team = null;
     error = '';
     backend.team(d).then(
       (t) => {
-        if (d === day) team = t;
+        if (read === latest) team = t;
       },
       (e) => {
-        if (d === day) error = absenceError(e);
+        if (read === latest) error = absenceError(e);
       }
     );
   });

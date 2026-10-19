@@ -48,18 +48,19 @@ def _settings(token: str = "test-service-token") -> Settings:  # noqa: S107
 
 def test_empty_storage_lists_nothing(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     index = logs.build_index(logs.build_pages(sqlite_storage), now=lambda: datetime(2026, 10, 19, 8, 0, 0))
-    assert index == {"version": 1, "generated_at": "2026-10-19 08:00:00", "raids": [], "bosses": []}
+    assert index == {"version": 1, "generated_at": "2026-10-19 08:00:00", "raids": [], "bosses": [], "hashes": {}}
 
 
 def test_a_stored_raid_is_listed_with_its_weekday_and_analysis(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
-    pages = logs.build_pages(sqlite_storage)
-    assert [p.summary.report_id for p in pages] == [CODE]
-    index = logs.build_index(pages)
+    built = logs.build_pages(sqlite_storage)
+    assert [p.summary.report_id for p in built.pages] == [CODE]
+    index = logs.build_index(built)
     (raid,) = index["raids"]
     assert raid["report_id"] == CODE
     assert raid["weekday"] in range(7)
-    page = pages[0].to_dict()
+    assert index["hashes"] == {CODE: logs.page_hash(built.pages[0])}
+    page = built.pages[0].to_dict()
     assert page["version"] == 1
     assert page["composition"]
     json.dumps(index)  # plain JSON, ready to send
@@ -84,6 +85,57 @@ def test_publish_sends_the_list_then_each_missing_raid(sqlite_storage: Callable[
     auth = "Bearer test-service-token"
     assert seen == [("PUT", "/api/worker/logs", auth), ("PUT", f"/api/worker/logs/{CODE}", auth)]
     assert bodies[f"/api/worker/logs/{CODE}"]["page"]["summary"]["report_id"] == CODE
+    assert bodies[f"/api/worker/logs/{CODE}"]["hash"] == bodies["/api/worker/logs"]["hashes"][CODE]
+
+
+def test_an_unreadable_raid_stays_listed_without_a_page(
+    sqlite_storage: Callable[[], PerformanceDB], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    monkeypatch.setattr(logs.RaidPageService, "page", lambda *_: None)
+    index = logs.build_index(logs.build_pages(sqlite_storage))
+    # The hub keeps the analysis it already holds instead of dropping the raid.
+    assert [r["report_id"] for r in index["raids"]] == [CODE]
+    assert index["hashes"] == {}
+
+
+@pytest.mark.parametrize("refused", ["list", "page"])
+def test_a_newer_run_s_list_stops_this_one_quietly(sqlite_storage: Callable[[], PerformanceDB], refused: str) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/worker/logs":
+            if refused == "list":
+                return httpx.Response(409, json={"detail": "A newer list is already stored"})
+            return httpx.Response(200, json={"raids": 1, "missing": [CODE]})
+        return httpx.Response(409, json={"detail": "A newer list wants another build of this raid"})
+
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub) == {"raids": 1, "sent": 0}
+
+
+def test_other_refusals_fail_the_run(sqlite_storage: Callable[[], PerformanceDB]) -> None:
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(lambda _: httpx.Response(422)))
+    with pytest.raises(httpx.HTTPStatusError):
+        logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)
+
+
+def test_a_run_without_a_client_opens_and_closes_one(
+    sqlite_storage: Callable[[], PerformanceDB], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[httpx.Client] = []
+    real = httpx.Client
+
+    def client(**kwargs: Any) -> httpx.Client:
+        c = real(
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"raids": 0, "missing": []})), **kwargs
+        )
+        opened.append(c)
+        return c
+
+    monkeypatch.setattr(logs.httpx, "Client", client)
+    assert logs.publish_logs(_settings(), storage=sqlite_storage) == {"raids": 0, "sent": 0}
+    assert len(opened) == 1 and opened[0].is_closed
 
 
 def test_publish_needs_a_service_token(sqlite_storage: Callable[[], PerformanceDB]) -> None:

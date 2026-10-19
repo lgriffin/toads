@@ -10,12 +10,16 @@ The worker's `publish-logs` job (every `TOADS_HUB_REFRESH_MINUTES`, or `toads-wo
 with the analyzer's `RaidPageService` from the raids wcl-store holds, so it never calls Warcraft Logs. The payloads are
 the analyzer's contract, `guides/raid_pages.md` in lgriffin/warcraftlogs_project, version 1.
 
-1. `PUT /api/worker/logs` sends the raid list and the boss history. The API keeps exactly those raids (a raid gone from
-   the analyzer leaves with its analysis) and answers with the raids whose analysis it does not hold yet, newest first,
-   at most 100 a turn so a first run fills in over a few turns. An older build never replaces a newer one (409).
-2. `PUT /api/worker/logs/{report}` sends one raid's analysis.
+1. `PUT /api/worker/logs` sends the raid list, the boss history and a sha256 of each raid's analysis (`hashes`). The
+   API keeps exactly those raids (a raid gone from the analyzer leaves with its analysis) and answers with the raids
+   whose analysis it does not hold in that build yet (none held, or a rebuilt one after an analyzer fix or a
+   re-imported report), newest first, at most 100 a turn so a first run fills in over a few turns. A raid the worker
+   could not read back is listed without a hash and keeps the analysis the hub holds. An older list never replaces a
+   newer one (409); the check and the replacement are one transaction.
+2. `PUT /api/worker/logs/{report}` sends one raid's analysis with its hash. A hash other than the one the latest list
+   named is a late upload from an older run, refused with 409; the worker skips it and carries on.
 
-Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migration 0018).
+Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migrations 0018 and 0020).
 
 ## Who sees what
 

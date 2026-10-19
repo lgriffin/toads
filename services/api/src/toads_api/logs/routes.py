@@ -32,6 +32,7 @@ router = APIRouter(tags=["logs"])
 worker = APIRouter(prefix="/api/worker", tags=["worker"], dependencies=[Depends(require_service)])
 
 REPORT_ID = r"^[A-Za-z0-9]{1,32}$"
+PAGE_HASH = r"^[0-9a-f]{64}$"
 
 
 def get_logs(request: Request) -> LogService:
@@ -87,6 +88,10 @@ class IndexIn(BaseModel):
     generated_at: str = Field(max_length=40)
     raids: list[SummaryIn] = Field(max_length=MAX_RAIDS)
     bosses: list[dict[str, Any]] = Field(max_length=MAX_BOSSES)
+    # The worker's sha256 of each analysis it built, by raid; a raid it could not read is left out.
+    hashes: dict[Annotated[str, Field(pattern=REPORT_ID)], Annotated[str, Field(pattern=PAGE_HASH)]] = Field(
+        default_factory=dict, max_length=MAX_RAIDS
+    )
 
 
 class IndexAnswer(BaseModel):
@@ -97,6 +102,8 @@ class IndexAnswer(BaseModel):
 
 class PageIn(BaseModel):
     page: dict[str, Any]
+    # The hash the worker listed for this analysis; a newer list wanting another build refuses it (409).
+    hash: str = Field(pattern=PAGE_HASH)
 
 
 def _viewer(principal: Principal, live: Services) -> Viewer:
@@ -145,7 +152,7 @@ async def publish_index(body: IndexIn, logs: Logs) -> IndexAnswer:
     raids = [r.model_dump() for r in body.raids]
     try:
         missing = await anyio.to_thread.run_sync(
-            logs.publish_index, body.version, body.generated_at, raids, body.bosses
+            logs.publish_index, body.version, body.generated_at, raids, body.bosses, body.hashes
         )
     except LogError as exc:
         raise _refused(exc) from None
@@ -156,7 +163,7 @@ async def publish_index(body: IndexIn, logs: Logs) -> IndexAnswer:
 @worker.put("/logs/{report}")
 async def publish_page(report: Report, body: PageIn, logs: Logs) -> dict[str, str]:
     try:
-        await anyio.to_thread.run_sync(logs.publish_page, report, body.page)
+        await anyio.to_thread.run_sync(logs.publish_page, report, body.page, body.hash)
     except LogError as exc:
         raise _refused(exc) from None
     return {"report_id": report}
