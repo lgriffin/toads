@@ -27,8 +27,9 @@ function under(path: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }
 
-// Officers run the guild from their console now (awards, the reference comparison), so it is never held for them.
-const OPEN_TO_OFFICERS = ['/officers'];
+// The pages being built on real data (the hub, the logs from historic TBC raids, the bank) and the officers' console
+// open for officers now, so they follow the work as it lands; Highlights and Me keep the Forever notice.
+const OPEN_TO_OFFICERS = ['/hub', '/raids', '/bank', '/officers'];
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
@@ -100,39 +101,12 @@ export interface TabPreview {
    * row, in place of the greeting and the standing toad, so the page wears each toad once.
    */
   ownToads?: boolean;
-  /** The bank tab also shows a mockup of the bank at work. */
-  mockup?: 'bank';
   /** Badges to show off under the list, as files under static/logos/ without `.svg`. */
   showcase?: readonly { toad: string; label: string }[];
 }
 
 /** The held tabs Leigh asked to preview in full. Only what the hub is being built to do; no dates beyond launch. */
 export const TAB_PREVIEW: Record<string, TabPreview> = {
-  '/bank': {
-    intent:
-      'The bank exists to get raiders what they need for raid night, fairly and on the record: flasks, potions and mats go where the raid needs them, and anyone can see who got what and when.',
-    toad: 'ranks/banker-badge',
-    mockup: 'bank',
-    sections: [
-      {
-        title: 'For every member',
-        items: [
-          'See what the bank holds, kept up to date from the bank characters by the Toads bank addon.',
-          'Ask for what you need from the site or straight from Discord with /bank request.',
-          'Follow your request from asked to handed over, and keep a receipt of everything you have received.'
-        ]
-      },
-      {
-        title: 'For bankers, and visible to officers',
-        items: [
-          'One queue of requests from Discord and the site, oldest first, with each raider’s attendance beside it.',
-          'Mark a request handed over in game and it lands in the ledger with the banker’s name and the time.',
-          'Low-stock warnings before raid night, so the guild can farm or buy ahead of the pull.',
-          'A fairness view: what each raider has received against the raids they attended, so nobody is quietly favoured or forgotten.'
-        ]
-      }
-    ]
-  },
   '/highlights': {
     intent:
       'A place for the fun side of raid night: the clips, the screenshots and the moments the guild still talks about, shared straight from Discord.',
