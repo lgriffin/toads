@@ -167,7 +167,7 @@ def admin_console() -> None:
     str(FEATURE),
     "REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the "
     "guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of "
-    "each page but their console, and leave super admins every page",
+    "each page but their console, and show super admins exactly the officers' view plus the Admin console",
 )
 def test_launch_hold() -> None:
     pass
@@ -198,10 +198,17 @@ def officer_notice(launch: str) -> None:
     assert "gives officers the Forever launch notice on every tab but their console" in _read("lib/launch.test.ts")
 
 
-@then("super admins, visitors and the public pages are never held")
+@then("super admins see exactly what officers see, plus the Admin console")
+def super_admin_as_officer(launch: str) -> None:
+    assert "if (tier === 'officer' || tier === 'admin') return" in launch
+    assert "gives super admins exactly the officers\\' view, with the Admin console open" in _read("lib/launch.test.ts")
+    assert "heldNav(memberNav(officer, tier === 'admin'), tier)" in _read("routes/+layout.svelte")
+
+
+@then("visitors and the public pages are never held")
 def never_held(launch: str) -> None:
-    assert "if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';" in launch
-    assert "leaves super admins, visitors and the public pages alone" in _read("lib/launch.test.ts")
+    assert "if (!hold || tier === 'visitor' || !isMemberPath(path)) return 'open';" in launch
+    assert "leaves visitors and the public pages alone" in _read("lib/launch.test.ts")
 
 
 @then("the real site waits for the session before a held page renders, so it never starts the page's own API calls")

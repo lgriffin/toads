@@ -349,10 +349,10 @@ Rules worth knowing:
   coming-soon page (guild bank management, logs analysis, raid assistance) on every member page, and the Members nav
   shows only Hub. Officers see all their tabs, each with a "coming with the Forever launch" notice in place of the page,
   except the Officers console, which stays open so global officers can give awards now. Their Me tab shows their
-  toads the way the open Me page does.
-  Super admins see everything, so add yourself to `TOADS_SUPER_ADMIN_IDS` to test pages before launch. The hold is in
-  the web app only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD`
-  to `false` there in a PR and let it deploy.
+  toads the way the open Me page does. Super admins see exactly what officers see, plus the Admin console, so the real
+  member pages show nobody until launch; the static preview shows them with sample data. The hold is in the web app
+  only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`
+  there in a PR and let it deploy.
 
 ## 7. Member settings and members' own Warcraft Logs keys
 

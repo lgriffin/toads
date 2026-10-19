@@ -15,8 +15,15 @@ describe('launch hold', () => {
     expect(launchHold('/officers', 'raider', true)).toBe('coming-soon');
   });
 
-  it('leaves super admins, visitors and the public pages alone', () => {
+  it('gives super admins exactly the officers\' view, with the Admin console open', () => {
+    for (const path of ['/hub', '/raids', '/highlights', '/bank', '/me', '/me/claim', '/welcome'])
+      expect(launchHold(path, 'admin', true)).toBe(launchHold(path, 'officer', true));
+    expect(launchHold('/me', 'admin', true)).toBe('forever-notice');
     expect(launchHold('/officers', 'admin', true)).toBe('open');
+    expect(launchHold('/admin', 'admin', true)).toBe('open');
+  });
+
+  it('leaves visitors and the public pages alone', () => {
     // An officer who opens the admin console meets its own super-admins-only refusal, not the notice.
     expect(launchHold('/admin', 'officer', true)).toBe('open');
     expect(launchHold('/hub', 'visitor', true)).toBe('open');

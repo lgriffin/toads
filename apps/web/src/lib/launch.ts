@@ -1,8 +1,8 @@
 /**
  * The launch hold: until the hub opens with the World of Warcraft: Forever launch, a raider who signs in sees one
- * coming-soon page, an officer sees the member tabs but each one says what it will hold at launch, and super admins
- * see everything. It only decides what the web app renders; every route still checks its own permission. Lift it by
- * setting LAUNCH_HOLD to false.
+ * coming-soon page, and an officer sees the member tabs but each one says what it will hold at launch. A super admin
+ * sees exactly what an officer sees, plus the Admin console. It only decides what the web app renders; every route
+ * still checks its own permission. Lift it by setting LAUNCH_HOLD to false.
  */
 import type { Tier } from './access';
 import { MEMBER_EXTRA, MEMBER_NAV, type NavItem } from './nav';
@@ -14,7 +14,7 @@ export const FOREVER_LAUNCH = { date: '2026-11-04', label: '4 November 2026' } a
 
 export type Hold = 'open' | 'coming-soon' | 'forever-notice';
 
-// The admin console is super admins' only, and they are never held; it keeps its own refusal for everyone else.
+// The admin console is super admins' only and never held; it keeps its own refusal for everyone else.
 const MEMBER = [...MEMBER_NAV.filter((i) => !i.adminOnly).map((i) => i.href), ...MEMBER_EXTRA];
 
 /** True for the held member pages (the Members nav except Admin, and the welcome checklist); `path` is relative to the base path. */
@@ -32,8 +32,9 @@ const OPEN_TO_OFFICERS = ['/officers'];
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
-  if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';
-  if (tier === 'officer') return under(path, OPEN_TO_OFFICERS) ? 'open' : 'forever-notice';
+  if (!hold || tier === 'visitor' || !isMemberPath(path)) return 'open';
+  // A super admin is an officer with the Admin console on top, so they see the officers' pages.
+  if (tier === 'officer' || tier === 'admin') return under(path, OPEN_TO_OFFICERS) ? 'open' : 'forever-notice';
   return 'coming-soon';
 }
 
