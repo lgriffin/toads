@@ -31,6 +31,7 @@ from hub_db.models import (
     Member,
     MemberHomeLayout,
 )
+from hub_db.officer_board import OfficerBoardCard
 from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
@@ -59,6 +60,7 @@ __all__ = [
     "MemberAbsence",
     "MemberAward",
     "MemberHomeLayout",
+    "OfficerBoardCard",
     "RaidSheetSnapshot",
     "RecruitmentNeed",
     "ReferenceComparison",

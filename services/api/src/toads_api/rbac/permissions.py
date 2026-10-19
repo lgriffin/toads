@@ -47,6 +47,8 @@ class Permission(enum.StrEnum):
     # them gathered in one place.
     REPORT_ABSENCE = "report_absence"
     VIEW_ABSENCES = "view_absences"
+    # The officers' task board for a raid day (docs/officer-board.md): that day's officers and the global tier.
+    MANAGE_OFFICER_BOARD = "manage_officer_board"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.

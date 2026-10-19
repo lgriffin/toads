@@ -166,6 +166,20 @@ source_modules = ["toads_api.absences.service", "toads_api.absences.repository"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Officer board routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.officer_board.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.officer_board.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Officer board rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.officer_board.service", "toads_api.officer_board.repository"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
 name = "Member settings routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.account.routes"]

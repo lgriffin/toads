@@ -22,6 +22,7 @@ from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
 from toads_api.discord_api import DiscordAuthError, DiscordError, MismatchedDiscordApplicationError
 from toads_api.home.routes import include_home
+from toads_api.officer_board.routes import include_officer_board
 from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac import UnknownDiscordRoleError
 from toads_api.rbac.deps import get_services, require
@@ -140,6 +141,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     include_bank(app)
     include_bank_grants(app)
     include_raid_sheets(app)
+    include_officer_board(app)
     return app
 
 
