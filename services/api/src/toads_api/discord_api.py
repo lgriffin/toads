@@ -1,5 +1,5 @@
-"""The few Discord endpoints the API needs: OAuth2 token exchange, the caller's guild member, the guild's roles and its
-scheduled events.
+"""The few Discord endpoints the API needs: OAuth2 token exchange, the caller's guild member, the bot's application,
+the guild's roles and its scheduled events.
 
 `DiscordAPI` is a protocol so tests and the dev stack can swap in the fake server
 (`toads_api.testing.fake_discord`) through an httpx transport; nothing here reads the environment.
@@ -24,6 +24,21 @@ class DiscordError(Exception):
 
 class DiscordAuthError(DiscordError):
     """The code, verifier or access token was rejected."""
+
+
+class MismatchedDiscordApplicationError(Exception):
+    """TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN come from different Discord applications (REQ-HUB-AUTH-003).
+
+    Sign-in, the API's role reads and the Toad Bot share one application, so this would otherwise show up only as a
+    redirect error on the first sign-in. Application ids are public (they are in the bot's invite link); the message
+    never includes the token or the secret.
+    """
+
+    def __init__(self, client_id: str, bot_application_id: str) -> None:
+        super().__init__(
+            f"TOADS_DISCORD_CLIENT_ID is {client_id}, but TOADS_DISCORD_BOT_TOKEN belongs to application "
+            f"{bot_application_id}; take the client id, client secret and bot token from the same Discord application"
+        )
 
 
 @dataclass(frozen=True)
@@ -93,6 +108,10 @@ class DiscordAPI(Protocol):
         """The token owner's membership of the Toads server, or None when they are not in it."""
         ...
 
+    async def bot_application_id(self) -> str:
+        """The id of the Discord application the bot token belongs to (bot token)."""
+        ...
+
     async def guild_role_ids(self) -> set[int]:
         """Every role id that exists in the Toads server (bot token)."""
         ...
@@ -160,6 +179,20 @@ class HttpDiscord:
         if r.status_code != 200:
             raise DiscordError(f"Discord member lookup failed with HTTP {r.status_code}")
         return GuildMember.from_api(r.json())
+
+    async def bot_application_id(self) -> str:
+        r = await self._http.get(
+            f"{self._base}/oauth2/applications/@me",
+            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+        )
+        if r.status_code == 401:
+            raise DiscordAuthError("Discord rejected TOADS_DISCORD_BOT_TOKEN")
+        if r.status_code != 200:
+            raise DiscordError(f"Discord application lookup failed with HTTP {r.status_code}")
+        app_id = r.json().get("id")
+        if not isinstance(app_id, str) or not app_id:
+            raise DiscordError("Discord application response had no id")
+        return app_id
 
     async def guild_role_ids(self) -> set[int]:
         r = await self._http.get(

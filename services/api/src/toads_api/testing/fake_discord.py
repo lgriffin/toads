@@ -7,6 +7,7 @@ It implements just what the hub uses, with the same paths and shapes as Discord:
 - POST /api/v10/oauth2/token                     authorization_code grant; checks client secret, redirect
                                                  URI and PKCE verifier; codes are single use
 - GET  /api/v10/users/@me/guilds/{id}/member     the token owner's guild member, 404 when not in the server
+- GET  /api/v10/oauth2/applications/@me          the bot's application (any `Bot` token)
 - GET  /api/v10/guilds/{id}/roles                the server's roles (any `Bot` token)
 - GET  /api/v10/guilds/{id}/members/{user}       one member of the server (any `Bot` token), 404 when not in it
 - GET  /api/v10/guilds/{id}/scheduled-events     the server's scheduled events (any `Bot` token)
@@ -53,6 +54,8 @@ class FakeDiscordState:
     client_id: str = "toads-dev"
     client_secret: str = "replace-me"  # noqa: S105 - the fake's own placeholder, not a credential
     guild_id: int = 1
+    # The application the bot token belongs to; None means the same one as client_id, as in production.
+    bot_application_id: str | None = None
     guild_roles: set[int] = field(default_factory=set)
     users: dict[int, FakeUser] = field(default_factory=dict)
     login_as: int | None = None
@@ -191,6 +194,12 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
         if user is None or not user.in_guild:
             raise HTTPException(404, detail="Unknown Member")
         return _member_json(user)
+
+    @app.get("/api/v10/oauth2/applications/@me")
+    async def bot_application(request: Request) -> dict[str, str]:
+        if not request.headers.get("authorization", "").startswith("Bot "):
+            raise HTTPException(401, detail="401: Unauthorized")
+        return {"id": state.bot_application_id or state.client_id, "name": "Toad Bot"}
 
     @app.get("/api/v10/guilds/{guild_id}/roles")
     async def roles(guild_id: int, request: Request) -> list[dict[str, str]]:

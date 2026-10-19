@@ -13,9 +13,11 @@ class Settings(BaseSettings):
 
     database_url: SecretStr
     redis_url: str
+    # Client id, secret and bot token all come from the one hub application (the Toad Bot's); startup checks the token
+    # belongs to this client id (REQ-HUB-AUTH-003).
     discord_client_id: str
     discord_client_secret: SecretStr
-    # Bot token: only used at startup to list the server's roles (REQ-HUB-DAY-022).
+    # Bot token: read the server's roles at startup (REQ-HUB-DAY-022) and members for the bank bot and applications.
     discord_bot_token: SecretStr
     discord_guild_id: int
     # Must match a redirect registered on the Discord application exactly.
