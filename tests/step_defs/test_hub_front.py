@@ -166,9 +166,8 @@ def admin_console() -> None:
 @scenario(
     str(FEATURE),
     "REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the "
-    "guild bank, logs analysis and raid assistance, show officers the hub, logs, bank and their console as they are "
-    "being built and a Forever launch notice on every other tab, and show super admins exactly the officers' view plus "
-    "the Admin console",
+    "guild bank, logs analysis and raid assistance, show officers every page as it is being built except the bank, "
+    "which shows a Forever launch notice, and show super admins exactly the officers' view plus the Admin console",
 )
 def test_launch_hold() -> None:
     pass
@@ -190,13 +189,13 @@ def raider_coming_soon(launch: str) -> None:
     assert "gives raiders the coming-soon page on every member page" in _read("lib/launch.test.ts")
 
 
-@then("an officer opens the hub, logs, bank and their console, and every other tab shows the Forever launch notice")
+@then("an officer opens every page but the bank, which shows the Forever launch notice")
 def officer_notice(launch: str) -> None:
     layout = _read("routes/+layout.svelte")
     assert "{:else if hold === 'forever-notice'}\n    <ForeverNotice {path} {...me} />" in layout
     assert "Coming with the Forever launch" in _read("lib/components/ForeverNotice.svelte")
-    assert "const OPEN_TO_OFFICERS = ['/hub', '/raids', '/bank', '/officers'];" in launch
-    assert "opens the hub, logs, bank and console to officers" in _read("lib/launch.test.ts")
+    assert "const HELD_FOR_OFFICERS = ['/bank'];" in launch
+    assert "opens every page to officers but the bank" in _read("lib/launch.test.ts")
 
 
 @then("super admins see exactly what officers see, plus the Admin console")
@@ -223,9 +222,9 @@ def waits_for_session() -> None:
 
 @scenario(
     str(FEATURE),
-    "REQ-HUB-FRONT-005 While the launch hold is on, the Highlights and Me tabs shall show officers the tab's intent "
-    "and the features coming to it, the Me tab with their own toads as the open Me page shows them, and every "
-    "signed-in member shall meet their own toad",
+    "REQ-HUB-FRONT-005 While the launch hold is on, the Bank tab shall show officers its intent, the features coming "
+    "to it and a labelled mockup of stock, Discord requests, a ledger and a fairness view, and every signed-in member "
+    "shall meet their own toad",
 )
 def test_tab_previews() -> None:
     pass
@@ -236,22 +235,22 @@ def previews() -> str:
     return _read("lib/launch.ts")
 
 
-@then("the Highlights and Me tabs each state their intent and list what is coming")
+@then("the Bank tab states its intent and lists what is coming")
 def tabs_previewed(previews: str) -> None:
-    for tab in ("/highlights", "/me"):
-        assert f"  '{tab}': {{\n    intent:" in previews, tab
+    assert "  '/bank': {\n    intent:" in previews
     notice = _read("lib/components/ForeverNotice.svelte")
     assert "TAB_PREVIEW[tab.href]" in notice
-    assert "previews the highlights and me tabs" in _read("lib/launch.test.ts")
+    assert "previews the bank tab with its intent" in _read("lib/launch.test.ts")
 
 
-@then("the Me tab shows the officer's own toads once, in its heading and as a Your toads row, without the greeting")
-def me_tab_toads(previews: str) -> None:
-    assert "    ownToads: true,\n" in previews
-    notice = _read("lib/components/ForeverNotice.svelte")
-    assert "{#if !preview?.ownToads}<ToadGreeting {name} {...facts} />{/if}" in notice
-    assert "{#if preview.ownToads}<MemberToads {...facts} size={40} />{/if}" in notice
-    assert '<h2 id="own-toads-h">Your toads</h2>' in notice
+@then("the Bank tab shows the bankers' features to officers and a mockup labelled as sample data")
+def bank_mockup(previews: str) -> None:
+    assert "title: 'For bankers, and visible to officers'" in previews
+    assert "{#if preview.mockup === 'bank'}<BankMockup />{/if}" in _read("lib/components/ForeverNotice.svelte")
+    mockup = _read("lib/components/BankMockup.svelte")
+    for part in ("In the bank", "Requests", "/bank request", "Ledger: who got what, and when", "Fairness:"):
+        assert part in mockup, part
+    assert '<span class="tag">Mockup</span>' in mockup
 
 
 @then("every signed-in member has a rank toad, raiders the member toad")
@@ -262,7 +261,7 @@ def member_toad() -> None:
         assert (WEB.parent / "static" / "logos" / "ranks" / f"{name}.svg").is_file()
 
 
-@then("raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home")
+@then("raiders meet their toad on the coming-soon page, officers on the held bank tab, and everyone on the hub home")
 def toad_greeting() -> None:
     for component in ("ComingSoon", "ForeverNotice"):
         assert "<ToadGreeting {name} {...facts} />" in _read(f"lib/components/{component}.svelte"), component
