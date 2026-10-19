@@ -44,6 +44,10 @@ export interface Application {
   className: string;
   spec: string;
   role: Role;
+  /** The role they would switch to; missing or null when they gave none. */
+  secondaryRole?: Role | null;
+  /** Their answer to "Why Toads?"; older applications have none. */
+  whyToads?: string;
   /** Empty means any raid day. */
   raidDays: RaidDay[];
   experience: string;

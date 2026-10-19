@@ -44,7 +44,7 @@ Feature: HUB RECRUIT
 
   @ears_ubiquitous @member @maintainer @phase_2_4
   Scenario: REQ-HUB-RECRUIT-006 The application shall ask only for game details and never for age, email address or real name
-    Then the application form's fields are character, class, spec, role, raid days, experience, availability and a Warcraft Logs link
+    Then the application asks for character, class, primary role, secondary role and why Toads, with spec, raid days, experience, availability and a Warcraft Logs link as optional extras
     And a Warcraft Logs link must be an https link to warcraftlogs.com
 
   @ears_ubiquitous @raid_leader @member @phase_2_4
@@ -54,3 +54,24 @@ Feature: HUB RECRUIT
     When the Wednesday officer declines the application
     And the API restarts
     Then the application is still declined with its full history
+
+  @ears_state_driven @member @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-008 While interviewers are named in the community config, when someone applies, the bot shall open their interview room straight away with only the applicant, those interviewers and the bot in it, and post the answers there
+    Given the demo guild with interviewers _gallagher and hadur117
+    When the applicant applies for Wednesday
+    Then the application is being interviewed
+    And the bot is asked for a room for the applicant with _gallagher and hadur117 and no officer roles
+    And the bot creates the room for the applicant and the two interviewers with the answers in it
+
+  @ears_unwanted_behavior @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-009 If someone who is not in the Toads Discord server sends an application, then the hub shall refuse it with 403 and record nothing
+    Given the demo guild
+    When an applicant who has left the Toads Discord sends an application
+    Then the application is refused with 403 asking them to join the Discord
+    And no application or interview room is recorded
+
+  @ears_event_driven @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-010 When someone signs in with Discord from the recruit page, the hub shall bring them back to the recruit page, and shall return to no page outside its fixed list
+    When a Toads Discord member signs in from the recruit page
+    Then they land back on the recruit page
+    And a sign-in that asks to return to another site lands on the hub home

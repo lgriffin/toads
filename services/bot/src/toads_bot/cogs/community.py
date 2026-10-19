@@ -33,9 +33,14 @@ def interview_channel_name(character: str) -> str:
 
 
 def interview_overwrites(
-    guild: discord.Guild, applicant: discord.abc.Snowflake, officer_roles: Sequence[discord.abc.Snowflake], me: Any
+    guild: discord.Guild,
+    applicant: discord.abc.Snowflake,
+    officer_roles: Sequence[discord.abc.Snowflake],
+    me: Any,
+    interviewers: Sequence[discord.abc.Snowflake] = (),
 ) -> dict[Any, discord.PermissionOverwrite]:
-    """Private to the applicant, the officers who decide, and the bot. Nobody else can even see it exists."""
+    """Private to the applicant, the officers or named interviewers who decide, and the bot. Nobody else can even see
+    it exists."""
     talk = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
     return {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
@@ -43,8 +48,38 @@ def interview_overwrites(
             view_channel=True, send_messages=True, read_message_history=True, attach_files=True, mention_everyone=False
         ),
         **{role: talk for role in officer_roles},
+        **{person: talk for person in interviewers},
         me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
     }
+
+
+async def find_interviewer(guild: discord.Guild, name: str) -> discord.Member | None:
+    """An interviewer named in config/community.yaml: a user id, or a Discord username (not a nickname, which anyone
+    can change to look like an officer). The member cache comes first; Discord is asked when it misses."""
+    if name.isdigit():
+        if (cached := guild.get_member(int(name))) is not None:
+            return cached
+        try:
+            return await guild.fetch_member(int(name))
+        except discord.NotFound:
+            return None
+    if (found := next((m for m in guild.members if m.name == name), None)) is not None:
+        return found
+    # 100 is Discord's most per search, so many members sharing the name's prefix still leave the exact one in.
+    return next((m for m in await guild.query_members(query=name, limit=100) if m.name == name), None)
+
+
+def application_embed(payload: dict[str, Any]) -> discord.Embed:
+    """The applicant's answers, in the room's first message so the interviewers start from them."""
+    roles = str(payload.get("role") or "?")
+    if payload.get("secondary_role"):
+        roles += f", then {payload['secondary_role']}"
+    embed = discord.Embed(title=f"Application: {payload['character_name']}"[:256], colour=EMBED_COLOUR)
+    embed.add_field(name="Class", value=str(payload.get("class_name") or "?")[:1024], inline=True)
+    embed.add_field(name="Roles", value=roles[:1024], inline=True)
+    embed.add_field(name="Why Toads?", value=str(payload.get("why_toads") or "Not answered")[:1024], inline=False)
+    embed.set_footer(text=f"Toads Hub application {payload['application_id']}")
+    return embed
 
 
 def post_embed(post: dict[str, Any]) -> discord.Embed:
@@ -170,16 +205,25 @@ class Community(commands.Cog):
             int(payload["discord_user_id"])
         )
         roles = [r for rid in payload.get("officer_role_ids") or [] if (r := guild.get_role(int(rid))) is not None]
+        names = [str(n) for n in payload.get("interviewers") or []]
+        found = {n: await find_interviewer(guild, n) for n in names}
+        interviewers = [m for m in found.values() if m is not None]
+        missing = [n for n, m in found.items() if m is None]
+        if missing:
+            log.warning("interviewers not in the server: %s", ", ".join(missing))
         category = guild.get_channel(int(payload["category_id"])) if payload.get("category_id") else None
         channel = await guild.create_text_channel(
             interview_channel_name(str(payload["character_name"])),
             category=category if isinstance(category, discord.CategoryChannel) else None,
-            overwrites=interview_overwrites(guild, applicant, roles, guild.me),
+            overwrites=interview_overwrites(guild, applicant, roles, guild.me, interviewers),
             reason=f"Toads Hub application {payload['application_id']}",
         )
+        greeting = " ".join([applicant.mention, *(m.mention for m in interviewers)])
+        note = f"\n\n(Could not find {', '.join(missing)} in the server to add them.)" if missing else ""
         await channel.send(
-            f"{applicant.mention} {WELCOME}",
-            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[applicant]),
+            f"{greeting} {WELCOME}{note}",
+            embed=application_embed(payload),
+            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[applicant, *interviewers]),
         )
         return int(channel.id)
 

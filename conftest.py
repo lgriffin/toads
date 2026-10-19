@@ -182,16 +182,31 @@ def hub() -> Iterator[Hub]:
 
 
 def community_client(
-    service: object, principal: object = None, *, token: str | None = None, raise_server_exceptions: bool = True
+    service: object,
+    principal: object = None,
+    *,
+    token: str | None = None,
+    raise_server_exceptions: bool = True,
+    left_discord: frozenset[int] = frozenset(),
 ) -> TestClient:
     """The real API with its community service swapped for `service`, signed in as `principal` (None: anonymous).
 
-    `token` replaces the bot's service token. Skips the lifespan: the fakes need no startup checks here.
+    `token` replaces the bot's service token. The demo guild's members are in the fake Discord server, apart from the
+    Discord user ids in `left_discord`. Skips the lifespan: the fakes need no startup checks here.
     """
+    from toads_api.community.demo import MEMBERS
     from toads_api.community.deps import get_service
     from toads_api.rbac.deps import get_principal
 
     h = Hub()
+    for card in MEMBERS.values():
+        h.fake.add_user(
+            FakeUser(
+                user_id=card.discord_user_id,
+                username=card.display_name.lower(),
+                in_guild=card.discord_user_id not in left_discord,
+            )
+        )
     if token is not None:
         h.services.settings = make_settings(hub_service_token=token)
     h.app.state.services = h.services

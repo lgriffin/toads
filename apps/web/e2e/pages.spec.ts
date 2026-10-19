@@ -55,7 +55,7 @@ test('the nav splits public and member pages', async ({ page }) => {
 test('the landing page says who we are and what we stand for', async ({ page }) => {
   await page.goto('');
   await expect(page.getByRole('heading', { name: 'Toads', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Who we are' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Who we are', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What we stand for' })).toBeVisible();
   // The preview visitor is signed in, so the call to action is their hub rather than the login.
   await page.getByRole('link', { name: 'Go to your hub' }).click();
@@ -68,7 +68,7 @@ test('the story page links to recruit and opens Discord safely', async ({ page }
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer');
   await page.getByRole('link', { name: 'Apply to raid with us' }).click();
   await expect(page).toHaveURL(/\/toads\/recruit\/$/);
-  await expect(page.getByRole('heading', { name: 'How the interview room works' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your application' })).toBeVisible();
 });
 
 test('the hub shows the latest raid totals from the sheets', async ({ page }) => {

@@ -4,10 +4,13 @@ import { signIn } from './auth';
 // Member pages open after the preview's pretend sign-in; most tests explore as an officer.
 test.beforeEach(({ page }) => signIn(page, 'officer'));
 
-test('the recruit form shows field errors, then success', async ({ page }) => {
+test('the recruit form shows field errors, then opens the interview room', async ({ page }) => {
   await page.goto('recruit/');
+  await expect(page.getByRole('link', { name: /Join the Toads Discord/ }).first()).toHaveAttribute(
+    'href',
+    'https://discord.gg/toads'
+  );
   await page.getByLabel('Character name').fill('Frog1');
-  await page.getByLabel('Warcraft Logs link').fill('javascript:alert(1)');
   await page.getByRole('button', { name: 'Send application' }).click();
 
   const alert = page.getByRole('alert');
@@ -15,24 +18,25 @@ test('the recruit form shows field errors, then success', async ({ page }) => {
   await expect(alert).toBeFocused();
   await expect(page.locator('#characterName-error')).toContainText('2 to 12 letters');
   await expect(page.locator('#className-error')).toBeVisible();
-  await expect(page.locator('#spec-error')).toBeVisible();
-  await expect(page.locator('#role-error')).toBeVisible();
-  await expect(page.locator('#logsUrl-error')).toBeVisible();
+  await expect(page.locator('#primaryRole-error')).toBeVisible();
+  await expect(page.locator('#whyToads-error')).toBeVisible();
   await expect(page.getByLabel('Character name')).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.locator('body')).not.toContainText('Application sent');
+  await expect(page.locator('body')).not.toContainText('interview room is opening');
 
   await page.getByLabel('Character name').fill('Pondsküm');
-  await page.getByLabel('Class').selectOption('Paladin');
-  await page.getByLabel('Spec').selectOption('Holy');
-  await expect(page.getByLabel('Role')).toHaveValue('Healer');
-  await page.getByLabel('Sunday').check();
-  await page.getByLabel(/Raiding experience/).fill('Healed Kara and Gruul.\nKeen to push SSC.');
-  await page.getByLabel('Warcraft Logs link').fill('https://classic.warcraftlogs.com/character/eu/spineshatter/pondskum');
+  await page.getByLabel('Class', { exact: true }).selectOption('Paladin');
+  const primary = page.getByRole('group', { name: 'Primary role' });
+  const secondary = page.getByRole('group', { name: 'Secondary role' });
+  await expect(primary.getByLabel('Ranged')).toBeDisabled(); // Paladins have no ranged spec
+  await primary.getByLabel('Healer').check();
+  await expect(secondary.getByLabel('Healer')).toBeDisabled(); // not the same role twice
+  await secondary.getByLabel('Tank').check();
+  await page.getByLabel('Why Toads?').fill('Healed Kara and Gruul.\nA friend says Sundays are the best nights.');
   await page.getByRole('button', { name: 'Send application' }).click();
 
-  const done = page.getByRole('status').filter({ hasText: 'Application sent' });
+  const done = page.getByRole('status').filter({ hasText: 'interview room is opening' });
   await expect(done).toBeVisible();
-  await expect(done).toContainText('private interview room will open');
+  await expect(done).toContainText('#interview-pondskum');
   await expect(done).toContainText('Pondsküm');
 });
 

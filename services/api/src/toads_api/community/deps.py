@@ -10,6 +10,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from toads_api.community import recruitment
 from toads_api.community.schemas import ApplicationTransition, CurationDecision, PostCreate, Visibility
 from toads_api.community.service import Audience, CommunityService
+from toads_api.discord_api import DiscordError
 from toads_api.rbac import HubRole, Principal
 from toads_api.rbac.deps import get_services
 from toads_api.services import Services
@@ -77,3 +78,18 @@ async def officer_transition_allowed(body: ApplicationTransition) -> None:
     """Withdrawing is the applicant's own act; officers decline instead."""
     if body.to in recruitment.APPLICANT_ONLY:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the applicant can withdraw")
+
+
+async def ensure_in_discord(services: Services, discord_user_id: int) -> None:
+    """Applying opens a room in the Toads server, so the applicant must still be in it now, not only at sign-in."""
+    try:
+        member = await services.discord.guild_member(discord_user_id)
+    except DiscordError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Discord is not answering; try again shortly"
+        ) from None
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not in the Toads Discord. Join it, then send your application again",
+        )

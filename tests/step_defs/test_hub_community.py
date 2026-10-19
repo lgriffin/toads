@@ -76,6 +76,7 @@ class World:
             spec="Restoration",
             role=Role.HEALER,
             raid_days=[day],
+            why_toads="A friend raids here.",
             experience="Cleared SSC elsewhere.",
         )
 
@@ -354,20 +355,78 @@ def day_31(world: World) -> None:
 
 
 @then(
-    "the application form's fields are character, class, spec, role, raid days, experience, availability and a "
-    "Warcraft Logs link"
+    "the application asks for character, class, primary role, secondary role and why Toads, with spec, raid days, "
+    "experience, availability and a Warcraft Logs link as optional extras"
 )
 def form_fields() -> None:
-    assert set(ApplicationCreate.model_fields) == {
-        "character_name",
-        "class_name",
-        "spec",
-        "role",
-        "raid_days",
-        "experience",
-        "availability",
-        "logs_url",
+    fields = ApplicationCreate.model_fields
+    required = {"character_name", "class_name", "role", "why_toads"}
+    optional = {"secondary_role", "spec", "raid_days", "experience", "availability", "logs_url"}
+    assert set(fields) == required | optional
+    assert {name for name, f in fields.items() if f.is_required()} == required
+
+
+@given(parsers.parse("the demo guild with interviewers {first} and {second}"))
+def demo_guild_with_interviewers(world: World, first: str, second: str) -> None:
+    world.store.config = world.store.config.model_copy(update={"interviewers": [first, second]})
+
+
+@then(parsers.parse("the bot is asked for a room for the applicant with {first} and {second} and no officer roles"))
+def room_job_for_interviewers(world: World, first: str, second: str) -> None:
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    assert job.payload["discord_user_id"] == 10_005
+    assert job.payload["interviewers"] == [first, second]
+    assert job.payload["officer_role_ids"] == []
+
+
+@then("the bot creates the room for the applicant and the two interviewers with the answers in it")
+def bot_creates_for_interviewers(world: World) -> None:
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    people = []
+    for i, name in enumerate(job.payload["interviewers"] or []):  # type: ignore[union-attr]
+        person = MagicMock(id=501 + i, mention=f"<@{501 + i}>")
+        person.name = name
+        people.append(person)
+    guild = MagicMock()
+    guild.default_role = discord.Object(id=1)
+    guild.me = discord.Object(id=99)
+    guild.members = people
+    guild.get_member.return_value = MagicMock(id=10_005, mention="<@10005>")
+    guild.get_channel.return_value = None
+    created = MagicMock(id=6001)
+    created.send = AsyncMock()
+    guild.create_text_channel = AsyncMock(return_value=created)
+    asyncio.run(_bot().open_interview_room(guild, dict(job.payload)))
+    overwrites = guild.create_text_channel.await_args.kwargs["overwrites"]
+    assert {k.id: v.view_channel for k, v in overwrites.items()} == {
+        1: False,
+        10_005: True,
+        501: True,
+        502: True,
+        99: True,
     }
+    embed = created.send.await_args.kwargs["embed"]
+    assert {f.name: f.value for f in embed.fields}["Why Toads?"] == "A friend raids here."
+
+
+@when("an applicant who has left the Toads Discord sends an application")
+def applies_after_leaving(world: World) -> None:
+    from conftest import community_client
+
+    client = community_client(world.store, PRINCIPALS["applicant"], left_discord=frozenset({10_005}))
+    world.last = client.post("/api/applications", json=world.application("wed").model_dump())
+
+
+@then("the application is refused with 403 asking them to join the Discord")
+def refused_not_in_discord(world: World) -> None:
+    assert world.last.status_code == 403
+    assert "Toads Discord" in world.last.json()["detail"]
+
+
+@then("no application or interview room is recorded")
+def nothing_recorded(world: World) -> None:
+    assert world.store.repo.applications() == []
+    assert world.store.repo.jobs() == []
 
 
 @then("a Warcraft Logs link must be an https link to warcraftlogs.com")
@@ -594,3 +653,37 @@ def story_shows(world: World) -> None:
 @when("the raider withdraws agreement")
 def raider_withdraws(world: World) -> None:
     world.store.decide_consent(4, world.last.id, grant=False)
+
+
+# ------------------------------------------------------ sign-in return path
+
+
+def _sign_in(world: World, next_page: str) -> None:
+    from urllib.parse import urlencode
+
+    from conftest import Hub
+
+    hub = Hub()
+    with hub.client:  # the lifespan builds the app's services
+        login = hub.client.get(f"/auth/login?{urlencode({'next': next_page})}", follow_redirects=False)
+        world.last = hub.callback(hub.authorize(login, hub.user(nick="Newt")))
+
+
+@when("a Toads Discord member signs in from the recruit page")
+def signs_in_from_recruit(world: World) -> None:
+    _sign_in(world, "recruit")
+
+
+@then("they land back on the recruit page")
+def back_on_recruit(world: World) -> None:
+    from conftest import HUB
+
+    assert world.last.headers["location"] == f"{HUB}/recruit"
+
+
+@then("a sign-in that asks to return to another site lands on the hub home")
+def other_site_lands_on_hub(world: World) -> None:
+    from conftest import HUB
+
+    _sign_in(world, "https://evil.example/")
+    assert world.last.headers["location"] == f"{HUB}/hub"

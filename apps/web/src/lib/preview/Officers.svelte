@@ -173,9 +173,13 @@
           </header>
           <p class="muted">
             {a.spec}
-            {a.className} · {a.role} · {a.raidDays.length ? a.raidDays.join(' & ') : 'Either night'} · applicant {a.applicantName}
+            {a.className} · {a.role}{a.secondaryRole ? `, then ${a.secondaryRole}` : ''} · {a.raidDays.length ? a.raidDays.join(' & ') : 'Either night'} · applicant {a.applicantName}
           </p>
           <dl>
+            {#if a.whyToads}
+              <dt>Why Toads?</dt>
+              <dd class="text">{a.whyToads}</dd>
+            {/if}
             <dt>Experience</dt>
             <dd class="text">{a.experience || '—'}</dd>
             <dt>Availability</dt>

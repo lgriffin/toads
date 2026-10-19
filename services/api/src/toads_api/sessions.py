@@ -36,6 +36,8 @@ class SessionData:
 class PendingLogin:
     state: str
     code_verifier: str
+    # Where a member lands after signing in: one of auth.RETURN_PATHS, never a URL from the request.
+    return_to: str = "/hub"
 
 
 class SessionStore:

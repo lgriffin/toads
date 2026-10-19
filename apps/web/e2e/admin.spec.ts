@@ -7,7 +7,7 @@ test('a new member finds the welcome checklist from the homepage', async ({ page
   await page.getByRole('link', { name: 'Start with the checklist' }).click();
   await expect(page).toHaveURL(/\/toads\/welcome\/$/);
   await expect(page.getByRole('heading', { name: 'Welcome to the pond', level: 1 })).toBeVisible();
-  await expect(page.getByRole('listitem')).toHaveCount(6);
+  await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(6);
   const download = page.getByRole('link', { name: 'Download the analyzer' });
   await expect(download).toHaveAttribute('rel', 'noopener noreferrer');
   await page.getByRole('link', { name: 'Claim a character' }).click();

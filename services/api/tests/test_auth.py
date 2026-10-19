@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 from hub_db import Member
@@ -130,6 +130,25 @@ def test_cancelled_sign_in(hub: Hub) -> None:
     state = parse_qs(urlsplit(login.headers["location"]).query)["state"][0]
     r = hub.client.get("/auth/callback", params={"state": state, "error": "access_denied"}, follow_redirects=False)
     assert r.status_code == 400
+
+
+@pytest.mark.security
+@pytest.mark.parametrize(
+    ("next_page", "lands_on"),
+    [
+        ("recruit", "/recruit"),
+        (None, "/hub"),
+        ("https://evil.example/", "/hub"),
+        ("//evil.example", "/hub"),
+        ("/recruit", "/hub"),  # the key, not a path: nothing from the request reaches the Location header
+    ],
+)
+def test_sign_in_returns_only_to_listed_pages(hub: Hub, next_page: str | None, lands_on: str) -> None:
+    query = "" if next_page is None else f"?{urlencode({'next': next_page})}"
+    login = hub.client.get(f"/auth/login{query}", follow_redirects=False)
+    r = hub.callback(hub.authorize(login, hub.user(nick="Newt")))
+    assert r.status_code == 303
+    assert r.headers["location"] == f"{HUB}{lands_on}"
 
 
 def test_non_member_gets_members_only_and_no_session(hub: Hub) -> None:

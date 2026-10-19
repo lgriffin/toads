@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ApiError,
+  applicationError,
   chooseName,
   claimError,
   createClaim,
@@ -10,6 +11,7 @@ import {
   listMembers,
   removeWclKey,
   saveWclKey,
+  sendApplication,
   settingsError,
   statusLabel,
   unclaim,
@@ -69,6 +71,26 @@ describe('claims', () => {
   it('keeps the status text for non-JSON errors', async () => {
     const f = (async () => new Response('oops', { status: 500, statusText: 'Server Error' })) as unknown as typeof fetch;
     await expect(listClaims(f)).rejects.toMatchObject({ status: 500, message: 'Server Error' });
+  });
+});
+
+describe('applications', () => {
+  it('posts the five answers', async () => {
+    const { f, calls } = fakeFetch(201, { id: 9, character_name: 'Bogwalker', status: 'interviewing' });
+    const body = { character_name: 'Bogwalker', class_name: 'Shaman', role: 'Melee', secondary_role: null, why_toads: 'Friends.' };
+    expect((await sendApplication(body, f)).status).toBe('interviewing');
+    expect(calls[0]).toMatchObject({ url: '/api/applications', init: { method: 'POST' } });
+    expect(JSON.parse(String(calls[0].init.body))).toEqual(body);
+  });
+  it('points someone outside the Discord at the invite', () => {
+    expect(applicationError(new ApiError(403, 'not in the server'))).toEqual({
+      message: expect.stringMatching(/Toads Discord/),
+      joinDiscord: true
+    });
+    expect(applicationError(new ApiError(409, 'You already have an open application')).message).toMatch(/open/);
+    expect(applicationError(new ApiError(401, ''))).toMatchObject({ message: expect.stringMatching(/Sign in/), signIn: true });
+    expect(applicationError(new ApiError(503, '')).message).toMatch(/Discord is not answering/);
+    expect(applicationError(new Error('x'))).toEqual({ message: expect.stringMatching(/try again/), joinDiscord: false });
   });
 });
 
