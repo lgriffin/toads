@@ -490,6 +490,32 @@ def test_a_room_built_after_the_application_closed_is_locked(as_: Any, store: Co
     assert lock["job"]["payload"]["channel_id"] == 6001
 
 
+def test_a_late_ack_stays_pending_until_its_lock_is_queued(
+    as_: Any, store: CommunityService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store.config = store.config.model_copy(update={"interviewers": ["501"]})
+    app_id = as_("applicant").post("/api/applications", json=APPLICATION).json()["id"]
+    [job] = store.pending_jobs()
+    as_("applicant").post(f"/api/applications/{app_id}/withdraw")
+    enqueue = store.repo.enqueue
+
+    def fails(*_: Any) -> Any:
+        raise RuntimeError("database went away")
+
+    monkeypatch.setattr(store.repo, "enqueue", fails)
+    with pytest.raises(RuntimeError):
+        as_(None).post(f"/api/bot/outbox/{job.id}/ack", json={"channel_id": 6001}, headers=BOT)
+    assert [j.id for j in store.pending_jobs()] == [job.id]  # the bot will ack it again
+    monkeypatch.setattr(store.repo, "enqueue", enqueue)
+    as_(None).post(f"/api/bot/outbox/{job.id}/ack", json={"channel_id": 6001}, headers=BOT)
+    [lock] = store.pending_jobs()
+    assert (lock.kind.value, lock.payload["channel_id"], lock.payload["discord_user_id"]) == (
+        "lock_interview_room",
+        6001,
+        10_005,
+    )
+
+
 @pytest.mark.security
 def test_discord_unreachable_while_applying_is_503(store: CommunityService) -> None:
     import httpx

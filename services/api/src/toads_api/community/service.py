@@ -443,8 +443,8 @@ class CommunityService:
             raise NotFound("No such job")
         if job.done:
             return job  # acks are idempotent: a bot that reconnects may ack twice
-        job.done = True
-        self.repo.save_job(job)
+        # Apply the ack before marking the job done: if this fails part way the bot retries it, and a repeated lock
+        # is harmless where a lost one leaves a closed room writable.
         if job.kind is OutboxKind.CREATE_INTERVIEW_ROOM and ack.channel_id is not None:
             app = self.repo.get_application(int(str(job.payload["application_id"])))
             if app is not None:
@@ -457,7 +457,7 @@ class CommunityService:
                         {
                             "application_id": app.id,
                             "channel_id": app.interview_channel_id,
-                            "discord_user_id": self._discord_id(app),
+                            "discord_user_id": job.payload["discord_user_id"],
                         },
                     )
         elif job.kind is OutboxKind.POST_MESSAGE and ack.message_id is not None:
@@ -465,6 +465,8 @@ class CommunityService:
             if post is not None:
                 post.discord_message_id = ack.message_id
                 self.repo.save_post(post)
+        job.done = True
+        self.repo.save_job(job)
         return job
 
     def post_for_job(self, job: OutboxJob) -> Post | None:
