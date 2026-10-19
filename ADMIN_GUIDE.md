@@ -247,8 +247,9 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_RAID_SHEETS_CONFIG` | no | `config/raid_sheets.yaml` | Raid sheets file. |
 | `TOADS_HUB_REFRESH_MINUTES` | no | `30` | Scheduler: publish-home, publish-performance, publish-badges and publish-reference. `0` turns them off. |
 | `TOADS_SHEETS_REFRESH_MINUTES` | no | `360` | Scheduler: import-sheets, only when the sheets file exists. `0` turns it off. |
-| `TOADS_SYNC_REFRESH_MINUTES` | no | `60` | Scheduler: sync-guild, which analyses the guild's new Warcraft Logs reports. Off until `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_GUILD_ID` are set; `0` turns it off. [docs/logs-analysis.md](docs/logs-analysis.md) |
-| `TOADS_SYNC_BATCH` | no | `10` | The most reports one sync run imports, newest first; failed ones do not count. |
+| `TOADS_SYNC_REFRESH_MINUTES` | no | `15` | Scheduler: sync-guild, which analyses the guild's new Warcraft Logs reports. Off until `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_GUILD_ID` are set; `0` turns it off. [docs/logs-analysis.md](docs/logs-analysis.md) |
+| `TOADS_SYNC_RESERVE_PERCENT` | no | `20` | The share of the guild key's hourly Warcraft Logs points the sync leaves unspent for officer imports and anything else on the key. Each run imports new reports, newest first, until the next one would eat into it. |
+| `TOADS_SYNC_BATCH` | no | `0` | An optional cap on reports per sync run on top of the rate limit; failed ones do not count. `0` means no cap. Used as the cap (`10` when `0`) if Warcraft Logs does not report the rate limit. |
 
 ### Toad Bot (`services/bot/.env`, `toads-bot`)
 
@@ -348,10 +349,10 @@ Rules worth knowing:
   coming-soon page (guild bank management, logs analysis, raid assistance) on every member page, and the Members nav
   shows only Hub. Officers see all their tabs, each with a "coming with the Forever launch" notice in place of the page,
   except the Officers console, which stays open so global officers can give awards now. Their Me tab shows their
-  toads the way the open Me page does.
-  Super admins see everything, so add yourself to `TOADS_SUPER_ADMIN_IDS` to test pages before launch. The hold is in
-  the web app only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD`
-  to `false` there in a PR and let it deploy.
+  toads the way the open Me page does. Super admins see exactly what officers see, plus the Admin console, so the real
+  member pages show nobody until launch; the static preview shows them with sample data. The hold is in the web app
+  only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`
+  there in a PR and let it deploy.
 
 ## 7. Member settings and members' own Warcraft Logs keys
 
@@ -377,8 +378,9 @@ Admin side:
 ## 8. The reference comparison login
 
 Officers compare a guild raid with another guild's report on `/officers/reference/` (needs `VIEW_INSIGHTS`, so
-officers only, per raid day). Reading other guilds' reports needs a Warcraft Logs **user** login, the guild's
-dedicated account.
+officers only, per raid day). The officer console links to it from its **Reference reports** card ("Add reference
+reports"). Reading other guilds' reports needs a Warcraft Logs **user** login on the guild's behalf: a dedicated account
+or a super admin's own Warcraft Logs account both work.
 
 Setup:
 
@@ -386,12 +388,21 @@ Setup:
    `https://<hub>/api/reference/login/callback` (or whatever `TOADS_WCL_REDIRECT_URI` says).
 2. Set `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_CLIENT_SECRET` in the **API's** env (the worker already has them).
    Optionally `TOADS_WCL_SITE_URL` and `TOADS_WCL_REDIRECT_URI`.
-3. Restart the API. An officer opens the reference page and connects the account, signing in to Warcraft Logs as the
-   dedicated account (not their own).
+3. Restart the API. An officer opens the officer console, chooses **Add reference reports**, connects the login and
+   signs in to Warcraft Logs as the account that acts for the guild.
 
-How it runs: the API does only the OAuth code exchange and queues jobs. The token is stored encrypted with
-`TOADS_CREDENTIALS_KEYS`, and the worker refreshes it and runs imports and comparisons. `publish-reference` refreshes
-the list of raids to pick from every `TOADS_HUB_REFRESH_MINUTES`. A job untouched for an hour shows as failed.
+What lives where:
+
+| What | Where | Why |
+| --- | --- | --- |
+| Client id and secret | env (`TOADS_WCL_CLIENT_ID`, `TOADS_WCL_CLIENT_SECRET`) | Fixed per deployment; the secret never reaches the database. |
+| `TOADS_CREDENTIALS_KEYS` | env, same value on the API and worker | Encrypts the stored token. |
+| The account's access and refresh tokens | hub-db, Fernet-encrypted, written by the login | Warcraft Logs issues and rotates them; they change on every refresh, so env vars cannot hold them. |
+| The account's password | nowhere | The hub never sees it; Warcraft Logs' own sign-in page takes it. |
+
+How it runs: the API does only the OAuth code exchange and queues jobs. The worker refreshes the token and runs imports
+and comparisons. `publish-reference` refreshes the list of raids to pick from every `TOADS_HUB_REFRESH_MINUTES`. A job
+untouched for an hour shows as failed.
 
 Disconnect with the page's disconnect button (`DELETE /api/days/{day}/reference/login`). Leaving
 `TOADS_WCL_CLIENT_ID` empty in the API turns the feature off and the page says so.
@@ -489,10 +500,26 @@ shows up after its first logged raid. Raid-day officers approve, reject or reass
 
 ### Refresh hub data by hand
 
-The scheduler does this every 30 minutes, and imports new guild reports every hour. To run a job now, in the worker
-image: `toads-worker sync`, `analyse <report code or URL>`, `publish-home`, `publish-performance`, `publish-badges`,
+The scheduler does this every 30 minutes, and imports new guild reports every 15 minutes, as many as the guild key's
+Warcraft Logs rate limit allows. To run a job now, in the worker image: `toads-worker sync`, `backfill`,
+`analyse <report code or URL>`, `publish-home`, `publish-performance`, `publish-badges`,
 `publish-reference` or `import-sheets`
 (for example `docker compose -f infra/docker-compose.yml run --rm worker toads-worker publish-home`).
+
+### Import the guild's whole history
+
+The scheduler's sync looks at the guild's newest 350 reports. To import every report the guild has on Warcraft Logs,
+run the backfill once on the server; it works oldest first, waits out the rate limit when the hour's points are spent,
+and finishes on its own (it can take hours for a long history, so run it in `tmux` or `screen`):
+
+```bash
+cd /opt/toads
+sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker toads-worker backfill
+```
+
+It shares the guild key's points with the scheduler and keeps to the same `TOADS_SYNC_RESERVE_PERCENT`, so both can
+run at once. Stopping it (Ctrl+C) is safe: run it again and it carries on from what is stored.
+[docs/logs-analysis.md](docs/logs-analysis.md#5-the-first-import) has the details.
 
 ### Deploy an update
 

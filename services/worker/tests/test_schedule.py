@@ -29,10 +29,10 @@ def _settings(tmp_path: Path, **overrides: object) -> Settings:
     return Settings(**values)
 
 
-def test_default_jobs_sync_hourly_and_refresh_the_hub_every_half_hour(tmp_path: Path) -> None:
+def test_default_jobs_sync_every_quarter_hour_and_refresh_the_hub_every_half_hour(tmp_path: Path) -> None:
     jobs = schedule.jobs_for(_settings(tmp_path))
     assert [(j.name, j.every_seconds) for j in jobs] == [
-        ("sync-guild", 3600.0),
+        ("sync-guild", 900.0),
         ("publish-home", 1800.0),
         ("publish-performance", 1800.0),
         ("publish-badges", 1800.0),
@@ -132,7 +132,7 @@ def default_scheduler(tmp_path: Path, ops: dict[str, Any], monkeypatch: pytest.M
     monkeypatch.setattr(schedule, "publish_badges", publisher("badges"))
     monkeypatch.setattr(schedule, "publish_reference_page", publisher("reference"))
     monkeypatch.setattr(schedule, "sync_guild_reports", lambda _settings: {"imported": []})
-    ops.update(jobs=schedule.jobs_for(_settings(tmp_path)), published=published, hub_up=hub_up)
+    ops.update(jobs=schedule.jobs_for(_settings(tmp_path, sync_refresh_minutes=60)), published=published, hub_up=hub_up)
 
 
 @when("the hub is down for the first run")

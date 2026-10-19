@@ -44,6 +44,14 @@ test('a super admin posts for either raid night', async ({ page }) => {
   await expect(page.getByText('Posted “Sunday kara”')).toBeVisible();
 });
 
+test('an officer adds reference reports from the officer console', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('officers/');
+  await page.getByRole('region', { name: 'Reference reports' }).getByRole('link', { name: 'Add reference reports' }).click();
+  await expect(page).toHaveURL(/\/toads\/officers\/reference\/$/);
+  await expect(page.getByRole('heading', { name: 'Reference comparison', level: 1 })).toBeVisible();
+});
+
 test('a Wednesday officer posts for Wednesday only', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('officers/');

@@ -12,7 +12,7 @@ from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
 from toads_worker.jobs.sheets import import_raid_sheets
-from toads_worker.jobs.sync import raid_service, sync_guild_reports
+from toads_worker.jobs.sync import backfill_guild_reports, raid_service, sync_guild_reports
 from toads_worker.reports import parse_report_input
 from toads_worker.settings import Settings
 
@@ -40,8 +40,12 @@ def main() -> None:
         print(json.dumps(publish_badges(settings), indent=2))
         return
     if sys.argv[1:] == ["sync"]:
-        # Import the guild's newest reports not stored yet (TOADS_SYNC_BATCH of them), as the scheduler does.
+        # Import the guild's newest reports not stored yet, as many as the rate limit allows, as the scheduler does.
         print(json.dumps(sync_guild_reports(settings, progress=_progress), indent=2))
+        return
+    if sys.argv[1:] == ["backfill"]:
+        # Import the guild's whole Warcraft Logs history, oldest first, waiting out the rate limit; runs until done.
+        print(json.dumps(backfill_guild_reports(settings, progress=_progress), indent=2))
         return
     if len(sys.argv) == 3 and sys.argv[1] == "analyse":
         # Analyse and store one report by code or URL, e.g. one from before the sync's batch reaches it.

@@ -25,11 +25,12 @@ Feature: HUB FRONT
     And the admin console shows integrations, scheduled jobs and bank grants to super admins only
 
   @ears_state_driven @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of each page but their console, and leave super admins every page
+  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers their tabs with a Forever launch notice in place of each page but their console, and show super admins exactly the officers' view plus the Admin console
     Given the launch hold
     Then a raider's members nav is the hub link alone and every member page shows the coming-soon page
     And an officer keeps every tab, opens their console, and every other tab shows the Forever launch notice
-    And super admins, visitors and the public pages are never held
+    And super admins see exactly what officers see, plus the Admin console
+    And visitors and the public pages are never held
     And the real site waits for the session before a held page renders, so it never starts the page's own API calls
 
   @ears_state_driven @member @raid_leader @phase_2_5
