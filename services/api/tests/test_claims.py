@@ -4,10 +4,14 @@ REQ-HUB-PRIV-003, REQ-HUB-DAY-010/011)."""
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 
 import pytest
 from hub_db import AuditEntry, CharacterClaim
-from sqlalchemy import select
+from sqlalchemy import Engine, create_engine, select, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from toads_api.characters import Character, SqlCharacters
 from toads_api.claims import names_match
 from toads_api.notify import OFFICERS_OUTBOX
 
@@ -222,3 +226,59 @@ def test_concurrent_claim_race_is_409(hub: Hub, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(claims, "_create", lost_race)
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.post("/api/claims", sid, {"character_id": 1}).status_code == 409
+
+
+# --- finding a character to claim (REQ-HUB-CLAIM-004) --------------------------------------------
+
+
+def test_search_lists_characters_by_name_prefix_matches_first(hub: Hub) -> None:
+    hub.characters.names[5] = "Shopkeep"
+    sid = hub.login(hub.user(("wed", "raider")))
+    r = hub.get("/api/characters?q=hop", sid)
+    assert r.status_code == 200
+    assert [c["name"] for c in r.json()] == ["Hopscotch", "Shopkeep"]
+    assert r.json()[0] == {"id": 1, "name": "Hopscotch", "player_class": ""}
+
+
+def test_search_needs_two_letters(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider")))
+    assert hub.get("/api/characters?q=h", sid).json() == []
+    assert hub.get("/api/characters", sid).json() == []
+
+
+def test_search_needs_the_claim_permission(hub: Hub) -> None:
+    assert hub.get("/api/characters?q=hop", None).status_code == 401
+    sid = hub.login(hub.user(nick="Hopscotch"))
+    assert hub.get("/api/characters?q=hop", sid).status_code == 403
+
+
+@pytest.fixture
+def sql_characters() -> Iterator[tuple[SqlCharacters, Engine]]:
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    yield SqlCharacters(sessionmaker(engine)), engine
+    engine.dispose()
+
+
+def test_sql_directory_reads_as_empty_before_the_worker_creates_the_table(
+    sql_characters: tuple[SqlCharacters, Engine],
+) -> None:
+    directory, _ = sql_characters
+    assert directory.name_of(1) is None
+    assert directory.search("hop") == []
+
+
+def test_sql_directory_reads_wcl_stores_characters(sql_characters: tuple[SqlCharacters, Engine]) -> None:
+    directory, engine = sql_characters
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE characters (id INTEGER PRIMARY KEY, name TEXT, player_class TEXT)"))
+        conn.execute(
+            text(
+                "INSERT INTO characters VALUES "
+                "(1, 'Hopscotch', 'Priest'), (2, 'Shopkeep', 'Rogue'), (3, 'Ho_p', 'Mage')"
+            )
+        )
+    assert directory.name_of(2) == "Shopkeep"
+    assert directory.name_of(9) is None
+    assert directory.search("HOP") == [Character(1, "Hopscotch", "Priest"), Character(2, "Shopkeep", "Rogue")]
+    assert directory.search("o_") == [Character(3, "Ho_p", "Mage")]  # LIKE wildcards are matched literally
+    assert directory.search(" h ") == []

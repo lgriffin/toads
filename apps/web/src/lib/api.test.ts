@@ -11,6 +11,7 @@ import {
   listMembers,
   removeWclKey,
   saveWclKey,
+  searchCharacters,
   sendApplication,
   settingsError,
   statusLabel,
@@ -57,6 +58,11 @@ describe('claims', () => {
     expect(calls[0].init.method).toBe('POST');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ character_id: 42 });
   });
+  it('searches characters by name', async () => {
+    const { f, calls } = fakeFetch(200, [{ id: 1, name: 'Hopscotch', player_class: 'Priest' }]);
+    expect((await searchCharacters('hop scotch', f))[0].name).toBe('Hopscotch');
+    expect(calls[0].url).toBe('/api/characters?q=hop%20scotch');
+  });
   it('lists members', async () => {
     const { f, calls } = fakeFetch(200, [{ member_id: 1, display_name: 'Hopscotch', discord_user_id: null }]);
     expect((await listMembers(f))[0].display_name).toBe('Hopscotch');
@@ -98,7 +104,7 @@ describe('messages', () => {
   it('explains each refusal', () => {
     expect(claimError(new ApiError(401, ''))).toMatch(/Sign in/);
     expect(claimError(new ApiError(403, ''))).toMatch(/trial or raider/);
-    expect(claimError(new ApiError(404, ''))).toMatch(/No character/);
+    expect(claimError(new ApiError(404, ''))).toMatch(/not appeared/);
     expect(claimError(new ApiError(409, ''))).toMatch(/officer/);
     expect(claimError(new ApiError(500, 'boom'))).toBe('boom');
     expect(claimError(new Error('x'))).toMatch(/try again/);
