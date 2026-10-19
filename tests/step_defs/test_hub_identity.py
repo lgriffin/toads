@@ -257,7 +257,9 @@ def officer_on_wed_only(hub: Hub, ctx: dict[str, Any]) -> None:
 @then("no route or table assigns hub roles")
 def no_role_assignment(hub: Hub) -> None:
     rules, _ = route_rules(hub.app)
-    assert not [r for r in rules if r.method != "GET" and "role" in r.path]
+    # Role badges (docs/role-badges.md) read Discord roles to hand out badge art; they grant no permission.
+    badge_desk = "/api/admin/role-badges"
+    assert not [r for r in rules if r.method != "GET" and "role" in r.path and not r.path.startswith(badge_desk)]
     assert not [c.name for c in Member.__table__.columns if "role" in c.name]
 
 

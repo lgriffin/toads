@@ -1,0 +1,65 @@
+"""Rules for role badges. No RBAC, web framework, Discord or storage imports: the routes decide who may call and
+read Discord, and the repository decides where things live."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import datetime
+
+from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge
+from toads_api.role_badges.repository import DuplicateLinkError, RoleBadgeLink, RoleBadgeRepository
+
+
+class RoleBadgeError(Exception):
+    """A request the rules refuse. `status` is the HTTP code the adapter should answer with."""
+
+    def __init__(self, message: str, status: int = 400) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status = status
+
+
+@dataclass(frozen=True)
+class LinkView:
+    """A role and the badge it earns, as the admin console lists it."""
+
+    discord_role_id: int
+    role_name: str
+    badge: RoleBadge
+    added_at: datetime
+
+
+class RoleBadgeService:
+    def __init__(self, repo: RoleBadgeRepository) -> None:
+        self.repo = repo
+
+    def _live(self) -> list[RoleBadgeLink]:
+        # A badge retired from the catalogue stays stored but earns nothing.
+        return [r for r in self.repo.links() if r.badge_id in ROLE_BADGES]
+
+    def links(self) -> list[LinkView]:
+        """Every role tied to a badge, in catalogue order, then by role name."""
+        order = {badge_id: i for i, badge_id in enumerate(ROLE_BADGES)}
+        rows = sorted(self._live(), key=lambda r: (order[r.badge_id], r.role_name.lower(), r.discord_role_id))
+        return [LinkView(r.discord_role_id, r.role_name, ROLE_BADGES[r.badge_id], r.added_at) for r in rows]
+
+    def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
+        """The badges a member's Discord roles earn, each once, in catalogue order."""
+        held = set(discord_role_ids)
+        ids = {r.badge_id for r in self._live() if r.discord_role_id in held}
+        return [b for b in ROLE_BADGES.values() if b.id in ids]
+
+    def tie(self, discord_role_id: int, role_name: str, badge_id: str, by: int) -> LinkView:
+        badge = ROLE_BADGES.get(badge_id)
+        if badge is None:
+            raise RoleBadgeError("Unknown badge", status=422)
+        try:
+            row = self.repo.add(discord_role_id, badge_id, role_name.strip()[:100], by)
+        except DuplicateLinkError:
+            raise RoleBadgeError(f"That role already earns {badge.name}", status=409) from None
+        return LinkView(row.discord_role_id, row.role_name, badge, row.added_at)
+
+    def untie(self, discord_role_id: int, badge_id: str, by: int) -> None:
+        if not self.repo.remove(discord_role_id, badge_id, by):
+            raise RoleBadgeError("That role does not earn that badge", status=404)

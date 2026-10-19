@@ -43,6 +43,8 @@ from toads_api.reference.login import WclLogin
 from toads_api.reference.queue import RqEnqueue
 from toads_api.reference.service import ReferenceService
 from toads_api.reference.sql import SqlReferenceRepository
+from toads_api.role_badges.service import RoleBadgeService
+from toads_api.role_badges.sql import SqlRoleBadgeRepository
 from toads_api.sessions import SessionStore
 from toads_api.settings import Settings
 
@@ -62,6 +64,7 @@ class Services:
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
     awards: AwardService = field(init=False)
+    role_badges: RoleBadgeService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -100,6 +103,7 @@ class Services:
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
         self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
+        self.role_badges = RoleBadgeService(SqlRoleBadgeRepository(self.db))
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)

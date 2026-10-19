@@ -66,6 +66,30 @@ class GuildMember:
         )
 
 
+@dataclass(frozen=True)
+class GuildRole:
+    """One role in the Toads server, as the super admin picks it for a badge (docs/role-badges.md)."""
+
+    id: int
+    name: str
+    # Discord's 0xRRGGBB, 0 when the role has no colour.
+    colour: int
+    # Higher sits higher in the server's role list.
+    position: int
+    # Held by a bot or an integration; never a role a member is given.
+    managed: bool
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> GuildRole:
+        return cls(
+            id=int(data["id"]),
+            name=str(data.get("name", "")),
+            colour=int(data.get("color") or 0),
+            position=int(data.get("position") or 0),
+            managed=bool(data.get("managed", False)),
+        )
+
+
 def _utc(value: str) -> datetime:
     """An ISO 8601 time from Discord; one without an offset is UTC, as all of Discord's are."""
     parsed = datetime.fromisoformat(value)
@@ -114,6 +138,10 @@ class DiscordAPI(Protocol):
 
     async def guild_role_ids(self) -> set[int]:
         """Every role id that exists in the Toads server (bot token)."""
+        ...
+
+    async def guild_roles(self) -> list[GuildRole]:
+        """Every role in the Toads server, top of the list first (bot token)."""
         ...
 
     async def guild_member(self, user_id: int) -> GuildMember | None:
@@ -198,6 +226,9 @@ class HttpDiscord:
         return app_id
 
     async def guild_role_ids(self) -> set[int]:
+        return {role.id for role in await self.guild_roles()}
+
+    async def guild_roles(self) -> list[GuildRole]:
         try:
             r = await self._http.get(
                 f"{self._base}/guilds/{self._guild_id}/roles",
@@ -207,7 +238,8 @@ class HttpDiscord:
             raise DiscordError("Discord role listing could not reach Discord") from exc
         if r.status_code != 200:
             raise DiscordError(f"Discord role listing failed with HTTP {r.status_code}")
-        return {int(role["id"]) for role in r.json()}
+        roles = [GuildRole.from_api(role) for role in r.json()]
+        return sorted(roles, key=lambda role: (-role.position, role.id))
 
     async def guild_member(self, user_id: int) -> GuildMember | None:
         try:

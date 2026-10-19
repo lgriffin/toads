@@ -41,10 +41,12 @@ class Permission(enum.StrEnum):
     MANAGE_GRANTS = "manage_grants"
     # Give and take back members' awards (docs/awards.md). Awards are guild-wide, so only the global tier holds it.
     MANAGE_AWARDS = "manage_awards"
+    # Super admins only (docs/role-badges.md): say which Discord roles earn which badge toads.
+    MANAGE_ROLE_BADGES = "manage_role_badges"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.
-SUPER_ADMIN_ONLY = frozenset({Permission.MANAGE_GRANTS})
+SUPER_ADMIN_ONLY = frozenset({Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_BADGES})
 
 
 # Applicants join the Discord server first, so a plain member (no raid-day role) can apply. Every guild member may see
@@ -80,6 +82,9 @@ class Principal:
     discord_user_id: int | None = None
     # The member's Discord username (account handle, not the server nickname). "" in tests and old sessions.
     discord_username: str = ""
+    # Every Discord role the member holds in the server, for the badges a super admin ties to roles
+    # (docs/role-badges.md). Never a source of permissions: those come from day_roles and global_officer alone.
+    discord_role_ids: frozenset[int] = frozenset()
     # Bank grants this member holds, read from the database on every request (never cached with the roles), so a
     # revoke takes effect on their next call: (permission, raid day), where a None day covers every raid day.
     grants: frozenset[tuple[Permission, str | None]] = frozenset()

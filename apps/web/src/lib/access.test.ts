@@ -50,7 +50,7 @@ describe('Hub features follow the RBAC table', () => {
   it('reads the table', () => {
     expect(VALUES.get('VIEW_BANK')).toBe('view_bank');
     expect(RAIDER.has('submit_highlight')).toBe(true);
-    expect(ADMIN_ONLY).toEqual(new Set(['manage_grants']));
+    expect(ADMIN_ONLY).toEqual(new Set(['manage_grants', 'manage_role_badges']));
   });
 
   it('names only permissions the hub has', () => {

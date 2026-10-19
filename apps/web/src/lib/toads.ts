@@ -1,12 +1,14 @@
 /**
  * Which toad goes with whom. The artwork lives in static/logos/ (see the contact sheet at /logos/): a toad per class,
  * per role and per rank, each as a standalone toad and as a badge with its name. Every member gets the toads of what
- * the hub knows about them: their rank (member, officer or the Archtoad), their class and their role.
+ * the hub knows about them: their rank (the Archtoad, super admin or officer) and the member toad, the badges their
+ * Discord roles earn (role-badges.ts), their class and their role.
  */
 import type { Tier } from './access';
 import type { Role } from './mock/data';
+import { roleBadge } from './role-badges';
 
-export type ToadKind = 'rank' | 'class' | 'role';
+export type ToadKind = 'rank' | 'day' | 'class' | 'role';
 
 export interface Toad {
   kind: ToadKind;
@@ -38,12 +40,14 @@ const ROLE_TOAD: Record<Role, { id: string; label: string }> = {
   Ranged: { id: 'roles/damage', label: 'Damage' }
 };
 
-/** Every signed-in member gets the member toad; officers and super admins get the officer toad. */
+/** Every signed-in member gets the member toad; officers the officer toad and super admins the super admin toad. */
 const RANK_TOAD: Partial<Record<Tier, { id: string; label: string }>> = {
   raider: { id: 'ranks/member', label: 'Member' },
   officer: { id: 'ranks/officer', label: 'Officer' },
-  admin: { id: 'ranks/officer', label: 'Officer' }
+  admin: { id: 'ranks/super-admin', label: 'Super admin' }
 };
+
+const MEMBER_TOAD: Toad = { kind: 'rank', id: 'ranks/member', label: 'Member' };
 
 /**
  * The Archtoad is the guild master and leader, and belongs to one person: the Discord account `_gallagher`. It is
@@ -80,11 +84,22 @@ export function roleToad(role: Role | null | undefined): Toad | null {
   return t ? { kind: 'role', ...t } : null;
 }
 
-/** The Archtoad for the guild master, otherwise the officer toad for officers and admins and the member toad for everyone else signed in. */
+/**
+ * A member's highest rank: the Archtoad for the guild master, the super admin toad for super admins, the officer toad
+ * for officers and the member toad for everyone else signed in.
+ */
 export function rankToad(tier: Tier, username?: string | null): Toad | null {
   if (isArchtoad(username)) return { kind: 'rank', id: 'ranks/archtoad', label: 'Archtoad' };
   const t = RANK_TOAD[tier];
   return t ? { kind: 'rank', ...t } : null;
+}
+
+/** The toad for a badge a Discord role earns (role-badges.ts); null for an id the web app does not know. */
+export function roleBadgeToad(id: string): Toad | null {
+  const b = roleBadge(id);
+  if (!b) return null;
+  const kind: ToadKind = b.file.startsWith('days/') ? 'day' : b.file.startsWith('classes/') ? 'class' : 'role';
+  return { kind, id: b.file, label: b.name };
 }
 
 export interface MemberFacts {
@@ -92,18 +107,36 @@ export interface MemberFacts {
   /** The member's Discord username (not their nickname); picks out the Archtoad. */
   username?: string | null;
   titles?: readonly Title[];
+  /** Badge ids their Discord roles earn (GET /api/me/role-badges). */
+  roleBadges?: readonly string[];
   className?: string | null;
   role?: Role | null;
 }
 
 /**
- * The toads a member earns, rank first, then any guild jobs: an officer banker who plays a Priest healer gets Officer,
- * Banker, Priest and Healer.
+ * The toads a member earns, rank first, then the member toad everyone signed in holds, any guild jobs, the badges their
+ * Discord roles earn, their class and their role, each toad once: a super admin banker on the Wednesday role who plays
+ * a Priest healer gets Super admin, Member, Banker, Wednesday Toad, Priest and Healer.
  */
-export function memberToads({ tier = 'raider', username, titles = [], className, role }: MemberFacts): Toad[] {
-  return [rankToad(tier, username), ...titles.map(titleToad), classToad(className), roleToad(role)].filter(
-    (t): t is Toad => t !== null
-  );
+export function memberToads({
+  tier = 'raider',
+  username,
+  titles = [],
+  roleBadges = [],
+  className,
+  role
+}: MemberFacts): Toad[] {
+  const rank = rankToad(tier, username);
+  const all = [
+    rank,
+    rank ? MEMBER_TOAD : null,
+    ...titles.map(titleToad),
+    ...roleBadges.map(roleBadgeToad),
+    classToad(className),
+    roleToad(role)
+  ];
+  const seen = new Set<string>();
+  return all.filter((t): t is Toad => t !== null && !seen.has(t.id) && !!seen.add(t.id));
 }
 
 /** Path of a toad's artwork under the site's base: the standalone toad, or the badge with its name. */
