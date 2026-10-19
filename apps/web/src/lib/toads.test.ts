@@ -21,7 +21,7 @@ describe('toads', () => {
 
   it('gives only officers and super admins a rank toad', () => {
     expect(rankToad('visitor')).toBeNull();
-    expect(rankToad('raider')).toBeNull();
+    expect(rankToad('raider')?.id).toBe('ranks/member');
     expect(rankToad('officer')?.id).toBe('ranks/officer');
     expect(rankToad('admin')?.id).toBe('ranks/officer');
   });
@@ -47,8 +47,9 @@ describe('toads', () => {
   });
 
   it('leaves out what is not known', () => {
-    expect(memberToads({ tier: 'raider' })).toEqual([]);
-    expect(memberToads({ tier: 'raider', className: 'Mage' }).map((t) => t.label)).toEqual(['Mage']);
+    expect(memberToads({ tier: 'visitor' })).toEqual([]);
+    expect(memberToads({ tier: 'raider' }).map((t) => t.label)).toEqual(['Member']);
+    expect(memberToads({ tier: 'raider', className: 'Mage' }).map((t) => t.label)).toEqual(['Member', 'Mage']);
   });
 
   it('builds the artwork path for the standalone toad and the badge', () => {

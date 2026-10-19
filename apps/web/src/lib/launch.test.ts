@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
@@ -43,5 +43,18 @@ describe('launch hold', () => {
 
   it('promises the bank, logs analysis and raid assistance', () => {
     expect(UPCOMING.map((u) => u.title)).toEqual(['Guild bank management', 'Logs analysis', 'Raid assistance']);
+  });
+
+  it('previews the officers, bank, highlights and me tabs with their intent and coming features', () => {
+    expect(Object.keys(TAB_PREVIEW).sort()).toEqual(['/bank', '/highlights', '/me', '/officers']);
+    for (const p of Object.values(TAB_PREVIEW)) {
+      expect(p.intent).toBeTruthy();
+      expect(p.sections.flatMap((s) => s.items).length).toBeGreaterThanOrEqual(4);
+    }
+    const officers = TAB_PREVIEW['/officers'].sections.flatMap((s) => s.items).join(' ');
+    for (const word of ['strateg', 'ttendance', 'adge', 'Warcraft Logs']) expect(officers).toContain(word);
+    expect(TAB_PREVIEW['/bank'].mockup).toBe('bank');
+    expect(TAB_PREVIEW['/bank'].sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
+    expect(TAB_PREVIEW['/me'].sections[0].items.join(' ')).toContain('alts');
   });
 });

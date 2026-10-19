@@ -1,4 +1,4 @@
-"""REQ-HUB-FRONT: the public homepage's model of how we raid, and the toolkit of what each tier can do."""
+"""REQ-HUB-FRONT: the public homepage's model of how we raid, Hub features, and the launch hold's previews."""
 
 import re
 from pathlib import Path
@@ -8,7 +8,8 @@ from pytest_bdd import given, scenario, then
 ROOT = Path(__file__).resolve().parents[2]
 FEATURE = ROOT / "tests" / "features" / "hub_front.feature"
 WEB = ROOT / "apps" / "web" / "src"
-PILLARS = ["prep", "flasks", "consumes", "speed", "badges", "standard"]
+PILLARS = ["prep", "flasks", "consumes", "speed", "loot", "standard"]
+HOME_PILLARS = ["prep", "flasks", "speed", "standard"]
 
 
 def _read(relative: str) -> str:
@@ -17,9 +18,8 @@ def _read(relative: str) -> str:
 
 @scenario(
     str(FEATURE),
-    "REQ-HUB-FRONT-001 The public homepage shall explain how a Toads raid night works (prep, flasks and elixirs, "
-    "consumes, speed, badges and how the guild measures itself) and shall show only guild-level numbers, never a "
-    "player's name",
+    "REQ-HUB-FRONT-001 The public homepage shall explain how a Toads raid night works (prep, flasks and consumes, "
+    "speed and how the guild measures itself) and shall show only guild-level numbers, never a player's name",
 )
 def test_homepage_model() -> None:
     pass
@@ -30,33 +30,41 @@ def landing() -> str:
     return _read("lib/Landing.svelte")
 
 
-@then("it shows the six pillars of how we raid, each linking to its full write-up on How we raid")
-def six_pillars(landing: str) -> None:
+@then("it shows the raid-night pillars, each linking to its full write-up on How we raid")
+def home_pillars(landing: str) -> None:
     assert "<ModelPillars compact />" in landing
     copy = _read("lib/landing.ts")
-    model = copy[copy.index("export const MODEL") :]
-    assert re.findall(r"^    id: '(\w+)',$", model.split("\n];", 1)[0], re.MULTILINE) == PILLARS
+    home = copy[copy.index("export const HOME_PILLARS") :].split("\n];", 1)[0]
+    assert re.findall(r"id: '(\w+)'", home) == HOME_PILLARS
+    assert set(HOME_PILLARS) <= set(PILLARS)
     pillars = _read("lib/components/ModelPillars.svelte")
     assert 'href="{base}/how-we-raid/#{p.id}"' in pillars
     assert "<ModelPillars {trend} />" in _read("routes/how-we-raid/+page.svelte")
 
 
-@then("each pillar says what we expect, how we measure it and what a member sees")
+@then(
+    "How we raid says for each of its six pillars what we expect, how we measure it and what a member sees, with the "
+    "Loot Council in place of badges"
+)
 def pillar_parts() -> None:
     copy = _read("lib/landing.ts")
+    model = copy[copy.index("export const MODEL") :].split("\n];", 1)[0]
+    assert re.findall(r"^    id: '(\w+)',$", model, re.MULTILINE) == PILLARS
     for field in ("approach", "measure", "youSee"):
-        assert len(re.findall(rf"^    {field}:", copy, re.MULTILINE)) == len(PILLARS), field
+        assert len(re.findall(rf"^    {field}:", model, re.MULTILINE)) == len(PILLARS), field
+    assert "Loot Council" in model
+    assert "export const LOOT_TABLES = 'https://thatsmybis.com';" in copy
     pillars = _read("lib/components/ModelPillars.svelte")
     for heading in ("Our approach", "How we measure it", "What you see"):
         assert f"<dt>{heading}</dt>" in pillars
 
 
-@then("it shows a raid week and the three apps a member gets")
-def week_and_apps(landing: str) -> None:
-    assert "<RaidWeek />" in landing
+@then("it shows the three apps a member gets and that they open through the hub at the Forever launch")
+def apps_at_launch(landing: str) -> None:
     assert "MEMBER_APPS" in landing
+    assert "RaidWeek" not in landing
+    assert "FOREVER_LAUNCH" in landing and '<p class="opens">' in landing
     copy = _read("lib/landing.ts")
-    assert copy.count("raid: true") == 2
     for app in ("Raid analyzer", "Guild bank", "Discord"):
         assert f"title: '{app}'" in copy
 
@@ -73,46 +81,49 @@ def guild_totals_only() -> None:
 
 @scenario(
     str(FEATURE),
-    "REQ-HUB-FRONT-002 The toolkit page shall show what raiders, officers and super admins can do in the raid "
-    "analyzer, the guild bank and Discord with the officers' Google Drive, unlock the rows up to the viewer's tier, "
-    "and name only permissions the hub's RBAC table gives that tier",
+    "REQ-HUB-FRONT-002 The public Hub features page shall show what everyone, raiders and officers can do in the raid "
+    "analyzer, the guild bank and Discord with the officers' Google Drive, mark the steps up to the viewer's tier, and "
+    "name only permissions the hub's RBAC table gives that tier",
 )
-def test_toolkit() -> None:
+def test_hub_features() -> None:
     pass
 
 
-@given("the toolkit page", target_fixture="toolkit")
-def toolkit() -> str:
-    return _read("routes/toolkit/+page.svelte")
+@given("the Hub features page", target_fixture="features")
+def features() -> str:
+    return _read("routes/features/+page.svelte")
 
 
-@then("it lists the raid analyzer, the guild bank and Discord and Drive, each with a row for every tier")
+@then("it lists the raid analyzer, the guild bank and Discord and Drive, each with a step for every tier")
 def three_apps() -> None:
     access = _read("lib/access.ts")
     for app in ("Raid analyzer", "Guild bank", "Discord and Drive"):
         assert f"title: '{app}'" in access
     test = _read("lib/access.test.ts")
-    assert "for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...TIERS]);" in test
+    assert "for (const app of APPS) expect(app.rows.map((r) => r.tier)).toEqual([...FEATURE_TIERS]);" in test
 
 
-@then("it unlocks rows up to the viewer's tier, read from their session")
-def unlocks_by_tier(toolkit: str) -> None:
-    assert "unlocked(row, tier)" in toolkit
-    assert "tierOf(session)" in toolkit
+@then("it marks the steps up to the viewer's tier, read from their session, and shows super admins the officers' steps")
+def marks_by_tier(features: str) -> None:
+    assert "unlocked(row, shownAs)" in features
+    assert "tierOf(session)" in features
+    assert "let shownAs = $derived(featureTier(tier));" in features
 
 
-@then("a unit test fails if a row names a permission the RBAC table lacks or gives another tier")
+@then("a unit test fails if a step names a permission the RBAC table lacks or gives another tier")
 def rbac_drift_test() -> None:
     test = _read("lib/access.test.ts")
     assert "services/api/src/toads_api/rbac/permissions.py" in test
     assert "puts each permission in the tier that first holds it" in test
 
 
-@then("the top bar's tier chip opens it")
-def chip_opens_toolkit() -> None:
+@then("it is in the public nav, the top bar's tier chip opens it and the old toolkit address redirects to it")
+def discoverable() -> None:
+    assert "{ href: '/features', label: 'Hub features' }" in _read("lib/nav.ts")
     layout = _read("routes/+layout.svelte")
-    assert 'href="{base}/toolkit/"' in layout
+    assert 'href="{base}/features/"' in layout
     assert "TIER_LABEL[tier]" in layout
+    assert "goto(`${base}/features/`, { replaceState: true })" in _read("routes/toolkit/+page.svelte")
 
 
 @scenario(
@@ -129,10 +140,13 @@ def welcome() -> str:
     return _read("lib/welcome.ts")
 
 
-@then("it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the toolkit")
+@then(
+    "it walks a new member through claiming characters, their name, how we raid, the bank, the apps and the hub's "
+    "features"
+)
 def welcome_steps(welcome: str) -> None:
     ids = re.findall(r"^    id: '(\w+)',$", welcome, re.MULTILINE)
-    assert ids == ["character", "name", "model", "bank", "apps", "toolkit"]
+    assert ids == ["character", "name", "model", "bank", "apps", "features"]
     assert "WELCOME_STEPS" in _read("routes/welcome/+page.svelte")
     assert 'href="{base}/welcome/"' in _read("lib/Landing.svelte")
 
@@ -170,13 +184,14 @@ def raider_coming_soon(launch: str) -> None:
         assert f"title: '{title}'" in launch
     layout = _read("routes/+layout.svelte")
     assert "heldNav(memberNav(officer, tier === 'admin'), tier)" in layout
-    assert "{:else if hold === 'coming-soon'}\n    <ComingSoon />" in layout
+    assert "{:else if hold === 'coming-soon'}\n    <ComingSoon {...me} />" in layout
     assert "gives raiders the coming-soon page on every member page" in _read("lib/launch.test.ts")
 
 
 @then("an officer keeps every tab and each one shows the Forever launch notice")
 def officer_notice() -> None:
-    assert "{:else if hold === 'forever-notice'}\n    <ForeverNotice {path} />" in _read("routes/+layout.svelte")
+    layout = _read("routes/+layout.svelte")
+    assert "{:else if hold === 'forever-notice'}\n    <ForeverNotice {path} {...me} />" in layout
     assert "Coming with the Forever launch" in _read("lib/components/ForeverNotice.svelte")
     assert "gives officers the Forever launch notice on every tab" in _read("lib/launch.test.ts")
 
@@ -194,3 +209,53 @@ def waits_for_session() -> None:
     assert "__LAUNCH_HOLD__: JSON.stringify(process.env.PREVIEW !== '1' || process.env.LAUNCH_HOLD === '1')" in (
         WEB.parent / "vite.config.ts"
     ).read_text(encoding="utf-8")
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-005 While the launch hold is on, the Officers, Bank, Highlights and Me tabs shall show officers the "
+    "tab's intent and the features coming to it, the Bank tab with a labelled mockup of stock, Discord requests, a "
+    "ledger and a fairness view, and every signed-in member shall meet their own toad",
+)
+def test_tab_previews() -> None:
+    pass
+
+
+@given("the tab previews", target_fixture="previews")
+def previews() -> str:
+    return _read("lib/launch.ts")
+
+
+@then("the Officers, Bank, Highlights and Me tabs each state their intent and list what is coming")
+def tabs_previewed(previews: str) -> None:
+    for tab in ("/officers", "/bank", "/highlights", "/me"):
+        assert f"  '{tab}': {{\n    intent:" in previews, tab
+    notice = _read("lib/components/ForeverNotice.svelte")
+    assert "TAB_PREVIEW[tab.href]" in notice
+    assert "previews the officers, bank, highlights and me tabs" in _read("lib/launch.test.ts")
+
+
+@then("the Bank tab shows the bankers' features to officers and a mockup labelled as sample data")
+def bank_mockup(previews: str) -> None:
+    assert "title: 'For bankers, and visible to officers'" in previews
+    assert "{#if preview.mockup === 'bank'}<BankMockup />{/if}" in _read("lib/components/ForeverNotice.svelte")
+    mockup = _read("lib/components/BankMockup.svelte")
+    for part in ("In the bank", "Requests", "/bank request", "Ledger: who got what, and when", "Fairness:"):
+        assert part in mockup, part
+    assert '<span class="tag">Mockup</span>' in mockup
+
+
+@then("every signed-in member has a rank toad, raiders the member toad")
+def member_toad() -> None:
+    toads = _read("lib/toads.ts")
+    assert "raider: { id: 'ranks/member', label: 'Member' }" in toads
+    for name in ("member", "member-badge"):
+        assert (WEB.parent / "static" / "logos" / "ranks" / f"{name}.svg").is_file()
+
+
+@then("raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home")
+def toad_greeting() -> None:
+    for component in ("ComingSoon", "ForeverNotice"):
+        assert "<ToadGreeting {name} {...facts} />" in _read(f"lib/components/{component}.svelte"), component
+    layout = _read("routes/+layout.svelte")
+    assert "{#if signedIn && isHubHome}\n      <ToadGreeting {...me} />" in layout

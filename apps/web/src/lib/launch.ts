@@ -75,6 +75,107 @@ export const TAB_PURPOSE: Record<string, string> = {
   '/welcome': 'The first sign-in checklist for new members.'
 };
 
+export interface PreviewSection {
+  title: string;
+  items: readonly string[];
+}
+
+/** A held tab's fuller preview: why it exists and what is coming to it, for the officers' Forever launch notice. */
+export interface TabPreview {
+  intent: string;
+  sections: readonly PreviewSection[];
+  /** A toad under static/logos/, without `.svg`, standing beside the intent. */
+  toad: string;
+  /** The bank tab also shows a mockup of the bank at work. */
+  mockup?: 'bank';
+  /** Badges to show off under the list, as files under static/logos/ without `.svg`. */
+  showcase?: readonly { toad: string; label: string }[];
+}
+
+/** The tabs Leigh asked to preview in full. Only what the hub is being built to do; no dates beyond launch. */
+export const TAB_PREVIEW: Record<string, TabPreview> = {
+  '/officers': {
+    intent:
+      'One desk for running raid night, so officers spend the evening leading the raid instead of chasing spreadsheets and Discord threads.',
+    toad: 'ranks/officer-badge',
+    sections: [
+      {
+        title: 'Coming to the officers’ desk',
+        items: [
+          'Raid strategies: a link to each fight’s plan and role sheet in the officers’ Google Drive, beside the raid it is for.',
+          'Attendance pulled from the logs automatically: who was in each raid, from Warcraft Logs, with no roll call to keep.',
+          'Badge capabilities: award and review Toads badges, see who is close to the next tier, and spot milestones worth a shout.',
+          'Warcraft Logs analysis output: each raid broken down by role, with medians, consumables, interrupts and week-on-week trends.'
+        ]
+      }
+    ]
+  },
+  '/bank': {
+    intent:
+      'The bank exists to get raiders what they need for raid night, fairly and on the record: flasks, potions and mats go where the raid needs them, and anyone can see who got what and when.',
+    toad: 'ranks/banker-badge',
+    mockup: 'bank',
+    sections: [
+      {
+        title: 'For every member',
+        items: [
+          'See what the bank holds, kept up to date from the bank characters by the Toads bank addon.',
+          'Ask for what you need from the site or straight from Discord with /bank request.',
+          'Follow your request from asked to handed over, and keep a receipt of everything you have received.'
+        ]
+      },
+      {
+        title: 'For bankers, and visible to officers',
+        items: [
+          'One queue of requests from Discord and the site, oldest first, with each raider’s attendance beside it.',
+          'Mark a request handed over in game and it lands in the ledger with the banker’s name and the time.',
+          'Low-stock warnings before raid night, so the guild can farm or buy ahead of the pull.',
+          'A fairness view: what each raider has received against the raids they attended, so nobody is quietly favoured or forgotten.'
+        ]
+      }
+    ]
+  },
+  '/highlights': {
+    intent:
+      'A place for the fun side of raid night: the clips, the screenshots and the moments the guild still talks about, shared straight from Discord.',
+    toad: 'milestones/raider-of-the-month-badge',
+    sections: [
+      {
+        title: 'Coming to highlights',
+        items: [
+          'Raid clips from YouTube, Twitch and Streamable, playing right on the page.',
+          'Screenshots from the Discord screenshots channel, collected after each raid.',
+          'Wipes, first kills and silly moments, posted from Discord and approved by an officer before they show.',
+          'Member spotlights, only ever with that member’s consent.'
+        ]
+      }
+    ]
+  },
+  '/me': {
+    intent:
+      'Your own page: how you are doing against the median for your role, week on week, so you can improve against yourself rather than chase parses.',
+    toad: 'ranks/member-badge',
+    showcase: [
+      { toad: 'badges/always-flasked-badge', label: 'Always Flasked' },
+      { toad: 'milestones/raids-50-badge', label: '50 Raids' },
+      { toad: 'badges/attuned-badge', label: 'Attuned' },
+      { toad: 'badges/illidan-down-badge', label: 'Illidan Down' },
+      { toad: 'badges/generous-badge', label: 'Generous' }
+    ],
+    sections: [
+      {
+        title: 'Coming to your page',
+        items: [
+          'Your numbers from every logged raid, against the role median.',
+          'Your Toads badges, and how close you are to the next tier.',
+          'Claim your characters, alts included, as soon as raids start, so every log you appear in counts towards you.',
+          'Your bank receipts: everything the bank has handed you, and when.'
+        ]
+      }
+    ]
+  }
+};
+
 /** The tab a member path belongs to, for the notice's heading and purpose. */
 export function tabOf(path: string): NavItem | undefined {
   const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';

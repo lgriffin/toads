@@ -17,6 +17,7 @@
   import ComingSoon from '$lib/components/ComingSoon.svelte';
   import ForeverNotice from '$lib/components/ForeverNotice.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
+  import ToadGreeting from '$lib/components/ToadGreeting.svelte';
   import ToadsMark from '$lib/components/ToadsMark.svelte';
   import { loadPreviewSession, previewSession, previewSignIn, previewSignOut } from '$lib/preview/session.svelte';
   let { children } = $props();
@@ -59,6 +60,13 @@
   // Until the Forever launch, raiders get one coming-soon page and officers a notice on each tab (src/lib/launch.ts).
   // The real site waits for the session on member pages so a held page never starts its own API calls.
   let hold = $derived(launchHold(path, tier));
+  // The signed-in member's own toad greets them on the hub home and on the held pages (ToadGreeting).
+  let me = $derived(
+    __PREVIEW__
+      ? { name: 'Hopscotch', tier, username: 'hopscotch', titles, className: 'Rogue', role: 'Melee' as const }
+      : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles }
+  );
+  let isHubHome = $derived(path === '/hub' || path === '/hub/');
   let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
   function switchView(next: PreviewRole) {
@@ -149,10 +157,13 @@
       </p>
     </section>
   {:else if hold === 'coming-soon'}
-    <ComingSoon />
+    <ComingSoon {...me} />
   {:else if hold === 'forever-notice'}
-    <ForeverNotice {path} />
+    <ForeverNotice {path} {...me} />
   {:else}
+    {#if signedIn && isHubHome}
+      <ToadGreeting {...me} />
+    {/if}
     {@render children()}
   {/if}
 </main>

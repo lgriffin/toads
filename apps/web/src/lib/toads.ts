@@ -1,7 +1,7 @@
 /**
  * Which toad goes with whom. The artwork lives in static/logos/ (see the contact sheet at /logos/): a toad per class,
  * per role and per rank, each as a standalone toad and as a badge with its name. Every member gets the toads of what
- * the hub knows about them: their rank (officers and the Archtoad), their class and their role.
+ * the hub knows about them: their rank (member, officer or the Archtoad), their class and their role.
  */
 import type { Tier } from './access';
 import type { Role } from './mock/data';
@@ -38,8 +38,9 @@ const ROLE_TOAD: Record<Role, { id: string; label: string }> = {
   Ranged: { id: 'roles/damage', label: 'Damage' }
 };
 
-/** Officers and super admins get the officer toad. */
+/** Every signed-in member gets the member toad; officers and super admins get the officer toad. */
 const RANK_TOAD: Partial<Record<Tier, { id: string; label: string }>> = {
+  raider: { id: 'ranks/member', label: 'Member' },
   officer: { id: 'ranks/officer', label: 'Officer' },
   admin: { id: 'ranks/officer', label: 'Officer' }
 };
@@ -79,7 +80,7 @@ export function roleToad(role: Role | null | undefined): Toad | null {
   return t ? { kind: 'role', ...t } : null;
 }
 
-/** The Archtoad for the guild master, otherwise the officer toad for officers and admins. */
+/** The Archtoad for the guild master, otherwise the officer toad for officers and admins and the member toad for everyone else signed in. */
 export function rankToad(tier: Tier, username?: string | null): Toad | null {
   if (isArchtoad(username)) return { kind: 'rank', id: 'ranks/archtoad', label: 'Archtoad' };
   const t = RANK_TOAD[tier];
