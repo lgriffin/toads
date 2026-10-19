@@ -17,7 +17,7 @@ post_channels: {}
 #  guild: 0
 #  wed: 0
 
-# Category that private interview rooms are created under.
+# Category that private interview rooms are created under. Step-by-step setup: docs/discord-setup.md.
 interview_category_id: null
 
 # Officers who interview every applicant: Discord user ids (safest: right-click them > Copy User ID) or usernames

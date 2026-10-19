@@ -92,6 +92,9 @@ Discord application details:
 
 ### Discord permissions for interview rooms
 
+For a step-by-step version that a non-technical server admin can follow, see
+[docs/discord-setup.md](docs/discord-setup.md).
+
 **You**, to set this up: **Manage Server** on the Toads server (Discord only lets server managers add a bot), and
 **Manage Channels** plus **Manage Roles** to make the interview category and set who sees it. Turn on Developer Mode
 (User Settings > Advanced) so you can right-click a category and copy its id.
