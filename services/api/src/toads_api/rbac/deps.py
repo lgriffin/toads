@@ -110,7 +110,9 @@ async def _session_principal(request: Request, services: Services) -> Principal:
         if refreshed is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended; sign in again")
         data = refreshed
-    return services.raid_days.principal_for(data.member_id, set(data.role_ids), data.display_name, data.discord_user_id)
+    return services.raid_days.principal_for(
+        data.member_id, set(data.role_ids), data.display_name, data.discord_user_id, data.discord_username
+    )
 
 
 def _record_break_glass(

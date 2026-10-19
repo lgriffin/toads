@@ -1,6 +1,9 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
+  import { titlesOf } from '$lib/awards';
+  import { previewAwardsOf } from './awards-fake';
   import { previewBadges } from '$lib/mock/badges';
   import MemberToads from '$lib/components/MemberToads.svelte';
   import { me } from '$lib/mock/data';
@@ -13,13 +16,14 @@
   let character = $derived(me.characters.find((c) => c.name === selected)!);
   let history = $derived(me.history[selected] ?? []);
   let last = $derived(history.at(-1));
+  const awards = previewAwardsOf(1);
   // The spec reads 'Combat Rogue': the class is its last word.
   let className = $derived(character.spec.split(' ').at(-1));
   const TIERS: Record<string, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
   let tier = $derived(TIERS[previewSession.role ?? 'member'] ?? 'raider');
 </script>
 
-<h1>Your performance <MemberToads {tier} {className} role={character.role} size={40} /></h1>
+<h1>Your performance <MemberToads {tier} username="hopscotch" titles={titlesOf(awards)} {className} role={character.role} size={40} /></h1>
 
 <div class="chars">
   {#each me.characters as c}
@@ -64,6 +68,8 @@
       </tbody>
     </table>
   </section>
+
+  <div class="wide"><AwardsCard {awards} /></div>
 
   <div class="wide"><BadgesCard mine={previewBadges} /></div>
 

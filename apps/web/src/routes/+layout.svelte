@@ -4,6 +4,9 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
+  import { myAwards, titlesOf } from '$lib/awards';
+  import { previewAwardsOf } from '$lib/preview/awards-fake';
+  import type { Title } from '$lib/toads';
   import { forgetRecruitDraft } from '$lib/application';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
@@ -14,9 +17,16 @@
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
   let session = $state<Session | null | undefined>(undefined);
+  // Titles (banker, developer, Discord admin) are awards; they show as toads beside the rank toad.
+  let titles = $state<Title[]>([]);
   onMount(async () => {
-    if (__PREVIEW__) loadPreviewSession();
-    else session = await getSession().catch(() => null);
+    if (__PREVIEW__) {
+      loadPreviewSession();
+      titles = titlesOf(previewAwardsOf(1));
+      return;
+    }
+    session = await getSession().catch(() => null);
+    if (session) titles = titlesOf(await myAwards().catch(() => []));
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
@@ -75,7 +85,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <MemberToads {tier} name="Hopscotch" className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
+        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> <a class="pill" href="{base}/toolkit/" title="What you can do">{TIER_LABEL[tier]}</a></span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -86,7 +96,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-      <span>Signed in as {session.display_name} <MemberToads {tier} name={session.display_name} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}

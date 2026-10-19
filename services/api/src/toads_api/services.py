@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.account.service import AccountService
 from toads_api.account.sql import SqlAccountRepository
+from toads_api.awards.service import AwardService
+from toads_api.awards.sql import SqlAwardRepository
 from toads_api.bank.client import BankClient
 from toads_api.bank.events import BankEvents
 from toads_api.bank_grants.service import BankGrantService
@@ -59,6 +61,7 @@ class Services:
     sessions: SessionStore = field(init=False)
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
+    awards: AwardService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -96,6 +99,7 @@ class Services:
         )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
+        self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
         home_repo = SqlHomeRepository(self.db)
         self.home = HomeService(home_repo)
         self.performance = PerformanceService(home_repo)

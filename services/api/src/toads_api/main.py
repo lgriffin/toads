@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from toads_api import audit, auth, claims, members
 from toads_api.account.routes import router as account_router
+from toads_api.awards.routes import include_awards
 from toads_api.bank.routes import include_bank
 from toads_api.bank_grants.routes import include_bank_grants
 from toads_api.bots.routes import include_bots
@@ -63,6 +64,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(claims.router)
     app.include_router(members.router)
     app.include_router(account_router)
+    include_awards(app)
     include_home(app)
     include_reference(app)
 

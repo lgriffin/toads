@@ -33,6 +33,7 @@ OFFICER_ONLY = {
     P.MANAGE_HIGHLIGHTS,
     P.IMPORT_BANK_SNAPSHOT,
     P.MANAGE_BANK,
+    P.MANAGE_AWARDS,
 }
 
 # The build spec's table: which tier holds which permission on its own raid day.
