@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import anyio
+import structlog
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -18,6 +19,7 @@ from toads_api.bank.routes import include_bank
 from toads_api.bank_grants.routes import include_bank_grants
 from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
+from toads_api.discord_api import DiscordError
 from toads_api.home.routes import include_home
 from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac.deps import get_services, require
@@ -25,6 +27,8 @@ from toads_api.rbac.permissions import Permission, Principal
 from toads_api.reference.routes import include_reference
 from toads_api.services import Services, build_services
 from toads_api.settings import Settings
+
+log = structlog.get_logger(__name__)
 
 
 async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
@@ -40,17 +44,31 @@ def _record_sync(services: Services, principal: Principal, day: str) -> None:
         audit.record(db, actor=principal.member_id, action="sync.trigger", target=f"raid day {day}", raid_day=day)
 
 
+async def _verify_roles_if_readable(services: Services) -> None:
+    """REQ-HUB-DAY-024: a server whose roles the bot cannot read (not invited yet, or Discord down) is a warning, so
+    the public pages stay up; a role the server lacks still fails startup (REQ-HUB-DAY-022)."""
+    try:
+        await services.verify_discord_roles()
+    except DiscordError as exc:
+        log.warning(
+            "discord_roles_unchecked",
+            error=str(exc),
+            hint="check TOADS_DISCORD_GUILD_ID and that Toad Bot has been invited to the server; sign-in needs both",
+        )
+
+
 def create_app(services: Services | None = None) -> FastAPI:
     """Build the app. Without `services`, startup reads the environment and fails fast on anything missing
     (REQ-DEV-CFG-001), on a Discord client id and bot token from different applications (REQ-HUB-AUTH-003) or on a
-    configured Discord role the server does not have (REQ-HUB-DAY-022)."""
+    configured Discord role the server does not have (REQ-HUB-DAY-022). A server whose roles the bot cannot read is
+    only a warning (REQ-HUB-DAY-024)."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         live = services if services is not None else build_services(Settings())
         try:
             await live.verify_discord_application()
-            await live.verify_discord_roles()
+            await _verify_roles_if_readable(live)
             app.state.services = live
             yield
         finally:

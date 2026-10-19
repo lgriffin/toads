@@ -78,3 +78,10 @@ Feature: HUB DAY
     Given a Wednesday officer signed in
     When they trigger a Sunday sync with "wed" in the query and the body
     Then the hub answers 403
+
+  @ears_unwanted_behavior @maintainer @phase_2_2
+  Scenario: REQ-HUB-DAY-024 If the bot cannot read the Discord server's roles when the API starts, then the API shall start anyway and log a warning naming TOADS_DISCORD_GUILD_ID and the bot invite
+    Given Toad Bot has not been invited to the Discord server
+    When the API starts
+    Then the API is up
+    And it warns that the server's roles were not checked, naming TOADS_DISCORD_GUILD_ID

@@ -65,6 +65,8 @@ class FakeDiscordState:
     events: list[dict[str, Any]] = field(default_factory=list)
     # Tests set this to make the scheduled events listing fail as Discord does when it is down.
     events_down: bool = False
+    # False answers the server's role listing as Discord does before Toad Bot is invited: 404 Unknown Guild.
+    bot_in_server: bool = True
 
     def add_user(self, user: FakeUser) -> FakeUser:
         self.users[user.user_id] = user
@@ -205,6 +207,8 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
     async def roles(guild_id: int, request: Request) -> list[dict[str, str]]:
         if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
             raise HTTPException(401, detail="401: Unauthorized")
+        if not state.bot_in_server:
+            raise HTTPException(404, detail="Unknown Guild")
         return [{"id": str(r), "name": f"role-{r}"} for r in sorted(state.guild_roles | {state.guild_id})]
 
     @app.get("/api/v10/guilds/{guild_id}/scheduled-events")
