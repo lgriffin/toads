@@ -261,8 +261,9 @@ Restart the API after editing a file.
 
 **`config/community.yaml`** (API): guild name, realm, tagline and story for the public pages, `discord_invite`
 (discord.gg or discord.com/invite links only), `mirrored_channels` (channel id plus `raid_day`, `null` for
-guild-wide), `post_channels` (`guild` plus one per raid day), `interview_category_id` and `interviewers` (Discord
-usernames, or user ids, of the officers who interview every applicant, such as `[_gallagher, hadur117]`).
+guild-wide), `post_channels` (`guild` plus one per raid day), `interview_category_id` and `interviewers` (the
+officers who interview every applicant: Discord user ids, or usernames such as `[_gallagher, hadur117]`; prefer ids,
+since a username someone gives up can be claimed by another member).
 
 **`config/raid_sheets.yaml`** (worker, API): the CBA and RPB spreadsheets, which tabs to keep, `follows: cba` for RPB,
 and `weekdays` per raid day. Sheets must be shared "Anyone with the link: Viewer". Setup tabs (Instructions, `trans`,

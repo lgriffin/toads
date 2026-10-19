@@ -149,11 +149,15 @@ export const sendApplication = (body: ReturnType<typeof toApiBody>, f: Fetch = f
   call<SentApplication>(f, '/api/applications', { method: 'POST', body: JSON.stringify(body) });
 
 /** Why an application did not go through, and whether joining the Discord is the fix. */
-export function applicationError(e: unknown): { message: string; joinDiscord: boolean } {
+export function applicationError(e: unknown): { message: string; joinDiscord: boolean; signIn?: boolean } {
   if (!(e instanceof ApiError)) return { message: 'Something went wrong; try again.', joinDiscord: false };
   switch (e.status) {
     case 401:
-      return { message: 'Your sign-in has expired. Sign in with Discord again to send it.', joinDiscord: false };
+      return {
+        message: 'Your sign-in has expired. Sign in with Discord again; your answers are kept.',
+        joinDiscord: false,
+        signIn: true
+      };
     case 403:
       return {
         message: 'We can’t find you in the Toads Discord. Join it, then send your application again.',

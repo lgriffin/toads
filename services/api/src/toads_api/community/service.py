@@ -322,6 +322,7 @@ class CommunityService:
             # The named interviewers see every applicant, so the room opens now rather than waiting for an officer.
             self._move(app, ApplicationStatus.INTERVIEWING, member_id, "Interview room opened on applying")
             self._request_room(app)
+            self._audit(member_id, "application.interview_room", f"application:{app.id}", None)
         return app
 
     def discord_id_of(self, member_id: int) -> int:
@@ -449,6 +450,16 @@ class CommunityService:
             if app is not None:
                 app.interview_channel_id = ack.channel_id
                 self.repo.save_application(app)
+                if app.status in recruitment.FINAL:
+                    # Closed while the bot was still building the room: lock it now, as _move would have.
+                    self._enqueue(
+                        OutboxKind.LOCK_INTERVIEW_ROOM,
+                        {
+                            "application_id": app.id,
+                            "channel_id": app.interview_channel_id,
+                            "discord_user_id": self._discord_id(app),
+                        },
+                    )
         elif job.kind is OutboxKind.POST_MESSAGE and ack.message_id is not None:
             post = self.repo.get_post(int(str(job.payload["post_id"])))
             if post is not None:

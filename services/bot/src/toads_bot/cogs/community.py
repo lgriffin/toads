@@ -53,12 +53,19 @@ def interview_overwrites(
     }
 
 
-def find_interviewer(guild: discord.Guild, name: str) -> discord.Member | None:
+async def find_interviewer(guild: discord.Guild, name: str) -> discord.Member | None:
     """An interviewer named in config/community.yaml: a user id, or a Discord username (not a nickname, which anyone
-    can change to look like an officer)."""
+    can change to look like an officer). The member cache comes first; Discord is asked when it misses."""
     if name.isdigit():
-        return guild.get_member(int(name))
-    return next((m for m in guild.members if m.name == name), None)
+        if (cached := guild.get_member(int(name))) is not None:
+            return cached
+        try:
+            return await guild.fetch_member(int(name))
+        except discord.NotFound:
+            return None
+    if (found := next((m for m in guild.members if m.name == name), None)) is not None:
+        return found
+    return next((m for m in await guild.query_members(query=name, limit=10) if m.name == name), None)
 
 
 def application_embed(payload: dict[str, Any]) -> discord.Embed:
@@ -198,7 +205,7 @@ class Community(commands.Cog):
         )
         roles = [r for rid in payload.get("officer_role_ids") or [] if (r := guild.get_role(int(rid))) is not None]
         names = [str(n) for n in payload.get("interviewers") or []]
-        found = {n: find_interviewer(guild, n) for n in names}
+        found = {n: await find_interviewer(guild, n) for n in names}
         interviewers = [m for m in found.values() if m is not None]
         missing = [n for n, m in found.items() if m is None]
         if missing:

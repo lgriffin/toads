@@ -41,7 +41,7 @@
   let form = $state<ApplicationInput>({ ...EMPTY_APPLICATION });
   let errors = $state<ApplicationErrors>({});
   let sending = $state(false);
-  let failure = $state<{ message: string; joinDiscord: boolean } | null>(null);
+  let failure = $state<{ message: string; joinDiscord: boolean; signIn?: boolean } | null>(null);
   let sent = $state<{ name: string; roomOpen: boolean } | null>(null);
 
   const classRoles = $derived(rolesForClass(form.className));
@@ -57,12 +57,25 @@
     whyToads: 'Why Toads?'
   };
 
+  let restored = $state(false);
   onMount(() => {
     try {
       const saved = sessionStorage.getItem(DRAFT_KEY);
       if (saved) form = { ...EMPTY_APPLICATION, ...JSON.parse(saved) };
     } catch {
       // storage blocked or the draft is unreadable: start empty
+    }
+    restored = true;
+  });
+
+  // Keep the draft as they type, so any way out to sign in (the step link or the send button) comes back to it.
+  $effect(() => {
+    const draft = JSON.stringify(form);
+    if (!restored || sent) return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, draft);
+    } catch {
+      // no storage: they will fill it in again after signing in
     }
   });
 
@@ -87,11 +100,6 @@
     errors = validateApplication(form);
     if (Object.keys(errors).length) return showErrors();
     if (!signedIn) {
-      try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(form));
-      } catch {
-        // no storage: they will fill it in again after signing in
-      }
       window.location.assign(loginHref);
       return;
     }
@@ -107,7 +115,7 @@
       await tick();
       document.getElementById('apply-done')?.focus();
     } catch (err) {
-      failure = err as { message: string; joinDiscord: boolean };
+      failure = err as { message: string; joinDiscord: boolean; signIn?: boolean };
       await tick();
       document.getElementById('send-failed')?.focus();
     } finally {
@@ -295,6 +303,8 @@
               <a class="btn" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">
                 Join the Toads Discord<span class="sr-only"> (opens in a new tab)</span>
               </a>
+            {:else if failure.signIn}
+              <a class="btn" href={loginHref} data-sveltekit-reload>Sign in with Discord again</a>
             {/if}
           </div>
         {/if}

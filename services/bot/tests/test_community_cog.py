@@ -189,6 +189,7 @@ def test_named_interviewers_join_the_room_with_the_answers() -> None:
     ]
     guild = fake_guild()
     guild.members = [lookalike, gallagher, hadur]
+    guild.query_members = AsyncMock(return_value=[])  # "ghost" is not in the server at all
     run(cog(hub).run_outbox(guild))
     overwrites = guild.create_text_channel.await_args.kwargs["overwrites"]
     assert {getattr(k, "id", None) for k in overwrites} == {GUILD, APPLICANT, 501, 502, 99}
@@ -209,8 +210,24 @@ def test_named_interviewers_join_the_room_with_the_answers() -> None:
 
 def test_interviewers_can_be_named_by_user_id() -> None:
     guild = MagicMock()
-    find_interviewer(guild, "123456789012345678")
+    run(find_interviewer(guild, "123456789012345678"))
     guild.get_member.assert_called_once_with(123456789012345678)
+
+
+def test_interviewers_missing_from_the_cache_are_asked_of_discord() -> None:
+    fetched = MagicMock(id=501)
+    guild = MagicMock(members=[])
+    guild.get_member.return_value = None
+    guild.fetch_member = AsyncMock(return_value=fetched)
+    assert run(find_interviewer(guild, "501")) is fetched
+    guild.fetch_member = AsyncMock(side_effect=discord.NotFound(MagicMock(status=404), "Unknown Member"))
+    assert run(find_interviewer(guild, "502")) is None
+
+    hadur, lookalike = MagicMock(), MagicMock()
+    hadur.name, lookalike.name = "hadur117", "hadur1170"
+    guild.query_members = AsyncMock(return_value=[lookalike, hadur])
+    assert run(find_interviewer(guild, "hadur117")) is hadur
+    guild.query_members.assert_awaited_once_with(query="hadur117", limit=10)
 
 
 def test_application_embed_copes_with_an_older_job_and_long_answers() -> None:

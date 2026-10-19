@@ -88,7 +88,7 @@ describe('applications', () => {
       joinDiscord: true
     });
     expect(applicationError(new ApiError(409, 'You already have an open application')).message).toMatch(/open/);
-    expect(applicationError(new ApiError(401, '')).message).toMatch(/Sign in/);
+    expect(applicationError(new ApiError(401, ''))).toMatchObject({ message: expect.stringMatching(/Sign in/), signIn: true });
     expect(applicationError(new ApiError(503, '')).message).toMatch(/Discord is not answering/);
     expect(applicationError(new Error('x'))).toEqual({ message: expect.stringMatching(/try again/), joinDiscord: false });
   });

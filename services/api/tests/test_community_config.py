@@ -37,3 +37,15 @@ def test_example_env_names_the_service_token() -> None:
 def test_service_token_is_not_in_repr() -> None:
     token = "planted-service-token"  # noqa: S105
     assert token not in repr(make_settings(hub_service_token=token))
+
+
+def test_interviewers_may_be_unquoted_user_ids_or_usernames(tmp_path: Path) -> None:
+    path = tmp_path / "community.yaml"
+    path.write_text("interviewers:\n  - 123456789012345678\n  - hadur117\n", encoding="utf-8")
+    assert CommunityConfig.load(path).interviewers == ["123456789012345678", "hadur117"]
+
+
+@pytest.mark.parametrize("name", ["Hadur117", "has space", "@everyone", "x"])
+def test_interviewers_must_look_like_discord_usernames(name: str) -> None:
+    with pytest.raises(ValidationError):
+        CommunityConfig(interviewers=[name])

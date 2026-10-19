@@ -20,8 +20,9 @@ post_channels: {}
 # Category that private interview rooms are created under.
 interview_category_id: null
 
-# Officers who interview every applicant: Discord usernames (not nicknames) or user ids. When set, the Toad Bot opens
-# the interview room as soon as someone applies, with only the applicant and these people in it. Leave empty to have
+# Officers who interview every applicant: Discord user ids (safest: right-click them > Copy User ID) or usernames
+# (not nicknames; a username someone gives up can be claimed by another member). When set, the Toad Bot opens the
+# interview room as soon as someone applies, with only the applicant and these people in it. Leave empty to have
 # officers open rooms by hand, for the officers of the days applied for.
 interviewers: []
 #  - _gallagher

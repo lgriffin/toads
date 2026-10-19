@@ -112,6 +112,11 @@ test('a signed-out applicant is asked to sign in with Discord and keeps their an
   await page.getByLabel('Class', { exact: true }).selectOption('Mage');
   await expect(page.getByRole('group', { name: 'Primary role' }).getByLabel('Ranged')).toBeChecked();
   await page.getByLabel('Why Toads?').fill('Friends raid here.');
+  // The step's own sign-in link keeps the answers too, not only the send button.
+  await page.getByRole('link', { name: 'Sign in with Discord', exact: true }).click();
+  await expect(page).toHaveURL(/\/login\/$/);
+  await page.goto('recruit/');
+  await expect(page.getByLabel('Character name')).toHaveValue('Lilypad');
   await page.getByRole('button', { name: 'Sign in with Discord to apply' }).click();
   await expect(page).toHaveURL(/\/login\/$/);
   await page.goto('recruit/');

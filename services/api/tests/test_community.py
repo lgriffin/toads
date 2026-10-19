@@ -476,6 +476,37 @@ def test_named_interviewers_get_a_room_the_moment_someone_applies(as_: Any, stor
     # The officer's button is for rooms that have not opened yet.
     r = as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app['id']}/interview-room")
     assert r.status_code == 409
+    assert [(a.action, a.raid_day) for a in store.repo.audit()] == [("application.interview_room", None)]
+
+
+def test_a_room_built_after_the_application_closed_is_locked(as_: Any, store: CommunityService) -> None:
+    store.config = store.config.model_copy(update={"interviewers": ["501"]})
+    app_id = as_("applicant").post("/api/applications", json=APPLICATION).json()["id"]
+    [job] = as_(None).get("/api/bot/outbox", headers=BOT).json()
+    as_("applicant").post(f"/api/applications/{app_id}/withdraw")  # before the bot has built the room
+    as_(None).post(f"/api/bot/outbox/{job['job']['id']}/ack", json={"channel_id": 6001}, headers=BOT)
+    [lock] = as_(None).get("/api/bot/outbox", headers=BOT).json()
+    assert lock["job"]["kind"] == "lock_interview_room"
+    assert lock["job"]["payload"]["channel_id"] == 6001
+
+
+@pytest.mark.security
+def test_discord_unreachable_while_applying_is_503(store: CommunityService) -> None:
+    import httpx
+    from toads_api.discord_api import HttpDiscord
+
+    client = community_client(store, PRINCIPALS["applicant"])
+    services = client.app.state.services  # type: ignore[attr-defined]
+
+    def down(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route to Discord")
+
+    discord = services.discord
+    assert isinstance(discord, HttpDiscord)
+    discord._http = httpx.AsyncClient(transport=httpx.MockTransport(down))
+    r = client.post("/api/applications", json=APPLICATION)
+    assert r.status_code == 503
+    assert store.my_applications(5) == []
 
 
 def test_accented_character_names_are_fine(as_: Any) -> None:
