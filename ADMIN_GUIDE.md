@@ -92,9 +92,6 @@ Discord application details:
 
 ### Discord permissions for interview rooms
 
-For a step-by-step version that a non-technical server admin can follow, see
-[docs/discord-setup.md](docs/discord-setup.md).
-
 **You**, to set this up: **Manage Server** on the Toads server (Discord only lets server managers add a bot), and
 **Manage Channels** plus **Manage Roles** to make the interview category and set who sees it. Turn on Developer Mode
 (User Settings > Advanced) so you can right-click a category and copy its id.
@@ -117,6 +114,34 @@ Roles. Privileged intents in the developer portal: **Server Members** (find the 
 
 The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
 member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.
+
+### Getting the Toad Bot onto the server
+
+The server admin's half is [docs/discord-setup.md](docs/discord-setup.md): a click-by-click guide for someone who is
+not technical. Send it to them together with the invite link from step 3. The website side is:
+
+1. **Use the hub's Discord application** at <https://discord.com/developers/applications>; its bot is the Toad Bot.
+   Under **Bot**, switch on **Server Members Intent** and **Message Content Intent**. The bot token goes only into
+   `TOADS_DISCORD_BOT_TOKEN` in the API's and the bot's env on the server.
+2. **Name it.** Under **General Information**, name the application `Toad Bot` and give it the toad avatar. This is
+   the name the server admin sees.
+3. **Build the invite link** from the Application ID on **General Information**:
+   `https://discord.com/oauth2/authorize?client_id=<APPLICATION ID>&scope=bot+applications.commands&permissions=268520464`.
+   Open it yourself and check that the list shows View Channels, Send Messages, Embed Links, Read Message History,
+   Manage Channels and Manage Roles, then send it to the server admin.
+4. **Put the admin's three numbers into `config/community.yaml`**: the category id, plus user ids rather than
+   usernames, so a renamed account can't take an interviewer's place:
+
+   ```yaml
+   interview_category_id: 1187654321098765432
+   interviewers:
+     - "123456789012345678"   # _gallagher
+     - "234567890123456789"   # hadur117
+   ```
+
+5. **Restart the API and the Toad Bot**, check that the bot shows as online, and tell the admin to run the test (their
+   Step 5). If no room appears, the bot's log names interviewers it couldn't find and any "Missing Permissions" from
+   Discord.
 
 ## 3. First-time setup, in order
 
