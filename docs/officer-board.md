@@ -19,7 +19,8 @@ between the nights on the Raid page and see each night's board.
   board, so tell them in Discord).
 - A card whose due date has passed (in the guild's timezone, `timezone` in `config/raid_days.yaml`) and that is not in
   Done is marked overdue.
-- Move a card by dragging it, with its arrow buttons (to the next lane), or with Move up and Move down in its editor.
+- Move a card by dragging it, with its Start it, Mark done and Back buttons, or with Move up and Move down in its
+  editor.
   Click a card's title to edit it or remove it.
 - A board holds at most 200 cards; clear Done when it fills up.
 - Every change is on the audit log: `board.add`, `board.edit`, `board.move` (the lane in `detail`) and `board.remove`.

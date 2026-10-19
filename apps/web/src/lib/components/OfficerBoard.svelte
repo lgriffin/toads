@@ -155,7 +155,7 @@
     });
   }
 
-  // Drag and drop is a shortcut; the arrows and the card's editor do the same from the keyboard.
+  // Drag and drop is a shortcut; the step buttons and the card's editor do the same from the keyboard.
   function over(event: DragEvent, lane: LaneId, position: number) {
     if (dragged === null) return;
     event.preventDefault();
@@ -177,7 +177,7 @@
   }
 </script>
 
-<section class="card board" aria-labelledby="board-h-{day}">
+<section class="board" aria-labelledby="board-h-{day}">
   <div class="head">
     <h2 id="board-h-{day}">Officers’ board</h2>
     <p class="muted">Tasks for {dayName}’s officers: who has what, and when it is due. Only {dayName} officers see it.</p>
@@ -284,24 +284,20 @@
                   <div class="meta">
                     <span class="who" class:nobody={!card.assignee_name}>{card.assignee_name ?? 'Unassigned'}</span>
                     {#if card.due_on}
-                      <span class="due">
-                        {#if card.overdue}<strong>Overdue</strong> · {/if}{dueLabel(card.due_on)}
-                      </span>
+                      <span class="due">{card.overdue ? 'Overdue · ' : ''}{dueLabel(card.due_on)}</span>
                     {/if}
                   </div>
                   <div class="arrows">
                     {#if neighbourLane(card.lane, -1)}
                       {@const left = neighbourLane(card.lane, -1)!}
-                      <button class="btn arrow" type="button" disabled={busy} onclick={() => step(card, -1)}>
-                        <span aria-hidden="true">←</span><span class="sr-only">Move {card.title} to {laneName(left)}</span>
+                      <button class="step" type="button" disabled={busy} onclick={() => step(card, -1)}>
+                        Back to {laneName(left)}<span class="sr-only">: {card.title}</span>
                       </button>
                     {/if}
                     {#if neighbourLane(card.lane, 1)}
                       {@const right = neighbourLane(card.lane, 1)!}
-                      <button class="btn arrow" type="button" disabled={busy} onclick={() => step(card, 1)}>
-                        <span class="label" aria-hidden="true">{laneName(right)} →</span><span class="sr-only"
-                          >Move {card.title} to {laneName(right)}</span
-                        >
+                      <button class="step next" type="button" disabled={busy} onclick={() => step(card, 1)}>
+                        {right === 'done' ? 'Mark done' : 'Start it'}<span class="sr-only">: {card.title}</span>
                       </button>
                     {/if}
                   </div>
@@ -316,9 +312,9 @@
 </section>
 
 <style>
-  .board { display: grid; gap: 0.9rem; }
+  .board { display: grid; gap: 1rem; }
   .head { display: grid; gap: 0.25rem; }
-  .head h2 { margin: 0; font-family: 'Cinzel', Georgia, serif; color: var(--bronze-hi); letter-spacing: 0.03em; }
+  .head h2 { margin: 0; font-family: 'Cinzel', Georgia, serif; font-size: 1.3rem; color: var(--bronze-hi); letter-spacing: 0.03em; }
   .head p { margin: 0; max-width: 62ch; }
   .add { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: flex-end; }
   .add .grow { flex: 1 1 16rem; }
@@ -327,15 +323,17 @@
   .empty { margin: 0; }
   .lanes { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); align-items: start; }
   .lane {
-    background: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.75rem;
+    background: rgb(13 11 40 / 0.6);
+    border-radius: 10px;
+    padding: 0.8rem;
     display: grid;
     gap: 0.6rem;
+    align-content: start;
     min-height: 6rem;
+    outline: 1px dashed transparent;
+    outline-offset: -1px;
   }
-  .lane.target { border-color: var(--teal); }
+  .lane.target { outline-color: var(--teal); }
   .lane h3 { margin: 0; font-size: 0.95rem; color: var(--cream); display: flex; align-items: center; gap: 0.5rem; }
   .count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
@@ -368,10 +366,21 @@
   .who { color: var(--teal); }
   .who.nobody { color: var(--muted); }
   .due { color: var(--muted); }
-  .overdue .due { color: var(--warn); }
-  .arrows { display: flex; justify-content: space-between; gap: 0.5rem; }
-  .arrow { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
-  .arrows .arrow:only-child:not(:first-child) { margin-left: auto; }
+  .overdue .due { color: var(--warn); font-weight: 700; }
+  .arrows { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem; }
+  .step {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.7rem;
+    cursor: pointer;
+  }
+  .step:hover:not(:disabled) { border-color: var(--teal); color: var(--cream); }
+  .step.next { margin-left: auto; color: var(--teal); border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); }
+  .step:disabled { opacity: 0.55; cursor: not-allowed; }
   .editor { display: grid; gap: 0.5rem; }
   .editor input, .editor select { width: 100%; }
   .pair { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }

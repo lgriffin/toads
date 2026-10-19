@@ -179,3 +179,26 @@ def not_overdue_when_done(hub: Hub, people: dict[str, Any], lane: str) -> None:
     _move(hub, people, "Restock the bank", lane)
     card = _cards(_board(hub, people["officer"], "Wednesday"))[0]
     assert (card["lane"], card["overdue"]) == ("done", False)
+
+
+# ---------------------------------------------------------------- the Raid page
+
+WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
+
+
+@given("the Raid page", target_fixture="raid_page")
+def raid_page() -> str:
+    return (WEB / "routes" / "raid" / "+page.svelte").read_text(encoding="utf-8")
+
+
+@then("its officer desk holds the task board for the selected night")
+def desk_holds_board(raid_page: str) -> None:
+    desk = raid_page[raid_page.index("{#if officer}") :]
+    desk = desk[: desk.index("{/if}")]
+    assert "<OfficerBoard backend={board} {day} dayName={name} />" in desk
+
+
+@then("the desk shows only to that night's officers")
+def desk_for_officers(raid_page: str) -> None:
+    assert "const officer = $derived(raidDays.officerDays.includes(day));" in raid_page
+    assert raid_page.count("<OfficerBoard") == 1

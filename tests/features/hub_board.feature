@@ -43,5 +43,8 @@ Feature: HUB BOARD
     Then the card "Restock the bank" is overdue
     And after it moves to "Done" it is not overdue
 
-  @ears_ubiquitous @raid_leader @phase_2_7 @pending
+  @ears_ubiquitous @raid_leader @phase_2_7
   Scenario: REQ-HUB-BOARD-006 The Raid page shall show the selected raid night's task board to that night's officers only
+    Given the Raid page
+    Then its officer desk holds the task board for the selected night
+    And the desk shows only to that night's officers
