@@ -34,7 +34,9 @@ def landing() -> str:
 def six_pillars(landing: str) -> None:
     assert "<ModelPillars compact />" in landing
     copy = _read("lib/landing.ts")
-    assert re.findall(r"^    id: '(\w+)',$", copy, re.MULTILINE) == PILLARS
+    # Only the MODEL list: the recruiting roles further down the file carry ids too.
+    model = copy[copy.index("export const MODEL") :].split("\n];", 1)[0]
+    assert re.findall(r"^    id: '(\w+)',$", model, re.MULTILINE) == PILLARS
     pillars = _read("lib/components/ModelPillars.svelte")
     assert 'href="{base}/how-we-raid/#{p.id}"' in pillars
     assert "<ModelPillars {trend} />" in _read("routes/how-we-raid/+page.svelte")
