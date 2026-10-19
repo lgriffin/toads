@@ -464,8 +464,10 @@ Bank page under the raid day. A stale button answers with the request's current 
 
 ### Approve character claims
 
-Raid-day officers approve, reject or reassign claims under `/api/days/{day}/claims` (the Officers console). Claims
-answer 404 in production until wcl-store provides the character list ([section 15](#15-known-limitations)).
+Members find their character by name on `/me/claim`; the hub knows who they are from their Discord sign-in. The
+names come from wcl-store's character list, which the worker fills as it analyses the guild's raids, so a character
+shows up after its first logged raid. Raid-day officers approve, reject or reassign claims under
+`/api/days/{day}/claims` (the Officers console).
 
 ### Refresh hub data by hand
 
@@ -540,7 +542,7 @@ API and worker.
 | Warcraft Logs refuses the reference login callback | The redirect URI is not registered on the Warcraft Logs client. |
 | Hub widgets or performance never update | The scheduler is not running, `TOADS_HUB_REFRESH_MINUTES=0`, or the worker's `TOADS_HUB_SERVICE_TOKEN` is wrong. |
 | Raid sheets not imported | The sheet is not shared by link, `config/raid_sheets.yaml` is missing in the scheduler, or `TOADS_SHEETS_REFRESH_MINUTES=0`. |
-| Claims answer 404 | Expected for now (section 15). |
+| Claim search finds nobody | The worker has not analysed a raid yet, so wcl-store's character list is empty. |
 | `429` when redeeming a token | Five refused tries in 15 minutes; wait for the window to pass. |
 
 ## 15. Known limitations
@@ -550,7 +552,6 @@ API and worker.
   the hub already acknowledged. Restart the API when the queue is quiet.
 - **Single-server deploys build images on the server** ([docs/deploy.md](docs/deploy.md)); CI publishes none and
   production images are not signed yet (REQ-DEV-REL-001).
-- **Claims answer 404** in production until the API reads the character list from wcl-store.
 - **Bot permissions**: kit bots other than the bank bot run with an open gate and the site trusts the Discord user id
   they send (REQ-HUB-BOT-005 pending). The Toad Bot still uses its own outbox at `/api/bot/*`.
 - **Super-admin tier** is not yet in the build spec's RBAC table.

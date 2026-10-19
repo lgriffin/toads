@@ -23,7 +23,7 @@ from toads_api.bank.events import BankEvents
 from toads_api.bank_grants.service import BankGrantService
 from toads_api.bank_grants.sql import SqlBankGrantRepository
 from toads_api.bots.bridge import BotBridge, InMemoryBridgeStore
-from toads_api.characters import CharacterDirectory, NoCharacters
+from toads_api.characters import CharacterDirectory, SqlCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
@@ -162,6 +162,7 @@ def build_services(settings: Settings) -> Services:
     http = httpx.AsyncClient(timeout=10.0)
     redis = Redis.from_url(settings.redis_url)
     engine = create_engine(settings.database_url.get_secret_value(), pool_pre_ping=True)
+    db = sessionmaker(engine, expire_on_commit=False)
     return Services(
         settings=settings,
         raid_days=RaidDaysConfig.load(settings.raid_days_config),
@@ -175,8 +176,8 @@ def build_services(settings: Settings) -> Services:
             redirect_uri=settings.discord_redirect_uri,
             guild_id=settings.discord_guild_id,
         ),
-        db=sessionmaker(engine, expire_on_commit=False),
-        characters=NoCharacters(),
+        db=db,
+        characters=SqlCharacters(db),
         notifier=RedisOutbox(redis),
         http=http,
     )

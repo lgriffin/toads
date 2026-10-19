@@ -262,6 +262,15 @@ export const claims: import('$lib/api').Claim[] = [
   { id: 2, member_id: 7, character_id: 102, character_name: 'Lilypadd', raid_day_id: 'wed', status: 'pending', reason: null }
 ];
 
+/** Characters as GET /api/characters lists them, for the claim picker in the preview. */
+export const claimableCharacters: import('$lib/api').CharacterMatch[] = [
+  { id: 101, name: 'Hopscotch', player_class: 'Priest' },
+  { id: 102, name: 'Lilypadd', player_class: 'Druid' },
+  { id: 103, name: 'Croakley', player_class: 'Warrior' },
+  { id: 104, name: 'Pondweed', player_class: 'Shaman' },
+  { id: 105, name: 'Shopkeep', player_class: 'Rogue' }
+];
+
 // --- reference comparison (officers) --------------------------------------------------------------
 
 type RefMetric = import('$lib/reference').Metric;

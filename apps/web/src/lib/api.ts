@@ -56,6 +56,13 @@ export interface Claim {
   reason: string | null;
 }
 
+/** A character seen in the guild's logs, as GET /api/characters lists them for the claim picker. */
+export interface CharacterMatch {
+  id: number;
+  name: string;
+  player_class: string;
+}
+
 /** A non-2xx answer. Bank routes also carry ToadsBank's error `code`, `details` and `current` (docs/bank.md). */
 export class ApiError extends Error {
   constructor(
@@ -107,6 +114,12 @@ export async function getSession(f: Fetch = fetch): Promise<Session | null> {
 
 export const listMembers = (f: Fetch = fetch) => call<MemberEntry[]>(f, '/api/members');
 
+/** Shortest search the API answers; shorter queries list nothing. */
+export const MIN_CHARACTER_QUERY = 2;
+
+export const searchCharacters = (query: string, f: Fetch = fetch) =>
+  call<CharacterMatch[]>(f, `/api/characters?q=${encodeURIComponent(query)}`);
+
 export const listClaims = (f: Fetch = fetch) => call<Claim[]>(f, '/api/claims');
 
 export const createClaim = (characterId: number, f: Fetch = fetch) =>
@@ -124,7 +137,7 @@ export function claimError(e: unknown): string {
     case 403:
       return 'Claiming needs a trial or raider role on a raid day.';
     case 404:
-      return 'No character with that id has appeared in the guild’s logs.';
+      return 'That character has not appeared in the guild’s logs.';
     case 409:
       return 'Someone already holds or is waiting on that character. Ask an officer if it is yours.';
     default:

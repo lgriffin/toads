@@ -1,47 +1,99 @@
 <script lang="ts">
-  import { statusLabel, type Claim } from '$lib/api';
+  import { MIN_CHARACTER_QUERY, statusLabel, type CharacterMatch, type Claim } from '$lib/api';
 
-  // Placeholder claim flow (REQ-HUB-CLAIM-001/003, REQ-HUB-PRIV-003). A picker of characters seen in the
-  // guild's logs replaces the id box once the API reads wcl-store's characters.
+  // Claim flow (REQ-HUB-CLAIM-001/003/004, REQ-HUB-PRIV-003). Who is claiming comes from the Discord sign-in; the
+  // member only picks the character, by name, from those seen in the guild's logs.
   let {
     claims,
+    signedInAs = null,
     message = '',
     busy = false,
+    search,
     onclaim,
     onunclaim
   }: {
     claims: Claim[];
+    /** The signed-in member's name in the Toads Discord, so it is plain who the claim is for. */
+    signedInAs?: string | null;
     message?: string;
     busy?: boolean;
-    onclaim: (characterId: number) => void;
+    search: (query: string) => Promise<CharacterMatch[]>;
+    onclaim: (character: CharacterMatch) => void;
     onunclaim: (claim: Claim) => void;
   } = $props();
 
-  let characterId = $state('');
+  let query = $state('');
+  let matches = $state<CharacterMatch[]>([]);
+  let searched = $state('');
+  let searchFailed = $state(false);
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function submit(event: SubmitEvent) {
-    event.preventDefault();
-    const id = Number(characterId);
-    if (Number.isInteger(id) && id > 0) onclaim(id);
+  // A rejected claim can be made again, so only live claims hide the Claim button.
+  const mine = $derived(new Set(claims.filter((c) => c.status !== 'rejected').map((c) => c.character_id)));
+
+  function oninput() {
+    clearTimeout(timer);
+    const q = query.trim();
+    if (q === searched && !searchFailed) return; // only whitespace changed
+    // Results for an older query never stay claimable while the new one runs.
+    matches = [];
+    searched = '';
+    searchFailed = false;
+    if (q.length < MIN_CHARACTER_QUERY) return;
+    timer = setTimeout(async () => {
+      let found: CharacterMatch[] = [];
+      let failed = false;
+      try {
+        found = await search(q);
+      } catch {
+        failed = true;
+      }
+      if (query.trim() !== q) return; // a later keystroke owns the list now
+      matches = found;
+      searchFailed = failed;
+      searched = q;
+    }, 250);
   }
 </script>
 
 <h1>Claim your characters</h1>
 <p class="muted">
-  A character whose name matches your nickname in the Toads Discord is approved at once. Anything else waits for an
-  officer of your raid day. Unclaiming detaches you straight away; the raid history stays.
+  {#if signedInAs}You're signed in with Discord as <strong>{signedInAs}</strong>, so the hub already knows who you are.{/if}
+  Find your character by its in-game name. One whose name matches your nickname in the Toads Discord is approved at
+  once; anything else waits for an officer of your raid day. Unclaiming detaches you straight away; the raid history
+  stays.
 </p>
 
 <div class="grid">
   <section class="card">
     <h2>Claim a character</h2>
-    <form onsubmit={submit}>
-      <label>
-        Character id
-        <input type="number" min="1" step="1" required bind:value={characterId} disabled={busy} />
-      </label>
-      <button type="submit" disabled={busy}>Claim</button>
-    </form>
+    <label>
+      Character name
+      <input type="search" autocomplete="off" placeholder="e.g. Hopscotch" bind:value={query} {oninput} disabled={busy} />
+    </label>
+    {#if searchFailed}
+      <p class="warn" role="status">Search isn't answering; try again.</p>
+    {:else if query.trim().length > 0 && query.trim().length < MIN_CHARACTER_QUERY}
+      <p class="muted">Keep typing: at least {MIN_CHARACTER_QUERY} letters.</p>
+    {:else if searched && matches.length === 0}
+      <p class="muted" role="status">
+        No character called “{searched}” has appeared in the guild's logs yet. Characters show up after their first
+        logged raid with the guild.
+      </p>
+    {:else if matches.length > 0}
+      <ul class="matches">
+        {#each matches as m (m.id)}
+          <li>
+            <span>{m.name}{#if m.player_class}<span class="muted"> · {m.player_class}</span>{/if}</span>
+            {#if mine.has(m.id)}
+              <span class="muted">Yours</span>
+            {:else}
+              <button type="button" class="claim" disabled={busy} onclick={() => onclaim(m)}>Claim</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
     {#if message}<p class="warn" role="status">{message}</p>{/if}
   </section>
 
@@ -68,9 +120,10 @@
 </div>
 
 <style>
-  form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
   label { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.9rem; }
   input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 0.4rem; }
+  .matches { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.25rem; }
+  .matches li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
   button {
     background: var(--line);
     color: var(--text);
@@ -79,5 +132,5 @@
     padding: 0.4rem 0.8rem;
     cursor: pointer;
   }
-  button[type='submit'] { background: var(--accent); color: #0f1411; }
+  button.claim { background: var(--accent); color: #0f1411; }
 </style>

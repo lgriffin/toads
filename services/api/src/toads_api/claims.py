@@ -1,6 +1,7 @@
 """Character claims (REQ-HUB-CLAIM-001/003, REQ-HUB-PRIV-003, REQ-HUB-DAY-010/011).
 
-Members claim characters by wcl-store id; the name is looked up server-side. A name that matches the
+Members find a character by name (GET /api/characters) and claim it by its wcl-store id; who is claiming comes from
+their Discord sign-in, and the name is looked up server-side. A name that matches the
 member's server nickname is approved at once, anything else waits for an officer of the claimant's
 raid day (their highest-ranked day). Officer routes take the raid day from the path only, and a
 claim outside that day is refused with 403 and an audit row.
@@ -21,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from toads_api import audit
+from toads_api.characters import Character
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
 from toads_api.services import Services
@@ -52,6 +54,14 @@ class ClaimOut(BaseModel):
     reason: str | None
 
 
+class CharacterOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    player_class: str
+
+
 def names_match(character: str, server_name: str) -> bool:
     """Case- and width-insensitive exact match; accents count (Hopscotch is not Höpscotch)."""
 
@@ -66,6 +76,17 @@ def _target(claim: CharacterClaim) -> str:
 
 
 # --- member routes -----------------------------------------------------------------------------
+
+
+@router.get("/api/characters")
+async def search_characters(
+    q: str = "",
+    _: Principal = Depends(require(Permission.CLAIM_CHARACTER)),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
+) -> list[CharacterOut]:
+    """Characters seen in the guild's logs whose name contains `q`, for the claim picker (REQ-HUB-CLAIM-004)."""
+    found: list[Character] = await anyio.to_thread.run_sync(services.characters.search, q[:64])
+    return [CharacterOut.model_validate(c) for c in found]
 
 
 def _create(services: Services, principal: Principal, character_id: int) -> tuple[ClaimOut, bool]:
