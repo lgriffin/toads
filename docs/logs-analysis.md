@@ -17,7 +17,7 @@ Warcraft Logs ──(guild key)──> worker: sync-guild ──> Postgres (wcl-
                                         └──(service token)──> API ──> hub home, /me, badges, reference page
 ```
 
-So the desktop app's `analyzer.db` and `config.json` stay on your PC. The server only needs a Warcraft Logs client
+So the desktop app's `warcraftlogs_history.db` and `config.json` stay on your PC. The server only needs a Warcraft Logs client
 and the guild's id.
 
 ## What a super admin sees once it runs
@@ -138,6 +138,29 @@ show a job that broke, with the reason.
 | The sync imports nothing, `remaining` is 0, but raids are missing | They are not on the guild's Warcraft Logs page (logged as personal reports). Import each with `toads-worker analyse <URL>`. |
 | `/hub` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
 | `429` errors in the worker's log | Warcraft Logs rate limit. Lower `TOADS_SYNC_BATCH` or raise `TOADS_WCL_THROTTLE_MS`. |
+
+## Optional: the analyzer itself on AlmaLinux
+
+The hub never needs this: its worker runs the analyzer's packages inside its container, whatever the host is. But the
+WCL Analyzer now runs natively on AlmaLinux 9 (RHEL 9 and Rocky 9 too), so an officer on an EL desktop, or you on the
+server for a one-off look at a report, can use the desktop app or its CLI there. Its CI installs and starts it in an
+`almalinux:9` container on every pull request.
+
+```bash
+git clone https://github.com/lgriffin/warcraftlogs_project.git
+cd warcraftlogs_project
+scripts/install_linux.sh            # on a server with no display: add --no-desktop
+```
+
+The script installs Python 3.12 and Qt's X11 libraries with `dnf` (EL 9's own Python is too old), creates a `.venv` in
+the checkout and links `warcraftlogs` and `warcraftlogs-gui` into `~/.local/bin`. Each release also ships a signed
+`WarcraftLogsAnalyzer-<tag>-linux.tar.gz`. Update with `git pull` and the script again: the in-app updater is for
+Windows and stays off on Linux. Over SSH, use the CLI (`warcraftlogs`); the GUI needs a display.
+
+This install keeps its own `config.json` and `warcraftlogs_history.db` in the checkout. It does not touch the hub's
+database or its env files, so it is safe beside the deployed hub. The script is tested on AlmaLinux 9; the toads.gg
+server runs AlmaLinux 10, where it has not been tried yet. Details and troubleshooting
+are in the analyzer's [Linux install guide](https://github.com/lgriffin/warcraftlogs_project/blob/master/guides/linux_install.md).
 
 ## Taking a newer analyzer
 
