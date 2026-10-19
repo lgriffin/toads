@@ -55,7 +55,7 @@ test('the nav splits public and member pages', async ({ page }) => {
 test('the landing page says who we are and what we stand for', async ({ page }) => {
   await page.goto('');
   await expect(page.getByRole('heading', { name: 'Toads', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Who we are' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Who we are', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What we stand for' })).toBeVisible();
   // The preview visitor is signed in, so the call to action is their hub rather than the login.
   await page.getByRole('link', { name: 'Go to your hub' }).click();

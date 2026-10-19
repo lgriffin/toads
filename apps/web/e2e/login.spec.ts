@@ -39,7 +39,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
 
   await page.getByRole('button', { name: 'Switch to officer view' }).click();
-  await expect(page.getByText('Officer', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Officer', exact: true })).toBeVisible();
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(1);
   await page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Officers' }).click();
   await expect(page).toHaveURL(/\/toads\/officers\/$/);
