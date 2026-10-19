@@ -3,16 +3,13 @@
   import { onMount } from 'svelte';
   import { getSession } from '$lib/api';
   import Landing from '$lib/Landing.svelte';
-  import { LAUNCH_HOLD } from '$lib/launch';
-  import LiveStory from '$lib/LiveStory.svelte';
   import { previewSession } from '$lib/preview/session.svelte';
   import { story } from '$lib/mock/community';
   import { previewNextRaid, previewNow } from '$lib/mock/hub';
   import { sheetTrend } from '$lib/mock/sheets';
   import type { GuildPulse } from '$lib/pulse';
 
-  // The public front door. Until the Forever launch it is our story alone (src/lib/launch.ts); after it, the full
-  // landing page. Signed-in members get a link to their hub instead of the login button.
+  // The public front door. Signed-in members get a link to their hub instead of the login button.
   // The preview starts signed out and signs in on its own /login page.
   let apiMember = $state<string | null>(null);
   let member = $derived(__PREVIEW__ ? (previewSession.role ? 'Hopscotch' : null) : apiMember);
@@ -21,14 +18,10 @@
     ? { next: previewNextRaid, now: previewNow, progression: story.progression, trend: sheetTrend }
     : null;
   onMount(async () => {
-    if (!__PREVIEW__ && !LAUNCH_HOLD) apiMember = (await getSession().catch(() => null))?.display_name ?? null;
+    if (!__PREVIEW__) apiMember = (await getSession().catch(() => null))?.display_name ?? null;
   });
 </script>
 
 <svelte:head><title>Toads · Horde PvP guild, EU, WoW Forever</title></svelte:head>
 
-{#if LAUNCH_HOLD}
-  <LiveStory storyOnly />
-{:else}
-  <Landing {member} {pulse} loginHref={__PREVIEW__ ? `${base}/login/` : '/auth/login'} />
-{/if}
+<Landing {member} {pulse} loginHref={__PREVIEW__ ? `${base}/login/` : '/auth/login'} />
