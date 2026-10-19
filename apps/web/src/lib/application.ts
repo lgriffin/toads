@@ -1,11 +1,14 @@
 /**
- * Recruit form validation. We only ask what the officers need: no age, email or real name.
- * The API re-validates everything; this gives applicants field-level feedback before they send.
+ * Recruit form: five questions and nothing personal (no age, email or real name).
+ * The API re-validates everything and checks the applicant is still in the Toads Discord; this gives field-level
+ * feedback before they send.
  */
-import type { RaidDay, Role } from './mock/data';
+import type { Role } from './mock/data';
 
 export const ROLES: readonly Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
-export const RAID_DAYS: readonly RaidDay[] = ['Wednesday', 'Sunday'];
+
+/** Where applicants join the guild's Discord before they apply. The interview room opens there. */
+export const DISCORD_INVITE = 'https://discord.gg/toads';
 
 /** TBC Classic specs and the roles each can fill. */
 export const CLASS_SPECS: Readonly<Record<string, Readonly<Record<string, readonly Role[]>>>> = {
@@ -22,25 +25,27 @@ export const CLASS_SPECS: Readonly<Record<string, Readonly<Record<string, readon
 
 export const CLASSES = Object.keys(CLASS_SPECS);
 
-export const APPLICATION_LIMITS = { experience: 1000, availability: 300, logsUrl: 300 } as const;
+/** A signed-out visitor's answers wait in this tab (sessionStorage) while they sign in with Discord. */
+export const RECRUIT_DRAFT_KEY = 'toads:recruit-draft';
 
-export const LOGS_HOSTS: readonly string[] = [
-  'warcraftlogs.com',
-  'www.warcraftlogs.com',
-  'classic.warcraftlogs.com',
-  'fresh.warcraftlogs.com',
-  'sod.warcraftlogs.com'
-];
+/** Signing out forgets the draft, so the next person at this browser tab doesn't see it. */
+export function forgetRecruitDraft(): void {
+  try {
+    sessionStorage.removeItem(RECRUIT_DRAFT_KEY);
+  } catch {
+    // no storage, so no draft
+  }
+}
+
+export const APPLICATION_LIMITS = { whyToads: 1000 } as const;
 
 export interface ApplicationInput {
   characterName: string;
   className: string;
-  spec: string;
-  role: string;
-  raidDays: string[];
-  experience: string;
-  availability: string;
-  logsUrl: string;
+  primaryRole: string;
+  /** Empty: no secondary role. */
+  secondaryRole: string;
+  whyToads: string;
 }
 
 export type ApplicationField = keyof ApplicationInput;
@@ -49,12 +54,9 @@ export type ApplicationErrors = Partial<Record<ApplicationField, string>>;
 export const EMPTY_APPLICATION: ApplicationInput = {
   characterName: '',
   className: '',
-  spec: '',
-  role: '',
-  raidDays: [],
-  experience: '',
-  availability: '',
-  logsUrl: ''
+  primaryRole: '',
+  secondaryRole: '',
+  whyToads: ''
 };
 
 /** Letters only (accented letters included), 2 to 12 of them, like the in-game rule. */
@@ -64,29 +66,23 @@ export function normaliseName(name: string): string {
   return name.trim().normalize('NFC');
 }
 
-export function isValidLogsUrl(value: string): boolean {
-  if (value.length > APPLICATION_LIMITS.logsUrl) return false;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  return (
-    url.protocol === 'https:' &&
-    !url.port &&
-    // No userinfo: the href must start with the bare https origin.
-    url.href.startsWith(`https://${url.hostname}/`) &&
-    LOGS_HOSTS.includes(url.hostname.toLowerCase())
-  );
+/** The roles some spec of this class can raid as, in ROLES order. */
+export function rolesForClass(className: string): Role[] {
+  const specs = Object.hasOwn(CLASS_SPECS, className) ? CLASS_SPECS[className] : {};
+  const roles = new Set(Object.values(specs).flat());
+  return ROLES.filter((r) => roles.has(r));
 }
 
-export function specsFor(className: string): string[] {
-  return Object.keys(CLASS_SPECS[className] ?? {});
+/** "Tank, Melee or Healer" */
+function orList(items: readonly string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`;
 }
 
-export function rolesFor(className: string, spec: string): Role[] {
-  return [...(CLASS_SPECS[className]?.[spec] ?? [])];
+function roleError(className: string, role: string): string | undefined {
+  if (!ROLES.includes(role as Role)) return 'Pick a role from the list.';
+  const fits = rolesForClass(className);
+  if (fits.length && !fits.includes(role as Role)) return `${className}s raid as ${orList(fits)}.`;
+  return undefined;
 }
 
 export function validateApplication(input: ApplicationInput): ApplicationErrors {
@@ -98,25 +94,31 @@ export function validateApplication(input: ApplicationInput): ApplicationErrors 
   if (!input.className) e.className = 'Pick your class.';
   else if (!Object.hasOwn(CLASS_SPECS, input.className)) e.className = 'Pick a class from the list.';
 
-  const specs = CLASS_SPECS[input.className];
-  if (!input.spec) e.spec = 'Pick your spec.';
-  else if (specs && !Object.hasOwn(specs, input.spec)) e.spec = `Pick a ${input.className} spec from the list.`;
+  if (!input.primaryRole) e.primaryRole = 'Pick the role you most want to raid as.';
+  else {
+    const err = roleError(input.className, input.primaryRole);
+    if (err) e.primaryRole = err;
+  }
 
-  if (!input.role) e.role = 'Pick the role you want to raid as.';
-  else if (!ROLES.includes(input.role as Role)) e.role = 'Pick a role from the list.';
-  else if (specs && Object.hasOwn(specs, input.spec) && !specs[input.spec].includes(input.role as Role))
-    e.role = `${input.spec} ${input.className}s raid as ${specs[input.spec].join(' or ')}.`;
+  if (input.secondaryRole) {
+    const err = roleError(input.className, input.secondaryRole);
+    if (err) e.secondaryRole = err;
+    else if (input.secondaryRole === input.primaryRole) e.secondaryRole = 'Pick a different role, or “No second role”.';
+  }
 
-  if (!Array.isArray(input.raidDays) || input.raidDays.some((d) => !RAID_DAYS.includes(d as RaidDay)))
-    e.raidDays = 'Pick Wednesday, Sunday or both.';
-
-  if ((input.experience ?? '').trim().length > APPLICATION_LIMITS.experience)
-    e.experience = `Keep this to ${APPLICATION_LIMITS.experience} characters.`;
-  if ((input.availability ?? '').trim().length > APPLICATION_LIMITS.availability)
-    e.availability = `Keep this to ${APPLICATION_LIMITS.availability} characters.`;
-
-  const logs = (input.logsUrl ?? '').trim();
-  if (logs && !isValidLogsUrl(logs))
-    e.logsUrl = 'Paste an https link to your Warcraft Logs character or report page.';
+  const why = (input.whyToads ?? '').trim();
+  if (!why) e.whyToads = 'Tell us a little about why you want to join.';
+  else if (why.length > APPLICATION_LIMITS.whyToads) e.whyToads = `Keep this to ${APPLICATION_LIMITS.whyToads} characters.`;
   return e;
+}
+
+/** The body POST /api/applications takes. */
+export function toApiBody(input: ApplicationInput) {
+  return {
+    character_name: normaliseName(input.characterName),
+    class_name: input.className,
+    role: input.primaryRole,
+    secondary_role: input.secondaryRole || null,
+    why_toads: input.whyToads.trim()
+  };
 }

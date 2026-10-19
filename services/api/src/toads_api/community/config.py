@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 
 class MirroredChannel(BaseModel):
@@ -26,6 +27,16 @@ class CommunityConfig(BaseModel):
     # Where hub posts go when an officer ticks "also post to Discord". Keyed by raid day; "guild" for guild-wide.
     post_channels: dict[str, int] = {}
     interview_category_id: int | None = None
+    # Discord user ids (or usernames) of the officers who interview every applicant. When set, the bot opens the
+    # interview room the moment someone applies, with just the applicant and these people in it. Ids are safer: a
+    # username someone gives up can be taken by another member.
+    interviewers: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9_.]{2,32}$")]] = []
+
+    @field_validator("interviewers", mode="before")
+    @classmethod
+    def _ids_as_text(cls, v: object) -> object:
+        """YAML reads an unquoted user id as a number; keep it as the text the bot matches on."""
+        return [str(x) if isinstance(x, int) else x for x in v] if isinstance(v, list) else v
 
     @field_validator("discord_invite")
     @classmethod

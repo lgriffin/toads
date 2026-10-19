@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
+  import { forgetRecruitDraft } from '$lib/application';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
@@ -42,6 +43,7 @@
   }
   function logOut() {
     previewSignOut();
+    forgetRecruitDraft();
     goto(`${base}/`);
   }
 </script>
@@ -83,7 +85,7 @@
       <a class="login" href="{base}/login/">Log in with Discord</a>
     {/if}
   {:else if session}
-    <form class="login" method="post" action="/auth/logout">
+    <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
       <span>Signed in as {session.display_name} <MemberToads {tier} name={session.display_name} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>

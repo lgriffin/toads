@@ -29,7 +29,7 @@ GLOBAL = PRINCIPALS["global officer"].member_id
 RAIDER = PRINCIPALS["Wednesday raider"].member_id
 APPLICANT = PRINCIPALS["applicant"].member_id
 APPLICATION = ApplicationCreate(
-    character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, experience="Cleared SSC."
+    character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, why_toads="Friends raid here."
 )
 SPOTLIGHT = SpotlightCreate(member_id=RAIDER, character_name="Hopscotch", class_name="Druid", headline="H", body="B")
 
@@ -52,7 +52,7 @@ def test_ids_are_unique_across_every_kind_of_record() -> None:
     app = svc.apply(
         APPLICANT,
         ApplicationCreate(
-            character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, experience="x"
+            character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, why_toads="x"
         ),
     )
     assert post.id != app.id
@@ -65,7 +65,7 @@ def test_an_application_and_its_history_survive_a_restart() -> None:
     app = svc.apply(
         APPLICANT,
         ApplicationCreate(
-            character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, experience="x"
+            character_name="Mossbeard", class_name="Shaman", spec="Resto", role=Role.HEALER, why_toads="x"
         ),
     )
     svc.open_interview_room(WED_OFFICER, None, app.id)

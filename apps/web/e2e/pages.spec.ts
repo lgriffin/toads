@@ -69,7 +69,7 @@ test('the story page links to recruit and opens Discord safely', async ({ page }
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer');
   await page.getByRole('link', { name: 'Apply to raid with us' }).click();
   await expect(page).toHaveURL(/\/toads\/recruit\/$/);
-  await expect(page.getByRole('heading', { name: 'How the interview room works' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your application' })).toBeVisible();
 });
 
 test('the hub shows the latest raid totals from the sheets', async ({ page }) => {

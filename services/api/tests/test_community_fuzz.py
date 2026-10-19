@@ -35,6 +35,8 @@ FUZZ = settings(max_examples=60, deadline=None, suppress_health_check=[HealthChe
             "class_name": text,
             "spec": text,
             "role": st.sampled_from(["Tank", "Healer", "Melee", "Ranged"]) | text,
+            "secondary_role": st.none() | st.sampled_from(["Tank", "Healer", "Melee", "Ranged"]) | text,
+            "why_toads": text,
             "raid_days": st.lists(text, max_size=3),
             "experience": text,
             "availability": text,
@@ -46,7 +48,7 @@ def test_applications(body: dict[str, Any]) -> None:
     r = _client("applicant").post("/api/applications", json=body)
     assert r.status_code in {201, 409, 422}
     if r.status_code == 422:
-        for value in (body["experience"], body["character_name"]):
+        for value in (body["experience"], body["why_toads"], body["character_name"]):
             if len(value) >= 8:
                 assert value not in r.text
 

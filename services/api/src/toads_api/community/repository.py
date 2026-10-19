@@ -35,7 +35,7 @@ class AuditRecord:
     at: datetime
 
 
-Payload = dict[str, str | int | list[int] | None]
+Payload = dict[str, str | int | list[int] | list[str] | None]
 
 
 class CommunityRepository(Protocol):

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from toads_api.community.deps import (
     audience_of,
     curation_audience_allowed,
+    ensure_in_discord,
     get_service,
     officer_scopes,
     officer_transition_allowed,
@@ -46,7 +47,8 @@ from toads_api.community.schemas import (
 )
 from toads_api.community.service import CommunityError, CommunityService
 from toads_api.rbac import Permission, Principal
-from toads_api.rbac.deps import require
+from toads_api.rbac.deps import get_services, require
+from toads_api.services import Services
 
 
 class BotJob(BaseModel):
@@ -116,7 +118,9 @@ async def apply(
     body: ApplicationCreate,
     svc: CommunityService = S,
     p: Principal = _APPLY,
+    services: Services = Depends(get_services),  # noqa: B008
 ) -> Application:
+    await ensure_in_discord(services, svc.discord_id_of(p.member_id))
     return svc.apply(p.member_id, body)
 
 

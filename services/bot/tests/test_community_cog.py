@@ -16,6 +16,8 @@ from pydantic import SecretStr
 from toads_bot.cogs.community import (
     NO_PINGS,
     Community,
+    application_embed,
+    find_interviewer,
     interview_channel_name,
     interview_overwrites,
     post_embed,
@@ -158,6 +160,81 @@ def test_opens_an_interview_room_and_acks_it() -> None:
     # The welcome pings only the applicant.
     mentions = guild.created.send.await_args.kwargs["allowed_mentions"]
     assert (mentions.everyone, mentions.roles) == (False, False)
+
+
+def test_named_interviewers_join_the_room_with_the_answers() -> None:
+    gallagher = MagicMock(mention="<@501>", id=501)
+    gallagher.name = "_gallagher"
+    hadur = MagicMock(mention="<@502>", id=502)
+    hadur.name = "hadur117"
+    lookalike = MagicMock(mention="<@503>", id=503, nick="hadur117")  # a nickname is not a username
+    lookalike.name = "someone"
+    hub = AsyncMock()
+    hub.outbox.return_value = [
+        job(
+            "create_interview_room",
+            {
+                "application_id": 3,
+                "discord_user_id": APPLICANT,
+                "character_name": "Mossbeard",
+                "category_id": None,
+                "officer_role_ids": [],
+                "interviewers": ["_gallagher", "hadur117", "ghost"],
+                "class_name": "Shaman",
+                "role": "Healer",
+                "secondary_role": "Ranged",
+                "why_toads": "Friends raid here.",
+            },
+        )
+    ]
+    guild = fake_guild()
+    guild.members = [lookalike, gallagher, hadur]
+    guild.query_members = AsyncMock(return_value=[])  # "ghost" is not in the server at all
+    run(cog(hub).run_outbox(guild))
+    overwrites = guild.create_text_channel.await_args.kwargs["overwrites"]
+    assert {getattr(k, "id", None) for k in overwrites} == {GUILD, APPLICANT, 501, 502, 99}
+    assert overwrites[gallagher].send_messages is True
+    sent = guild.created.send.await_args
+    assert sent.args[0].startswith(f"<@{APPLICANT}> <@501> <@502> Welcome")
+    assert "Could not find ghost" in sent.args[0]
+    mentions = sent.kwargs["allowed_mentions"]
+    assert (mentions.everyone, mentions.roles, mentions.users) == (
+        False,
+        False,
+        [guild.get_member.return_value, gallagher, hadur],
+    )
+    fields = {f.name: f.value for f in sent.kwargs["embed"].fields}
+    assert fields == {"Class": "Shaman", "Roles": "Healer, then Ranged", "Why Toads?": "Friends raid here."}
+    hub.ack.assert_awaited_once_with(7, channel_id=6001)
+
+
+def test_interviewers_can_be_named_by_user_id() -> None:
+    guild = MagicMock()
+    run(find_interviewer(guild, "123456789012345678"))
+    guild.get_member.assert_called_once_with(123456789012345678)
+
+
+def test_interviewers_missing_from_the_cache_are_asked_of_discord() -> None:
+    fetched = MagicMock(id=501)
+    guild = MagicMock(members=[])
+    guild.get_member.return_value = None
+    guild.fetch_member = AsyncMock(return_value=fetched)
+    assert run(find_interviewer(guild, "501")) is fetched
+    guild.fetch_member = AsyncMock(side_effect=discord.NotFound(MagicMock(status=404), "Unknown Member"))
+    assert run(find_interviewer(guild, "502")) is None
+
+    hadur, lookalike = MagicMock(), MagicMock()
+    hadur.name, lookalike.name = "hadur117", "hadur1170"
+    guild.query_members = AsyncMock(return_value=[lookalike, hadur])
+    assert run(find_interviewer(guild, "hadur117")) is hadur
+    guild.query_members.assert_awaited_once_with(query="hadur117", limit=100)
+
+
+def test_application_embed_copes_with_an_older_job_and_long_answers() -> None:
+    old = application_embed({"application_id": 1, "character_name": "Mossbeard"})
+    assert [f.value for f in old.fields] == ["?", "?", "Not answered"]
+    long = application_embed({"application_id": 1, "character_name": "M", "why_toads": "x" * 2000})
+    assert len(long.fields[2].value) == 1024
 
 
 def test_locks_a_closed_interview_room() -> None:

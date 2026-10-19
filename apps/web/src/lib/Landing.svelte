@@ -5,6 +5,7 @@
   import '@fontsource/alegreya-sans/500.css';
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
+  import { DISCORD_INVITE } from '$lib/application';
   import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
   import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
   import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
@@ -155,8 +156,15 @@
         </section>
       {/each}
     </div>
+    <p class="apply-how">
+      Applying is five questions. Join our Discord first: the moment you send them, the Toad Bot opens a private
+      interview room there for you and our recruitment officers.
+    </p>
     <p class="cta left">
       <a class="medal" href="{base}/recruit/">Apply to raid with us</a>
+      <a class="ghost" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+        >Join our Discord<span class="sr-only"> (opens in a new tab)</span></a
+      >
       <a class="ghost" href="{base}/how-we-raid/">See what we expect</a>
     </p>
   </section>
@@ -380,6 +388,7 @@
   .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) 70%, white); border-bottom: 2px solid var(--c); justify-self: start; line-height: 1.2; }
   .specs { grid-area: s; color: var(--muted); font-size: 0.95rem; }
   .cta.left { justify-content: flex-start; }
+  .apply-how { max-width: 60ch; margin: 1.5rem 0 0; color: var(--muted); }
 
   /* Social */
   .social-grid { display: grid; gap: 2rem; align-items: center; }

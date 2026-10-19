@@ -4,7 +4,7 @@ realm: Spineshatter EU
 tagline: A relaxed but prepared TBC raiding guild.
 story:
   - Replace with a few short paragraphs about the guild. This is the first thing a visitor reads.
-discord_invite: null  # e.g. https://discord.gg/<code>; only discord.gg / discord.com/invite links are accepted
+discord_invite: https://discord.gg/toads  # only discord.gg / discord.com/invite links are accepted
 
 # Channels the bot offers to the hub for curation. Nothing from them is shown until an officer publishes it.
 # raid_day: null means guild-wide (global officers curate); otherwise that raid day's officers curate.
@@ -17,5 +17,13 @@ post_channels: {}
 #  guild: 0
 #  wed: 0
 
-# Category that private interview rooms are created under.
+# Category that private interview rooms are created under. Step-by-step setup: docs/discord-setup.md.
 interview_category_id: null
+
+# Officers who interview every applicant: Discord user ids (safest: right-click them > Copy User ID) or usernames
+# (not nicknames; a username someone gives up can be claimed by another member). When set, the Toad Bot opens the
+# interview room as soon as someone applies, with only the applicant and these people in it. Leave empty to have
+# officers open rooms by hand, for the officers of the days applied for.
+interviewers: []
+#  - _gallagher
+#  - hadur117

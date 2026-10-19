@@ -31,6 +31,9 @@ log = structlog.get_logger(__name__)
 router = APIRouter()
 
 MEMBERS_ONLY_PATH = "/members-only"
+# Pages that may ask to be returned to after sign-in (`/auth/login?next=recruit`). A fixed list, so the login can
+# never be turned into an open redirect.
+RETURN_PATHS = {"recruit": "/recruit"}
 
 
 def pkce_challenge(verifier: str) -> str:
@@ -57,11 +60,12 @@ def _failed(message: str, code: int = status.HTTP_400_BAD_REQUEST) -> HTMLRespon
 
 
 @router.get("/auth/login", include_in_schema=False)
-async def login(services: Services = Depends(get_services)) -> Response:  # noqa: B008
+async def login(next: str | None = None, services: Services = Depends(get_services)) -> Response:  # noqa: B008
     settings = services.settings
     verifier = secrets.token_urlsafe(64)
     state = secrets.token_urlsafe(32)
-    login_id = await services.sessions.begin_login(PendingLogin(state=state, code_verifier=verifier))
+    pending = PendingLogin(state=state, code_verifier=verifier, return_to=RETURN_PATHS.get(next or "", "/hub"))
+    login_id = await services.sessions.begin_login(pending)
     query = urlencode(
         {
             "response_type": "code",
@@ -125,8 +129,8 @@ async def callback(
         )
     )
     log.info("auth.signed_in", member_id=member_id)
-    # Members land on their hub home; the public landing page is for visitors.
-    response = RedirectResponse(f"{public}/hub", status_code=status.HTTP_303_SEE_OTHER)
+    # Members land on their hub home (or the page that sent them, from RETURN_PATHS); the landing page is for visitors.
+    response = RedirectResponse(f"{public}{pending.return_to}", status_code=status.HTTP_303_SEE_OTHER)
     _clear_cookie(response, LOGIN_COOKIE, path="/auth")
     _cookie(response, SESSION_COOKIE, session_id, max_age=services.settings.session_ttl_seconds, path="/")
     return response
