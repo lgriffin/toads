@@ -3,6 +3,8 @@
   import StoryPage from '$lib/StoryPage.svelte';
   import { community } from './state.svelte';
 
+  let { storyOnly = false }: { storyOnly?: boolean } = $props();
+
   // The preview's officer and consent actions change the community state, so the story reads it rather than the
   // sample story's own copies.
   const preview = $derived({
@@ -13,4 +15,4 @@
   });
 </script>
 
-<StoryPage story={preview} />
+<StoryPage story={preview} {storyOnly} />

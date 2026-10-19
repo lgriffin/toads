@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, isHeldPublic, publicNav, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
@@ -56,5 +56,14 @@ describe('launch hold', () => {
     expect(TAB_PREVIEW['/bank'].mockup).toBe('bank');
     expect(TAB_PREVIEW['/bank'].sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
     expect(TAB_PREVIEW['/me'].sections[0].items.join(' ')).toContain('alts');
+  });
+
+  it('trims the public site to our story until the launch, for every visitor', () => {
+    expect(publicNav(true)).toEqual([{ href: '/', label: 'Our story' }]);
+    expect(publicNav(false).map((i) => i.href)).toEqual(['/', '/how-we-raid', '/features', '/story', '/recruit']);
+    for (const path of ['/how-we-raid', '/features/', '/toolkit', '/story', '/recruit/'])
+      expect(isHeldPublic(path, true)).toBe(true);
+    for (const path of ['/', '/hub', '/login', '/members-only', '/storyteller']) expect(isHeldPublic(path, true)).toBe(false);
+    expect(isHeldPublic('/recruit', false)).toBe(false);
   });
 });

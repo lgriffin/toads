@@ -299,3 +299,43 @@ def preview_matches() -> None:
     mock = _read("lib/mock/community.ts").replace("\\'", "'")
     for words in (module.TAGLINE, *module.STORY):
         assert f"'{words}'" in mock, words
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-007 While the launch hold is on, the public site shall be our story alone: the homepage shows the "
+    "story and the Discord link, the public nav names only the story, and the other public pages send visitors to it",
+)
+def test_public_hold() -> None:
+    pass
+
+
+@given("the public launch hold", target_fixture="home")
+def home() -> str:
+    return _read("routes/+page.svelte")
+
+
+@then("the homepage shows only the story while the hold is on and the full landing page after it")
+def story_home(home: str) -> None:
+    assert "{#if LAUNCH_HOLD}\n  <LiveStory storyOnly />\n{:else}\n  <Landing" in home
+    page = _read("lib/StoryPage.svelte")
+    assert "{#if !storyOnly}" in page and "storyOnly = false" in page
+
+
+@then("the public nav names only the story and the other public pages send visitors to the homepage")
+def nav_and_redirects() -> None:
+    launch = _read("lib/launch.ts")
+    assert "return hold ? [{ href: '/', label: 'Our story' }] : PUBLIC_NAV;" in launch
+    assert "['/how-we-raid', '/features', '/toolkit', '/story', '/recruit']" in launch
+    layout = _read("routes/+layout.svelte")
+    assert "{#each publicNav() as item}" in layout
+    assert "if (heldPublic) goto(`${base}/`, { replaceState: true });" in layout
+    assert "trims the public site to our story until the launch" in _read("lib/launch.test.ts")
+
+
+@then("member pages do not link into the held public pages")
+def no_dead_links() -> None:
+    for component in ("lib/components/ComingSoon.svelte", "lib/components/ForeverNotice.svelte"):
+        text = _read(component)
+        for held in ("/how-we-raid/", "/features/", "/story/", "/recruit/"):
+            assert f"{{base}}{held}" not in text, (component, held)

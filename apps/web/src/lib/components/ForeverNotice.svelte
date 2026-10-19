@@ -66,9 +66,6 @@
       Officers see every tab now so you know where things will live. Raiders see a single coming-soon page until
       launch day.
     </p>
-    <div class="actions">
-      <a class="ghost" href="{base}/features/">See the hub's features</a>
-    </div>
   </section>
 </div>
 
