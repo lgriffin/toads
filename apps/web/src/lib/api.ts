@@ -9,7 +9,7 @@ import {
   postFromApi,
   type ApiHighlight,
   type ApiPost,
-  type ApiStory,
+  type ApiPublicStory,
   type DeskSummary
 } from './community-api';
 import type { toApiBody } from './application';
@@ -317,6 +317,6 @@ export const postsFeed = async (f: Fetch = fetch) => (await call<ApiPost[]>(f, '
 export const guildHighlights = async (f: Fetch = fetch) =>
   (await call<ApiHighlight[]>(f, '/api/highlights')).map(highlightFromApi);
 
-export const publicStory = (f: Fetch = fetch) => call<ApiStory>(f, '/api/public/story');
+export const publicStory = (f: Fetch = fetch) => call<ApiPublicStory>(f, '/api/public/story');
 
 export const deskSummary = (f: Fetch = fetch) => call<DeskSummary>(f, '/api/desk');

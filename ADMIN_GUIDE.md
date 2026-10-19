@@ -291,11 +291,13 @@ Restart the API after editing a file.
   `raider_roles`, `officer_roles` and `channels` (`raid_logs`, `signups`, `bank_requests`).
 - Every role id must exist in the server, or the API refuses to start and names the day and role.
 
-**`config/community.yaml`** (API): guild name, realm, tagline and story for the public pages, `discord_invite`
-(discord.gg or discord.com/invite links only), `mirrored_channels` (channel id plus `raid_day`, `null` for
-guild-wide), `post_channels` (`guild` plus one per raid day), `interview_category_id` and `interviewers` (the
-officers who interview every applicant: Discord user ids, or usernames such as `[_gallagher, hadur117]`; prefer ids,
-since a username someone gives up can be claimed by another member).
+**`config/community.yaml`** (API): guild name, realm, tagline and story for the `/story` page, `discord_invite`
+(discord.gg or discord.com/invite links only; the Story page hides its Discord button without one),
+`mirrored_channels` (channel id plus `raid_day`, `null` for guild-wide), `post_channels` (`guild` plus one per raid
+day), `interview_category_id` and `interviewers` (the officers who interview every applicant: Discord user ids, or
+usernames such as `[_gallagher, hadur117]`; prefer ids, since a username someone gives up can be claimed by another
+member). The homepage's own words are site text, not configuration: they live in `apps/web/src/lib/landing.ts` and
+change through a PR.
 
 **`config/raid_sheets.yaml`** (worker, API): the CBA and RPB spreadsheets, which tabs to keep, `follows: cba` for RPB,
 and `weekdays` per raid day. Sheets must be shared "Anyone with the link: Viewer". Setup tabs (Instructions, `trans`,
