@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classToad, memberToads, rankToad, roleToad, toadSrc } from './toads';
+import { classToad, isArchtoad, memberToads, rankToad, roleToad, toadSrc } from './toads';
 
 describe('toads', () => {
   it('maps a class name to its toad, ignoring case', () => {
@@ -23,7 +23,22 @@ describe('toads', () => {
     expect(rankToad('visitor')).toBeNull();
     expect(rankToad('raider')).toBeNull();
     expect(rankToad('officer')?.id).toBe('ranks/officer');
-    expect(rankToad('admin')?.id).toBe('ranks/archtoad');
+    expect(rankToad('admin')?.id).toBe('ranks/officer');
+  });
+
+  it('gives the Archtoad to _gallagher and nobody else', () => {
+    expect(isArchtoad('_gallagher')).toBe(true);
+    expect(isArchtoad(' @_Gallagher ')).toBe(true);
+    expect(isArchtoad('gallagher')).toBe(false);
+    expect(isArchtoad('Hopscotch')).toBe(false);
+    expect(isArchtoad(null)).toBe(false);
+    expect(rankToad('raider', '_gallagher')?.id).toBe('ranks/archtoad');
+    expect(rankToad('admin', 'Hopscotch')?.id).toBe('ranks/officer');
+  });
+
+  it('adds the banker and developer toads after the rank', () => {
+    const ids = memberToads({ tier: 'officer', titles: ['banker', 'developer'], className: 'Mage' }).map((t) => t.id);
+    expect(ids).toEqual(['ranks/officer', 'ranks/banker', 'ranks/developer', 'classes/mage']);
   });
 
   it('lists an officer healer priest as Officer, Priest, Healer', () => {
