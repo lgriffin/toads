@@ -25,21 +25,21 @@ Feature: HUB FRONT
     And the admin console shows integrations, scheduled jobs and bank grants to super admins only
 
   @ears_state_driven @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers the hub, logs, bank and their console as they are being built and a Forever launch notice on every other tab, and show super admins exactly the officers' view plus the Admin console
+  Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance, show officers every page as it is being built except the bank, which shows a Forever launch notice, and show super admins exactly the officers' view plus the Admin console
     Given the launch hold
     Then a raider's members nav is the hub link alone and every member page shows the coming-soon page
-    And an officer opens the hub, logs, bank and their console, and every other tab shows the Forever launch notice
+    And an officer opens every page but the bank, which shows the Forever launch notice
     And super admins see exactly what officers see, plus the Admin console
     And visitors and the public pages are never held
     And the real site waits for the session before a held page renders, so it never starts the page's own API calls
 
   @ears_state_driven @member @raid_leader @phase_2_5
-  Scenario: REQ-HUB-FRONT-005 While the launch hold is on, the Highlights and Me tabs shall show officers the tab's intent and the features coming to it, the Me tab with their own toads as the open Me page shows them, and every signed-in member shall meet their own toad
+  Scenario: REQ-HUB-FRONT-005 While the launch hold is on, the Bank tab shall show officers its intent, the features coming to it and a labelled mockup of stock, Discord requests, a ledger and a fairness view, and every signed-in member shall meet their own toad
     Given the tab previews
-    Then the Highlights and Me tabs each state their intent and list what is coming
-    And the Me tab shows the officer's own toads once, in its heading and as a Your toads row, without the greeting
+    Then the Bank tab states its intent and lists what is coming
+    And the Bank tab shows the bankers' features to officers and a mockup labelled as sample data
     And every signed-in member has a rank toad, raiders the member toad
-    And raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home
+    And raiders meet their toad on the coming-soon page, officers on the held bank tab, and everyone on the hub home
 
   @ears_ubiquitous @member @maintainer @phase_2_5
   Scenario: REQ-HUB-FRONT-006 The public Story page's tagline and story shall come from the repository, so a merge and the deploy that follows change them without editing the server
