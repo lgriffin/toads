@@ -21,7 +21,6 @@ COPY --from=build /src/services /src/services
 # wcl-core keeps its response cache under WCL_APP_DIR (the working directory when unset, which is / here and
 # not writable by the toads user).
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 WCL_APP_DIR=/app/data
-WORKDIR /app/data
 USER toads
 EXPOSE 8000
 HEALTHCHECK CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
