@@ -5,7 +5,6 @@
   import { base } from '$app/paths';
   import { FOREVER_LAUNCH, TAB_PREVIEW, TAB_PURPOSE, tabOf } from '$lib/launch';
   import { memberToads, toadSrc, type MemberFacts } from '$lib/toads';
-  import BankMockup from './BankMockup.svelte';
   import MemberToads from './MemberToads.svelte';
   import ToadGreeting from './ToadGreeting.svelte';
   import ToadsMark from './ToadsMark.svelte';
@@ -61,7 +60,6 @@
           </ul>
         </div>
       {/if}
-      {#if preview.mockup === 'bank'}<BankMockup />{/if}
     </section>
   {:else}
     <section class="band notice" aria-labelledby="notice-h">

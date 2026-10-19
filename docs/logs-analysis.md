@@ -1,8 +1,8 @@
 # Logs analysis on the server
 
 How to get the WCL Analyzer's analysis (the Python project, lgriffin/warcraftlogs_project) running on the toads.gg
-server, so the hub shows real raid data. Until the launch hold lifts on 4 November 2026 the member pages below
-show everyone, super admins included, the Forever launch notice; the worker still syncs and publishes in the meantime. It assumes the hub is already deployed
+server, so the hub shows real raid data. Until the launch hold lifts on 4 November 2026 only officers and super admins
+see `/hub` and `/raids`; `/me` shows them the Forever launch notice and raiders a coming-soon page. It assumes the hub is already deployed
 ([docs/deploy.md](deploy.md)); every command below runs on the server over SSH.
 
 ## How the two projects fit together
@@ -23,7 +23,7 @@ and the guild's id.
 
 ## What a super admin sees once it runs
 
-Super admins are global officers too, so they see every officer view once the launch hold lifts.
+Super admins are global officers too, so they see every officer view.
 
 | Where | What fills in |
 | --- | --- |
