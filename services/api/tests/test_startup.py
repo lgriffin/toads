@@ -8,6 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from structlog.testing import capture_logs
 from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord, MismatchedDiscordApplicationError
 from toads_api.main import create_app
 from toads_api.rbac import RaidDaysConfig, UnknownDiscordRoleError
@@ -29,6 +30,14 @@ def test_startup_fails_naming_day_and_role() -> None:
     hub = Hub(raid_days=cfg)
     with pytest.raises(UnknownDiscordRoleError, match=r"raid day 'sun' officer role 424242"), hub.client:
         pass
+
+
+def test_startup_survives_a_server_the_bot_cannot_read() -> None:
+    hub = Hub()
+    hub.fake.bot_in_server = False
+    with capture_logs() as logs, hub.client:
+        assert hub.client.get("/healthz").status_code == 200
+    assert [e["event"] for e in logs if e["log_level"] == "warning"] == ["discord_roles_unchecked"]
 
 
 def test_startup_fails_when_bot_token_is_another_application() -> None:

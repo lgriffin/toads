@@ -21,6 +21,7 @@ from hub_db import AuditEntry, Base, CredentialCipher, Member, WclCredential
 from pydantic import SecretStr
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlalchemy import func, select
+from structlog.testing import capture_logs
 from toads_api.discord_api import MismatchedDiscordApplicationError
 from toads_api.rbac import HubRole, UnknownDiscordRoleError
 from toads_api.rbac.deps import route_rules
@@ -142,6 +143,11 @@ def test_day_022() -> None:
 
 @_bind("hub_day.feature", 23)
 def test_day_023() -> None:
+    pass
+
+
+@_bind("hub_day.feature", 24)
+def test_day_024() -> None:
     pass
 
 
@@ -537,13 +543,35 @@ def client_id_differs(ctx: dict[str, Any]) -> None:
     assert ctx["hub"].services.settings.discord_client_id != ctx["hub"].fake.bot_application_id
 
 
+@given("Toad Bot has not been invited to the Discord server")
+def bot_not_in_server(ctx: dict[str, Any]) -> None:
+    ctx["hub"] = Hub()
+    ctx["hub"].fake.bot_in_server = False
+
+
 @when("the API starts")
 def api_starts(ctx: dict[str, Any]) -> None:
     try:
-        with ctx["hub"].client:
+        with capture_logs() as logs, ctx["hub"].client:
             ctx["error"] = None
+            ctx["health"] = ctx["hub"].client.get("/healthz").status_code
     except (UnknownDiscordRoleError, MismatchedDiscordApplicationError) as exc:
         ctx["error"] = exc
+    ctx["logs"] = logs
+
+
+@then("the API is up")
+def api_is_up(ctx: dict[str, Any]) -> None:
+    assert ctx["error"] is None
+    assert ctx["health"] == 200
+
+
+@then("it warns that the server's roles were not checked, naming TOADS_DISCORD_GUILD_ID")
+def warned_roles_unchecked(ctx: dict[str, Any]) -> None:
+    [warning] = [e for e in ctx["logs"] if e["event"] == "discord_roles_unchecked"]
+    assert warning["log_level"] == "warning"
+    assert "TOADS_DISCORD_GUILD_ID" in warning["hint"]
+    assert "HTTP 404" in warning["error"]
 
 
 @then("startup fails naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN")
