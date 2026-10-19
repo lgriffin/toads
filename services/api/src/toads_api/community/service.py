@@ -334,7 +334,8 @@ class CommunityService:
                 days=recruitment.MIN_DISCORD_ACCOUNT_AGE_DAYS
             )
             if ready > now:
-                raise Forbidden(
+                # 409 like the other "not yet" refusals; the recruit page reads 403 as "not in the Discord".
+                raise Conflict(
                     f"Your Discord account needs to be {recruitment.MIN_DISCORD_ACCOUNT_AGE_DAYS} days old to apply; "
                     f"try again on {ready:%d %B}"
                 )

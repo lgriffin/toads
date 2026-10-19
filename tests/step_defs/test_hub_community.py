@@ -440,14 +440,14 @@ def new_account_applies(world: World, days: int, day: str) -> None:
     repo = world.store.repo
     assert isinstance(repo, InMemoryCommunityRepository)
     repo.members[5] = MemberCard("Newtonian", discord_id_made(world.now - timedelta(days=days)))
-    with pytest.raises(Forbidden) as refused:
+    with pytest.raises(Conflict) as refused:
         world.store.apply(5, world.application(DAYS[day]))
     world.last = refused.value
 
 
-@then("the application is refused with 403 naming the day they can apply")
+@then("the application is refused with 409 naming the day they can apply")
 def refused_new_account(world: World) -> None:
-    assert world.last.status_code == 403
+    assert world.last.status_code == 409
     assert "01 October" in str(world.last)
 
 
