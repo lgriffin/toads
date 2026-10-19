@@ -24,8 +24,6 @@ def upgrade() -> None:
         sa.Column("summary", sa.JSON(), nullable=False),
         sa.Column("page", sa.JSON(), nullable=True),
         sa.Column("page_version", sa.Integer(), nullable=True),
-        sa.Column("page_hash", sa.String(64), nullable=True),
-        sa.Column("want_hash", sa.String(64), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_log_raids_raid_date", "log_raids", ["raid_date"])

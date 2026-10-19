@@ -337,7 +337,7 @@ Rules worth knowing:
   page, passes it on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
 - **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
-  `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions.
+  `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Sunday Toad, Tank, Healer, Damage or a class). Everyone
   holding the role wears the badge beside their name. Start by tying the Wednesday and Sunday raider roles. The rank
@@ -349,6 +349,10 @@ Rules worth knowing:
   (`view_absences`). Nothing to configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named
   "Wednesday" raids on Wednesdays). Notes are seen only by that night's officers. Not audited: an absence is a member's
   own word, not an officer action.
+- **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board on
+  the Raid page (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
+  admins (`MANAGE_OFFICER_BOARD`). Nothing to set up: a night's board appears with the night in
+  `config/raid_days.yaml`. Audited as `board.add`, `board.edit`, `board.move` and `board.remove`.
 - **Logs** ([docs/logs.md](docs/logs.md)): `/logs` lists every raid the sync has analysed, filtered by any mix of
   weekdays, zone and title, with the desktop app's raid analysis per raid and a boss history over the picked days.
   Each raider's own numbers are officers' only: a raid day's officers see the raids held on that day's weekday in full,

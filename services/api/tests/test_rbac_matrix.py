@@ -36,6 +36,7 @@ OFFICER_ONLY = {
     P.MANAGE_AWARDS,
     P.BUILD_COMPS,
     P.VIEW_ABSENCES,
+    P.MANAGE_OFFICER_BOARD,
 }
 
 # The build spec's table: which tier holds which permission on its own raid day.

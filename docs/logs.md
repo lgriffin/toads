@@ -19,7 +19,7 @@ the analyzer's contract, `guides/raid_pages.md` in lgriffin/warcraftlogs_project
 2. `PUT /api/worker/logs/{report}` sends one raid's analysis with its hash. A hash other than the one the latest list
    named is a late upload from an older run, refused with 409; the worker skips it and carries on.
 
-Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migration 0018).
+Both need the worker's service token. The hub-db tables are `log_raids` and `log_index` (migrations 0018 and 0020).
 
 ## Who sees what
 
