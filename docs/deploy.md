@@ -131,7 +131,7 @@ no session, so the bot must be in the server and `TOADS_DISCORD_GUILD_ID` must b
 ### Warcraft Logs
 
 Follow [admin guide section 2](../ADMIN_GUIDE.md#2-accounts-and-applications-to-create) to create the Warcraft Logs
-client.
+client. Once the site is up, [docs/logs-analysis.md](logs-analysis.md) turns on the guild's raid analysis.
 
 ## 5. Fill in the values only you have
 

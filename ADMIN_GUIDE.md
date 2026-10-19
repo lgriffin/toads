@@ -247,6 +247,8 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_RAID_SHEETS_CONFIG` | no | `config/raid_sheets.yaml` | Raid sheets file. |
 | `TOADS_HUB_REFRESH_MINUTES` | no | `30` | Scheduler: publish-home, publish-performance, publish-badges and publish-reference. `0` turns them off. |
 | `TOADS_SHEETS_REFRESH_MINUTES` | no | `360` | Scheduler: import-sheets, only when the sheets file exists. `0` turns it off. |
+| `TOADS_SYNC_REFRESH_MINUTES` | no | `60` | Scheduler: sync-guild, which analyses the guild's new Warcraft Logs reports. Off until `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_GUILD_ID` are set; `0` turns it off. [docs/logs-analysis.md](docs/logs-analysis.md) |
+| `TOADS_SYNC_BATCH` | no | `10` | The most reports one sync run imports, newest first; failed ones do not count. |
 
 ### Toad Bot (`services/bot/.env`, `toads-bot`)
 
@@ -352,8 +354,8 @@ Admin side:
 
 - Keys are encrypted at rest with `TOADS_CREDENTIALS_KEYS` (Fernet, in the `wcl_credentials` table), each bound to its
   member id. The API encrypts, the worker decrypts, so **both must hold the same value**.
-- The guild key is the worker's `TOADS_WCL_CLIENT_ID/SECRET`. Guild-wide jobs (the scheduler's publish jobs, sheet
-  imports) always use it.
+- The guild key is the worker's `TOADS_WCL_CLIENT_ID/SECRET`. Guild-wide jobs (the guild sync, the scheduler's publish jobs,
+  sheet imports) always use it.
 - Losing every key in `TOADS_CREDENTIALS_KEYS` makes stored member keys and the reference login unreadable. Members
   then fall back to the guild key and must save their keys again, and an officer must reconnect the reference login.
   Keep the keys with the other secrets and back them up. Rotation: [section 12](#12-rotating-secrets).
@@ -473,8 +475,9 @@ shows up after its first logged raid. Raid-day officers approve, reject or reass
 
 ### Refresh hub data by hand
 
-The scheduler does this every 30 minutes. To run a job now, in the worker image:
-`toads-worker publish-home`, `publish-performance`, `publish-badges`, `publish-reference` or `import-sheets`
+The scheduler does this every 30 minutes, and imports new guild reports every hour. To run a job now, in the worker
+image: `toads-worker sync`, `analyse <report code or URL>`, `publish-home`, `publish-performance`, `publish-badges`,
+`publish-reference` or `import-sheets`
 (for example `docker compose -f infra/docker-compose.yml run --rm worker toads-worker publish-home`).
 
 ### Deploy an update
@@ -486,6 +489,8 @@ changing an env file, or from Actions → Deploy → Run workflow to roll back (
 Migrations are numbered Alembic revisions; they run forwards only in normal operation.
 
 ### Bumping the analyzer
+
+Getting the analysis running on the server the first time: [docs/logs-analysis.md](docs/logs-analysis.md).
 
 The worker's analysis comes from lgriffin/warcraftlogs_project. To take a new analyzer version, change the `rev` of
 `wcl-core`, `wcl-store` and `wcl-app` in the root `pyproject.toml` together, run `uv lock`, open a PR, and run

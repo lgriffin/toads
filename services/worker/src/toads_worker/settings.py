@@ -27,3 +27,6 @@ class Settings(BaseSettings):
     # the raid sheets. 0 turns that job off.
     hub_refresh_minutes: int = Field(default=30, ge=0)
     sheets_refresh_minutes: int = Field(default=360, ge=0)
+    # The guild-report sync (jobs/sync.py): minutes between runs (0 turns it off) and the most reports one run imports.
+    sync_refresh_minutes: int = Field(default=60, ge=0)
+    sync_batch: int = Field(default=10, ge=1)

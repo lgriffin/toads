@@ -29,9 +29,10 @@ def _settings(tmp_path: Path, **overrides: object) -> Settings:
     return Settings(**values)
 
 
-def test_default_jobs_refresh_the_hub_every_half_hour(tmp_path: Path) -> None:
+def test_default_jobs_sync_hourly_and_refresh_the_hub_every_half_hour(tmp_path: Path) -> None:
     jobs = schedule.jobs_for(_settings(tmp_path))
     assert [(j.name, j.every_seconds) for j in jobs] == [
+        ("sync-guild", 3600.0),
         ("publish-home", 1800.0),
         ("publish-performance", 1800.0),
         ("publish-badges", 1800.0),
@@ -47,7 +48,13 @@ def test_sheets_are_imported_only_when_configured(tmp_path: Path) -> None:
 
 
 def test_zero_turns_a_job_off(tmp_path: Path) -> None:
-    assert schedule.jobs_for(_settings(tmp_path, hub_refresh_minutes=0)) == []
+    assert schedule.jobs_for(_settings(tmp_path, hub_refresh_minutes=0, sync_refresh_minutes=0)) == []
+    assert [j.name for j in schedule.jobs_for(_settings(tmp_path, hub_refresh_minutes=0))] == ["sync-guild"]
+
+
+def test_sync_waits_for_the_guild_key_and_id(tmp_path: Path) -> None:
+    for unset in ({"wcl_client_id": ""}, {"wcl_guild_id": 0}):
+        assert "sync-guild" not in [j.name for j in schedule.jobs_for(_settings(tmp_path, **unset))]
     with pytest.raises(RuntimeError, match="turned off"):
         schedule.run_forever([])
 
@@ -124,12 +131,14 @@ def default_scheduler(tmp_path: Path, ops: dict[str, Any], monkeypatch: pytest.M
     monkeypatch.setattr(schedule, "publish_performance", publisher("performance"))
     monkeypatch.setattr(schedule, "publish_badges", publisher("badges"))
     monkeypatch.setattr(schedule, "publish_reference_page", publisher("reference"))
+    monkeypatch.setattr(schedule, "sync_guild_reports", lambda _settings: {"imported": []})
     ops.update(jobs=schedule.jobs_for(_settings(tmp_path)), published=published, hub_up=hub_up)
 
 
 @when("the hub is down for the first run")
 def first_run_fails(ops: dict[str, Any]) -> None:
     assert schedule.run_due(ops["jobs"], 0.0) == [
+        "sync-guild",
         "publish-home",
         "publish-performance",
         "publish-badges",

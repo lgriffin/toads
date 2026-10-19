@@ -4,6 +4,8 @@ Runs in its own container (infra/docker-compose.yml, service `scheduler`) on the
 start, then again each interval. A job that fails is logged and tried again at its next turn; it never stops the
 others. Intervals come from the environment, and 0 turns a job off:
 
+- sync-guild: every TOADS_SYNC_REFRESH_MINUTES (default 60), first, so the publish jobs see the raids it imports;
+  only once TOADS_WCL_CLIENT_ID and TOADS_WCL_GUILD_ID are set
 - publish-home, publish-performance, publish-badges and publish-reference: every TOADS_HUB_REFRESH_MINUTES (default 30)
 - import-sheets: every TOADS_SHEETS_REFRESH_MINUTES (default 360), only when the raid sheets config exists
 """
@@ -21,6 +23,7 @@ from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
 from toads_worker.jobs.sheets import import_raid_sheets
+from toads_worker.jobs.sync import sync_guild_reports
 from toads_worker.settings import Settings
 
 log = structlog.get_logger(__name__)
@@ -41,6 +44,9 @@ class Job:
 def jobs_for(settings: Settings) -> list[Job]:
     """The jobs this environment turns on, in the order they run when due together."""
     jobs: list[Job] = []
+    # The sync needs the guild key and the guild's id; until both are set it stays off rather than fail every turn.
+    if settings.sync_refresh_minutes and settings.wcl_client_id and settings.wcl_guild_id > 0:
+        jobs.append(Job("sync-guild", settings.sync_refresh_minutes * 60.0, lambda: sync_guild_reports(settings)))
     if settings.hub_refresh_minutes:
         every = settings.hub_refresh_minutes * 60.0
         jobs.append(Job("publish-home", every, lambda: publish_home_page(settings)))
@@ -79,7 +85,9 @@ def run_forever(
 ) -> None:
     """Run the jobs on their intervals until `keep_going` answers False (tests only; the container runs forever)."""
     if not jobs:
-        raise RuntimeError("Every scheduled job is turned off; set TOADS_HUB_REFRESH_MINUTES or remove the scheduler")
+        raise RuntimeError(
+            "Every scheduled job is turned off; set TOADS_HUB_REFRESH_MINUTES or TOADS_SYNC_REFRESH_MINUTES"
+        )
     log.info("schedule.started", jobs={j.name: j.every_seconds for j in jobs})
     while keep_going():
         run_due(jobs, clock())
