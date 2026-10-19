@@ -40,6 +40,31 @@ def test_startup_survives_a_server_the_bot_cannot_read() -> None:
     assert [e["event"] for e in logs if e["log_level"] == "warning"] == ["discord_roles_unchecked"]
 
 
+def test_startup_survives_discord_not_answering() -> None:
+    hub = Hub()
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("unreachable", request=request)
+
+    hub.services.discord._http = httpx.AsyncClient(transport=httpx.MockTransport(unreachable))  # type: ignore[attr-defined]
+    with capture_logs() as logs, hub.client:
+        assert hub.client.get("/healthz").status_code == 200
+    warnings = [e["event"] for e in logs if e["log_level"] == "warning"]
+    assert warnings == ["discord_application_unchecked", "discord_roles_unchecked"]
+
+
+@pytest.mark.anyio
+async def test_role_listing_and_application_lookup_turn_dropped_connections_into_discord_errors() -> None:
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    discord = _discord(httpx.MockTransport(unreachable))
+    with pytest.raises(DiscordError, match="could not reach Discord"):
+        await discord.guild_role_ids()
+    with pytest.raises(DiscordError, match="could not reach Discord"):
+        await discord.bot_application_id()
+
+
 def test_startup_fails_when_bot_token_is_another_application() -> None:
     hub = Hub()
     hub.fake.bot_application_id = "999"

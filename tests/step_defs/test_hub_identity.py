@@ -571,6 +571,7 @@ def warned_roles_unchecked(ctx: dict[str, Any]) -> None:
     [warning] = [e for e in ctx["logs"] if e["event"] == "discord_roles_unchecked"]
     assert warning["log_level"] == "warning"
     assert "TOADS_DISCORD_GUILD_ID" in warning["hint"]
+    assert "https://discord.com/oauth2/authorize?client_id=toads-dev&" in warning["hint"]
     assert "HTTP 404" in warning["error"]
 
 
