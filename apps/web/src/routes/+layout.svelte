@@ -16,6 +16,7 @@
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
   import { LAUNCH_HOLD, heldNav, isMemberPath, launchHold } from '$lib/launch';
+  import { setMe } from '$lib/me-context';
   import ComingSoon from '$lib/components/ComingSoon.svelte';
   import ForeverNotice from '$lib/components/ForeverNotice.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
@@ -82,6 +83,8 @@
       ? { name: 'Hopscotch', tier, username: 'hopscotch', titles, roleBadges, className: 'Rogue', role: 'Melee' as const }
       : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles, roleBadges }
   );
+  // Pages that show the member's toads (/me) read these facts, so they match the header.
+  setMe(() => me);
   let isHubHome = $derived(path === '/hub' || path === '/hub/');
   let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 

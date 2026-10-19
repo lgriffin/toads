@@ -83,3 +83,9 @@ Feature: HUB AWARD
     And the super admin unties the "sunday-toad" badge from the "Sunday Toad" role
     Then the raider has no role badges
     And the audit log records "role_badge.remove"
+
+  @ears_ubiquitous @member @phase_2_7
+  Scenario: REQ-HUB-AWARD-010 A member's own page shall show the toads the header shows beside their name, rank, member toad and role badges included, as badges ahead of their awards
+    Given the member's own page
+    Then its heading wears the same toads as the header
+    And its "Your toads" card shows each of those toads as a badge ahead of the awards

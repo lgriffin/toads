@@ -2,13 +2,12 @@
   import { base } from '$app/paths';
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
-  import { titlesOf } from '$lib/awards';
   import { previewAwardsOf } from './awards-fake';
   import { previewBadges } from '$lib/mock/badges';
   import MemberToads from '$lib/components/MemberToads.svelte';
+  import { getMe } from '$lib/me-context';
   import { me } from '$lib/mock/data';
-  import { previewSession } from './session.svelte';
-  import type { Tier } from '$lib/access';
+  import { memberToads } from '$lib/toads';
   import TrendChart from './TrendChart.svelte';
 
   const MIN_RAIDS = 3;
@@ -19,11 +18,13 @@
   const awards = previewAwardsOf(1);
   // The spec reads 'Combat Rogue': the class is its last word.
   let className = $derived(character.spec.split(' ').at(-1));
-  const TIERS: Record<string, Tier> = { member: 'raider', officer: 'officer', admin: 'admin' };
-  let tier = $derived(TIERS[previewSession.role ?? 'member'] ?? 'raider');
+  // The header's toads (rank, member, titles, role badges), with the class and role of the character picked here.
+  const signedIn = getMe();
+  let facts = $derived({ ...signedIn(), className, role: character.role });
+  let toads = $derived(memberToads(facts));
 </script>
 
-<h1>Your performance <MemberToads {tier} username="hopscotch" titles={titlesOf(awards)} {className} role={character.role} size={40} /></h1>
+<h1>Your performance <MemberToads {...facts} size={40} /></h1>
 
 <div class="chars">
   {#each me.characters as c}
@@ -69,7 +70,7 @@
     </table>
   </section>
 
-  <div class="wide"><AwardsCard {awards} /></div>
+  <div class="wide"><AwardsCard {awards} {toads} /></div>
 
   <div class="wide"><BadgesCard mine={previewBadges} /></div>
 
