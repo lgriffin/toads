@@ -27,3 +27,9 @@ Feature: HUB CLAIM
       | approve  | approved                        |
       | reject   | rejected with the reason        |
       | reassign | approved for the other member   |
+
+  @ears_event_driven @member @phase_2_2
+  Scenario: REQ-HUB-CLAIM-004 When a signed-in member searches for a character by name, the hub shall list the matching characters seen in the guild's logs, so a claim never asks for an id or for who the member is
+    Given a Wednesday raider signed in with server nickname "Hops"
+    When they search for characters named "scotch"
+    Then they are offered "Hopscotch" and "Höpscotch"

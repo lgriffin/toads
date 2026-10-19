@@ -86,6 +86,11 @@ def test_claim_003() -> None:
     pass
 
 
+@_bind("hub_claim.feature", 4)
+def test_claim_004() -> None:
+    pass
+
+
 @_bind("hub_priv.feature", 3)
 def test_priv_003() -> None:
     pass
@@ -291,6 +296,18 @@ def claim(hub: Hub, ctx: dict[str, Any], name: str) -> None:
     r = hub.post("/api/claims", ctx["sid"], {"character_id": _character(hub, name)})
     assert r.status_code == 201, r.text
     ctx["claim"] = r.json()
+
+
+@when(parsers.parse('they search for characters named "{query}"'))
+def search(hub: Hub, ctx: dict[str, Any], query: str) -> None:
+    r = hub.get(f"/api/characters?q={query}", ctx["sid"])
+    assert r.status_code == 200, r.text
+    ctx["found"] = [c["name"] for c in r.json()]
+
+
+@then(parsers.parse('they are offered "{first}" and "{second}"'))
+def offered(ctx: dict[str, Any], first: str, second: str) -> None:
+    assert ctx["found"] == [first, second]
 
 
 @then("the claim is approved")
