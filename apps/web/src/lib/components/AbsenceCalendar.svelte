@@ -39,9 +39,19 @@
   const weeks = $derived(monthGrid(shown.getFullYear(), shown.getMonth(), today, teams, mine));
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  // The form opens on the next raid night of the member's first team, so a single night is one click away.
   $effect(() => {
-    if (!team && teams.length) team = teams[0].id;
+    if (team || !teams.length) return;
+    team = teams[0].id;
+    const next = nextNight(teams[0].weekday);
+    first = next;
+    last = next;
   });
+
+  function nextNight(weekday: number | null): string {
+    if (weekday === null) return today;
+    return isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((weekday - now.getDay() + 7) % 7)));
+  }
 
   async function load() {
     try {
@@ -130,8 +140,10 @@
           {#each weeks as week, i (i)}
             <tr>
               {#each week as d (d.date)}
-                <td class:out={!d.inMonth} class:past={d.past} class:raid={d.raids.length > 0} class:away={d.away.length > 0} class:today={d.date === today}>
-                  {#if d.raids.length && !d.past}
+                <td class:out={!d.inMonth} class:past={d.past} class:raid={d.inMonth && d.raids.length > 0} class:away={d.inMonth && d.away.length > 0} class:today={d.date === today}>
+                  {#if !d.inMonth}
+                    <span class="cell" aria-hidden="true"></span>
+                  {:else if d.raids.length && !d.past}
                     <button type="button" class="cell" aria-label="{cellLabel(d)}. Report an absence" onclick={() => pick(d.date, d.raids[0])}>
                       <span class="num">{d.day}</span>
                       <span class="tag">{d.away.length ? 'Away' : d.raids.map((r) => dayName(r, raidDays.names).slice(0, 3)).join(' ')}</span>
@@ -149,8 +161,9 @@
         </tbody>
       </table>
       <p class="hint key">
-        <span class="swatch raid"></span> your raid nights <span class="swatch away"></span> nights you will miss. Pick a raid
-        night to report it.
+        <span><span class="swatch raid"></span> your raid nights</span>
+        <span><span class="swatch away"></span> nights you will miss</span>
+        <span>Pick a raid night to report it.</span>
       </p>
     </section>
 
@@ -213,10 +226,10 @@
   .layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 56rem) { .layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
   .card { display: grid; gap: 0.75rem; }
-  .card + .card, .layout + .card { margin-top: 1rem; }
+  .layout + .card { margin-top: 1rem; }
   .empty { max-width: 40rem; }
   .month-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; }
-  .month-head h2 { margin: 0; text-align: center; font-family: 'Cinzel', Georgia, serif; color: var(--bronze-hi); }
+  .month-head h2 { text-align: center; }
   .month-head .btn { padding: 0.25rem 0.7rem; font-size: 1.2rem; line-height: 1; }
   .grid-month { table-layout: fixed; }
   .grid-month th { text-align: center; font-size: 0.8rem; padding: 0.3rem 0; }
@@ -238,19 +251,20 @@
   button.cell { cursor: pointer; }
   .num { font-variant-numeric: tabular-nums; }
   .tag { font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase; }
-  .out .cell { opacity: 0.35; }
-  .past .cell { opacity: 0.5; }
+  .past .num, .past .tag { color: var(--muted); }
+  .past.raid .cell { background: none; border-style: dashed; }
   .today .num { color: var(--teal); font-weight: 700; }
   .raid .cell { background: rgb(217 168 90 / 0.14); border-color: rgb(217 168 90 / 0.45); }
   .raid .tag { color: var(--bronze-hi); }
   .away .cell { background: rgb(224 106 95 / 0.16); border-color: rgb(224 106 95 / 0.6); }
   .away .tag { color: #f0a39c; }
   button.cell:hover { border-color: var(--teal); }
-  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0; }
+  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 1rem; margin: 0; }
+  .key > span { display: inline-flex; align-items: center; gap: 0.35rem; }
   .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; }
   .swatch.raid { background: rgb(217 168 90 / 0.45); }
-  .swatch.away { background: rgb(224 106 95 / 0.6); margin-left: 0.6rem; }
-  .report h2, .card h2 { margin: 0; }
+  .swatch.away { background: rgb(224 106 95 / 0.6); }
+  .card h2 { margin: 0; font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--bronze-hi); letter-spacing: 0.03em; }
   .report p { margin: 0; }
   .dates { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report .btn { justify-self: start; }

@@ -46,7 +46,7 @@ test('the nav splits public and member pages', async ({ page }) => {
   const guild = page.getByRole('navigation', { name: 'Guild' });
   await expect(guild.getByRole('link')).toHaveText(['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']);
   const members = page.getByRole('navigation', { name: 'Members' });
-  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raids & Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
+  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Calendar', 'Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
   await members.getByRole('link', { name: 'Hub' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
   await expect(members.getByRole('link', { name: 'Hub' })).toHaveAttribute('aria-current', 'page');
@@ -118,7 +118,7 @@ test('the hub draws the analyzer widgets from their shared payloads', async ({ p
   await expect(damage.getByRole('row')).toHaveCount(6);
   const recent = page.getByRole('region', { name: 'Recent raids' });
   await recent.getByRole('link').first().click();
-  await expect(page).toHaveURL(/\/toads\/raids\/[a-z]+-\d{4}\/$/);
+  await expect(page).toHaveURL(/\/toads\/logs\/[a-z]+-\d{4}\/$/);
 });
 
 test('raid leaders see the roster\'s badges and members their own', async ({ page }) => {

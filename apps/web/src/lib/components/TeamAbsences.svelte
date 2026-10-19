@@ -3,7 +3,9 @@
 
   // A raid day's upcoming nights and who has said they will miss each one, for that day's officers. The API refuses
   // anyone else (view_absences on the day in the path); pages only show this to officers.
-  let { backend, day, name }: { backend: AbsencesBackend; day: string; name: string } = $props();
+  // `heading` false leaves the title to the surrounding section (the Calendar's own "Team absences").
+  let { backend, day, name, heading = true }: { backend: AbsencesBackend; day: string; name: string; heading?: boolean } =
+    $props();
 
   let team = $state<TeamAbsences | null>(null);
   let error = $state('');
@@ -27,8 +29,8 @@
   );
 </script>
 
-<section class="team" aria-labelledby="team-{day}-h">
-  <h3 id="team-{day}-h">{name} absences</h3>
+<section class="team" aria-labelledby={heading ? `team-${day}-h` : undefined} aria-label={heading ? undefined : `${name} absences`}>
+  {#if heading}<h3 id="team-{day}-h">{name} absences</h3>{/if}
   {#if error}
     <p class="err" role="alert">{error}</p>
   {:else if !team}
@@ -68,7 +70,7 @@
 
 <style>
   .team { display: grid; gap: 0.75rem; }
-  h3 { font-size: 1.15rem; }
+  h3 { font-size: 1.15rem; margin: 0; }
   h4 { margin: 0.5rem 0 0; font-size: 1rem; color: var(--muted); font-weight: 500; }
   .nights, .later, .who { list-style: none; margin: 0; padding: 0; }
   .nights > li {

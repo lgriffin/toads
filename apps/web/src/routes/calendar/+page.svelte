@@ -1,4 +1,6 @@
 <script lang="ts">
+  import '@fontsource/alegreya-sans/400.css';
+  import '@fontsource/alegreya-sans/700.css';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
   import { dayName, hubAbsences, raidDaysOf } from '$lib/absences';
@@ -22,6 +24,7 @@
 
 <svelte:head><title>Calendar · Toads</title></svelte:head>
 
+<div class="calendar">
 <h1>Calendar</h1>
 <p class="lede muted">Your raid nights, and the ones you cannot make. Tell the officers here instead of in a Discord thread.</p>
 
@@ -37,12 +40,15 @@
         <DaySwitch days={raidDays.officerDays} names={raidDays.names} bind:value={() => teamDay, (v) => (picked = v)} label="Team" />
       </div>
       <p class="muted">Everyone on {dayName(teamDay, raidDays.names)} who has said they will miss a night, for its officers.</p>
-      <TeamAbsences {backend} day={teamDay} name={dayName(teamDay, raidDays.names)} />
+      <TeamAbsences {backend} day={teamDay} name={dayName(teamDay, raidDays.names)} heading={false} />
     </section>
   {/if}
 {/if}
+</div>
 
 <style>
+  .calendar { font-family: 'Alegreya Sans', system-ui, sans-serif; font-size: 1.05rem; }
+  .calendar :global(h2) { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--bronze-hi); letter-spacing: 0.03em; }
   h1 { font-family: 'Cinzel', Georgia, serif; color: var(--bronze-hi); letter-spacing: 0.04em; }
   .lede { margin: -0.5rem 0 1.25rem; max-width: 62ch; }
   .officers { margin-top: 1rem; display: grid; gap: 0.75rem; }

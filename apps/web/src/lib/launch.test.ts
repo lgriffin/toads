@@ -4,19 +4,26 @@ import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, 
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
-    for (const path of ['/hub', '/raids/42', '/bank/', '/me/claim', '/welcome', '/highlights'])
+    for (const path of ['/hub', '/logs/42', '/bank/', '/me/claim', '/welcome', '/highlights'])
       expect(launchHold(path, 'raider', true)).toBe('coming-soon');
   });
 
+  it('opens the Raid page and the Calendar to every signed-in tier', () => {
+    for (const tier of ['raider', 'officer', 'admin'] as const)
+      for (const path of ['/raid', '/raid/', '/calendar', '/calendar/']) expect(launchHold(path, tier, true)).toBe('open');
+    expect(launchHold('/raids', 'raider', true)).toBe('open');
+  });
+
   it('gives officers the Forever launch notice on every tab but their console, which stays open', () => {
-    for (const item of memberNav(true).filter((i) => i.href !== '/officers'))
+    const open = ['/officers', '/raid', '/calendar'];
+    for (const item of memberNav(true).filter((i) => !open.includes(i.href)))
       expect(launchHold(item.href, 'officer', true)).toBe('forever-notice');
     for (const path of ['/officers', '/officers/', '/officers/reference']) expect(launchHold(path, 'officer', true)).toBe('open');
     expect(launchHold('/officers', 'raider', true)).toBe('coming-soon');
   });
 
   it('gives super admins exactly the officers\' view, with the Admin console open', () => {
-    for (const path of ['/hub', '/raids', '/highlights', '/bank', '/me', '/me/claim', '/welcome'])
+    for (const path of ['/hub', '/logs', '/raid', '/calendar', '/highlights', '/bank', '/me', '/me/claim', '/welcome'])
       expect(launchHold(path, 'admin', true)).toBe(launchHold(path, 'officer', true));
     expect(launchHold('/me', 'admin', true)).toBe('forever-notice');
     expect(launchHold('/officers', 'admin', true)).toBe('open');
@@ -36,8 +43,8 @@ describe('launch hold', () => {
     expect(launchHold('/officers', 'officer', false)).toBe('open');
   });
 
-  it('shows raiders a single member link and leaves other tiers their tabs', () => {
-    expect(heldNav(memberNav(false), 'raider', true).map((i) => i.href)).toEqual(['/hub']);
+  it('shows raiders the hub, Raid and Calendar links and leaves other tiers their tabs', () => {
+    expect(heldNav(memberNav(false), 'raider', true).map((i) => i.href)).toEqual(['/hub', '/raid', '/calendar']);
     expect(heldNav(memberNav(true), 'officer', true)).toEqual(memberNav(true));
     expect(heldNav(memberNav(false), 'raider', false)).toEqual(memberNav(false));
   });
