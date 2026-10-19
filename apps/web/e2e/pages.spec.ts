@@ -143,3 +143,15 @@ test('a member places the flasks widget and sees who came prepared', async ({ pa
   await expect(flasks.getByRole('row', { name: /Croakwell/ })).toContainText('None');
   await expect(flasks.getByRole('row', { name: /Hopscotch/ })).toContainText('Flask of Relentless Assault');
 });
+
+test('the tab shows the toad icon, and every icon file loads under the base path', async ({ page, request }) => {
+  await page.goto('./');
+  const hrefs = await page.locator('link[rel="icon"], link[rel="apple-touch-icon"]').evaluateAll((links) =>
+    links.map((link) => (link as HTMLLinkElement).href)
+  );
+  expect(hrefs).toHaveLength(3);
+  for (const href of hrefs) {
+    expect(href).toContain('/toads/');
+    expect((await request.get(href)).status()).toBe(200);
+  }
+});

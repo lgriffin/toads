@@ -335,3 +335,32 @@ def public_site_open() -> None:
     layout = _read("routes/+layout.svelte")
     assert "{#each PUBLIC_NAV as item}" in layout
     assert "isHeldPublic" not in layout
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-008 Every page shall show The Regular toad as its browser tab icon, as an SVG with an ICO fallback "
+    "and a home-screen icon",
+)
+def test_tab_icon() -> None:
+    pass
+
+
+@given("the page shell", target_fixture="shell")
+def shell() -> str:
+    return _read("app.html")
+
+
+@then("it links the toad as an SVG icon, an ICO icon and an Apple touch icon under the site's asset path")
+def icon_links(shell: str) -> None:
+    assert '<link rel="icon" href="%sveltekit.assets%/favicon.ico" sizes="32x32" />' in shell
+    assert '<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />' in shell
+    assert '<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />' in shell
+
+
+@then("the SVG icon is The Regular toad from the logo set and the icon files are in the web app's static folder")
+def icon_files() -> None:
+    static = WEB.parent / "static"
+    assert (static / "favicon.svg").read_bytes() == (static / "logos" / "01-the-regular.svg").read_bytes()
+    assert (static / "favicon.ico").read_bytes()[:4] == b"\x00\x00\x01\x00"
+    assert (static / "apple-touch-icon.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
