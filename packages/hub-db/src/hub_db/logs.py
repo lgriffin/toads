@@ -32,6 +32,10 @@ class LogRaid(Base):
     # RaidPage.to_dict(); None until the worker has sent it.
     page: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     page_version: Mapped[int | None] = mapped_column(Integer)
+    # The worker's hash of the stored analysis, and of the one its latest list built: they differ while the hub waits
+    # for a rebuilt analysis (an analyzer fix, a re-imported report).
+    page_hash: Mapped[str | None] = mapped_column(String(64))
+    want_hash: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

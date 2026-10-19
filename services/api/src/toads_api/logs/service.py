@@ -128,28 +128,52 @@ class LogService:
         return RaidView(full, stored.page if full else overview_of(stored.page))
 
     def publish_index(
-        self, version: int, generated_at: str, raids: Sequence[dict[str, Any]], bosses: list[dict[str, Any]]
+        self,
+        version: int,
+        generated_at: str,
+        raids: Sequence[dict[str, Any]],
+        bosses: list[dict[str, Any]],
+        hashes: Mapping[str, str] | None = None,
     ) -> list[str]:
-        """Store the worker's list and boss history. Returns the raids whose analysis the hub still needs, newest
-        first."""
+        """Store the worker's list and boss history. `hashes` are the worker's hashes of the analyses it built, by
+        raid; a raid it could not read keeps the analysis held for it. Returns the raids whose analysis the hub still
+        needs (none held, an older version, or another build), newest first."""
         if version != PAGE_VERSION:
             raise LogError(f"This hub reads raid pages version {PAGE_VERSION}, not {version}", 422)
-        lines = [RaidLine(str(r["report_id"]), str(r.get("raid_date") or ""), r.get("weekday"), dict(r)) for r in raids]
+        hashes = hashes or {}
+        lines = [
+            RaidLine(
+                str(r["report_id"]),
+                str(r.get("raid_date") or ""),
+                r.get("weekday"),
+                dict(r),
+                want_hash=hashes.get(str(r["report_id"])),
+            )
+            for r in raids
+        ]
         if len({line.report_id for line in lines}) != len(lines):
             raise LogError("A raid is listed twice", 422)
-        held = self._repo.index()
-        if held is not None and generated_at < held.generated_at:
+        if not self._repo.replace_index(generated_at, bosses, lines):
             # Two workers overlapping: the older build never replaces the newer one.
             raise LogError("A newer list is already stored", 409)
-        self._repo.replace_index(generated_at, bosses, lines)
-        missing = [line.report_id for line in self._repo.raids() if line.page_version != PAGE_VERSION]
+        missing = [line.report_id for line in self._repo.raids() if _wanted(line)]
         return missing[:MAX_MISSING]
 
-    def publish_page(self, report_id: str, page: dict[str, Any]) -> None:
+    def publish_page(self, report_id: str, page: dict[str, Any], page_hash: str) -> None:
         version = page.get("version")
         if version != PAGE_VERSION:
             raise LogError(f"This hub reads raid pages version {PAGE_VERSION}, not {version}", 422)
         if (page.get("summary") or {}).get("report_id") != report_id:
             raise LogError("The page is for another raid", 422)
-        if not self._repo.save_page(report_id, PAGE_VERSION, page):
+        saved = self._repo.save_page(report_id, PAGE_VERSION, page, page_hash)
+        if saved == "unlisted":
             raise LogError("This raid is not in the list; send the list first", 404)
+        if saved == "superseded":
+            raise LogError("A newer list wants another build of this raid", 409)
+
+
+def _wanted(line: RaidLine) -> bool:
+    """The hub has no current analysis for this raid: none, an older version, or not the build the list wants."""
+    if line.page_version != PAGE_VERSION:
+        return True
+    return line.want_hash is not None and line.page_hash != line.want_hash

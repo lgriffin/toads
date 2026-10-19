@@ -219,7 +219,8 @@ def no_passwords(hub: Hub) -> None:
     paths = [r.path for r in rules] + public
     assert not [p for p in paths if re.search("password|register|signup", p, re.I)]
     # Officer tokens (docs/admin.md) are kept as hashes, but they grant bank permissions once and never sign anyone in.
-    not_sign_in = {("bank_grant_tokens", "token_hash")}
+    # Logs pages (docs/logs.md) keep the worker's content hashes of each raid's analysis, which are not secrets at all.
+    not_sign_in = {("bank_grant_tokens", "token_hash"), ("log_raids", "page_hash"), ("log_raids", "want_hash")}
     columns = [(t.name, c.name) for t in Base.metadata.tables.values() for c in t.columns]
     assert not [c for c in columns if ("password" in c[1] or "hash" in c[1]) and c not in not_sign_in]
 

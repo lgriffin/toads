@@ -68,10 +68,19 @@ def people() -> dict[str, Any]:
 @given(parsers.parse('the worker has published a Wednesday raid "{wed}" and a Thursday raid "{thu}"'))
 def published(hub: Hub, wed: str, thu: str) -> None:
     raids = [(wed, WEEKDAYS["Wednesday"]), (thu, WEEKDAYS["Thursday"])]
-    index = {"version": 1, "generated_at": "2026-10-19 08:00:00", "raids": [_summary(*r) for r in raids], "bosses": []}
+    # Any 64-hex hash per build; the hub only compares them.
+    hashes = {report: f"{i:064x}" for i, (report, _) in enumerate(raids)}
+    index = {
+        "version": 1,
+        "generated_at": "2026-10-19 08:00:00",
+        "raids": [_summary(*r) for r in raids],
+        "bosses": [],
+        "hashes": hashes,
+    }
     assert hub.client.put("/api/worker/logs", headers=WORKER, json=index).status_code == 200
     for report, weekday in raids:
-        r = hub.client.put(f"/api/worker/logs/{report}", headers=WORKER, json={"page": _page(report, weekday)})
+        body = {"page": _page(report, weekday), "hash": hashes[report]}
+        r = hub.client.put(f"/api/worker/logs/{report}", headers=WORKER, json=body)
         assert r.status_code == 200, r.text
 
 

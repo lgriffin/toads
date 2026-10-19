@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import pytest
@@ -51,6 +52,10 @@ def _page(report_id: str, weekday: int | None = WEDNESDAY) -> dict[str, Any]:
     }
 
 
+def _hash(report_id: str, build: int = 1) -> str:
+    return hashlib.sha256(f"{report_id}:{build}".encode()).hexdigest()
+
+
 def _boss() -> dict[str, Any]:
     day = {"kills": 1, "duration_ms": 300_000, "damage": 9000, "healing": 4000, "players": [{"name": "Hopscotch"}]}
     return {"encounter_id": 623, "name": "Hydross", "days": {str(WEDNESDAY): day, str(THURSDAY): dict(day)}}
@@ -58,9 +63,9 @@ def _boss() -> dict[str, Any]:
 
 def _service(*raids: tuple[str, int | None]) -> LogService:
     svc = LogService(InMemoryLogRepository(), WEEKDAYS)
-    svc.publish_index(1, GENERATED, [_summary(r, w) for r, w in raids], [_boss()])
+    svc.publish_index(1, GENERATED, [_summary(r, w) for r, w in raids], [_boss()], {r: _hash(r) for r, _ in raids})
     for r, w in raids:
-        svc.publish_page(r, _page(r, w))
+        svc.publish_page(r, _page(r, w), _hash(r))
     return svc
 
 
@@ -115,13 +120,34 @@ def test_the_worker_is_asked_only_for_missing_analysis() -> None:
     svc = LogService(InMemoryLogRepository(), WEEKDAYS)
     many = [_summary(f"r{i:03d}", WEDNESDAY, f"2026-10-{1 + i % 28:02d} 19:30:00") for i in range(MAX_MISSING + 5)]
     assert len(svc.publish_index(1, GENERATED, many, [])) == MAX_MISSING
-    svc.publish_page("r000", _page("r000"))
+    svc.publish_page("r000", _page("r000"), _hash("r000"))
     assert "r000" not in svc.publish_index(1, GENERATED, many, [])
     # A raid gone from the analyzer leaves the list with its analysis.
     assert svc.publish_index(1, GENERATED, many[1:2], []) == ["r001"]
     with pytest.raises(LogError) as gone:
         svc.raid("r000", Viewer(everything=True))
     assert gone.value.status == 404
+
+
+def test_a_rebuilt_analysis_is_asked_for_and_an_older_build_refused() -> None:
+    svc = _service(("wedraid", WEDNESDAY))
+    raids = [_summary("wedraid", WEDNESDAY)]
+    assert svc.publish_index(1, GENERATED, raids, [], {"wedraid": _hash("wedraid")}) == []
+    # An analyzer fix or a re-imported report changes the build: the hub asks for it again.
+    assert svc.publish_index(1, GENERATED, raids, [], {"wedraid": _hash("wedraid", 2)}) == ["wedraid"]
+    # A late upload from the older run is refused rather than replacing the wanted build.
+    with pytest.raises(LogError) as late:
+        svc.publish_page("wedraid", _page("wedraid"), _hash("wedraid"))
+    assert late.value.status == 409
+    svc.publish_page("wedraid", _page("wedraid"), _hash("wedraid", 2))
+    assert svc.publish_index(1, GENERATED, raids, [], {"wedraid": _hash("wedraid", 2)}) == []
+
+
+def test_a_raid_the_worker_could_not_read_keeps_its_analysis() -> None:
+    svc = _service(("wedraid", WEDNESDAY))
+    # Listed without a hash: still listed, its analysis still served, and not asked for.
+    assert svc.publish_index(1, GENERATED, [_summary("wedraid", WEDNESDAY)], []) == []
+    assert svc.raid("wedraid", Viewer(everything=True)).page["melee"]
 
 
 @pytest.mark.parametrize(
@@ -134,7 +160,7 @@ def test_the_worker_is_asked_only_for_missing_analysis() -> None:
 def test_pages_must_match_the_contract_and_the_raid(change: Any, status: int) -> None:
     svc = _service(("wedraid", WEDNESDAY))
     with pytest.raises(LogError) as refused:
-        svc.publish_page("wedraid", change(_page("wedraid")))
+        svc.publish_page("wedraid", change(_page("wedraid")), _hash("wedraid"))
     assert refused.value.status == status
 
 
@@ -149,7 +175,7 @@ def test_lists_must_match_the_contract_and_be_newest() -> None:
             svc.publish_index(*args)
         assert refused.value.status == status
     with pytest.raises(LogError) as unknown:
-        svc.publish_page("unlisted", _page("unlisted"))
+        svc.publish_page("unlisted", _page("unlisted"), _hash("unlisted"))
     assert unknown.value.status == 404
 
 
@@ -162,13 +188,38 @@ def _publish(hub: Hub) -> None:
         "generated_at": GENERATED,
         "raids": [_summary("wedraid", WEDNESDAY), _summary("thuraid", THURSDAY, "2026-10-15 19:30:00")],
         "bosses": [_boss()],
+        "hashes": {"wedraid": _hash("wedraid"), "thuraid": _hash("thuraid")},
     }
     r = hub.client.put("/api/worker/logs", headers=WORKER, json=index)
     assert r.status_code == 200, r.text
     assert r.json() == {"raids": 2, "missing": ["thuraid", "wedraid"]}
     for report, weekday in (("wedraid", WEDNESDAY), ("thuraid", THURSDAY)):
-        r = hub.client.put(f"/api/worker/logs/{report}", headers=WORKER, json={"page": _page(report, weekday)})
+        body = {"page": _page(report, weekday), "hash": _hash(report)}
+        r = hub.client.put(f"/api/worker/logs/{report}", headers=WORKER, json=body)
         assert r.status_code == 200, r.text
+
+
+def test_the_stored_analysis_follows_the_worker_s_latest_build(hub: Hub) -> None:
+    _publish(hub)
+    later = {
+        "version": 1,
+        "generated_at": "2026-10-19 09:00:00",
+        "raids": [_summary("wedraid", WEDNESDAY)],
+        "bosses": [],
+        "hashes": {"wedraid": _hash("wedraid", 2)},
+    }
+    r = hub.client.put("/api/worker/logs", headers=WORKER, json=later)
+    assert r.json() == {"raids": 1, "missing": ["wedraid"]}
+    stale = {"page": _page("wedraid"), "hash": _hash("wedraid")}
+    assert hub.client.put("/api/worker/logs/wedraid", headers=WORKER, json=stale).status_code == 409
+    fresh = {"page": _page("wedraid"), "hash": _hash("wedraid", 2)}
+    assert hub.client.put("/api/worker/logs/wedraid", headers=WORKER, json=fresh).status_code == 200
+    # An older run's list arriving late changes nothing.
+    older = {**later, "generated_at": GENERATED, "raids": [], "hashes": {}}
+    assert hub.client.put("/api/worker/logs", headers=WORKER, json=older).status_code == 409
+    sid = hub.login(hub.user(("global", "officer")))
+    assert [r["summary"]["report_id"] for r in hub.get("/api/logs", sid).json()["raids"]] == ["wedraid"]
+    assert hub.get("/api/logs/wedraid", sid).json()["full"]
 
 
 def test_a_member_lists_raids_and_opens_the_overview(hub: Hub) -> None:
@@ -207,10 +258,16 @@ def test_only_the_worker_publishes_logs_and_only_members_read_them(hub: Hub) -> 
     body = {"version": 1, "generated_at": GENERATED, "raids": [], "bosses": []}
     assert hub.client.put("/api/worker/logs", json=body).status_code == 401
     assert hub.client.put("/api/worker/logs", headers=hub.as_(sid), json=body).status_code == 401
-    assert hub.client.put("/api/worker/logs/wedraid", headers=hub.as_(sid), json={"page": {}}).status_code == 401
+    assert (
+        hub.client.put(
+            "/api/worker/logs/wedraid", headers=hub.as_(sid), json={"page": {}, "hash": _hash("x")}
+        ).status_code
+        == 401
+    )
     assert hub.get("/api/logs", None).status_code == 401
     assert hub.get("/api/logs/wedraid", None).status_code == 401
     # Report ids are Warcraft Logs codes; anything else never reaches storage.
     assert hub.get("/api/logs/..%2Fetc", sid).status_code in (404, 422)
     bad = {**body, "raids": [_summary("not/a/code", WEDNESDAY)]}
     assert hub.client.put("/api/worker/logs", headers=WORKER, json=bad).status_code == 422
+    assert hub.client.put("/api/worker/logs", headers=WORKER, json={**body, "hashes": {"a": "nope"}}).status_code == 422

@@ -1,7 +1,7 @@
 """The Logs page: stored raids with their analysis, and the boss history
 
-Revision ID: 0017
-Revises: 0016
+Revision ID: 0018
+Revises: 0017
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0017"
-down_revision = "0016"
+revision = "0018"
+down_revision = "0017"
 branch_labels = None
 depends_on = None
 
@@ -24,6 +24,8 @@ def upgrade() -> None:
         sa.Column("summary", sa.JSON(), nullable=False),
         sa.Column("page", sa.JSON(), nullable=True),
         sa.Column("page_version", sa.Integer(), nullable=True),
+        sa.Column("page_hash", sa.String(64), nullable=True),
+        sa.Column("want_hash", sa.String(64), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_log_raids_raid_date", "log_raids", ["raid_date"])
