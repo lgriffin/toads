@@ -2,24 +2,29 @@
   import { base } from '$app/paths';
   import { memberToads, toadSrc, type MemberFacts } from '$lib/toads';
 
-  // The toads a member has earned: rank, class and role, side by side. Decorative next to a name, so each carries its
-  // meaning as a tooltip and as the list's text for screen readers.
+  // The toads a member has earned: rank, titles, class and role, side by side. Each image says what it stands for in
+  // its alt text and tooltip. Kept out of lists and labels on purpose: it sits in headings and the header, where an
+  // extra list or label would change what those read as.
   let { size = 28, ...facts }: MemberFacts & { size?: number } = $props();
   const toads = $derived(memberToads(facts));
 </script>
 
 {#if toads.length}
-  <ul class="toads" aria-label="Rank, class and role">
+  <span class="toads">
     {#each toads as t (t.id)}
-      <li title={t.label}>
-        <img src={toadSrc(base, t)} alt="" width={size} height={Math.round(size * 0.875)} loading="lazy" />
-        <span class="sr-only">{t.label}</span>
-      </li>
+      <img
+        src={toadSrc(base, t)}
+        alt={t.label}
+        title={t.label}
+        width={size}
+        height={Math.round(size * 0.875)}
+        loading="lazy"
+      />
     {/each}
-  </ul>
+  </span>
 {/if}
 
 <style>
-  .toads { display: inline-flex; gap: 0.15rem; margin: 0; padding: 0; list-style: none; vertical-align: middle; }
+  .toads { display: inline-flex; gap: 0.15rem; vertical-align: middle; }
   img { display: block; height: auto; }
 </style>

@@ -58,6 +58,8 @@ class Application(Base):
     class_name: Mapped[str] = mapped_column(String(20))
     spec: Mapped[str] = mapped_column(String(30))
     role: Mapped[str] = mapped_column(String(8))
+    secondary_role: Mapped[str | None] = mapped_column(String(8))
+    why_toads: Mapped[str] = mapped_column(Text, default="", server_default="")
     raid_days: Mapped[list[str]] = mapped_column(JSON, default=list)  # empty: any day
     experience: Mapped[str] = mapped_column(Text)
     availability: Mapped[str] = mapped_column(String(300), default="")

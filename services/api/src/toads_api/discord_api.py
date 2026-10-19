@@ -171,10 +171,14 @@ class HttpDiscord:
         return {int(role["id"]) for role in r.json()}
 
     async def guild_member(self, user_id: int) -> GuildMember | None:
-        r = await self._http.get(
-            f"{self._base}/guilds/{self._guild_id}/members/{int(user_id)}",
-            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
-        )
+        try:
+            r = await self._http.get(
+                f"{self._base}/guilds/{self._guild_id}/members/{int(user_id)}",
+                headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+            )
+        except httpx.HTTPError as exc:
+            # Callers answer "Discord is not answering" for a DiscordError; a dropped connection is the same thing.
+            raise DiscordError("Discord member lookup could not reach Discord") from exc
         if r.status_code == 404:
             return None
         if r.status_code != 200:

@@ -7,6 +7,7 @@
   import { myAwards, titlesOf } from '$lib/awards';
   import { previewAwardsOf } from '$lib/preview/awards-fake';
   import type { Title } from '$lib/toads';
+  import { forgetRecruitDraft } from '$lib/application';
   import { PUBLIC_NAV, isActive, memberNav } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
@@ -52,6 +53,7 @@
   }
   function logOut() {
     previewSignOut();
+    forgetRecruitDraft();
     goto(`${base}/`);
   }
 </script>
@@ -93,7 +95,7 @@
       <a class="login" href="{base}/login/">Log in with Discord</a>
     {/if}
   {:else if session}
-    <form class="login" method="post" action="/auth/logout">
+    <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
       <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> <a class="pill" href="/toolkit" title="What you can do">{TIER_LABEL[tier]}</a></span>
       <button type="submit">Log out</button>
     </form>

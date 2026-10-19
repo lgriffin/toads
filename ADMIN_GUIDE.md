@@ -45,7 +45,7 @@ environment or secret store only.
 | Guild bank | lgriffin/ToadsBank | `toadsbank-api`, `toadsbank-worker`, its own Postgres | the hub's `/api/bank/events` |
 | Bank addon | lgriffin/ToadsBank `addon/` | in the WoW client | nothing: officers paste its export |
 
-One Postgres database holds both the hub's tables (hub-db, migrations `0001` to `0012`) and the analyzer's tables
+One Postgres database holds both the hub's tables (hub-db, migrations `0001` to `0013`) and the analyzer's tables
 (wcl-store, from lgriffin/warcraftlogs_project). Redis holds sessions, logins in progress, the bank event dedup and the
 RQ queues. Nothing in the code uses object storage yet (MinIO in the dev stack is a stand-in for later screenshot
 uploads).
@@ -83,11 +83,68 @@ Discord application details:
   `TOADS_DISCORD_REDIRECT_URI` exactly). The login asks for the scopes `identify guilds.members.read`. Invite its bot
   to the Toads server. The Toad Bot reads mirrored channels and members, so turn on the **Server Members** and
   **Message Content** privileged intents. It creates private interview rooms under the interview category, so it needs
-  to manage channels there, and it needs to post in the `post_channels` of `config/community.yaml`.
+  to manage channels there, and it needs to post in the `post_channels` of `config/community.yaml`. The exact
+  permissions are in "Discord permissions for interview rooms" below.
 - **Bank bot application.** Invite it with the `bot` and `applications.commands` scopes. It needs to send messages in
   the bank channels and DM members. It needs no privileged intents.
 - One process per kit bot, each with its own application token ([docs/bots.md](docs/bots.md)). The Toad Bot and the
   API share the hub application's bot token.
+
+### Discord permissions for interview rooms
+
+**You**, to set this up: **Manage Server** on the Toads server (Discord only lets server managers add a bot), and
+**Manage Channels** plus **Manage Roles** to make the interview category and set who sees it. Turn on Developer Mode
+(User Settings > Advanced) so you can right-click a category and copy its id.
+
+**The Toad Bot**, invited with the `bot` and `applications.commands` scopes and these permissions (permissions integer
+`268520464`, so the invite link is
+`https://discord.com/oauth2/authorize?client_id=<hub application id>&scope=bot+applications.commands&permissions=268520464`):
+
+| Permission | Why |
+| --- | --- |
+| View Channels, Send Messages, Read Message History | Read mirrored channels, post the room's welcome |
+| Embed Links | The applicant's answers are an embed in the room's first message |
+| Manage Channels | Create `#interview-<character>` under the interview category |
+| Manage Roles (shown as Manage Permissions on a channel) | Hide each room from everyone and let in only the applicant and the interviewers, then lock it when the application closes |
+
+You can grant Manage Channels and Manage Permissions on the interview category alone instead of server-wide. If rooms
+also let in officer roles (no `interviewers` set), the bot's own role must sit above those roles in Server Settings >
+Roles. Privileged intents in the developer portal: **Server Members** (find the interviewers by username) and
+**Message Content** (mirrored channels).
+
+The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
+member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.
+
+### Getting the Toad Bot onto the server
+
+The server admin's half is [docs/discord-setup.md](docs/discord-setup.md): a click-by-click guide for someone who is
+not technical. Send it to them together with the invite link from step 3. The website side is:
+
+1. **Use the hub's Discord application** at <https://discord.com/developers/applications>; its bot is the Toad Bot.
+   Under **Bot**, switch on **Server Members Intent** and **Message Content Intent**. The bot token goes only into
+   `TOADS_DISCORD_BOT_TOKEN` in the API's and the bot's env on the server.
+2. **Name it.** Under **General Information**, name the application `Toad Bot` and give it the toad avatar. This is
+   the name the server admin sees.
+3. **Build the invite link** from the Application ID on **General Information**:
+   `https://discord.com/oauth2/authorize?client_id=<APPLICATION ID>&scope=bot+applications.commands&permissions=268520464`.
+   Open it yourself and check that the list shows View Channels, Send Messages, Embed Links, Read Message History,
+   Manage Channels and Manage Roles, then send it to the server admin.
+   The Toads application's link (Application ID `1561652680768626688`, not a secret) is
+   <https://discord.com/oauth2/authorize?client_id=1561652680768626688&permissions=268520464&integration_type=0&scope=bot+applications.commands>,
+   and docs/discord-setup.md already carries it.
+4. **Put the admin's three numbers into `config/community.yaml`**: the category id, plus user ids rather than
+   usernames, so a renamed account can't take an interviewer's place:
+
+   ```yaml
+   interview_category_id: 1187654321098765432
+   interviewers:
+     - "123456789012345678"   # _gallagher
+     - "234567890123456789"   # hadur117
+   ```
+
+5. **Restart the API and the Toad Bot**, check that the bot shows as online, and tell the admin to run the test (their
+   Step 5). If no room appears, the bot's log names interviewers it couldn't find and any "Missing Permissions" from
+   Discord.
 
 ## 3. First-time setup, in order
 
@@ -235,7 +292,9 @@ Restart the API after editing a file.
 
 **`config/community.yaml`** (API): guild name, realm, tagline and story for the public pages, `discord_invite`
 (discord.gg or discord.com/invite links only), `mirrored_channels` (channel id plus `raid_day`, `null` for
-guild-wide), `post_channels` (`guild` plus one per raid day) and `interview_category_id`.
+guild-wide), `post_channels` (`guild` plus one per raid day), `interview_category_id` and `interviewers` (the
+officers who interview every applicant: Discord user ids, or usernames such as `[_gallagher, hadur117]`; prefer ids,
+since a username someone gives up can be claimed by another member).
 
 **`config/raid_sheets.yaml`** (worker, API): the CBA and RPB spreadsheets, which tabs to keep, `follows: cba` for RPB,
 and `weekdays` per raid day. Sheets must be shared "Anyone with the link: Viewer". Setup tabs (Instructions, `trans`,
@@ -326,9 +385,12 @@ consent-gated spotlights, and the public pages (`/` landing, `/story`, `/recruit
 - **Nothing from Discord is shown until an officer publishes it.** Messages in `mirrored_channels` reach the curation
   queue; raid-day officers curate their day's channels, global officers the guild-wide ones.
 - **Only the global tier posts to the public Story.** An edit made in Discord sends a public post back to review.
-- **Applications** need only a Discord account in the server (no age, e-mail or real name) and have a 30-day reapply
-  cooldown. Officers move them through their states and can open an interview room, which the Toad Bot creates under
-  `interview_category_id`.
+- **Applications** ask five questions (character, class, primary and secondary role, why Toads; no age, e-mail or
+  real name), need a Discord account that is in the server when the applicant presses send, and have a 30-day reapply
+  cooldown. With `interviewers` set, the Toad Bot opens the interview room under `interview_category_id` the moment
+  someone applies, with only the applicant and those interviewers in it, and posts their answers there. Without it,
+  an officer opens the room from the officer console and the officers of the days applied for see it. Officers move
+  applications through their states either way, and the room is locked (never deleted) when one closes.
 - **Highlights**: raiders submit clips (YouTube, Twitch and Streamable only, loaded on click); global officers review
   them. **Spotlights** need the member's consent before they are published.
 - **Recruitment needs** are set by global officers.

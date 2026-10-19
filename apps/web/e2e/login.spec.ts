@@ -39,7 +39,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
 
   await page.getByRole('button', { name: 'Switch to officer view' }).click();
-  await expect(page.getByText('Officer', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Officer', exact: true })).toBeVisible();
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(1);
   await page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Officers' }).click();
   await expect(page).toHaveURL(/\/toads\/officers\/$/);
@@ -104,4 +104,22 @@ test('a visitor sees how a raid night works without anyone being named', async (
   const flasks = page.getByRole('article', { name: 'Flasks and elixirs' });
   await expect(flasks.getByText('Buff consumable uptime on bosses, last four raids')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'How we raid', level: 1 })).toBeVisible();
+});
+
+test('a signed-out applicant is asked to sign in with Discord and keeps their answers', async ({ page }) => {
+  await page.goto('recruit/');
+  await page.getByLabel('Character name').fill('Lilypad');
+  await page.getByLabel('Class', { exact: true }).selectOption('Mage');
+  await expect(page.getByRole('group', { name: 'Primary role' }).getByLabel('Ranged')).toBeChecked();
+  await page.getByLabel('Why Toads?').fill('Friends raid here.');
+  // The step's own sign-in link keeps the answers too, not only the send button.
+  await page.getByRole('link', { name: 'Sign in with Discord', exact: true }).click();
+  await expect(page).toHaveURL(/\/login\/$/);
+  await page.goto('recruit/');
+  await expect(page.getByLabel('Character name')).toHaveValue('Lilypad');
+  await page.getByRole('button', { name: 'Sign in with Discord to apply' }).click();
+  await expect(page).toHaveURL(/\/login\/$/);
+  await page.goto('recruit/');
+  await expect(page.getByLabel('Character name')).toHaveValue('Lilypad');
+  await expect(page.getByLabel('Why Toads?')).toHaveValue('Friends raid here.');
 });
