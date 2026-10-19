@@ -1,7 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
-  import { LAUNCH_HOLD } from '$lib/launch';
 </script>
 
 <section class="card members-only">
@@ -15,9 +14,7 @@
     {#if __PREVIEW__}<a href="{base}/login/">sign in again</a>{:else}<a href="/auth/login" data-sveltekit-reload>sign in again</a>{/if}.
     Switched Discord accounts? Sign out of Discord first.
   </p>
-  {#if !LAUNCH_HOLD}
-    <p>Applying to raid with us? Once you are in the Discord, <a href="{base}/recruit/">go back to the application</a>.</p>
-  {/if}
+  <p>Applying to raid with us? Once you are in the Discord, <a href="{base}/recruit/">go back to the application</a>.</p>
   <p><a href="{base}/">Back to the home page</a></p>
 </section>
 

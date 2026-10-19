@@ -24,6 +24,7 @@
     toads={['roles/tank-badge', 'roles/healer-badge', 'roles/damage-badge']}
   >
     <a class="medal" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the Toads Discord</a>
+    <a class="ghost" href="{base}/how-we-raid/">See how we raid</a>
   </PondHero>
 
   <ToadGreeting {name} {...facts} />
@@ -54,7 +55,7 @@
     </p>
     <div class="actions">
       <a class="ghost" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the Toads Discord</a>
-      <a class="ghost" href="{base}/">Read our story</a>
+      <a class="ghost" href="{base}/story/">Read our story</a>
     </div>
   </section>
 </div>
