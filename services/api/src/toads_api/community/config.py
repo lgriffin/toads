@@ -1,4 +1,8 @@
-"""Guild story, mirrored Discord channels and the interview-room category: configuration, not code."""
+"""Mirrored Discord channels, post channels and the interview-room category: configuration, not code.
+
+The Story page's tagline and story are not configuration: they live in the repository (`story.py`). A `tagline` or
+`story` left in an older community.yaml is ignored.
+"""
 
 from __future__ import annotations
 
@@ -20,8 +24,6 @@ class MirroredChannel(BaseModel):
 class CommunityConfig(BaseModel):
     guild: str = "Toads"
     realm: str = "Spineshatter EU"
-    tagline: str = ""
-    story: list[str] = []
     discord_invite: str | None = None
     mirrored_channels: list[MirroredChannel] = []
     # Where hub posts go when an officer ticks "also post to Discord". Keyed by raid day; "guild" for guild-wide.

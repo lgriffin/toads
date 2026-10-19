@@ -72,13 +72,6 @@
           <dt>What you see</dt>
           <dd>{p.youSee}</dd>
         </dl>
-        {#if p.link}
-          <p class="out">
-            <a href={p.link.href} target="_blank" rel="noopener noreferrer"
-              >{p.link.label}<span class="sr-only"> (opens in a new tab)</span></a
-            >
-          </p>
-        {/if}
         {#if c && c.points.length}
           <TrendBars points={c.points} format={c.format} label={c.label} max={c.max ?? null} />
         {/if}
@@ -98,5 +91,4 @@
   dt { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 0.4rem; }
   dt:first-child { margin-top: 0; }
   dd { margin: 0; }
-  .out { margin: 0; }
 </style>

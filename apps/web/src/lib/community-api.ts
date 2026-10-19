@@ -71,7 +71,8 @@ export interface ApiSpotlight {
   created_at: string;
 }
 
-/** GET /api/public/story: the guild's words from config/community.yaml plus what officers published as public. */
+/** GET /api/public/story: the tagline and story from the repo (community/story.py), guild details from
+ * config/community.yaml, plus what officers published as public. */
 export interface ApiPublicStory {
   guild: string;
   realm: string;

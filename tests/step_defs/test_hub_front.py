@@ -53,7 +53,8 @@ def pillar_parts() -> None:
     for field in ("approach", "measure", "youSee"):
         assert len(re.findall(rf"^    {field}:", model, re.MULTILINE)) == len(PILLARS), field
     assert "Loot Council" in model
-    assert "export const LOOT_TABLES = 'https://thatsmybis.com';" in copy
+    # thatsmybis.com keeps a table per raid day, not one per guild, so there is no single page to link.
+    assert "thatsmybis.com" in model and "https://thatsmybis.com" not in copy
     pillars = _read("lib/components/ModelPillars.svelte")
     for heading in ("Our approach", "How we measure it", "What you see"):
         assert f"<dt>{heading}</dt>" in pillars
@@ -259,3 +260,42 @@ def toad_greeting() -> None:
         assert "<ToadGreeting {name} {...facts} />" in _read(f"lib/components/{component}.svelte"), component
     layout = _read("routes/+layout.svelte")
     assert "{#if signedIn && isHubHome}\n      <ToadGreeting {...me} />" in layout
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-006 The public Story page's tagline and story shall come from the repository, so a merge and the "
+    "deploy that follows change them without editing the server",
+)
+def test_story_in_repo() -> None:
+    pass
+
+
+@given("the Story page's words", target_fixture="story")
+def story() -> str:
+    return (ROOT / "services" / "api" / "src" / "toads_api" / "community" / "story.py").read_text(encoding="utf-8")
+
+
+@then("the API serves the tagline and story from the repository, not from config/community.yaml")
+def served_from_repo(story: str) -> None:
+    assert "TAGLINE = (" in story and "STORY: tuple[str, ...] = (" in story
+    service = (ROOT / "services" / "api" / "src" / "toads_api" / "community" / "service.py").read_text(encoding="utf-8")
+    assert "tagline=story.TAGLINE," in service and "story=list(story.STORY)," in service
+    config = (ROOT / "services" / "api" / "src" / "toads_api" / "community" / "config.py").read_text(encoding="utf-8")
+    assert "tagline:" not in config and "story:" not in config
+    assert "tagline:" not in (ROOT / "config" / "community.example.yaml").read_text(encoding="utf-8")
+
+
+@then("the static preview shows the same words")
+def preview_matches() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "story", ROOT / "services" / "api" / "src" / "toads_api" / "community" / "story.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    mock = _read("lib/mock/community.ts").replace("\\'", "'")
+    for words in (module.TAGLINE, *module.STORY):
+        assert f"'{words}'" in mock, words

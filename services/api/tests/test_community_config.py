@@ -49,3 +49,9 @@ def test_interviewers_may_be_unquoted_user_ids_or_usernames(tmp_path: Path) -> N
 def test_interviewers_must_look_like_discord_usernames(name: str) -> None:
     with pytest.raises(ValidationError):
         CommunityConfig(interviewers=[name])
+
+
+def test_a_story_left_in_an_older_config_is_ignored(tmp_path: Path) -> None:
+    path = tmp_path / "community.yaml"
+    path.write_text("tagline: Old words\nstory: [Old story]\nguild: Toads\n", encoding="utf-8")
+    assert CommunityConfig.load(path).guild == "Toads"

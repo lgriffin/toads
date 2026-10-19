@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from toads_api.community import recruitment
+from toads_api.community import recruitment, story
 from toads_api.community.clips import parse_clip_url
 from toads_api.community.config import CommunityConfig
 from toads_api.community.repository import AuditRecord, CommunityRepository, Payload
@@ -633,8 +633,8 @@ class CommunityService:
         return PublicStory(
             guild=self.config.guild,
             realm=self.config.realm,
-            tagline=self.config.tagline,
-            story=self.config.story,
+            tagline=story.TAGLINE,
+            story=list(story.STORY),
             discord_invite=self.config.discord_invite,
             progression=self.repo.progression(),
             needs=self.repo.needs(),

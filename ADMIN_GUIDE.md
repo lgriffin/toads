@@ -293,7 +293,8 @@ Restart the API after editing a file.
   `raider_roles`, `officer_roles` and `channels` (`raid_logs`, `signups`, `bank_requests`).
 - Every role id must exist in the server, or the API refuses to start and names the day and role.
 
-**`config/community.yaml`** (API): guild name, realm, tagline and story for the `/story` page, `discord_invite`
+**`config/community.yaml`** (API): guild name and realm for the `/story` page (its tagline and story live in the repo,
+`services/api/src/toads_api/community/story.py`, and change with a deploy), `discord_invite`
 (discord.gg or discord.com/invite links only; the Story page hides its Discord button without one),
 `mirrored_channels` (channel id plus `raid_day`, `null` for guild-wide), `post_channels` (`guild` plus one per raid
 day), `interview_category_id` and `interviewers` (the officers who interview every applicant: Discord user ids, or

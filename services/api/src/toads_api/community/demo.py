@@ -48,8 +48,6 @@ def demo_service(clock: Callable[[], datetime], repo: CommunityRepository | None
         officer_roles={"wed": (WED_OFFICER_ROLE,), "sun": (SUN_OFFICER_ROLE,)},
     )
     config = CommunityConfig(
-        tagline="A relaxed but prepared TBC guild on Spineshatter.",
-        story=["We started in a Barrens pond and have been hopping through raids since 2006."],
         discord_invite="https://discord.gg/toads",
         mirrored_channels=[
             MirroredChannel(channel_id=ANNOUNCEMENTS),
