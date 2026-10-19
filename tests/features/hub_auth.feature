@@ -14,3 +14,10 @@ Feature: HUB AUTH
     When they complete Discord sign-in
     Then the hub sends them to the members only page
     And no session is created
+
+  @ears_unwanted_behavior @maintainer @phase_2_2
+  Scenario: REQ-HUB-AUTH-003 If the Discord client id and the bot token belong to different Discord applications, then the API shall fail startup naming both settings
+    Given the hub's bot token belongs to Discord application 1561652680768626688
+    And the hub's Discord client id is a different application
+    When the API starts
+    Then startup fails naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN

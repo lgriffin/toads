@@ -186,6 +186,7 @@ stops the process before it opens a port. The `.env.example` files are kept in s
 | Credentials keys | API and worker: `TOADS_CREDENTIALS_KEYS` |
 | Warcraft Logs client | worker `TOADS_WCL_CLIENT_ID/SECRET`, API `TOADS_WCL_CLIENT_ID/SECRET` (for the reference login) |
 | Discord server | API, Toad Bot, bank bot: `TOADS_DISCORD_GUILD_ID` |
+| Hub Discord application | API `TOADS_DISCORD_CLIENT_ID/SECRET` and `TOADS_DISCORD_BOT_TOKEN`, Toad Bot `TOADS_DISCORD_BOT_TOKEN`: all from the Toad Bot's application (checked at API startup) |
 | Database | API and worker: `TOADS_DATABASE_URL` (the same database) |
 | Redis | API and worker: `TOADS_REDIS_URL` |
 
@@ -197,7 +198,7 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | --- | --- | --- | --- |
 | `TOADS_DATABASE_URL` | yes | | Postgres URL, `postgresql+psycopg://...`. Secret. |
 | `TOADS_REDIS_URL` | yes | | Redis URL. |
-| `TOADS_DISCORD_CLIENT_ID` | yes | | Hub Discord application's client id. |
+| `TOADS_DISCORD_CLIENT_ID` | yes | | Hub Discord application's client id (the Toad Bot's Application ID). The API refuses to start if the bot token is from another application. |
 | `TOADS_DISCORD_CLIENT_SECRET` | yes | | Its client secret. Secret. |
 | `TOADS_DISCORD_BOT_TOKEN` | yes | | The hub application's bot token: lists the server's roles at startup, reads members' roles when the bank bot acts for them, reads scheduled events for the next raid. Secret. |
 | `TOADS_DISCORD_GUILD_ID` | yes | | The Toads server id. |
@@ -522,6 +523,7 @@ API and worker.
 | Symptom | Likely cause |
 | --- | --- |
 | API exits at startup naming a variable | A required setting is missing or invalid (section 4). |
+| API exits at startup saying the bot token "belongs to application" another id | `TOADS_DISCORD_CLIENT_ID` and `TOADS_DISCORD_BOT_TOKEN` come from different Discord applications; take both, and the client secret, from the Toad Bot's application ([docs/deploy.md](docs/deploy.md#turn-on-discord-sign-in)). |
 | API exits at startup naming a raid day and role | A role id in `raid_days.yaml` is not a role in the server, or the bot token cannot see the server. |
 | Discord login says the redirect is invalid | `TOADS_DISCORD_REDIRECT_URI` does not match the redirect registered on the Discord application exactly. |
 | Someone signed in but has no officer powers | Their role is not in that day's `officer_roles` or in `global_officer_roles`, or roles have not refreshed yet (up to 15 minutes, or sign in again). |

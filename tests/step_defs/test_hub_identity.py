@@ -21,6 +21,7 @@ from hub_db import AuditEntry, Base, CredentialCipher, Member, WclCredential
 from pydantic import SecretStr
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlalchemy import func, select
+from toads_api.discord_api import MismatchedDiscordApplicationError
 from toads_api.rbac import HubRole, UnknownDiscordRoleError
 from toads_api.rbac.deps import route_rules
 from toads_api.rbac.permissions import ROLE_PERMISSIONS
@@ -56,6 +57,11 @@ def test_auth_001() -> None:
 
 @_bind("hub_auth.feature", 2)
 def test_auth_002() -> None:
+    pass
+
+
+@_bind("hub_auth.feature", 3)
+def test_auth_003() -> None:
     pass
 
 
@@ -520,13 +526,31 @@ def server_lacks_role(ctx: dict[str, Any], role: int) -> None:
     assert role not in ctx["hub"].fake.guild_roles
 
 
+@given(parsers.parse("the hub's bot token belongs to Discord application {app_id:d}"))
+def bot_token_application(ctx: dict[str, Any], app_id: int) -> None:
+    ctx["hub"] = Hub()
+    ctx["hub"].fake.bot_application_id = str(app_id)
+
+
+@given("the hub's Discord client id is a different application")
+def client_id_differs(ctx: dict[str, Any]) -> None:
+    assert ctx["hub"].services.settings.discord_client_id != ctx["hub"].fake.bot_application_id
+
+
 @when("the API starts")
 def api_starts(ctx: dict[str, Any]) -> None:
     try:
         with ctx["hub"].client:
             ctx["error"] = None
-    except UnknownDiscordRoleError as exc:
+    except (UnknownDiscordRoleError, MismatchedDiscordApplicationError) as exc:
         ctx["error"] = exc
+
+
+@then("startup fails naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN")
+def startup_failed_naming_settings(ctx: dict[str, Any]) -> None:
+    assert isinstance(ctx["error"], MismatchedDiscordApplicationError)
+    assert "TOADS_DISCORD_CLIENT_ID" in str(ctx["error"])
+    assert "TOADS_DISCORD_BOT_TOKEN" in str(ctx["error"])
 
 
 @then(parsers.parse('startup fails naming raid day "{day}" and role {role:d}'))
