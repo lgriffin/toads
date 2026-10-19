@@ -1,6 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import {
+    ROLE_BADGES_CHANGED,
     ROLE_BADGE_GROUPS,
     linksByBadge,
     roleBadge,
@@ -47,6 +48,7 @@
       message = `Everyone with the ${link.role_name} role now wears the ${link.badge.name} badge.`;
       failed = false;
       badgeId = '';
+      window.dispatchEvent(new Event(ROLE_BADGES_CHANGED));
       await load();
     } catch (e) {
       message = roleBadgeError(e);
@@ -62,6 +64,7 @@
       await backend.untie(link.discord_role_id, link.badge.id);
       message = `The ${link.role_name} role no longer earns the ${link.badge.name} badge.`;
       failed = false;
+      window.dispatchEvent(new Event(ROLE_BADGES_CHANGED));
       await load();
     } catch (e) {
       message = roleBadgeError(e);

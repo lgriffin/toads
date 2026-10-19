@@ -9,7 +9,7 @@
   import { myAwards, titlesOf } from '$lib/awards';
   import { previewAwardsOf } from '$lib/preview/awards-fake';
   import { PREVIEW_ROLE_BADGES } from '$lib/preview/role-badges-fake';
-  import { myRoleBadges } from '$lib/role-badges';
+  import { ROLE_BADGES_CHANGED, myRoleBadges } from '$lib/role-badges';
   import type { Title } from '$lib/toads';
   import { forgetRecruitDraft } from '$lib/application';
   import { isActive, memberNav } from '$lib/nav';
@@ -43,9 +43,17 @@
       return null;
     });
     if (!session) return;
-    const [awards, badges] = await Promise.all([myAwards().catch(() => []), myRoleBadges().catch(() => [])]);
+    const [awards] = await Promise.all([myAwards().catch(() => []), loadRoleBadges()]);
     titles = titlesOf(awards);
-    roleBadges = badges.map((b) => b.id);
+  });
+  async function loadRoleBadges() {
+    roleBadges = (await myRoleBadges().catch(() => [])).map((b) => b.id);
+  }
+  // A super admin's change on the admin page shows in the header without a reload.
+  $effect(() => {
+    if (__PREVIEW__ || !session) return;
+    window.addEventListener(ROLE_BADGES_CHANGED, loadRoleBadges);
+    return () => window.removeEventListener(ROLE_BADGES_CHANGED, loadRoleBadges);
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.

@@ -112,13 +112,15 @@ def test_tie_list_untie_and_the_members_badges(hub: Hub) -> None:
     assert hub.get("/api/me/role-badges", sid).json() == [{"id": "healer", "name": "Healer", "file": "roles/healer"}]
     assert hub.delete("/api/admin/role-badges/7001/healer", admin).status_code == 204
     assert hub.delete("/api/admin/role-badges/7001/healer", admin).status_code == 404
-    assert hub.delete("/api/admin/role-badges/not-a-role/healer", admin).status_code == 404
+    for odd in ("not-a-role", "\u00b2", "9" * 19):
+        assert hub.delete(f"/api/admin/role-badges/{odd}/healer", admin).status_code == 404
 
 
 def test_role_ids_must_be_digits(hub: Hub) -> None:
     admin = _super_admin(hub)
-    r = hub.post("/api/admin/role-badges", admin, {"discord_role_id": "12a", "badge_id": "tank"})
-    assert r.status_code == 422
+    for odd in ("12a", "\u00b2", "9" * 19, "1" * 20):
+        r = hub.post("/api/admin/role-badges", admin, {"discord_role_id": odd, "badge_id": "tank"})
+        assert r.status_code == 422, odd
 
 
 def test_when_discord_is_down_the_list_still_reads_and_tying_waits(hub: Hub) -> None:

@@ -10,6 +10,7 @@ Discord role ids travel as strings: they exceed JavaScript's safe integers.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated
 
@@ -37,7 +38,9 @@ RoleBadges = Annotated[RoleBadgeService, Depends(get_role_badges)]
 Hub = Annotated[Services, Depends(get_services)]
 SignedIn = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
 SuperAdmin = Annotated[Principal, Depends(require(Permission.MANAGE_ROLE_BADGES))]
-ROLE_ID = r"^\d{1,20}$"
+# Discord snowflakes fit a signed 64-bit column (BigInteger); anything else names no role.
+ROLE_ID = r"^[0-9]{1,19}$"
+MAX_ROLE_ID = 2**63 - 1
 
 
 class BadgeOut(BaseModel):
@@ -117,6 +120,8 @@ async def role_badges_admin(principal: SuperAdmin, badges: RoleBadges, services:
 @router.post("/api/admin/role-badges", status_code=status.HTTP_201_CREATED)
 async def tie_role_badge(body: LinkIn, principal: SuperAdmin, badges: RoleBadges, services: Hub) -> LinkOut:
     role_id = int(body.discord_role_id)
+    if role_id > MAX_ROLE_ID:
+        raise HTTPException(422, detail="That role is not in the Toads server")
     try:
         roles = {r.id: r for r in await _member_roles(services)}
     except DiscordError:
@@ -136,7 +141,7 @@ async def tie_role_badge(body: LinkIn, principal: SuperAdmin, badges: RoleBadges
 
 @router.delete("/api/admin/role-badges/{discord_role_id}/{badge_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def untie_role_badge(discord_role_id: str, badge_id: str, principal: SuperAdmin, badges: RoleBadges) -> Response:
-    if not discord_role_id.isdigit() or len(discord_role_id) > 20:
+    if not re.fullmatch(ROLE_ID, discord_role_id) or int(discord_role_id) > MAX_ROLE_ID:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="That role does not earn that badge")
     try:
         await anyio.to_thread.run_sync(badges.untie, int(discord_role_id), badge_id, principal.member_id)
