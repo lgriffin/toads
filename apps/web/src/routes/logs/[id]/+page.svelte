@@ -1,84 +1,39 @@
 <script lang="ts">
+  import '@fontsource/alegreya-sans/400.css';
+  import '@fontsource/alegreya-sans/700.css';
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { mmss, shortDate } from '$lib/format';
-  import type { Role } from '$lib/mock/data';
+  import { hubLogs } from '$lib/logs';
+  import { previewLogs } from '$lib/preview/logs-fake';
+  import { previewSession } from '$lib/preview/session.svelte';
+  import RaidLog from '$lib/components/RaidLog.svelte';
 
   let { data } = $props();
-  let raid = $derived(data.raid);
-  const roles: Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
+  const backend = __PREVIEW__ ? previewLogs(() => previewSession.role) : hubLogs;
+  // The raid day a raid-day officer reads the full analysis under (the list's link carries it); the API checks it.
+  let day = $state<string | null | undefined>(undefined);
+  onMount(() => {
+    day = new URLSearchParams(window.location.search).get('day');
+  });
+  const ready = $derived(day !== undefined && (__PREVIEW__ ? previewSession.ready : true));
 </script>
 
-<p><a href="{base}/logs/">Logs</a></p>
-<h1>{raid.zone}</h1>
-<p class="muted">
-  {shortDate(raid.date)} · {raid.raidDay} team · {raid.size}-man · {raid.durationMin} min · {raid.deaths} deaths ·
-  <span class="pill">WCL {raid.code}</span>
-</p>
+<svelte:head><title>Raid log · Toads</title></svelte:head>
 
-<div class="grid">
-  <section class="card">
-    <h2>Bosses</h2>
-    <table>
-      <thead><tr><th>Boss</th><th class="num">Wipes</th><th class="num">Kill</th></tr></thead>
-      <tbody>
-        {#each raid.bosses as b}
-          <tr>
-            <td>{b.name}</td>
-            <td class="num">{b.wipes}</td>
-            <td class="num" class:ok={b.killed} class:bad={!b.killed}>{b.killed ? mmss(b.seconds) : 'No kill'}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="card">
-    <h2>Role breakdown</h2>
-    <div class="roles">
-      {#each roles as role}
-        <div><span class="n">{raid.roles[role]}</span><span class="muted">{role}</span></div>
-      {/each}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Consumable coverage</h2>
-    <table>
-      <thead><tr><th>Consumable</th><th class="num">Boss</th><th class="num">Trash</th></tr></thead>
-      <tbody>
-        {#each raid.consumes as c}
-          <tr>
-            <td>{c.name}</td>
-            <td class="num" class:warn={c.boss < 80}>{c.boss}%</td>
-            <td class="num" class:warn={c.trash < 50}>{c.trash}%</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="card">
-    <h2>Interrupts and cancelled casts</h2>
-    <div class="two">
-      <table>
-        <thead><tr><th>Interrupts</th><th class="num"></th></tr></thead>
-        <tbody>
-          {#each raid.interrupts as p}<tr><td>{p.player}</td><td class="num">{p.count}</td></tr>{/each}
-        </tbody>
-      </table>
-      <table>
-        <thead><tr><th>Cancelled</th><th class="num"></th></tr></thead>
-        <tbody>
-          {#each raid.cancelledCasts as p}<tr><td>{p.player}</td><td class="num">{p.count}</td></tr>{/each}
-        </tbody>
-      </table>
-    </div>
-  </section>
+<div class="raid-log">
+  <p class="back"><a href="{base}/logs/">← Logs</a></p>
+  {#if ready}
+    {#key `${data.report}|${day}|${previewSession.role}`}
+      <RaidLog {backend} report={data.report} day={day ?? null} />
+    {/key}
+  {:else}
+    <p class="muted" role="status">Loading…</p>
+  {/if}
 </div>
 
 <style>
-  .roles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; text-align: center; }
-  .roles div { display: flex; flex-direction: column; }
-  .n { font-size: 1.6rem; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .raid-log { font-family: 'Alegreya Sans', system-ui, sans-serif; font-size: 1.05rem; }
+  .raid-log :global(h1) { font-family: 'Cinzel', Georgia, serif; color: var(--bronze-hi); letter-spacing: 0.04em; }
+  .raid-log :global(h2) { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--bronze-hi); letter-spacing: 0.03em; }
+  .back { margin: 0 0 0.5rem; }
 </style>

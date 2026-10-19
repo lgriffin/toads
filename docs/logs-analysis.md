@@ -14,8 +14,8 @@ Logs itself and stores the results in the hub's Postgres database, in wcl-store'
 
 ```
 Warcraft Logs ──(guild key)──> worker: sync-guild ──> Postgres (wcl-store tables)
-                                scheduler: publish-home, publish-performance, publish-badges, publish-reference
-                                        └──(service token)──> API ──> hub home, /me, badges, reference page
+                                scheduler: publish-home, publish-performance, publish-badges, publish-reference, publish-logs
+                                        └──(service token)──> API ──> hub home, /me, badges, reference page, Logs
 ```
 
 So the desktop app's `warcraftlogs_history.db` and `config.json` stay on your PC. The server only needs a Warcraft Logs client
@@ -30,10 +30,9 @@ Super admins are global officers too, so they see every officer view.
 | `/hub` | The analyzer widgets: guild snapshot, last raid, recent raids, raid activity, healing week on week, top damage and healing, attendance, boss kills, class mix, interrupts, consumables, flasks, and the officers' badge roster. |
 | `/me` | Your performance against the role median and your Toads badges, once your character claim is approved. |
 | Claim search | Character names to claim, from the raids the sync analysed. |
+| `/logs` | Every analysed raid with the desktop app's raid analysis, filtered by weekday, and the boss history ([logs.md](logs.md)). |
 | `/officers/reference` | The guild raids to compare, and comparisons once the reference login is connected (step 6). |
 | `/admin` | The scheduler's jobs, now including `sync-guild`. |
-
-The Raids & Logs table (`/raids`) is still a placeholder; it is a later phase.
 
 ## 1. A Warcraft Logs client
 
@@ -117,7 +116,7 @@ sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker \
 Then publish straight away instead of waiting for the next half hour:
 
 ```bash
-for job in publish-home publish-performance publish-badges publish-reference; do
+for job in publish-home publish-performance publish-badges publish-reference publish-logs; do
   sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker toads-worker "$job"
 done
 ```

@@ -35,6 +35,8 @@ from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
 from toads_api.home.performance import PerformanceService
 from toads_api.home.service import HomeService
 from toads_api.home.sql import SqlHomeRepository
+from toads_api.logs.service import LogService
+from toads_api.logs.sql import SqlLogRepository
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
@@ -67,6 +69,7 @@ class Services:
     account: AccountService = field(init=False)
     awards: AwardService = field(init=False)
     absences: AbsenceService = field(init=False)
+    logs: LogService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
@@ -143,6 +146,7 @@ class Services:
             weekdays,
             today=lambda: datetime.fromtimestamp(self.clock(), zone).date(),
         )
+        self.logs = LogService(SqlLogRepository(self.db), weekdays)
         self.raid_sheets = RaidSheetService(repo=SqlSheetRepository(self.db), config=sheets_config, weekdays=weekdays)
         self.next_raid = NextRaidService(
             self.discord.scheduled_events,

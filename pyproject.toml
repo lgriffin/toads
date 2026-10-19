@@ -17,9 +17,9 @@ toads-worker = { workspace = true }
 toads-bot = { workspace = true }
 # The analyzer's packages from lgriffin/warcraftlogs_project, all three pinned to the same commit (wcl-app and
 # wcl-store depend on wcl-core and wcl-store by name). Bump every rev together to take analyzer changes.
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "af86767af2cead89666000c9faa214593310a01b" }
-wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "af86767af2cead89666000c9faa214593310a01b" }
-wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "af86767af2cead89666000c9faa214593310a01b" }
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "ecb4928d56e3bd95782d88c54e2946485f51045e" }
+wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "ecb4928d56e3bd95782d88c54e2946485f51045e" }
+wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "ecb4928d56e3bd95782d88c54e2946485f51045e" }
 
 [dependency-groups]
 dev = [
@@ -163,6 +163,20 @@ allow_indirect_imports = true
 name = "Absence rules hold no RBAC, web framework or storage code"
 type = "forbidden"
 source_modules = ["toads_api.absences.service", "toads_api.absences.repository"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Logs routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.logs.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.logs.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Logs rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.logs.service", "toads_api.logs.repository"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
