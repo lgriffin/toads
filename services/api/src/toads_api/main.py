@@ -19,9 +19,10 @@ from toads_api.bank.routes import include_bank
 from toads_api.bank_grants.routes import include_bank_grants
 from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
-from toads_api.discord_api import DiscordAuthError, DiscordError
+from toads_api.discord_api import DiscordAuthError, DiscordError, MismatchedDiscordApplicationError
 from toads_api.home.routes import include_home
 from toads_api.raid_sheets.routes import include_raid_sheets
+from toads_api.rbac import UnknownDiscordRoleError
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
 from toads_api.reference.routes import include_reference
@@ -53,19 +54,31 @@ BOT_INVITE = (
 
 
 async def _verify_discord(services: Services) -> None:
-    """Fail startup on a Discord misconfiguration: a rejected bot token, a client id and bot token from different
-    applications (REQ-HUB-AUTH-003) or a role the server lacks (REQ-HUB-DAY-022). Discord not answering, or a server
-    the bot cannot read because it is not invited yet, is only a warning so the public pages stay up (REQ-HUB-DAY-024).
+    """Check the Discord settings at startup without ever refusing to start: a change made in Discord (a reset bot
+    token, a new application, a deleted role) must not take the whole site down, and nobody should need a shell on the
+    server to see what is wrong. A rejected bot token or a client id and bot token from different applications
+    (REQ-HUB-AUTH-003) and a configured role the server lacks (REQ-HUB-DAY-022) are errors in the log; Discord not
+    answering, or a server the bot cannot read because it is not invited yet, is a warning (REQ-HUB-DAY-024).
     """
     invite = BOT_INVITE.format(client_id=services.settings.discord_client_id.strip())
     try:
         await services.verify_discord_application()
-    except DiscordAuthError:
-        raise
+    except (DiscordAuthError, MismatchedDiscordApplicationError) as exc:
+        log.error(
+            "discord_application_misconfigured",
+            error=str(exc),
+            hint="set TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN from the same Discord application",
+        )
     except DiscordError as exc:
         log.warning("discord_application_unchecked", error=str(exc), hint="Discord did not answer; retried on restart")
     try:
         await services.verify_discord_roles()
+    except UnknownDiscordRoleError as exc:
+        log.error(
+            "discord_role_missing",
+            error=str(exc),
+            hint="a role in the raid-day config was deleted or recreated in Discord; put its new id in the config",
+        )
     except DiscordError as exc:
         log.warning(
             "discord_roles_unchecked",
@@ -77,9 +90,7 @@ async def _verify_discord(services: Services) -> None:
 
 def create_app(services: Services | None = None) -> FastAPI:
     """Build the app. Without `services`, startup reads the environment and fails fast on anything missing
-    (REQ-DEV-CFG-001), on a Discord client id and bot token from different applications (REQ-HUB-AUTH-003) or on a
-    configured Discord role the server does not have (REQ-HUB-DAY-022). A server whose roles the bot cannot read is
-    only a warning (REQ-HUB-DAY-024)."""
+    (REQ-DEV-CFG-001). Discord settings that do not match Discord are logged, never fatal (`_verify_discord`)."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

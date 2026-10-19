@@ -67,11 +67,12 @@ Feature: HUB DAY
     And the RBAC matrix has a sibling-day denial case for every officer route
 
   @ears_unwanted_behavior @maintainer @phase_2_2
-  Scenario: REQ-HUB-DAY-022 If a Discord role id in the raid-day config matches no role in the server, then the API shall fail startup naming the day and role
+  Scenario: REQ-HUB-DAY-022 If a Discord role id in the raid-day config matches no role in the server, then the API shall start anyway and log an error naming the day and role
     Given a raid-day config naming Discord role 424242 for Sunday officers
     And the Discord server has no role 424242
     When the API starts
-    Then startup fails naming raid day "sun" and role 424242
+    Then the API is up
+    And it logs an error naming raid day "sun" and role 424242
 
   @ears_ubiquitous @maintainer @phase_2_2
   Scenario: REQ-HUB-DAY-023 Raid-day scope shall be resolved from the route path and the session, never from a request body or query parameter

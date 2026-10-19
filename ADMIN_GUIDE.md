@@ -201,7 +201,7 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | --- | --- | --- | --- |
 | `TOADS_DATABASE_URL` | yes | | Postgres URL, `postgresql+psycopg://...`. Secret. |
 | `TOADS_REDIS_URL` | yes | | Redis URL. |
-| `TOADS_DISCORD_CLIENT_ID` | yes | | Hub Discord application's client id (the Toad Bot's Application ID). The API refuses to start if the bot token is from another application. |
+| `TOADS_DISCORD_CLIENT_ID` | yes | | Hub Discord application's client id (the Toad Bot's Application ID). If the bot token is from another application, the API logs a `discord_application_misconfigured` error (the site stays up). |
 | `TOADS_DISCORD_CLIENT_SECRET` | yes | | Its client secret. Secret. |
 | `TOADS_DISCORD_BOT_TOKEN` | yes | | The hub application's bot token: lists the server's roles at startup, reads members' roles when the bank bot acts for them, reads scheduled events for the next raid. Secret. |
 | `TOADS_DISCORD_GUILD_ID` | yes | | The Toads server id. |
@@ -291,7 +291,8 @@ Restart the API after editing a file.
 - `raid_days`: one entry per raid day, with `id` (lowercase, used in URLs such as `/api/days/wed/...`), `name`,
   optional `start_time` (`HH:MM`, the fallback for "Next raid" when Discord has no scheduled event), `trial_roles`,
   `raider_roles`, `officer_roles` and `channels` (`raid_logs`, `signups`, `bank_requests`).
-- Every role id must exist in the server, or the API refuses to start and names the day and role.
+- Every role id must exist in the server. One that does not (a role deleted or recreated in Discord) grants nothing, and
+  the API logs a `discord_role_missing` error naming the day and role; put the role's new id in the config.
 
 **`config/community.yaml`** (API): guild name and realm for the `/story` page (its tagline and story live in the repo,
 `services/api/src/toads_api/community/story.py`, and change with a deploy), `discord_invite`

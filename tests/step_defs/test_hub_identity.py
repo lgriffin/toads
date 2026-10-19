@@ -594,18 +594,20 @@ def warned_roles_unchecked(ctx: dict[str, Any]) -> None:
     assert "HTTP 404" in warning["error"]
 
 
-@then("startup fails naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN")
-def startup_failed_naming_settings(ctx: dict[str, Any]) -> None:
-    assert isinstance(ctx["error"], MismatchedDiscordApplicationError)
-    assert "TOADS_DISCORD_CLIENT_ID" in str(ctx["error"])
-    assert "TOADS_DISCORD_BOT_TOKEN" in str(ctx["error"])
+@then("it logs an error naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN")
+def logged_mismatched_application(ctx: dict[str, Any]) -> None:
+    [error] = [e for e in ctx["logs"] if e["event"] == "discord_application_misconfigured"]
+    assert error["log_level"] == "error"
+    assert "TOADS_DISCORD_CLIENT_ID" in error["error"]
+    assert "TOADS_DISCORD_BOT_TOKEN" in error["error"]
 
 
-@then(parsers.parse('startup fails naming raid day "{day}" and role {role:d}'))
-def startup_failed(ctx: dict[str, Any], day: str, role: int) -> None:
-    assert ctx["error"] is not None
-    assert f"raid day '{day}'" in str(ctx["error"])
-    assert str(role) in str(ctx["error"])
+@then(parsers.parse('it logs an error naming raid day "{day}" and role {role:d}'))
+def logged_unknown_role(ctx: dict[str, Any], day: str, role: int) -> None:
+    [error] = [e for e in ctx["logs"] if e["event"] == "discord_role_missing"]
+    assert error["log_level"] == "error"
+    assert f"raid day '{day}'" in error["error"]
+    assert str(role) in error["error"]
 
 
 # --- member settings: chosen names (REQ-HUB-PRIV-005) --------------------------------------------------

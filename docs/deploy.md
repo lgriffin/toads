@@ -98,8 +98,9 @@ run it again later: it never replaces a secret that is already set.
 Sign-in, the API's role reads and the Toad Bot all use **one Discord application**: the Toad Bot's. For Toads that is
 application **1561652680768626688**, the `client_id` in the bot's invite link. Its id is public; its **client
 secret** and **bot token** are not, and go only into the server's env files in [step 5](#5-fill-in-the-values-only-you-have).
-The API checks at startup that the bot token belongs to `TOADS_DISCORD_CLIENT_ID` and refuses to start, naming both
-settings, if they come from different applications.
+The API checks at startup that the bot token belongs to `TOADS_DISCORD_CLIENT_ID`. If they come from different
+applications, or Discord rejects the token, it still starts (so the site stays up) and logs a
+`discord_application_misconfigured` error naming both settings; a failed deploy shows that line in its log.
 
 ### Turn on Discord sign-in
 

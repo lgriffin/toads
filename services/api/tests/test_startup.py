@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import httpx
@@ -9,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from structlog.testing import capture_logs
-from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord, MismatchedDiscordApplicationError
+from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord
 from toads_api.main import create_app
 from toads_api.rbac import RaidDaysConfig, UnknownDiscordRoleError
 from toads_api.services import build_services
@@ -24,12 +25,15 @@ def test_startup_passes_when_every_role_exists() -> None:
         assert hub.client.get("/healthz").status_code == 200
 
 
-def test_startup_fails_naming_day_and_role() -> None:
+def test_startup_survives_a_missing_role_and_logs_it() -> None:
     cfg = RAID_DAYS.model_copy(deep=True)
     cfg.raid_days[1].officer_roles.append(424242)
     hub = Hub(raid_days=cfg)
-    with pytest.raises(UnknownDiscordRoleError, match=r"raid day 'sun' officer role 424242"), hub.client:
-        pass
+    with capture_logs() as logs, hub.client:
+        assert hub.client.get("/healthz").status_code == 200
+    [error] = [e for e in logs if e["event"] == "discord_role_missing"]
+    assert error["log_level"] == "error"
+    assert "raid day 'sun' officer role 424242" in error["error"]
 
 
 def test_startup_survives_a_server_the_bot_cannot_read() -> None:
@@ -65,16 +69,14 @@ async def test_role_listing_and_application_lookup_turn_dropped_connections_into
         await discord.bot_application_id()
 
 
-def test_startup_fails_when_bot_token_is_another_application() -> None:
+def test_startup_survives_a_bot_token_from_another_application() -> None:
     hub = Hub()
     hub.fake.bot_application_id = "999"
-    with (
-        pytest.raises(
-            MismatchedDiscordApplicationError, match=r"TOADS_DISCORD_CLIENT_ID is toads-dev.*application 999"
-        ),
-        hub.client,
-    ):
-        pass
+    with capture_logs() as logs, hub.client:
+        assert hub.client.get("/healthz").status_code == 200
+    [error] = [e for e in logs if e["event"] == "discord_application_misconfigured"]
+    assert error["log_level"] == "error"
+    assert re.search(r"TOADS_DISCORD_CLIENT_ID is toads-dev.*application 999", error["error"])
 
 
 def test_unknown_global_officer_role_is_named() -> None:
@@ -210,3 +212,15 @@ def test_fake_endpoints_need_tokens(hub: Hub) -> None:
     assert hub.discord.get("/api/v10/guilds/77/roles").status_code == 401
     assert hub.discord.get("/api/v10/guilds/77/roles", headers={"authorization": "Bot x"}).status_code == 200
     assert hub.discord.get("/api/v10/oauth2/applications/@me").status_code == 401
+
+
+def test_startup_survives_a_rejected_bot_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def rejected(self: object) -> None:
+        raise DiscordAuthError("Discord rejected TOADS_DISCORD_BOT_TOKEN")
+
+    monkeypatch.setattr("toads_api.services.Services.verify_discord_application", rejected)
+    hub = Hub()
+    with capture_logs() as logs, hub.client:
+        assert hub.client.get("/healthz").status_code == 200
+    [error] = [e for e in logs if e["event"] == "discord_application_misconfigured"]
+    assert "TOADS_DISCORD_BOT_TOKEN" in error["error"]

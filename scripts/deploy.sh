@@ -34,10 +34,22 @@ main() {
 	echo "deploy: $(git log -1 --format='%h %s')"
 
 	local compose=(docker compose -f infra/docker-compose.prod.yml)
+	# A failed deploy names the service's own errors in the deploy log, so nobody needs a shell on the server to see
+	# why. Only error lines, never input values: the repository and its Actions logs are public.
+	errors_of() {
+		echo "deploy: the last errors from $1 (full log: docker compose -f infra/docker-compose.prod.yml logs $1):" >&2
+		"${compose[@]}" logs --no-color --tail 200 "$1" 2>&1 | grep -Ei 'error|exception' | grep -v 'input_value' |
+			tail -n 15 >&2 || true
+	}
 	"${compose[@]}" build --pull
 	"${compose[@]}" run --rm migrate
 	"${compose[@]}" run --rm analyser-migrate
-	"${compose[@]}" up -d --remove-orphans
+	# The scheduler waits for a healthy API, so a broken API fails `up` itself; show why in the deploy log either way.
+	if ! "${compose[@]}" up -d --remove-orphans; then
+		errors_of api
+		echo "deploy: to go back to the last deploy: $0 $previous" >&2
+		exit 1
+	fi
 
 	local service id status
 	for service in api web; do
@@ -48,7 +60,8 @@ main() {
 			sleep 2
 		done
 		if [[ "$status" != healthy ]]; then
-			echo "deploy: $service is $status; see: docker compose -f infra/docker-compose.prod.yml logs $service" >&2
+			echo "deploy: $service is $status" >&2
+			errors_of "$service"
 			echo "deploy: to go back to the last deploy: $0 $previous" >&2
 			exit 1
 		fi
