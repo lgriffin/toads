@@ -13,8 +13,8 @@ The Toad Bot is an automatic Discord account that the website controls. You neve
 download anything. You **add it to the server once** by opening a link, much like inviting a person. After that it
 appears in the member list, and the website tells it what to do.
 
-**Leigh sends you that link** (it starts with `https://discord.com/oauth2/authorize`). If you don't have it yet, ask
-Leigh before you start.
+**Hadur sends you that link** (it starts with `https://discord.com/oauth2/authorize`). If you don't have it yet, ask
+Hadur before you start.
 
 > **Never paste a bot token into Discord, a chat or an e-mail.** The token is the bot's password. You never need it,
 > and if anyone asks you for it, the answer is no.
@@ -24,14 +24,14 @@ Every step below ends with a **Check** line. If what you see doesn't match it, s
 
 ## Step 1: Add the Toad Bot to the server
 
-1. Open the link from Leigh in a web browser where you are logged in to Discord.
+1. Open the link from Hadur in a web browser where you are logged in to Discord.
 2. Under **Add to server**, pick **Toads**.
 3. Press **Continue**. Discord shows a list of permissions with ticks. **Leave every tick on**, because the bot needs
    them all. Press **Authorize**.
 4. Complete the "I am human" check if Discord asks.
 
 **Check:** the Toad Bot appears in the server's member list on the right, marked **APP**. It may show as offline
-until Leigh starts it, and that's fine.
+until Hadur starts it, and that's fine.
 
 ## Step 2: Turn on Developer Mode
 
@@ -60,9 +60,9 @@ Interview channels are created inside this category.
 > members or roles**, **Toad Bot**. Then tick **View Channels**, **Manage Channels** and **Manage Permissions** for
 > it, and press **Save Changes**.
 
-## Step 4: Copy three numbers and send them to Leigh
+## Step 4: Copy three numbers and send them to Hadur
 
-Copy each number below and paste it into a direct message to Leigh, saying which is which. These are not secret.
+Copy each number below and paste it into a direct message to Hadur, saying which is which. These are not secret.
 
 1. **The category:** right-click `Interviews`, then **Copy Category ID**.
 2. **_gallagher:** find them in the member list, right-click their name, then **Copy User ID**.
@@ -72,7 +72,7 @@ They are long numbers, such as `1187654321098765432`. If what you pasted is a na
 
 **Check:** your message has three long numbers, each labelled.
 
-## Step 5: Test it (after Leigh says it's live)
+## Step 5: Test it (after Hadur says it's live)
 
 1. Ask someone who is **not** `_gallagher` or `hadur117` to apply on the website's **Recruit** page. They need to be
    in the Toads Discord first.
@@ -87,16 +87,16 @@ You're done. Server admins can always see every channel, so you will see intervi
 
 | What you see | What to do |
 | --- | --- |
-| The link says "Unknown application" or "Invalid client" | The link was copied incompletely. Ask Leigh for it again. |
+| The link says "Unknown application" or "Invalid client" | The link was copied incompletely. Ask Hadur for it again. |
 | Toads isn't in the **Add to server** list | You don't have permission to manage the server. Ask the server owner to give you the **Manage Server** permission, or to do Step 1 themselves. |
 | No **Copy ... ID** option on the right-click menu | Developer Mode is off. Do Step 2 again. |
-| No channel appears after someone applies | Tell Leigh. Check first that the Toad Bot is shown as online in the member list. |
+| No channel appears after someone applies | Tell Hadur. Check first that the Toad Bot is shown as online in the member list. |
 | The channel appears but someone else can see it | Right-click `Interviews`, then **Edit Category**, then **Permissions**. Make sure `@everyone` has **View Channels** switched off (a red ✕). |
 | Applicants see "You are not in the Toads Discord" | They need to join the server with https://discord.gg/toads first, then press send again. |
 
 ## Keeping things working
 
-The bot keeps working on its own permissions, so Leigh no longer needs to be a server admin once the test works. Keep
+The bot keeps working on its own permissions, so Hadur no longer needs to be a server admin once the test works. Keep
 **Manage Server** and **Manage Roles** yourself, so you can fix the bot's access later. Don't remove the Toad Bot or
 its role, and don't take its access to `Interviews` away.
 
