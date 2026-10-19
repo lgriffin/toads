@@ -8,7 +8,7 @@ describe('previewGate', () => {
     }
   });
   it('asks a signed-out visitor to sign in for member pages', () => {
-    for (const path of ['/hub/', '/logs/ssc-0924/', '/me/settings/', '/officers/']) {
+    for (const path of ['/hub/', '/logs/pondWed1014/', '/me/settings/', '/officers/']) {
       expect(previewGate(path, null)).toBe('sign-in');
     }
   });

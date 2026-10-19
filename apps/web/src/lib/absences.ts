@@ -161,7 +161,12 @@ export function monthGrid(
         inMonth: d.getMonth() === month,
         past: date < today,
         raids: teams.filter((t) => t.weekday === d.getDay()).map((t) => t.id),
-        away: absences.filter((a) => a.first_date <= date && date <= a.last_date)
+        // Only the raid nights an absence covers: its team's weekday (every day of the range when unknown).
+        away: absences.filter((a) => {
+          if (date < a.first_date || a.last_date < date) return false;
+          const weekday = teams.find((t) => t.id === a.raid_day)?.weekday;
+          return weekday === null || weekday === undefined || weekday === d.getDay();
+        })
       });
     }
     if (w >= 4 && week.every((d) => !d.inMonth)) break;

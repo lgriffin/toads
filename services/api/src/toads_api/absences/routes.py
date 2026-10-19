@@ -33,7 +33,6 @@ def get_absences(request: Request) -> AbsenceService:
 
 Absences = Annotated[AbsenceService, Depends(get_absences)]
 SignedIn = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
-Reporter = Annotated[Principal, Depends(require(Permission.REPORT_ABSENCE))]
 DayReporter = Annotated[Principal, Depends(require(Permission.REPORT_ABSENCE, scoped=True))]
 DayOfficer = Annotated[Principal, Depends(require(Permission.VIEW_ABSENCES, scoped=True))]
 
@@ -112,7 +111,9 @@ async def report_absence(day: str, body: AbsenceIn, principal: DayReporter, abse
 
 
 @router.delete("/api/me/absences/{absence_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def cancel_absence(absence_id: int, principal: Reporter, absences: Absences) -> Response:
+async def cancel_absence(absence_id: int, principal: SignedIn, absences: Absences) -> Response:
+    # Any signed-in member, so someone who has left a team can still take back what they reported; the service only
+    # cancels the caller's own absences.
     try:
         await anyio.to_thread.run_sync(absences.cancel, principal.member_id, absence_id)
     except AbsenceError as exc:
