@@ -102,7 +102,7 @@ test('a visitor sees how a raid night works without anyone being named', async (
   const flasks = page.getByRole('article', { name: 'Flasks and elixirs' });
   await expect(flasks.getByText('Buff consumable uptime on bosses, last four raids')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'How we raid', level: 1 })).toBeVisible();
-  await expect(page.getByRole('article', { name: 'Loot Council' }).getByRole('link', { name: /thatsmybis\.com/ })).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Loot Council' }).getByText(/thatsmybis\.com/)).toBeVisible();
   await expect(page.getByRole('article', { name: 'Badges' })).toHaveCount(0);
   await expect(page.getByText('We are aiming for two 40-man raiding teams', { exact: false })).toBeVisible();
 });

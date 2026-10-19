@@ -39,3 +39,9 @@ Feature: HUB FRONT
     And the Bank tab shows the bankers' features to officers and a mockup labelled as sample data
     And every signed-in member has a rank toad, raiders the member toad
     And raiders meet their toad on the coming-soon page, officers on each held tab, and everyone on the hub home
+
+  @ears_ubiquitous @member @maintainer @phase_2_5
+  Scenario: REQ-HUB-FRONT-006 The public Story page's tagline and story shall come from the repository, so a merge and the deploy that follows change them without editing the server
+    Given the Story page's words
+    Then the API serves the tagline and story from the repository, not from config/community.yaml
+    And the static preview shows the same words

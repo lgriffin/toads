@@ -1,12 +1,8 @@
 # Copy to config/community.yaml (git-ignored) and fill in Discord channel ids. Configuration, not code.
 guild: Toads
 realm: Spineshatter EU
-tagline: A very social raiding guild on the EU PvP side of WoW Forever, locked in on speed and execution.
-# The public Story page's words, the first thing a visitor reads. Edit them here and restart the API.
-story:
-  - "Toads cut its teeth on Classic Fresh on Spineshatter: a social guild that locked in on raid night and took Molten Core, Blackwing Lair, Ahn’Qiraj and Naxxramas with a focus on speed runs."
-  - "We carried the same habits into The Burning Crusade, from Karazhan to Black Temple and Mount Hyjal. A balanced raid, full consumes and clean pulls: progression first, then the clock. Every clear is on Warcraft Logs."
-  - "World of Warcraft: Forever will follow the same pattern. Two 40-man teams, Wednesday and Sunday, clearing in one night wherever we can, with Discord as the pond in between."
+# The Story page's tagline and story live in the repository (services/api/src/toads_api/community/story.py) and
+# change with a deploy; there is nothing to edit here for them.
 discord_invite: https://discord.gg/toads  # only discord.gg / discord.com/invite links are accepted
 
 # Channels the bot offers to the hub for curation. Nothing from them is shown until an officer publishes it.

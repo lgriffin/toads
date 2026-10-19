@@ -352,11 +352,13 @@ export const spotlights: Spotlight[] = [
 export const story: PublicStory = {
   guild: 'Toads',
   realm: 'Spineshatter EU',
-  tagline: 'A very social raiding guild on the EU PvP side of WoW Forever, locked in on speed and execution. Two 40-man teams, one big pond.',
+  // The same words as services/api/src/toads_api/community/story.py; a test keeps them in step.
+  tagline: 'A semi-hardcore, very social raiding guild on Spineshatter: organised, competitive and locked in on speed and execution.',
   story: [
-    'Toads cut its teeth on Classic Fresh on Spineshatter: a social guild that locked in on raid night and took Molten Core, Blackwing Lair, Ahn’Qiraj and Naxxramas with a focus on speed runs.',
-    'We carried the same habits into The Burning Crusade, from Karazhan to Black Temple and Mount Hyjal. A balanced raid, full consumes and clean pulls: progression first, then the clock. Every clear is on Warcraft Logs.',
-    'World of Warcraft: Forever will follow the same pattern. Two 40-man teams, Wednesday and Sunday, clearing in one night wherever we can, with Discord as the pond in between.'
+    'Toads has raided together for six years. We are a tight-knit community with a UK and Scandinavian core: we have met up in real life, made lasting friendships and kept turning up for each other, raid after raid.',
+    'We cut our teeth on Classic Fresh on Spineshatter, clearing Molten Core through to Naxxramas with a focus on speed runs, then grew to four strong teams in The Burning Crusade, from Karazhan to Black Temple and Mount Hyjal. Three ran as full guild raids under a loot council and one on soft reserves.',
+    'Semi-hardcore means organised and competitive without losing the fun. We want players who put the guild first: friendly, prepared and team-focused, with a good sense of humour and the ability to take feedback. Experienced raid leaders run the night, and everyone pulls their weight.',
+    'World of Warcraft: Forever will follow the same pattern: two 40-man teams on Wednesday and Sunday, clearing in one night wherever we can, with Discord as the pond in between.'
   ],
   discordInvite: 'https://discord.gg/example',
   progression: progressionFromRaids(raids),

@@ -30,7 +30,7 @@ export const LANDING = {
     },
     {
       title: 'Boring, fair loot',
-      body: 'Our Loot Council looks at each role and weighs the mega drops across the whole raid. Every call is made in the open, with the loot tables public on thatsmybis.com.'
+      body: 'Our Loot Council looks at each role and weighs the mega drops across the whole raid. Every call is made in the open, with each raid day’s loot tables public on thatsmybis.com.'
     },
     {
       title: 'Open doors',
@@ -147,11 +147,8 @@ export interface Pillar {
   approach: string;
   measure: string;
   youSee: string;
-  /** An outside page the pillar points to, such as the public loot tables. */
-  link?: { href: string; label: string };
 }
 
-export const LOOT_TABLES = 'https://thatsmybis.com';
 
 /** The full write-up on /how-we-raid. */
 export const MODEL: readonly Pillar[] = [
@@ -193,8 +190,7 @@ export const MODEL: readonly Pillar[] = [
     approach:
       'We have a Loot Council to keep loot distribution fair across the whole group. It looks at each role, and weighs the mega drops across the whole raid.',
     measure: 'Attendance, performance, consumes and guild presence.',
-    youSee: 'Our loot tables, public on thatsmybis.com, so everyone knows the drop order.',
-    link: { href: LOOT_TABLES, label: 'Our loot tables on thatsmybis.com' }
+    youSee: 'Each raid day’s loot tables, public on thatsmybis.com, so everyone knows the drop order.'
   },
   {
     id: 'standard',
