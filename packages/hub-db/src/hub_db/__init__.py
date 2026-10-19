@@ -1,5 +1,6 @@
 """Tables the hub needs that the analyzer never had (members, claims, audit, community, raid sheets, WCL keys, ...)."""
 
+from hub_db.absences import MemberAbsence
 from hub_db.awards import MemberAward
 from hub_db.bank import EVERY_DAY, BankGrant, BankGrantToken
 from hub_db.community import (
@@ -55,6 +56,7 @@ __all__ = [
     "DiscordRoleBadge",
     "Highlight",
     "Member",
+    "MemberAbsence",
     "MemberAward",
     "MemberHomeLayout",
     "RaidSheetSnapshot",

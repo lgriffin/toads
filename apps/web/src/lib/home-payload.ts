@@ -94,11 +94,11 @@ export function linkTarget(link: PayloadLink | null | undefined, base: string, i
   if (!link) return null;
   if (link.kind === 'raid') {
     const id = link.params.report_id ?? '';
-    if (internalRaids) return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? { href: `${base}/raids/${id}`, external: false } : null;
+    if (internalRaids) return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? { href: `${base}/logs/${id}`, external: false } : null;
     const url = reportUrl(id);
     return url ? { href: url, external: true } : null;
   }
-  if (link.kind === 'action' && link.params.id === 'raids.browse') return { href: `${base}/raids`, external: false };
+  if (link.kind === 'action' && link.params.id === 'raids.browse') return { href: `${base}/logs`, external: false };
   return null;
 }
 

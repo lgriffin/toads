@@ -27,19 +27,23 @@ function under(path: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }
 
+// Open to every signed-in member during the hold: the Raid page is itself a coming-soon page for each raid night, and
+// the Calendar is where raiders tell their officers which nights they will miss, which matters before launch too.
+const OPEN_TO_MEMBERS = ['/raid', '/calendar'];
+
 // Officers run the guild from their console now (awards, the reference comparison), so it is never held for them.
-const OPEN_TO_OFFICERS = ['/officers'];
+const OPEN_TO_OFFICERS = ['/officers', ...OPEN_TO_MEMBERS];
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
   if (!hold || tier === 'visitor' || tier === 'admin' || !isMemberPath(path)) return 'open';
   if (tier === 'officer') return under(path, OPEN_TO_OFFICERS) ? 'open' : 'forever-notice';
-  return 'coming-soon';
+  return under(path, OPEN_TO_MEMBERS) ? 'open' : 'coming-soon';
 }
 
-/** A raider's Members nav during the hold: the hub link alone, which opens the coming-soon page. */
+/** A raider's Members nav during the hold: the hub link, which opens the coming-soon page, then the open pages. */
 export function heldNav(nav: NavItem[], tier: Tier, hold = LAUNCH_HOLD): NavItem[] {
-  return hold && tier === 'raider' ? nav.filter((i) => i.href === '/hub') : nav;
+  return hold && tier === 'raider' ? nav.filter((i) => i.href === '/hub' || OPEN_TO_MEMBERS.includes(i.href)) : nav;
 }
 
 export interface Upcoming {
@@ -75,7 +79,9 @@ export const UPCOMING: readonly Upcoming[] = [
 /** What each member tab will hold, for the officers' Forever launch notice. Keyed by the nav href. */
 export const TAB_PURPOSE: Record<string, string> = {
   '/hub': 'The raid leader desk, the officers’ posts and each member’s hub home.',
-  '/raids': 'Every logged raid with guild totals, role medians and reference comparisons.',
+  '/raid': 'Each raid night’s home: your role, sign-ups and prep, with an officer desk for the night’s officers.',
+  '/calendar': 'The raid nights you will miss, and each team’s absences for its officers.',
+  '/logs': 'Every logged raid with guild totals, role medians and reference comparisons.',
   '/highlights': 'Highlight reels and consent-gated spotlights from raid night.',
   '/bank': 'Bank requests, imports and each raid night’s stock.',
   '/me': 'Each member’s own numbers, badges and character claims.',
