@@ -21,7 +21,6 @@ COPY --from=build /src/services /src/services
 # wcl-core keeps its response cache under WCL_APP_DIR (the working directory when unset, which is / here and
 # not writable by the toads user).
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 WCL_APP_DIR=/app/data
-WORKDIR /app/data
 USER toads
 
 
