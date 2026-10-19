@@ -14,6 +14,8 @@ from redis.asyncio import Redis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from toads_api.absences.service import AbsenceService
+from toads_api.absences.sql import SqlAbsenceRepository
 from toads_api.account.service import AccountService
 from toads_api.account.sql import SqlAccountRepository
 from toads_api.awards.service import AwardService
@@ -66,6 +68,7 @@ class Services:
     community: CommunityService = field(init=False)
     account: AccountService = field(init=False)
     awards: AwardService = field(init=False)
+    absences: AbsenceService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
     comps: CompService = field(init=False)
     home: HomeService = field(init=False)
@@ -137,6 +140,13 @@ class Services:
             for d in self.raid_days.raid_days
             if (day := sheets_config.weekdays.get(d.id, weekday_named(d.name))) is not None
         }
+        zone = ZoneInfo(self.raid_days.timezone)
+        self.absences = AbsenceService(
+            SqlAbsenceRepository(self.db),
+            self.account.shown_names,
+            weekdays,
+            today=lambda: datetime.fromtimestamp(self.clock(), zone).date(),
+        )
         self.raid_sheets = RaidSheetService(repo=SqlSheetRepository(self.db), config=sheets_config, weekdays=weekdays)
         self.next_raid = NextRaidService(
             self.discord.scheduled_events,

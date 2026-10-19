@@ -8,7 +8,7 @@
   const roles: Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
 </script>
 
-<p><a href="{base}/raids/">Raids &amp; Logs</a></p>
+<p><a href="{base}/logs/">Logs</a></p>
 <h1>{raid.zone}</h1>
 <p class="muted">
   {shortDate(raid.date)} · {raid.raidDay} team · {raid.size}-man · {raid.durationMin} min · {raid.deaths} deaths ·

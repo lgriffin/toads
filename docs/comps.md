@@ -33,7 +33,7 @@ whole raid. Update `BUFFS` in `comp.ts` as Blizzard confirms changes.
 ## Who is on a night's roster
 
 A member is on a raid night's roster when their Discord roles put them on that night (trial, raider or officer). The
-hub records those nights on the member's row at every sign-in and role refresh (`members.raid_days`, migration 0016);
+hub records those nights on the member's row at every sign-in and role refresh (`members.raid_days`, migration 0017);
 it is never a source of permissions. Someone who has not signed in since the roles changed shows on their old nights
 until they do; losing a night's role or leaving the server takes them off at the next role refresh.
 

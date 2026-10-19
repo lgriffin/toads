@@ -60,7 +60,7 @@
       <tbody>
         {#each [...history].reverse() as r}
           <tr>
-            <td><a href="{base}/raids/{r.raidId}/">{r.zone}</a> <span class="muted">{r.date.slice(5)}</span></td>
+            <td><a href="{base}/logs/{r.raidId}/">{r.zone}</a> <span class="muted">{r.date.slice(5)}</span></td>
             <td class="num">{r.mine}</td>
             <td class="num muted">{r.median}</td>
           </tr>

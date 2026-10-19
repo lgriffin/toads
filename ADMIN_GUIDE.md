@@ -342,12 +342,19 @@ Rules worth knowing:
   pick a server role and the badge it earns (Wednesday Toad, Sunday Toad, Tank, Healer, Damage or a class). Everyone
   holding the role wears the badge beside their name. Start by tying the Wednesday and Sunday raider roles. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
+- **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
+  their own team's night, its officers also get the officer desk with the team's upcoming absences, and super admins
+  and global officers switch between every night. On `/calendar` a raid day's trials and raiders report the nights they
+  will miss (`report_absence`, checked against the raid day in the path), and that day's officers see them all
+  (`view_absences`). Nothing to configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named
+  "Wednesday" raids on Wednesdays). Notes are seen only by that night's officers. Not audited: an absence is a member's
+  own word, not an officer action.
 - **The Admin page** (`/admin`, shown in the nav to super admins only) gathers role badges, bank grants and officer tokens, the
   scheduler's jobs and where each integration is set up. It reads `/api/session` and changes nothing the Bank page
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 - **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one
-  coming-soon page (guild bank management, logs analysis, raid assistance) on every member page, and the Members nav
-  shows only Hub. Officers see every member page as it is being built (the hub fills in from the historic TBC raids
+  coming-soon page (guild bank management, logs analysis, raid assistance) on every member page except Raid and
+  Calendar, and the Members nav shows only Hub, Raid and Calendar, so raiders can report absences now. Officers see every member page as it is being built (the hub fills in from the historic TBC raids
   the worker synced), except Bank, which shows what is coming with the Forever launch and a mockup until the bank has
   data. Super admins see exactly what officers see, plus the Admin console. The hold is in the web app
   only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`

@@ -152,6 +152,20 @@ source_modules = ["toads_api.awards.service", "toads_api.awards.repository", "to
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Absence routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.absences.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.absences.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Absence rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = ["toads_api.absences.service", "toads_api.absences.repository"]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
 name = "Member settings routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.account.routes"]

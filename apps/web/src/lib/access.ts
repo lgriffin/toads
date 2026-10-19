@@ -70,6 +70,7 @@ export const APPS: readonly App[] = [
           { text: 'Your role number against the guild median', permission: 'view_own_performance' },
           { text: 'Your badges and the next tier', permission: 'view_own_performance' },
           { text: 'Claim your characters', permission: 'claim_character' },
+          { text: 'Tell your officers which raid nights you will miss', permission: 'report_absence' },
           { text: 'Use your own Warcraft Logs key' },
           { text: 'Set your primary and secondary spec for the officers’ comps' },
           { text: 'Install the Windows app' }
@@ -83,6 +84,7 @@ export const APPS: readonly App[] = [
           { text: 'Sync logs and set roles', permission: 'sync_logs' },
           { text: 'Approve character claims', permission: 'approve_claims' },
           { text: 'Build and lock in raid comps from your night’s roster', permission: 'build_comps' },
+          { text: 'Your raid night’s absences in one place', permission: 'view_absences' },
           { text: 'Give members their award toads (global officers)', permission: 'manage_awards' }
         ]
       }
@@ -165,8 +167,8 @@ export type RaidRole = 'member' | 'trial' | 'raider';
  * (access.test.ts checks them). The raider tier groups all three, so these say which of its rows need a raid role.
  */
 export const RAID_ROLE_PERMISSIONS: Record<Exclude<RaidRole, 'member'>, readonly string[]> = {
-  trial: ['view_own_performance', 'claim_character'],
-  raider: ['view_own_performance', 'claim_character', 'upload_screenshots', 'submit_highlight']
+  trial: ['view_own_performance', 'claim_character', 'report_absence'],
+  raider: ['view_own_performance', 'claim_character', 'report_absence', 'upload_screenshots', 'submit_highlight']
 };
 
 export function raidRoleOf(session: Session | null | undefined): RaidRole {

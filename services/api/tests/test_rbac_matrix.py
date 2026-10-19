@@ -35,6 +35,7 @@ OFFICER_ONLY = {
     P.MANAGE_BANK,
     P.MANAGE_AWARDS,
     P.BUILD_COMPS,
+    P.VIEW_ABSENCES,
 }
 
 # The build spec's table: which tier holds which permission on its own raid day.
@@ -42,7 +43,8 @@ OFFICER_ONLY = {
 BANK = {P.VIEW_BANK, P.REQUEST_BANK_ITEMS}
 SPEC: dict[str, set[Permission]] = {
     "member": {P.VIEW_GUILD_RAIDS, P.APPLY, *BANK},
-    "trial": {P.VIEW_GUILD_RAIDS, P.APPLY, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER, *BANK},
+    # A raid day's trials and raiders report the nights they will miss (docs/absences.md).
+    "trial": {P.VIEW_GUILD_RAIDS, P.APPLY, P.VIEW_OWN_PERFORMANCE, P.CLAIM_CHARACTER, P.REPORT_ABSENCE, *BANK},
     "raider": {
         *BANK,
         P.VIEW_GUILD_RAIDS,
@@ -51,6 +53,7 @@ SPEC: dict[str, set[Permission]] = {
         P.CLAIM_CHARACTER,
         P.UPLOAD_SCREENSHOTS,
         P.SUBMIT_HIGHLIGHT,
+        P.REPORT_ABSENCE,
     },
     # Everything but managing grants and tokens and tying badges to Discord roles, which are the super admins' alone
     # (docs/admin.md, docs/role-badges.md).

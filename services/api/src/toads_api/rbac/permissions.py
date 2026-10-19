@@ -45,6 +45,10 @@ class Permission(enum.StrEnum):
     BUILD_COMPS = "build_comps"
     # Super admins only (docs/role-badges.md): say which Discord roles earn which badge toads.
     MANAGE_ROLE_BADGES = "manage_role_badges"
+    # Absences (docs/absences.md): a raid day's trials and raiders say which nights they will miss; its officers see
+    # them gathered in one place.
+    REPORT_ABSENCE = "report_absence"
+    VIEW_ABSENCES = "view_absences"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.
@@ -56,7 +60,7 @@ SUPER_ADMIN_ONLY = frozenset({Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_B
 _MEMBER = frozenset(
     {Permission.VIEW_GUILD_RAIDS, Permission.APPLY, Permission.VIEW_BANK, Permission.REQUEST_BANK_ITEMS}
 )
-_TRIAL = _MEMBER | {Permission.VIEW_OWN_PERFORMANCE, Permission.CLAIM_CHARACTER}
+_TRIAL = _MEMBER | {Permission.VIEW_OWN_PERFORMANCE, Permission.CLAIM_CHARACTER, Permission.REPORT_ABSENCE}
 _RAIDER = _TRIAL | {Permission.UPLOAD_SCREENSHOTS, Permission.SUBMIT_HIGHLIGHT}
 _OFFICER = frozenset(Permission) - SUPER_ADMIN_ONLY
 
