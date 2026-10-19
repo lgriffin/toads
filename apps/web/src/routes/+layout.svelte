@@ -22,6 +22,8 @@
   let { children } = $props();
   // undefined while loading; null when signed out. The preview never calls the API.
   let session = $state<Session | null | undefined>(undefined);
+  // The session request failed (not a 401): we cannot tell who this is, so held member pages stay closed.
+  let sessionFailed = $state(false);
   // Titles (banker, developer, Discord admin) are awards; they show as toads beside the rank toad.
   let titles = $state<Title[]>([]);
   onMount(async () => {
@@ -30,7 +32,10 @@
       titles = titlesOf(previewAwardsOf(1));
       return;
     }
-    session = await getSession().catch(() => null);
+    session = await getSession().catch(() => {
+      sessionFailed = true;
+      return null;
+    });
     if (session) titles = titlesOf(await myAwards().catch(() => []));
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
@@ -54,7 +59,7 @@
   // Until the Forever launch, raiders get one coming-soon page and officers a notice on each tab (src/lib/launch.ts).
   // The real site waits for the session on member pages so a held page never starts its own API calls.
   let hold = $derived(launchHold(path, tier));
-  let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && session === undefined && isMemberPath(path));
+  let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
   function switchView(next: PreviewRole) {
     previewSignIn(next);
@@ -114,7 +119,12 @@
 </header>
 
 <main id="main" tabindex="-1">
-  {#if (__PREVIEW__ && gate !== 'open' && !previewSession.ready) || holdPending}
+  {#if holdPending && sessionFailed}
+    <section class="card gate" aria-labelledby="gate-h">
+      <h1 id="gate-h">The hub did not answer</h1>
+      <p>We could not check your sign-in just now. Reload the page to try again.</p>
+    </section>
+  {:else if (__PREVIEW__ && gate !== 'open' && !previewSession.ready) || holdPending}
     <p class="muted" role="status">Loading…</p>
   {:else if gate === 'sign-in'}
     <section class="card gate" aria-labelledby="gate-h">

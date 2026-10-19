@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEMBER_NAV, memberNav } from './nav';
+import { memberNav } from './nav';
 import { TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 
 describe('launch hold', () => {
@@ -14,6 +14,8 @@ describe('launch hold', () => {
 
   it('leaves super admins, visitors and the public pages alone', () => {
     expect(launchHold('/officers', 'admin', true)).toBe('open');
+    // An officer who opens the admin console meets its own super-admins-only refusal, not the notice.
+    expect(launchHold('/admin', 'officer', true)).toBe('open');
     expect(launchHold('/hub', 'visitor', true)).toBe('open');
     for (const path of ['/', '/how-we-raid', '/story', '/recruit', '/toolkit', '/members-only', '/hubbub'])
       expect(launchHold(path, 'raider', true)).toBe('open');
@@ -31,12 +33,11 @@ describe('launch hold', () => {
   });
 
   it('says what every held tab will hold', () => {
-    // The admin tab shows to super admins only, and they are never held.
     for (const item of memberNav(true)) {
       expect(isMemberPath(item.href)).toBe(true);
       expect(TAB_PURPOSE[tabOf(`${item.href}/`)!.href]).toBeTruthy();
     }
-    expect(isMemberPath('/admin')).toBe(MEMBER_NAV.some((i) => i.href === '/admin'));
+    expect(isMemberPath('/admin')).toBe(false);
     expect(tabOf('/welcome')?.label).toBe('Welcome');
   });
 

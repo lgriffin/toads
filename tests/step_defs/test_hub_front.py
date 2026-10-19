@@ -190,7 +190,7 @@ def never_held(launch: str) -> None:
 @then("the real site waits for the session before a held page renders, so it never starts the page's own API calls")
 def waits_for_session() -> None:
     layout = _read("routes/+layout.svelte")
-    assert "LAUNCH_HOLD && !__PREVIEW__ && session === undefined && isMemberPath(path)" in layout
+    assert "LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed)" in layout
     assert "__LAUNCH_HOLD__: JSON.stringify(process.env.PREVIEW !== '1' || process.env.LAUNCH_HOLD === '1')" in (
         WEB.parent / "vite.config.ts"
     ).read_text(encoding="utf-8")

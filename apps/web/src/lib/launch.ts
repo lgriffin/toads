@@ -14,9 +14,10 @@ export const FOREVER_LAUNCH = { date: '2026-11-04', label: '4 November 2026' } a
 
 export type Hold = 'open' | 'coming-soon' | 'forever-notice';
 
-const MEMBER = [...MEMBER_NAV.map((i) => i.href), ...MEMBER_EXTRA];
+// The admin console is super admins' only, and they are never held; it keeps its own refusal for everyone else.
+const MEMBER = [...MEMBER_NAV.filter((i) => !i.adminOnly).map((i) => i.href), ...MEMBER_EXTRA];
 
-/** True for the member pages (the Members nav and the welcome checklist); `path` is relative to the base path. */
+/** True for the held member pages (the Members nav except Admin, and the welcome checklist); `path` is relative to the base path. */
 export function isMemberPath(path: string): boolean {
   const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';
   return MEMBER.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
