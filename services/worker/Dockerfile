@@ -13,11 +13,15 @@ COPY services ./services
 RUN uv sync --frozen --no-dev --package toads-worker
 
 FROM python:3.12-slim-bookworm
-RUN useradd --system --uid 10001 toads
+RUN useradd --system --uid 10001 toads \
+    && mkdir -p /app/data && chown toads:toads /app/data
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /src/packages /src/packages
 COPY --from=build /src/services /src/services
-ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
+# wcl-core keeps its response cache under WCL_APP_DIR (the working directory when unset, which is / here and
+# not writable by the toads user).
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 WCL_APP_DIR=/app/data
+WORKDIR /app/data
 USER toads
 
 
