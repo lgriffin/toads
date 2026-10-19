@@ -316,7 +316,7 @@ section of [docs/bank.md](docs/bank.md).
 | Member, trial, raider | a raid day's `trial_roles` / `raider_roles` (anyone in the server is a member) | their own pages; raiders upload and submit highlights; everyone may view the bank and request items |
 | Raid-day officer | a raid day's `officer_roles` | officer powers **for that raid day only**: `/api/days/{day}/...` routes, that day's banks, claims, applications, curation |
 | Global officer | `global_officer_roles` | officer powers on every raid day, bank sources, recruitment, highlights, spotlights; sees the grants list |
-| Super admin | `TOADS_SUPER_ADMIN_IDS` | everything a global officer can, plus `MANAGE_GRANTS`: grant and revoke bank grants, mint and revoke officer tokens |
+| Super admin | `TOADS_SUPER_ADMIN_IDS` | everything a global officer can, plus `MANAGE_GRANTS`: grant and revoke bank grants, mint and revoke officer tokens; and `MANAGE_ROLE_BADGES`: tie badges to Discord roles |
 | Break-glass admin | `TOADS_BREAK_GLASS_ADMIN_ID` | always a super admin; visible to everyone in the global tier; every change is audited as `break_glass` |
 
 Rules worth knowing:
@@ -336,7 +336,11 @@ Rules worth knowing:
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
 - **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions.
-- **The Admin page** (`/admin`, shown in the nav to super admins only) gathers bank grants and officer tokens, the
+- **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
+  pick a server role and the badge it earns (Wednesday Toad, Sunday Toad, Tank, Healer, Damage or a class). Everyone
+  holding the role wears the badge beside their name. Start by tying the Wednesday and Sunday raider roles. The rank
+  toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
+- **The Admin page** (`/admin`, shown in the nav to super admins only) gathers role badges, bank grants and officer tokens, the
   scheduler's jobs and where each integration is set up. It reads `/api/session` and changes nothing the Bank page
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 - **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one

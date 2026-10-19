@@ -32,6 +32,7 @@ from hub_db.models import (
 )
 from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
+from hub_db.role_badges import DiscordRoleBadge
 
 __all__ = [
     "EVERY_DAY",
@@ -51,6 +52,7 @@ __all__ = [
     "CommunityPost",
     "CredentialCipher",
     "CredentialDecryptError",
+    "DiscordRoleBadge",
     "Highlight",
     "Member",
     "MemberAward",

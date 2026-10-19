@@ -43,3 +43,43 @@ Feature: HUB AWARD
     And the global officer takes it back
     Then the raider holds no awards
     And the audit log records "award.take_back"
+
+  # Role badges (docs/role-badges.md): badge toads members earn from the Discord roles they hold, such as the
+  # Wednesday Toad, the Sunday Toad, Tank and Healer. A super admin ties each badge to a server role on the admin page.
+
+  @ears_event_driven @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-006 When a super admin ties a badge to a Discord server role, the hub shall show that badge to every member holding the role and record it on the audit log
+    Given a Discord role named "Wednesday Toad"
+    And a raider who holds the "Wednesday Toad" role
+    And a super admin
+    When the super admin ties the "wednesday-toad" badge to the "Wednesday Toad" role
+    Then the raider sees the "Wednesday Toad" badge among their role badges
+    And the audit log records "role_badge.add"
+
+  @ears_unwanted_behavior @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-007 If a global officer tries to tie a badge to a Discord role, then the hub shall refuse it and store nothing
+    Given a Discord role named "Healers"
+    And a global officer
+    When the global officer tries to tie the "healer" badge to the "Healers" role
+    Then the request is refused as forbidden
+    And no role badge is stored
+
+  @ears_unwanted_behavior @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-008 If a super admin names a badge outside the catalogue or a role that is not in the Discord server, then the hub shall refuse it and store nothing
+    Given a Discord role named "Tanks"
+    And a super admin
+    When the super admin ties the "not-a-badge" badge to the "Tanks" role
+    Then the request is refused as invalid
+    When the super admin ties the "tank" badge to a role the server does not have
+    Then the request is refused as invalid
+    And no role badge is stored
+
+  @ears_event_driven @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-009 When a super admin unties a badge from a Discord role, the hub shall stop showing it to the role's members and record that on the audit log
+    Given a Discord role named "Sunday Toad"
+    And a raider who holds the "Sunday Toad" role
+    And a super admin
+    When the super admin ties the "sunday-toad" badge to the "Sunday Toad" role
+    And the super admin unties the "sunday-toad" badge from the "Sunday Toad" role
+    Then the raider has no role badges
+    And the audit log records "role_badge.remove"

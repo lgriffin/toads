@@ -25,6 +25,7 @@ from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import Permission, Principal
 from toads_api.reference.routes import include_reference
+from toads_api.role_badges.routes import include_role_badges
 from toads_api.services import Services, build_services
 from toads_api.settings import Settings
 
@@ -99,6 +100,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(members.router)
     app.include_router(account_router)
     include_awards(app)
+    include_role_badges(app)
     include_home(app)
     include_reference(app)
 

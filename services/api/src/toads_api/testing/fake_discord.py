@@ -57,6 +57,8 @@ class FakeDiscordState:
     # The application the bot token belongs to; None means the same one as client_id, as in production.
     bot_application_id: str | None = None
     guild_roles: set[int] = field(default_factory=set)
+    # Names for the server's roles; a role without one is called "role-<id>".
+    role_names: dict[int, str] = field(default_factory=dict)
     users: dict[int, FakeUser] = field(default_factory=dict)
     login_as: int | None = None
     codes: dict[str, _Code] = field(default_factory=dict)
@@ -204,12 +206,15 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
         return {"id": state.bot_application_id or state.client_id, "name": "Toad Bot"}
 
     @app.get("/api/v10/guilds/{guild_id}/roles")
-    async def roles(guild_id: int, request: Request) -> list[dict[str, str]]:
+    async def roles(guild_id: int, request: Request) -> list[dict[str, Any]]:
         if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
             raise HTTPException(401, detail="401: Unauthorized")
         if not state.bot_in_server:
             raise HTTPException(404, detail="Unknown Guild")
-        return [{"id": str(r), "name": f"role-{r}"} for r in sorted(state.guild_roles | {state.guild_id})]
+        return [
+            {"id": str(r), "name": state.role_names.get(r, f"role-{r}"), "color": 0, "position": i, "managed": False}
+            for i, r in enumerate(sorted(state.guild_roles | {state.guild_id}))
+        ]
 
     @app.get("/api/v10/guilds/{guild_id}/scheduled-events")
     async def scheduled_events(guild_id: int, request: Request) -> list[dict[str, Any]]:

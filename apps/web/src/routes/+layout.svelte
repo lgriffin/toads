@@ -8,6 +8,8 @@
   import { getSession, type Session } from '$lib/api';
   import { myAwards, titlesOf } from '$lib/awards';
   import { previewAwardsOf } from '$lib/preview/awards-fake';
+  import { PREVIEW_ROLE_BADGES } from '$lib/preview/role-badges-fake';
+  import { myRoleBadges } from '$lib/role-badges';
   import type { Title } from '$lib/toads';
   import { forgetRecruitDraft } from '$lib/application';
   import { isActive, memberNav } from '$lib/nav';
@@ -27,17 +29,23 @@
   let sessionFailed = $state(false);
   // Titles (banker, developer, Discord admin) are awards; they show as toads beside the rank toad.
   let titles = $state<Title[]>([]);
+  // Badges the member's Discord roles earn (Wednesday Toad, Healer, ...), tied to roles by a super admin.
+  let roleBadges = $state<string[]>([]);
   onMount(async () => {
     if (__PREVIEW__) {
       loadPreviewSession();
       titles = titlesOf(previewAwardsOf(1));
+      roleBadges = PREVIEW_ROLE_BADGES;
       return;
     }
     session = await getSession().catch(() => {
       sessionFailed = true;
       return null;
     });
-    if (session) titles = titlesOf(await myAwards().catch(() => []));
+    if (!session) return;
+    const [awards, badges] = await Promise.all([myAwards().catch(() => []), myRoleBadges().catch(() => [])]);
+    titles = titlesOf(awards);
+    roleBadges = badges.map((b) => b.id);
   });
   let path = $derived($page.url.pathname.slice(base.length) || '/');
   // The preview signs in on /login as a raider or an officer. Officer links only hide; the API is the real gate.
@@ -63,8 +71,8 @@
   // The signed-in member's own toad greets them on the hub home and on the held pages (ToadGreeting).
   let me = $derived(
     __PREVIEW__
-      ? { name: 'Hopscotch', tier, username: 'hopscotch', titles, className: 'Rogue', role: 'Melee' as const }
-      : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles }
+      ? { name: 'Hopscotch', tier, username: 'hopscotch', titles, roleBadges, className: 'Rogue', role: 'Melee' as const }
+      : { name: session?.display_name ?? '', tier, username: session?.discord_username, titles, roleBadges }
   );
   let isHubHome = $derived(path === '/hub' || path === '/hub/');
   // Until the launch the public site is our story alone; the other public pages send visitors to it.
@@ -112,7 +120,7 @@
       <span class="login"></span>
     {:else if signedIn}
       <div class="login">
-        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} className="Rogue" role="Melee" size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
+        <span>Signed in as Hopscotch <MemberToads {tier} username="hopscotch" {titles} {roleBadges} className="Rogue" role="Melee" size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="{base}/features/" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
         {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
           <button type="button" onclick={() => switchView(v.role)}>{v.label}</button>
         {/each}
@@ -123,7 +131,7 @@
     {/if}
   {:else if session}
     <form class="login" method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
+      <span>Signed in as {session.display_name} <MemberToads {tier} username={session.discord_username} {titles} {roleBadges} size={24} /> {#if LAUNCH_HOLD}<span class="pill">{TIER_LABEL[tier]}</span>{:else}<a class="pill" href="/features" title="What you can do">{TIER_LABEL[tier]}</a>{/if}</span>
       <button type="submit">Log out</button>
     </form>
   {:else if session === null}

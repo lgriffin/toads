@@ -5,10 +5,14 @@
   import { ADMIN_GUIDE, INTEGRATIONS, JOBS } from '$lib/admin';
   import { useBankFetch } from '$lib/bank';
   import BankGrants from '$lib/components/BankGrants.svelte';
+  import RoleBadges from '$lib/components/RoleBadges.svelte';
   import { previewBankFetch } from '$lib/preview/bank-fake';
+  import { previewRoleBadges } from '$lib/preview/role-badges-fake';
+  import { hubRoleBadges } from '$lib/role-badges';
 
-  // The super admin console: who else runs the bank, and where each integration is set up. The hub's routes are the
-  // gate (MANAGE_GRANTS); the preview gates this page in the layout and answers the bank from sample data.
+  // The super admin console: which Discord roles earn which badges, who else runs the bank, and where each integration
+  // is set up. The hub's routes are the gate (MANAGE_ROLE_BADGES, MANAGE_GRANTS); the preview gates this page in the
+  // layout and answers from sample data.
   if (__PREVIEW__) useBankFetch(previewBankFetch);
   let session = $state<Session | null | undefined>(__PREVIEW__ ? null : undefined);
   onMount(async () => {
@@ -32,9 +36,13 @@
   </section>
 {:else}
   <p class="lede">
-    Grants, officer tokens and the hub's integrations. Super admins are named in the hub's configuration, and the
-    break-glass admin's changes are always audited.
+    Badges from Discord roles, grants, officer tokens and the hub's integrations. Super admins are named in the hub's
+    configuration, and the break-glass admin's changes are always audited.
   </p>
+
+  <div class="block">
+    <RoleBadges backend={__PREVIEW__ ? previewRoleBadges : hubRoleBadges()} />
+  </div>
 
   <section class="block" aria-labelledby="integrations-h">
     <h2 id="integrations-h">Integrations</h2>

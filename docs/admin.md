@@ -19,6 +19,7 @@ For every other setting, first-time setup and routine operations, see the [admin
 - `Permission.MANAGE_GRANTS` is theirs alone (`rbac.permissions.SUPER_ADMIN_ONLY`): no officer role or grant carries
   it. It opens granting and revoking bank grants, and minting, listing and revoking officer tokens. Global officers
   still see the grants list (`GET /api/admin/bank/grants`).
+- `Permission.MANAGE_ROLE_BADGES` is theirs alone too: tying badges to Discord roles ([role-badges.md](role-badges.md)).
 - `/api/session` and `/api/bank/me` say `super_admin: true`.
 
 ## The break-glass admin

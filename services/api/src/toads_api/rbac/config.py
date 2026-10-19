@@ -98,4 +98,5 @@ class RaidDaysConfig(BaseModel):
             day_roles=day_roles,
             discord_user_id=discord_user_id,
             discord_username=discord_username,
+            discord_role_ids=frozenset(discord_role_ids),
         )

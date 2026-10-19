@@ -50,3 +50,24 @@ test('a Wednesday officer posts for Wednesday only', async ({ page }) => {
   await page.getByLabel('Audience').selectOption('raid_day');
   await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday']);
 });
+
+test('a super admin gives a badge to a Discord role and takes it off again', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('admin/');
+  const desk = page.getByRole('region', { name: 'Badges from Discord roles' });
+  await desk.getByLabel('Discord role').selectOption({ label: 'Tank' });
+  await desk.getByRole('radio', { name: 'Tank' }).check({ force: true });
+  await desk.getByRole('button', { name: 'Give the badge to this role' }).click();
+  await expect(desk.getByText('Everyone with the Tank role now wears the Tank badge.')).toBeVisible();
+  await desk.getByRole('button', { name: 'Remove Tank from Tank' }).click();
+  await expect(desk.getByText('The Tank role no longer earns the Tank badge.')).toBeVisible();
+});
+
+test('a super admin wears the super admin and member toads', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('hub/');
+  const header = page.getByRole('banner');
+  await expect(header.getByRole('img', { name: 'Super admin', exact: true })).toBeVisible();
+  await expect(header.getByRole('img', { name: 'Member', exact: true })).toBeVisible();
+  await expect(header.getByRole('img', { name: 'Wednesday Toad' })).toBeVisible();
+});

@@ -1,4 +1,5 @@
-"""REQ-HUB-AWARD-*: members' Discord usernames and the awards officers give them (docs/awards.md).
+"""REQ-HUB-AWARD-*: members' Discord usernames, the awards officers give them (docs/awards.md) and the badges super
+admins tie to Discord roles (docs/role-badges.md).
 
 Thin steps over the `hub` fixture (root conftest.py): the real API wired to the fake Discord server.
 """
@@ -9,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from hub_db import AuditEntry, Member, MemberAward
+from hub_db import AuditEntry, DiscordRoleBadge, Member, MemberAward
 from pytest_bdd import given, parsers, scenarios, then, when
 from sqlalchemy import select
 from toads_api.testing.fake_discord import FakeUser
 
-from conftest import Hub
+from conftest import Hub, make_settings
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
 scenarios(str(FEATURES / "hub_award.feature"))
@@ -150,3 +151,75 @@ def no_month_refused(hub: Hub, people: dict[str, Any]) -> None:
 @then("the raider holds no awards")
 def holds_none(hub: Hub, people: dict[str, Any]) -> None:
     assert hub.get("/api/me/awards", _raider_sid(hub, people)).json() == []
+
+
+# ---------------------------------------------------------------- role badges
+
+
+@given(parsers.parse('a Discord role named "{name}"'))
+def a_discord_role(hub: Hub, people: dict[str, Any], name: str) -> None:
+    role_id = 7000 + len(hub.fake.role_names)
+    hub.fake.guild_roles.add(role_id)
+    hub.fake.role_names[role_id] = name
+    people.setdefault("roles", {})[name] = role_id
+
+
+@given(parsers.parse('a raider who holds the "{name}" role'))
+def a_raider_with_role(hub: Hub, people: dict[str, Any], name: str) -> None:
+    people["raider"] = hub.user(("wed", "raider"), nick="Hopscotch")
+    people["raider"].roles.add(people["roles"][name])
+
+
+@given("a super admin")
+def a_super_admin(hub: Hub, people: dict[str, Any]) -> None:
+    user = hub.user()
+    hub.services.settings = make_settings(super_admin_ids=str(user.user_id))
+    people["admin"] = hub.login(user)
+
+
+def _tie(hub: Hub, people: dict[str, Any], who: str, badge_id: str, role_id: int) -> None:
+    body = {"discord_role_id": str(role_id), "badge_id": badge_id}
+    people["last"] = hub.post("/api/admin/role-badges", people[who], body)
+
+
+@when(parsers.parse('the super admin ties the "{badge_id}" badge to the "{name}" role'))
+def admin_ties(hub: Hub, people: dict[str, Any], badge_id: str, name: str) -> None:
+    _tie(hub, people, "admin", badge_id, people["roles"][name])
+
+
+@when(parsers.parse('the super admin ties the "{badge_id}" badge to a role the server does not have'))
+def admin_ties_unknown_role(hub: Hub, people: dict[str, Any], badge_id: str) -> None:
+    _tie(hub, people, "admin", badge_id, 999_999)
+
+
+@when(parsers.parse('the global officer tries to tie the "{badge_id}" badge to the "{name}" role'))
+def officer_ties(hub: Hub, people: dict[str, Any], badge_id: str, name: str) -> None:
+    _tie(hub, people, "officer", badge_id, people["roles"][name])
+
+
+@when(parsers.parse('the super admin unties the "{badge_id}" badge from the "{name}" role'))
+def admin_unties(hub: Hub, people: dict[str, Any], badge_id: str, name: str) -> None:
+    r = hub.delete(f"/api/admin/role-badges/{people['roles'][name]}/{badge_id}", people["admin"])
+    assert r.status_code == 204, r.text
+
+
+@then(parsers.parse('the raider sees the "{name}" badge among their role badges'))
+def raider_sees_role_badge(hub: Hub, people: dict[str, Any], name: str) -> None:
+    assert people["last"].status_code == 201, people["last"].text
+    assert name in [b["name"] for b in hub.get("/api/me/role-badges", _raider_sid(hub, people)).json()]
+
+
+@then("the raider has no role badges")
+def raider_has_no_role_badges(hub: Hub, people: dict[str, Any]) -> None:
+    assert hub.get("/api/me/role-badges", _raider_sid(hub, people)).json() == []
+
+
+@then("the request is refused as invalid")
+def refused_invalid(people: dict[str, Any]) -> None:
+    assert people["last"].status_code == 422, people["last"].text
+
+
+@then("no role badge is stored")
+def no_role_badge(hub: Hub) -> None:
+    with hub.db() as db:
+        assert db.scalars(select(DiscordRoleBadge)).all() == []
