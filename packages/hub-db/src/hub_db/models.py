@@ -39,6 +39,10 @@ class Member(Base):
     # honoured only while the member holds an approved claim on it).
     name_source: Mapped[str] = mapped_column(String(16), default="discord", server_default="discord")
     name_character_id: Mapped[int | None] = mapped_column()
+    # The raid days the member's Discord roles put them on (trial, raider or officer), refreshed at every sign-in
+    # and role refresh. Never a source of permissions: the officers' comp builder reads it for a raid day's pool.
+    # Null until the member signs in again after it was added.
+    raid_days: Mapped[list[str] | None] = mapped_column(JSON)
     profile_public: Mapped[bool] = mapped_column(default=False)
     dms_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

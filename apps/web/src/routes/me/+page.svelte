@@ -7,6 +7,7 @@
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
+  import SpecsCard from '$lib/components/SpecsCard.svelte';
   import { getMe } from '$lib/me-context';
   import Me from '$lib/preview/Me.svelte';
   import { memberToads } from '$lib/toads';
@@ -40,6 +41,7 @@
 
 {#if __PREVIEW__}
   <Me />
+  <SpecsCard />
   <p><a href="{base}/me/claim">Claim a character</a> · <a href="{base}/me/settings">Your settings</a></p>
 {:else}
   <h1>Your performance <MemberToads {...facts} size={40} /></h1>
@@ -47,6 +49,7 @@
     Claim your characters and see how each raid went for you against the guild median for your role.
     The seven charts from the build spec arrive in milestone H3.
   </p>
+  <SpecsCard />
   {#if badges.kind === 'ok'}
     <BadgesCard mine={badges.value} />
   {:else}

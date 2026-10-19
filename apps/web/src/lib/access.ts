@@ -71,6 +71,7 @@ export const APPS: readonly App[] = [
           { text: 'Your badges and the next tier', permission: 'view_own_performance' },
           { text: 'Claim your characters', permission: 'claim_character' },
           { text: 'Use your own Warcraft Logs key' },
+          { text: 'Set your primary and secondary spec for the officers’ comps' },
           { text: 'Install the Windows app' }
         ]
       },
@@ -81,6 +82,7 @@ export const APPS: readonly App[] = [
           { text: 'Reference raid comparisons', permission: 'view_insights' },
           { text: 'Sync logs and set roles', permission: 'sync_logs' },
           { text: 'Approve character claims', permission: 'approve_claims' },
+          { text: 'Build and lock in raid comps from your night’s roster', permission: 'build_comps' },
           { text: 'Give members their award toads (global officers)', permission: 'manage_awards' }
         ]
       }

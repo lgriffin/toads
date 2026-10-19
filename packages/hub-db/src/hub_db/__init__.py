@@ -12,6 +12,7 @@ from hub_db.community import (
     RecruitmentNeed,
     Spotlight,
 )
+from hub_db.comps import MemberSpec, RaidComp
 from hub_db.credentials import (
     CredentialCipher,
     CredentialDecryptError,
@@ -57,6 +58,8 @@ __all__ = [
     "Member",
     "MemberAward",
     "MemberHomeLayout",
+    "MemberSpec",
+    "RaidComp",
     "RaidSheetSnapshot",
     "RecruitmentNeed",
     "ReferenceComparison",

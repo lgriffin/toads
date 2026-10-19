@@ -4,6 +4,7 @@ the members a bot acts for."""
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import replace
 
 import anyio
@@ -53,7 +54,22 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
         refreshed_at=services.clock(),
     )
     await services.sessions.save(session_id, updated)
+    await anyio.to_thread.run_sync(record_raid_days, services, data.member_id, member.role_ids)
     return updated
+
+
+def raid_days_of(services: Services, role_ids: Collection[int]) -> list[str]:
+    """The raid days a member's Discord roles put them on, in config order."""
+    return list(services.raid_days.principal_for(0, set(role_ids)).day_roles)
+
+
+def record_raid_days(services: Services, member_id: int, role_ids: Collection[int]) -> None:
+    """Keep the member row's raid days in step with their roles, for the comp builder's roster (docs/comps.md)."""
+    days = raid_days_of(services, role_ids)
+    with services.db.begin() as db:
+        row = db.get(Member, member_id)
+        if row is not None and row.raid_days != days:
+            row.raid_days = days
 
 
 def upsert_member(services: Services, member: GuildMember) -> int:
@@ -69,6 +85,7 @@ def upsert_member(services: Services, member: GuildMember) -> int:
         else:
             row.display_name = member.server_name
             row.discord_username = member.username
+        row.raid_days = raid_days_of(services, member.role_ids)
         return row.id
 
 
