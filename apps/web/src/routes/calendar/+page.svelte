@@ -19,6 +19,8 @@
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
   let picked = $state('');
+  // Bumped when the viewer reports or cancels, so the team list below shows it.
+  let changes = $state(0);
   const teamDay = $derived(raidDays.officerDays.includes(picked) ? picked : (raidDays.officerDays[0] ?? ''));
 </script>
 
@@ -31,7 +33,7 @@
 {#if !ready}
   <p class="muted" role="status">Loading…</p>
 {:else}
-  <AbsenceCalendar {backend} {raidDays} />
+  <AbsenceCalendar {backend} {raidDays} onchange={() => (changes += 1)} />
 
   {#if teamDay}
     <section class="card officers" aria-labelledby="officers-h">
@@ -40,7 +42,7 @@
         <DaySwitch days={raidDays.officerDays} names={raidDays.names} bind:value={() => teamDay, (v) => (picked = v)} label="Team" />
       </div>
       <p class="muted">Everyone on {dayName(teamDay, raidDays.names)} who has said they will miss a night, for its officers.</p>
-      <TeamAbsences {backend} day={teamDay} name={dayName(teamDay, raidDays.names)} heading={false} />
+      <TeamAbsences {backend} day={teamDay} name={dayName(teamDay, raidDays.names)} heading={false} version={changes} />
     </section>
   {/if}
 {/if}

@@ -9,6 +9,7 @@ from rq import Worker
 from toads_worker import schedule
 from toads_worker.jobs.badges import publish_badges
 from toads_worker.jobs.home import publish_home_page
+from toads_worker.jobs.logs import publish_logs
 from toads_worker.jobs.performance import publish_performance
 from toads_worker.jobs.reference import publish_reference_page
 from toads_worker.jobs.sheets import import_raid_sheets
@@ -38,6 +39,10 @@ def main() -> None:
     if sys.argv[1:] == ["publish-badges"]:
         # Rebuild every raider's Toads badges for their /me page.
         print(json.dumps(publish_badges(settings), indent=2))
+        return
+    if sys.argv[1:] == ["publish-logs"]:
+        # Rebuild the Logs page: the raid list, the boss history and any raid analysis the hub does not hold yet.
+        print(json.dumps(publish_logs(settings), indent=2))
         return
     if sys.argv[1:] == ["sync"]:
         # Import the guild's newest reports not stored yet, as many as the rate limit allows, as the scheduler does.

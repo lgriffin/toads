@@ -29,12 +29,16 @@ from toads_api.characters import CharacterDirectory, SqlCharacters
 from toads_api.community.config import CommunityConfig
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.community.sql_repository import SqlCommunityRepository
+from toads_api.comps.service import CompService
+from toads_api.comps.sql import SqlCompRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord, MismatchedDiscordApplicationError
 from toads_api.home.badges import BadgeService
 from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
 from toads_api.home.performance import PerformanceService
 from toads_api.home.service import HomeService
 from toads_api.home.sql import SqlHomeRepository
+from toads_api.logs.service import LogService
+from toads_api.logs.sql import SqlLogRepository
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.officer_board.service import OfficerBoardService
 from toads_api.officer_board.sql import SqlBoardRepository
@@ -69,7 +73,9 @@ class Services:
     account: AccountService = field(init=False)
     awards: AwardService = field(init=False)
     absences: AbsenceService = field(init=False)
+    logs: LogService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
+    comps: CompService = field(init=False)
     officer_board: OfficerBoardService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
@@ -110,6 +116,7 @@ class Services:
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
         self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
         self.role_badges = RoleBadgeService(SqlRoleBadgeRepository(self.db))
+        self.comps = CompService(SqlCompRepository(self.db), self.account.shown_names)
         guild_time = ZoneInfo(self.raid_days.timezone)
         self.officer_board = OfficerBoardService(
             SqlBoardRepository(self.db),
@@ -152,6 +159,7 @@ class Services:
             weekdays,
             today=lambda: datetime.fromtimestamp(self.clock(), zone).date(),
         )
+        self.logs = LogService(SqlLogRepository(self.db), weekdays)
         self.raid_sheets = RaidSheetService(repo=SqlSheetRepository(self.db), config=sheets_config, weekdays=weekdays)
         self.next_raid = NextRaidService(
             self.discord.scheduled_events,

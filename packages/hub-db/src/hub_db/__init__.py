@@ -13,6 +13,7 @@ from hub_db.community import (
     RecruitmentNeed,
     Spotlight,
 )
+from hub_db.comps import MemberSpec, RaidComp
 from hub_db.credentials import (
     CredentialCipher,
     CredentialDecryptError,
@@ -20,6 +21,7 @@ from hub_db.credentials import (
     WclCredential,
     WclCredentialStatus,
 )
+from hub_db.logs import LogIndex, LogRaid
 from hub_db.models import (
     AnalyzerBadgePage,
     AnalyzerHomePage,
@@ -56,11 +58,15 @@ __all__ = [
     "CredentialDecryptError",
     "DiscordRoleBadge",
     "Highlight",
+    "LogIndex",
+    "LogRaid",
     "Member",
     "MemberAbsence",
     "MemberAward",
     "MemberHomeLayout",
+    "MemberSpec",
     "OfficerBoardCard",
+    "RaidComp",
     "RaidSheetSnapshot",
     "RecruitmentNeed",
     "ReferenceComparison",

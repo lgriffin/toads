@@ -50,6 +50,8 @@ describe('calendar helpers', () => {
     expect(days.filter((d) => d.inMonth && d.raids.length).map((d) => d.day)).toEqual([7, 14, 21, 28]);
     expect(days.find((d) => d.date === '2026-10-14')?.past).toBe(true);
     expect(days.find((d) => d.date === '2026-10-28')?.away).toEqual([away]);
+    // The days between two raid nights of the range are not missed nights.
+    expect(days.find((d) => d.date === '2026-10-30')?.away).toEqual([]);
     expect(rangeLabel(away)).toBe('Wed 28 Oct to Wed 4 Nov');
     expect(rangeLabel({ first_date: '2026-10-28', last_date: '2026-10-28' })).toBe('Wed 28 Oct');
   });

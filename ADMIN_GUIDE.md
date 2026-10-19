@@ -245,7 +245,7 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_HUB_API_URL` | no | `http://api:8000` | Where the worker posts results. |
 | `TOADS_HUB_SERVICE_TOKEN` | no | empty | The shared service token; the publish jobs need it. Secret. |
 | `TOADS_RAID_SHEETS_CONFIG` | no | `config/raid_sheets.yaml` | Raid sheets file. |
-| `TOADS_HUB_REFRESH_MINUTES` | no | `30` | Scheduler: publish-home, publish-performance, publish-badges and publish-reference. `0` turns them off. |
+| `TOADS_HUB_REFRESH_MINUTES` | no | `30` | Scheduler: publish-home, publish-performance, publish-badges, publish-reference and publish-logs. `0` turns them off. |
 | `TOADS_SHEETS_REFRESH_MINUTES` | no | `360` | Scheduler: import-sheets, only when the sheets file exists. `0` turns it off. |
 | `TOADS_SYNC_REFRESH_MINUTES` | no | `15` | Scheduler: sync-guild, which analyses the guild's new Warcraft Logs reports. Off until `TOADS_WCL_CLIENT_ID` and `TOADS_WCL_GUILD_ID` are set; `0` turns it off. [docs/logs-analysis.md](docs/logs-analysis.md) |
 | `TOADS_SYNC_RESERVE_PERCENT` | no | `20` | The share of the guild key's hourly Warcraft Logs points the sync leaves unspent for officer imports and anything else on the key. Each run imports new reports, newest first, until the next one would eat into it. |
@@ -353,6 +353,11 @@ Rules worth knowing:
   the Raid page (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
   admins (`MANAGE_OFFICER_BOARD`). Nothing to set up: a night's board appears with the night in
   `config/raid_days.yaml`. Audited as `board.add`, `board.edit`, `board.move` and `board.remove`.
+- **Logs** ([docs/logs.md](docs/logs.md)): `/logs` lists every raid the sync has analysed, filtered by any mix of
+  weekdays, zone and title, with the desktop app's raid analysis per raid and a boss history over the picked days.
+  Each raider's own numbers are officers' only: a raid day's officers see the raids held on that day's weekday in full,
+  global officers and super admins every raid, and everyone else each boss's totals and the raid's makeup. The
+  scheduler's `publish-logs` keeps it current; nothing to configure beyond the sync.
 - **The Admin page** (`/admin`, shown in the nav to super admins only) gathers role badges, bank grants and officer tokens, the
   scheduler's jobs and where each integration is set up. It reads `/api/session` and changes nothing the Bank page
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
@@ -513,7 +518,7 @@ shows up after its first logged raid. Raid-day officers approve, reject or reass
 The scheduler does this every 30 minutes, and imports new guild reports every 15 minutes, as many as the guild key's
 Warcraft Logs rate limit allows. To run a job now, in the worker image: `toads-worker sync`, `backfill`,
 `analyse <report code or URL>`, `publish-home`, `publish-performance`, `publish-badges`,
-`publish-reference` or `import-sheets`
+`publish-reference`, `publish-logs` or `import-sheets`
 (for example `docker compose -f infra/docker-compose.yml run --rm worker toads-worker publish-home`).
 
 ### Import the guild's whole history

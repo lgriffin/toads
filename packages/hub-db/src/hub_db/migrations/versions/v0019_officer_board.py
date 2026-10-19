@@ -1,7 +1,7 @@
 """The officers' task board, one per raid day
 
-Revision ID: 0017
-Revises: 0016
+Revision ID: 0019
+Revises: 0018
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0017"
-down_revision = "0016"
+revision = "0019"
+down_revision = "0018"
 branch_labels = None
 depends_on = None
 

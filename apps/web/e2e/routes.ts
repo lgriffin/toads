@@ -13,7 +13,7 @@ export const ROUTES = [
   'raid/',
   'calendar/',
   'logs/',
-  'logs/ssc-0924/',
+  'logs/pondWed1014/',
   'bank/',
   'me/',
   'me/settings/',

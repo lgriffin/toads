@@ -1,13 +1,6 @@
-import { error } from '@sveltejs/kit';
-import { raids } from '$lib/mock/data';
+import { PREVIEW_RAID_IDS } from '$lib/preview/logs-fake';
 import type { EntryGenerator, PageLoad } from './$types';
 
-export const entries: EntryGenerator = () => raids.map((r) => ({ id: r.id }));
+export const entries: EntryGenerator = () => PREVIEW_RAID_IDS.map((id) => ({ id }));
 
-// Only the static preview has raid pages until the API serves analysed raids.
-export const load: PageLoad = ({ params }) => {
-  if (!__PREVIEW__) error(404, 'Raid not found');
-  const raid = raids.find((r) => r.id === params.id);
-  if (!raid) error(404, 'Raid not found');
-  return { raid };
-};
+export const load: PageLoad = ({ params }) => ({ report: params.id });

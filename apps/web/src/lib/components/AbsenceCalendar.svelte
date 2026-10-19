@@ -15,7 +15,12 @@
 
   // A member's calendar: their teams' raid nights month by month, the nights they have said they will miss, and the
   // form to add one. The API checks the member is on the team they report for.
-  let { backend, raidDays }: { backend: AbsencesBackend; raidDays: RaidDays } = $props();
+  // `onchange` runs after the viewer reports or cancels an absence, so the page can refresh the team lists.
+  let {
+    backend,
+    raidDays,
+    onchange = () => {}
+  }: { backend: AbsencesBackend; raidDays: RaidDays; onchange?: () => void } = $props();
 
   const today = isoDate(new Date());
   const now = new Date();
@@ -87,6 +92,7 @@
       message = `Done. ${dayName(a.raid_day, raidDays.names)}'s officers can see you will miss ${n === 1 ? 'that night' : `${n} nights`}.`;
       failed = false;
       note = '';
+      onchange();
       await load();
     } catch (e) {
       message = absenceError(e);
@@ -101,6 +107,7 @@
       await backend.cancel(a.id);
       message = `Cancelled your absence for ${rangeLabel(a)}.`;
       failed = false;
+      onchange();
       await load();
     } catch (e) {
       message = absenceError(e);
