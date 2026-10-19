@@ -2,6 +2,7 @@
   import { base } from '$app/paths';
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
+  import { titlesOf } from '$lib/awards';
   import { previewAwardsOf } from './awards-fake';
   import { previewBadges } from '$lib/mock/badges';
   import MemberToads from '$lib/components/MemberToads.svelte';
@@ -16,11 +17,9 @@
   let history = $derived(me.history[selected] ?? []);
   let last = $derived(history.at(-1));
   const awards = previewAwardsOf(1);
-  // The spec reads 'Combat Rogue': the class is its last word.
-  let className = $derived(character.spec.split(' ').at(-1));
-  // The header's toads (rank, member, titles, role badges), with the class and role of the character picked here.
+  // The header's toads (rank, member, role badges, class and role), with the titles of the awards shown here.
   const signedIn = getMe();
-  let facts = $derived({ ...signedIn(), className, role: character.role });
+  let facts = $derived({ ...signedIn(), titles: titlesOf(awards) });
   let toads = $derived(memberToads(facts));
 </script>
 

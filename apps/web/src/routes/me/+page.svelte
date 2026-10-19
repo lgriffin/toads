@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { ApiError, myBadges } from '$lib/api';
   import type { MyBadges } from '$lib/badges';
-  import { myAwards, type AwardOut } from '$lib/awards';
+  import { myAwards, titlesOf, type AwardOut } from '$lib/awards';
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
   import MemberToads from '$lib/components/MemberToads.svelte';
@@ -14,9 +14,10 @@
   type Loaded = { kind: 'loading' } | { kind: 'ok'; value: MyBadges } | { kind: 'error'; message: string };
   let badges = $state<Loaded>({ kind: 'loading' });
   let awards = $state<AwardOut[] | null>(null);
-  // The same toads the header shows beside the member's name, loaded once by the layout.
+  // The same toads the header shows beside the member's name, loaded once by the layout; the titles come from the
+  // awards fetched here, so an award given since the layout loaded shows too.
   const me = getMe();
-  const facts = $derived(me());
+  const facts = $derived(awards ? { ...me(), titles: titlesOf(awards) } : me());
   const toads = $derived(memberToads(facts));
 
   // Every failure lands in the page as a message; nothing here throws to the error page.
