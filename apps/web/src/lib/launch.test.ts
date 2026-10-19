@@ -14,19 +14,19 @@ describe('launch hold', () => {
     expect(launchHold('/raids', 'raider', true)).toBe('open');
   });
 
-  it('gives officers the Forever launch notice on every tab but their console, which stays open', () => {
-    const open = ['/officers', '/raid', '/calendar'];
-    for (const item of memberNav(true).filter((i) => !open.includes(i.href)))
-      expect(launchHold(item.href, 'officer', true)).toBe('forever-notice');
-    for (const path of ['/officers', '/officers/', '/officers/reference']) expect(launchHold(path, 'officer', true)).toBe('open');
+  it('opens every page to officers but the bank, which keeps the Forever notice', () => {
+    for (const item of memberNav(true).filter((i) => i.href !== '/bank')) expect(launchHold(item.href, 'officer', true)).toBe('open');
+    for (const path of ['/logs/42', '/me/claim', '/me/settings', '/officers/reference', '/welcome'])
+      expect(launchHold(path, 'officer', true)).toBe('open');
+    for (const path of ['/bank', '/bank/']) expect(launchHold(path, 'officer', true)).toBe('forever-notice');
     expect(launchHold('/officers', 'raider', true)).toBe('coming-soon');
   });
 
   it('gives super admins exactly the officers\' view, with the Admin console open', () => {
     for (const path of ['/hub', '/logs', '/raid', '/calendar', '/highlights', '/bank', '/me', '/me/claim', '/welcome'])
       expect(launchHold(path, 'admin', true)).toBe(launchHold(path, 'officer', true));
-    expect(launchHold('/me', 'admin', true)).toBe('forever-notice');
-    expect(launchHold('/officers', 'admin', true)).toBe('open');
+    expect(launchHold('/me', 'admin', true)).toBe('open');
+    expect(launchHold('/bank', 'admin', true)).toBe('forever-notice');
     expect(launchHold('/admin', 'admin', true)).toBe('open');
   });
 
@@ -62,15 +62,12 @@ describe('launch hold', () => {
     expect(UPCOMING.map((u) => u.title)).toEqual(['Guild bank management', 'Logs analysis', 'Raid assistance']);
   });
 
-  it('previews the bank, highlights and me tabs with their intent and coming features', () => {
-    expect(Object.keys(TAB_PREVIEW).sort()).toEqual(['/bank', '/highlights', '/me']);
-    for (const p of Object.values(TAB_PREVIEW)) {
-      expect(p.intent).toBeTruthy();
-      expect(p.sections.flatMap((s) => s.items).length).toBeGreaterThanOrEqual(4);
-    }
-    expect(TAB_PREVIEW['/bank'].mockup).toBe('bank');
-    expect(TAB_PREVIEW['/bank'].sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
-    expect(TAB_PREVIEW['/me'].sections[0].items.join(' ')).toContain('alts');
-    expect(TAB_PREVIEW['/me'].ownToads).toBe(true);
+  it('previews the bank tab with its intent, coming features and mockup', () => {
+    expect(Object.keys(TAB_PREVIEW)).toEqual(['/bank']);
+    const bank = TAB_PREVIEW['/bank'];
+    expect(bank.intent).toBeTruthy();
+    expect(bank.sections.flatMap((s) => s.items).length).toBeGreaterThanOrEqual(4);
+    expect(bank.mockup).toBe('bank');
+    expect(bank.sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
   });
 });

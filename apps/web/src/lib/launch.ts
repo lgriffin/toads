@@ -1,7 +1,7 @@
 /**
  * The launch hold: until the hub opens with the World of Warcraft: Forever launch, a raider who signs in sees one
- * coming-soon page, and an officer sees the member tabs but each one says what it will hold at launch. A super admin
- * sees exactly what an officer sees, plus the Admin console. It only decides what the web app renders; every route
+ * coming-soon page, and an officer sees the real member pages as they are built, except the bank, which says what it
+ * will hold at launch. A super admin sees exactly what an officer sees, plus the Admin console. It only decides what the web app renders; every route
  * still checks its own permission. Lift it by setting LAUNCH_HOLD to false.
  */
 import type { Tier } from './access';
@@ -27,18 +27,19 @@ function under(path: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }
 
-// Open to every signed-in member during the hold: the Raid page is itself a coming-soon page for each raid night, and
-// the Calendar is where raiders tell their officers which nights they will miss, which matters before launch too.
-const OPEN_TO_MEMBERS = ['/raid', '/calendar'];
+// Officers and super admins use the real pages as they are built; only the bank, which has no data yet, keeps its
+// Forever preview.
+const HELD_FOR_OFFICERS = ['/bank'];
 
-// Officers run the guild from their console now (awards, the reference comparison), so it is never held for them.
-const OPEN_TO_OFFICERS = ['/officers', ...OPEN_TO_MEMBERS];
+// Open to raiders during the hold too: the Raid page is itself a coming-soon page for each raid night, and the Calendar
+// is where raiders tell their officers which nights they will miss, which matters before launch too.
+const OPEN_TO_MEMBERS = ['/raid', '/calendar'];
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
   if (!hold || tier === 'visitor' || !isMemberPath(path)) return 'open';
   // A super admin is an officer with the Admin console on top, so they see the officers' pages.
-  if (tier === 'officer' || tier === 'admin') return under(path, OPEN_TO_OFFICERS) ? 'open' : 'forever-notice';
+  if (tier === 'officer' || tier === 'admin') return under(path, HELD_FOR_OFFICERS) ? 'forever-notice' : 'open';
   return under(path, OPEN_TO_MEMBERS) ? 'open' : 'coming-soon';
 }
 
@@ -101,18 +102,11 @@ export interface TabPreview {
   sections: readonly PreviewSection[];
   /** A toad under static/logos/, without `.svg`, standing beside the intent. */
   toad?: string;
-  /**
-   * The Me tab shows the officer's own toads instead, as the open /me page does: in the heading and as a "Your toads"
-   * row, in place of the greeting and the standing toad, so the page wears each toad once.
-   */
-  ownToads?: boolean;
   /** The bank tab also shows a mockup of the bank at work. */
   mockup?: 'bank';
-  /** Badges to show off under the list, as files under static/logos/ without `.svg`. */
-  showcase?: readonly { toad: string; label: string }[];
 }
 
-/** The held tabs Leigh asked to preview in full. Only what the hub is being built to do; no dates beyond launch. */
+/** The held tab's full preview. Only what the hub is being built to do; no dates beyond launch. */
 export const TAB_PREVIEW: Record<string, TabPreview> = {
   '/bank': {
     intent:
@@ -135,45 +129,6 @@ export const TAB_PREVIEW: Record<string, TabPreview> = {
           'Mark a request handed over in game and it lands in the ledger with the banker’s name and the time.',
           'Low-stock warnings before raid night, so the guild can farm or buy ahead of the pull.',
           'A fairness view: what each raider has received against the raids they attended, so nobody is quietly favoured or forgotten.'
-        ]
-      }
-    ]
-  },
-  '/highlights': {
-    intent:
-      'A place for the fun side of raid night: the clips, the screenshots and the moments the guild still talks about, shared straight from Discord.',
-    toad: 'milestones/raider-of-the-month-badge',
-    sections: [
-      {
-        title: 'Coming to highlights',
-        items: [
-          'Raid clips from YouTube, Twitch and Streamable, playing right on the page.',
-          'Screenshots from the Discord screenshots channel, collected after each raid.',
-          'Wipes, first kills and silly moments, posted from Discord and approved by an officer before they show.',
-          'Member spotlights, only ever with that member’s consent.'
-        ]
-      }
-    ]
-  },
-  '/me': {
-    intent:
-      'Your own page: how you are doing against the median for your role, week on week, so you can improve against yourself rather than chase parses.',
-    ownToads: true,
-    showcase: [
-      { toad: 'badges/always-flasked-badge', label: 'Always Flasked' },
-      { toad: 'milestones/raids-50-badge', label: '50 Raids' },
-      { toad: 'badges/attuned-badge', label: 'Attuned' },
-      { toad: 'badges/illidan-down-badge', label: 'Illidan Down' },
-      { toad: 'badges/generous-badge', label: 'Generous' }
-    ],
-    sections: [
-      {
-        title: 'Coming to your page',
-        items: [
-          'Your numbers from every logged raid, against the role median.',
-          'Your Toads badges, and how close you are to the next tier.',
-          'Claim your characters, alts included, as soon as raids start, so every log you appear in counts towards you.',
-          'Your bank receipts: everything the bank has handed you, and when.'
         ]
       }
     ]
