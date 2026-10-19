@@ -8,8 +8,9 @@
   import Story from '$lib/preview/Story.svelte';
   import StoryPage from '$lib/StoryPage.svelte';
 
-  // The live hub reads the story from GET /api/public/story: the words come from config/community.yaml, the rest is
-  // what officers published as public. No login needed.
+  // The live hub reads the story from GET /api/public/story: the tagline and story from the repo (the API's
+  // community/story.py), the guild name and Discord link from config/community.yaml, the rest is what officers
+  // published as public. No login needed.
   type Loaded = { kind: 'loading' } | { kind: 'ok'; story: PublicStory } | { kind: 'error' };
   let live = $state<Loaded>({ kind: 'loading' });
 
