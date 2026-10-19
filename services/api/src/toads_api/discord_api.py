@@ -181,10 +181,13 @@ class HttpDiscord:
         return GuildMember.from_api(r.json())
 
     async def bot_application_id(self) -> str:
-        r = await self._http.get(
-            f"{self._base}/oauth2/applications/@me",
-            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
-        )
+        try:
+            r = await self._http.get(
+                f"{self._base}/oauth2/applications/@me",
+                headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+            )
+        except httpx.HTTPError as exc:
+            raise DiscordError("Discord application lookup could not reach Discord") from exc
         if r.status_code == 401:
             raise DiscordAuthError("Discord rejected TOADS_DISCORD_BOT_TOKEN")
         if r.status_code != 200:
@@ -195,10 +198,13 @@ class HttpDiscord:
         return app_id
 
     async def guild_role_ids(self) -> set[int]:
-        r = await self._http.get(
-            f"{self._base}/guilds/{self._guild_id}/roles",
-            headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
-        )
+        try:
+            r = await self._http.get(
+                f"{self._base}/guilds/{self._guild_id}/roles",
+                headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+            )
+        except httpx.HTTPError as exc:
+            raise DiscordError("Discord role listing could not reach Discord") from exc
         if r.status_code != 200:
             raise DiscordError(f"Discord role listing failed with HTTP {r.status_code}")
         return {int(role["id"]) for role in r.json()}

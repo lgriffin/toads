@@ -19,7 +19,7 @@ from toads_api.bank.routes import include_bank
 from toads_api.bank_grants.routes import include_bank_grants
 from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
-from toads_api.discord_api import DiscordError
+from toads_api.discord_api import DiscordAuthError, DiscordError
 from toads_api.home.routes import include_home
 from toads_api.raid_sheets.routes import include_raid_sheets
 from toads_api.rbac.deps import get_services, require
@@ -44,16 +44,33 @@ def _record_sync(services: Services, principal: Principal, day: str) -> None:
         audit.record(db, actor=principal.member_id, action="sync.trigger", target=f"raid day {day}", raid_day=day)
 
 
-async def _verify_roles_if_readable(services: Services) -> None:
-    """REQ-HUB-DAY-024: a server whose roles the bot cannot read (not invited yet, or Discord down) is a warning, so
-    the public pages stay up; a role the server lacks still fails startup (REQ-HUB-DAY-022)."""
+# Toad Bot's invite, with the permissions ADMIN_GUIDE.md lists; the client id is the application id and is public.
+BOT_INVITE = (
+    "https://discord.com/oauth2/authorize?client_id={client_id}&permissions=268520464&integration_type=0"
+    "&scope=bot+applications.commands"
+)
+
+
+async def _verify_discord(services: Services) -> None:
+    """Fail startup on a Discord misconfiguration: a rejected bot token, a client id and bot token from different
+    applications (REQ-HUB-AUTH-003) or a role the server lacks (REQ-HUB-DAY-022). Discord not answering, or a server
+    the bot cannot read because it is not invited yet, is only a warning so the public pages stay up (REQ-HUB-DAY-024).
+    """
+    invite = BOT_INVITE.format(client_id=services.settings.discord_client_id.strip())
+    try:
+        await services.verify_discord_application()
+    except DiscordAuthError:
+        raise
+    except DiscordError as exc:
+        log.warning("discord_application_unchecked", error=str(exc), hint="Discord did not answer; retried on restart")
     try:
         await services.verify_discord_roles()
     except DiscordError as exc:
         log.warning(
             "discord_roles_unchecked",
             error=str(exc),
-            hint="check TOADS_DISCORD_GUILD_ID and that Toad Bot has been invited to the server; sign-in needs both",
+            hint=f"check TOADS_DISCORD_GUILD_ID and invite Toad Bot ({invite}); role checks, raid events and the bots "
+            "read the server through it",
         )
 
 
@@ -67,8 +84,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         live = services if services is not None else build_services(Settings())
         try:
-            await live.verify_discord_application()
-            await _verify_roles_if_readable(live)
+            await _verify_discord(live)
             app.state.services = live
             yield
         finally:
