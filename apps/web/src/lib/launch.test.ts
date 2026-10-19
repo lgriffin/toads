@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, isHeldPublic, publicNav, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, heldPublicRedirect, isHeldPublic, publicNav, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
@@ -65,5 +65,10 @@ describe('launch hold', () => {
       expect(isHeldPublic(path, true)).toBe(true);
     for (const path of ['/', '/hub', '/login', '/members-only', '/storyteller']) expect(isHeldPublic(path, true)).toBe(false);
     expect(isHeldPublic('/recruit', false)).toBe(false);
+    // A direct request is redirected on the server too, under any base path.
+    expect(heldPublicRedirect('/features', '', true)).toBe('/');
+    expect(heldPublicRedirect('/toads/recruit/', '/toads', true)).toBe('/toads/');
+    expect(heldPublicRedirect('/hub', '', true)).toBeNull();
+    expect(heldPublicRedirect('/story', '', false)).toBeNull();
   });
 });

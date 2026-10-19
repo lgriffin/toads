@@ -41,6 +41,12 @@ export function isHeldPublic(path: string, hold = LAUNCH_HOLD): boolean {
   return hold && HELD_PUBLIC.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }
 
+/** Where the server sends a request for a held public page (`pathname` includes the base path), or null to serve it. */
+export function heldPublicRedirect(pathname: string, basePath: string, hold = LAUNCH_HOLD): string | null {
+  if (!pathname.startsWith(basePath)) return null;
+  return isHeldPublic(pathname.slice(basePath.length) || '/', hold) ? `${basePath}/` : null;
+}
+
 /** The public nav: our story alone while the hold is on, every public page after it. */
 export function publicNav(hold = LAUNCH_HOLD): readonly NavItem[] {
   return hold ? [{ href: '/', label: 'Our story' }] : PUBLIC_NAV;
