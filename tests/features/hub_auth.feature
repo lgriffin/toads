@@ -16,8 +16,9 @@ Feature: HUB AUTH
     And no session is created
 
   @ears_unwanted_behavior @maintainer @phase_2_2
-  Scenario: REQ-HUB-AUTH-003 If the Discord client id and the bot token belong to different Discord applications, then the API shall fail startup naming both settings
+  Scenario: REQ-HUB-AUTH-003 If the Discord client id and the bot token belong to different Discord applications, then the API shall start anyway and log an error naming both settings
     Given the hub's bot token belongs to Discord application 1561652680768626688
     And the hub's Discord client id is a different application
     When the API starts
-    Then startup fails naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN
+    Then the API is up
+    And it logs an error naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN

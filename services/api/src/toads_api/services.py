@@ -153,7 +153,7 @@ class Services:
             raise MismatchedDiscordApplicationError(self.settings.discord_client_id, app_id)
 
     async def verify_discord_roles(self) -> None:
-        """REQ-HUB-DAY-022: refuse to start when the raid-day config names a role the server lacks."""
+        """REQ-HUB-DAY-022: raise UnknownDiscordRoleError when the raid-day config names a role the server lacks."""
         self.raid_days.check_roles_exist(await self.discord.guild_role_ids())
 
     async def aclose(self) -> None:
