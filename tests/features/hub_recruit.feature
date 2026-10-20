@@ -107,3 +107,10 @@ Feature: HUB RECRUIT
     Then the hub refuses it with 403
     And the global officer can put croakley on the Sunday interview panel
     And the audit log names the Sunday panel change
+
+  @ears_ubiquitous @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-015 The application shall take a WoW Forever character name of one or more words split by a single space, trimmed and with repeated spaces collapsed, and refuse names with digits, symbols or other whitespace
+    Given the demo guild
+    When the applicant applies for Wednesday as "  Big   Toad "
+    Then the application is recorded for "Big Toad"
+    And the names "Big Toad2", "Big-Toad" and "Big_Toad" are refused

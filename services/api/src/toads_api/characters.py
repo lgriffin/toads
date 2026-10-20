@@ -41,7 +41,8 @@ class CharacterDirectory(Protocol):
 
 
 def _fold(s: str) -> str:
-    return unicodedata.normalize("NFKC", s).strip().casefold()
+    """Width- and case-folded, trimmed, with runs of whitespace as one space (WoW Forever names can be two words)."""
+    return " ".join(unicodedata.normalize("NFKC", s).split()).casefold()
 
 
 def _ranked(found: list[Character], query: str) -> list[Character]:
@@ -98,7 +99,7 @@ class SqlCharacters:
         return found[0].name if found else None
 
     def search(self, query: str) -> list[Character]:
-        q = query.strip()
+        q = " ".join(query.split())
         if len(_fold(q)) < MIN_QUERY:
             return []
         # NFKC on the query folds full-width input; stored names are WoW names, which have no width forms.

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import enum
+import re
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 # Discord's own limits: 256 for an embed title, 4096 for an embed description.
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
@@ -14,6 +15,21 @@ Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 DayId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_-]{1,32}$")]
 Snowflake = Annotated[int, Field(gt=0, lt=2**63)]
+
+
+def _single_spaced(value: object) -> object:
+    """Trim a name and collapse runs of spaces to one; whitespace inside it other than spaces is left for the pattern
+    to refuse."""
+    return re.sub(r" {2,}", " ", value.strip()) if isinstance(value, str) else value
+
+
+# WoW character names: letters only (accented letters allowed, no digits), and since WoW Forever one or more words
+# split by a single space, 2 to 24 characters in all.
+CharacterName = Annotated[
+    str,
+    StringConstraints(min_length=2, max_length=24, pattern=r"^[^\W\d_]+(?: [^\W\d_]+)*$"),
+    BeforeValidator(_single_spaced),
+]
 
 
 class Role(enum.StrEnum):
@@ -126,8 +142,7 @@ class Application(BaseModel):
 class ApplicationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # WoW character names: 2-12 letters, accented letters allowed, no digits or spaces.
-    character_name: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^\W\d_]{2,12}$")]
+    character_name: CharacterName
     class_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
     # The primary role; secondary_role is the one they would also play, never the same one.
     role: Role
@@ -272,7 +287,7 @@ class SpotlightCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     member_id: Snowflake
-    character_name: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^\W\d_]{2,12}$")]
+    character_name: CharacterName
     class_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
     headline: Title
     body: Body
