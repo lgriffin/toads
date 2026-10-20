@@ -46,7 +46,38 @@ are listed under "without specs yet" marked **Not signed in**, since only a sign
 can still seat them in a spec; signing in later keeps the same member, so the seat stays theirs. Losing a night's
 roles or leaving the server takes someone off at the next read.
 
+## Importing from Raid-Helper
+
+Raid-Helper (https://raid-helper.dev) is the Discord bot the guild signs up with. Its composition tool and its events
+both export JSON, and a night's officers can hand that export to the hub to pre-fill the specs of everyone it seats, so
+members already have their class, spec and badges before they first sign in.
+
+- **In Discord**: `/raidhelper import night:<night> export:<file>` on the Toad Bot. The bot only carries the file
+  (up to 512 KB); it calls the hub as the officer who ran the command (`X-Toads-Acting-Member` with the hub service
+  token, allowed on this one route only), and the hub reads that officer's roles from Discord. The reply, only seen by
+  the officer, counts what happened and lists who was skipped and why.
+- **API**: `POST /api/days/{day}/comps/raid-helper` with the export as the body, for that night's officers.
+
+What the import does (`toads_api.comps.raid_helper`, `CompService.import_specs`):
+
+- Members are matched by the Discord user id in each seat; the names in the export do not matter. Someone not in the
+  Discord server is skipped. Someone the hub has not met gets a member row, as the roster does, without a sign-in.
+- Raid-Helper's "Tank" pseudo-class and its numbered spec names (`Protection1`, `Holy1`, `Restoration1`) are read by
+  the class colour it sends with each seat, so a pink `Protection1` tank is a Protection Paladin. Unconfirmed seats,
+  open seats, a second seat for the same person, and anything that is not one of our specs are skipped.
+- The seat becomes the member's primary spec, marked as imported (`member_specs.imported_from`, migration 0027). A
+  newer import updates imported specs; specs a member set themselves are never touched.
+- On Me, imported specs say an officer filled them in from the sign-up. The member can change them or confirm them as
+  they are; either makes them their own.
+- One `specs.import` entry on the audit log per import. Night membership and the night's badge stay with Discord roles.
+
+## Badges from specs
+
+A member's primary spec earns its class badge and the Tank, Healer or Damage badge (`GET /api/me/role-badges`,
+`toads_api.comps.catalog.badges_of_spec`), whether they set it or it was imported. These add to the badges Discord roles
+earn (docs/role-badges.md).
+
 ## Permissions
 
 `build_comps`, held by officers for their own raid night and by global officers for every night
-(`/api/days/{day}/comps*`). Requirements: `tests/features/hub_comp.feature`.
+(`/api/days/{day}/comps*`, the Raid-Helper import included). Requirements: `tests/features/hub_comp.feature`.

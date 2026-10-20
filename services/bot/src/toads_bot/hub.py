@@ -1,9 +1,11 @@
-"""The bot's only door into the hub: the Hub API's /api/bot routes, authenticated with the service token."""
+"""The bot's only door into the hub: the Hub API's /api/bot routes, authenticated with the service token, and the
+Raid-Helper import, which it calls as the member who used `/raidhelper import`."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from pydantic import SecretStr
@@ -53,3 +55,21 @@ class HubClient:
 
     async def discord_message_deleted(self, message_id: int) -> None:
         (await self._http.post(f"/api/bot/discord-messages/{message_id}/deleted")).raise_for_status()
+
+    async def raid_nights(self) -> list[dict[str, str]]:
+        """The raid nights, as {id, name}, for the commands that ask which night."""
+        r = await self._http.get("/api/public/raid-nights")
+        r.raise_for_status()
+        nights: list[dict[str, str]] = r.json()
+        return nights
+
+    async def import_raid_helper(self, day: str, discord_user_id: int, export: dict[str, Any]) -> httpx.Response:
+        """Hand the hub a Raid-Helper export for a raid night, acting as the Discord member who sent it: the hub reads
+        their roles from Discord and refuses anyone who is not that night's officer. The response is returned as is,
+        refusals included, for the command to explain."""
+        return await self._http.post(
+            f"/api/days/{quote(day, safe='')}/comps/raid-helper",
+            json=export,
+            headers={"X-Toads-Acting-Member": str(discord_user_id)},
+            timeout=30.0,
+        )

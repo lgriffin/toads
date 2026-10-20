@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 
 from toads_bot.cogs.community import Community
+from toads_bot.cogs.raid_helper import RaidHelper
 from toads_bot.hub import HubClient
 from toads_bot.settings import Settings
 
@@ -30,6 +31,7 @@ def create_bot(settings: Settings) -> commands.Bot:
                 post_to_channels=settings.post_to_channels,
             )
         )
+        await bot.add_cog(RaidHelper(hub))
         bot.tree.copy_global_to(guild=guild)
         await bot.tree.sync(guild=guild)
 

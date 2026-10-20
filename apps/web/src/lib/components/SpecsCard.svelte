@@ -2,6 +2,7 @@
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { CLASSES, classOf, clearMySpecs, compError, getMySpecs, saveMySpecs, specLabel, specsOfClass, type MySpecs } from '$lib/comp';
+  import { ROLE_BADGES_CHANGED } from '$lib/role-badges';
 
   // A member's class and the specs they raid as: officers seat them by these in the comp builder, and filter the
   // roster by them (an Elemental filter finds everyone with Elemental as their primary or secondary).
@@ -15,8 +16,13 @@
   let failed = $state(false);
 
   const specs = $derived(wowClass ? specsOfClass(wowClass) : []);
+  // Specs an officer imported from the Raid-Helper sign-up can be confirmed as they are, which makes them the member's.
   const changed = $derived(
-    !saved || saved.wow_class !== wowClass || saved.primary !== primary || (saved.secondary ?? '') !== secondary
+    !saved ||
+      !!saved.imported ||
+      saved.wow_class !== wowClass ||
+      saved.primary !== primary ||
+      (saved.secondary ?? '') !== secondary
   );
 
   function show(s: MySpecs | null) {
@@ -57,6 +63,8 @@
     busy = true;
     try {
       show(__PREVIEW__ ? next : await saveMySpecs(next));
+      // The class and role badges follow the primary spec, so the header fetches them again.
+      window.dispatchEvent(new Event(ROLE_BADGES_CHANGED));
       message = `Saved. Officers now see you as ${specLabel(primary)}${secondary ? `, or ${specLabel(secondary)}` : ''}.`;
       failed = false;
     } catch (e) {
@@ -72,6 +80,7 @@
     try {
       if (!__PREVIEW__) await clearMySpecs();
       show(null);
+      window.dispatchEvent(new Event(ROLE_BADGES_CHANGED));
       message = 'Your specs are cleared.';
       failed = false;
     } catch (e) {
@@ -93,6 +102,12 @@
   {#if !loaded}
     <p class="muted" role="status">Loading…</p>
   {:else}
+    {#if saved?.imported}
+      <p class="imported" role="note">
+        An officer filled these in from the Raid-Helper sign-up. Change them if they are wrong, or confirm them as
+        they are.
+      </p>
+    {/if}
     <form onsubmit={save}>
       <fieldset disabled={busy}>
         <legend>Class</legend>
@@ -139,7 +154,7 @@
       {/if}
 
       <div class="actions">
-        <button class="btn primary" type="submit" disabled={busy || !wowClass || !primary || !changed}>Save my specs</button>
+        <button class="btn primary" type="submit" disabled={busy || !wowClass || !primary || !changed}>{saved?.imported ? 'Confirm my specs' : 'Save my specs'}</button>
         {#if saved}
           <button class="btn" type="button" disabled={busy} onclick={clearAll}>Clear</button>
           <span class="hint">
@@ -157,6 +172,14 @@
   .specs { display: grid; gap: 0.9rem; margin-block: 1rem; }
   .specs h2 { margin: 0; }
   .lede { margin: 0; max-width: 62ch; }
+  .imported {
+    margin: 0;
+    max-width: 62ch;
+    padding: 0.6rem 0.8rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  }
   form { display: grid; gap: 1rem; }
   fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   legend { padding: 0; margin-bottom: 0.45rem; }

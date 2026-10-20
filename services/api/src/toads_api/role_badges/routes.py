@@ -1,6 +1,7 @@
 """Role badges (docs/role-badges.md).
 
-- GET    /api/me/role-badges                                  the badges the caller's Discord roles earn
+- GET    /api/me/role-badges                                  the badges the caller's Discord roles and primary spec
+                                                              earn
 - GET    /api/admin/role-badges                               the catalogue, every tie, and the server's roles
 - POST   /api/admin/role-badges                               tie a badge to a Discord role (super admins)
 - DELETE /api/admin/role-badges/{discord_role_id}/{badge_id}  untie it
@@ -19,6 +20,7 @@ import structlog
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+from toads_api.comps.catalog import badges_of_spec
 from toads_api.discord_api import DiscordError, GuildRole
 from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
@@ -99,9 +101,17 @@ def _refused(exc: RoleBadgeError) -> HTTPException:
     return HTTPException(status_code=exc.status, detail=exc.message)
 
 
+def _earned(services: Services, principal: Principal) -> list[RoleBadge]:
+    # The class and Tank, Healer or Damage badge follow the primary spec, whether the member set it or an officer
+    # imported it from Raid-Helper (docs/comps.md), so a raider has them before they first sign in.
+    specs = services.comps.my_specs(principal.member_id)
+    also = badges_of_spec(specs.primary) if specs else ()
+    return services.role_badges.earned(principal.discord_role_ids, also)
+
+
 @router.get("/api/me/role-badges")
-async def my_role_badges(principal: SignedIn, badges: RoleBadges) -> list[BadgeOut]:
-    return [_badge(b) for b in await anyio.to_thread.run_sync(badges.earned, principal.discord_role_ids)]
+async def my_role_badges(principal: SignedIn, services: Hub) -> list[BadgeOut]:
+    return [_badge(b) for b in await anyio.to_thread.run_sync(_earned, services, principal)]
 
 
 @router.get("/api/admin/role-badges")

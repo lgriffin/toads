@@ -100,6 +100,12 @@ def upsert_member(services: Services, member: GuildMember, *, signing_in: bool =
         return row.id
 
 
+def member_ids_for(services: Services, members: Iterable[GuildMember]) -> dict[int, int]:
+    """The hub member id of each Discord member, by Discord user id, creating the rows of those the hub has not met
+    (without a sign-in), as an import that names people before they sign in needs."""
+    return {m.user_id: upsert_member(services, m) for m in members}
+
+
 ROSTERS_SYNCED_KEY = "comps:rosters:synced"
 
 

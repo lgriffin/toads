@@ -9,6 +9,8 @@
 - POST   /api/days/{day}/comps             lock in a new one
 - PUT    /api/days/{day}/comps/{comp_id}   replace one
 - DELETE /api/days/{day}/comps/{comp_id}   delete one
+- POST   /api/days/{day}/comps/raid-helper pre-fill specs from a Raid-Helper export (that day's officers, or the Toad
+                                           Bot acting for one: `/raidhelper import`)
 
 The spec routes act on the caller's own member id, taken from the session, never from the request.
 """
@@ -16,16 +18,18 @@ The spec routes act on the caller's own member id, taken from the session, never
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import anyio
 import structlog
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+from toads_api.comps import raid_helper
 from toads_api.comps.repository import Seat, SpecRecord
 from toads_api.comps.service import CompError, CompService, CompView, PoolEntry
-from toads_api.identity import refresh_raid_rosters
+from toads_api.discord_api import DiscordError
+from toads_api.identity import member_ids_for, refresh_raid_rosters
 from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
 
@@ -53,6 +57,8 @@ class SpecsOut(BaseModel):
     wow_class: str
     primary: str
     secondary: str | None
+    # True while the specs are an officer's import (a Raid-Helper sign-up) the member has not confirmed or changed.
+    imported: bool = False
 
 
 class PoolEntryOut(BaseModel):
@@ -92,8 +98,32 @@ class CompOut(BaseModel):
     updated_at: datetime
 
 
+class ImportRowOut(BaseModel):
+    name: str
+    # A string: Discord ids exceed JavaScript's safe integers. None for an open seat.
+    discord_user_id: str | None
+    wow_class: str | None
+    spec: str | None
+    # "added", "updated", "unchanged", "kept" (the member's own choice stays) or "skipped".
+    outcome: str
+    reason: str | None = None
+
+
+class ImportOut(BaseModel):
+    added: int
+    updated: int
+    unchanged: int
+    kept: int
+    skipped: int
+    rows: list[ImportRowOut]
+
+
 def _specs(r: SpecRecord | None) -> SpecsOut | None:
-    return None if r is None else SpecsOut(wow_class=r.wow_class, primary=r.primary, secondary=r.secondary)
+    if r is None:
+        return None
+    return SpecsOut(
+        wow_class=r.wow_class, primary=r.primary, secondary=r.secondary, imported=r.imported_from is not None
+    )
 
 
 def _entry(e: PoolEntry) -> PoolEntryOut:
@@ -193,6 +223,61 @@ async def delete_comp(day: str, comp_id: int, principal: DayOfficer, comps: Comp
         raise _refused(exc) from None
     log.info("comp.deleted", by=principal.member_id, raid_day=day, comp=comp_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _skipped(s: raid_helper.Skipped) -> ImportRowOut:
+    user = None if s.discord_user_id is None else str(s.discord_user_id)
+    return ImportRowOut(
+        name=s.name, discord_user_id=user, wow_class=None, spec=None, outcome="skipped", reason=s.reason
+    )
+
+
+@router.post("/api/days/{day}/comps/raid-helper")
+async def import_raid_helper(
+    day: str,
+    export: Annotated[dict[str, Any], Body()],
+    principal: DayOfficer,
+    comps: Comps,
+    request: Request,
+) -> ImportOut:
+    """Pre-fill the specs of everyone a Raid-Helper export seats (docs/comps.md "Importing from Raid-Helper"). Members
+    are matched by Discord user id, so the names in the export do not matter, and anyone not in the server is
+    skipped. Night membership and its badge stay with Discord roles."""
+    try:
+        signups, skipped = raid_helper.read_export(export)
+    except raid_helper.ExportError as exc:
+        raise HTTPException(422, detail=str(exc)) from None
+    services = get_services(request)
+    try:
+        in_server = {m.user_id: m for m in await services.discord.guild_members()}
+    except DiscordError:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Discord is unavailable") from None
+    found = [s for s in signups if s.discord_user_id in in_server]
+    skipped += [
+        raid_helper.Skipped(s.name, "Not in the Discord server", s.discord_user_id)
+        for s in signups
+        if s.discord_user_id not in in_server
+    ]
+    ids = await anyio.to_thread.run_sync(member_ids_for, services, [in_server[s.discord_user_id] for s in found])
+    rows = [(ids[s.discord_user_id], s.name, s.wow_class, s.spec) for s in found]
+    done = await anyio.to_thread.run_sync(
+        lambda: comps.import_specs(rows, principal.member_id, day, raid_helper.SOURCE)
+    )
+    user_of = {member_id: user for user, member_id in ids.items()}
+    out = [
+        ImportRowOut(
+            name=d.name,
+            discord_user_id=str(user_of[d.member_id]),
+            wow_class=d.wow_class,
+            spec=d.spec,
+            outcome=d.outcome,
+            reason="They set their own specs on Me" if d.outcome == "kept" else None,
+        )
+        for d in done
+    ] + [_skipped(s) for s in skipped]
+    count = {k: sum(1 for d in done if d.outcome == k) for k in ("added", "updated", "unchanged", "kept")}
+    log.info("comps.raid_helper_imported", by=principal.member_id, raid_day=day, skipped=len(skipped), **count)
+    return ImportOut(**count, skipped=len(skipped), rows=out)
 
 
 def include_comps(app: FastAPI) -> None:
