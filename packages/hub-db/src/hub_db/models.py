@@ -120,6 +120,21 @@ class AnalyzerBadgePage(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AnalyzerCharacterPage(Base):
+    """One character's raids, lineage and charts as the worker last built them (toads_worker.jobs.characters,
+    wcl_app.character_pages): one row per character a member may go by. The API shows each member only their own."""
+
+    __tablename__ = "analyzer_character_pages"
+
+    # The name case-folded, as claims compare names.
+    name_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    version: Mapped[int] = mapped_column()
+    generated_at: Mapped[str] = mapped_column(String(40))
+    # wcl_app CharacterPage.to_dict().
+    page: Mapped[dict[str, object]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ClaimStatus(enum.StrEnum):
     PENDING = "pending"
     APPROVED = "approved"

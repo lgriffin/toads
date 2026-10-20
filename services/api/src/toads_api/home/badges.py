@@ -13,8 +13,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from toads_api.home.performance import MatchedBy, candidates, fold
-from toads_api.home.repository import HomeRepository, StoredBadges
+from toads_api.home.performance import MatchedBy, candidates
+from toads_api.home.repository import HomeRepository, StoredBadges, fold
 from toads_api.home.service import HomeError, generated_at_ok
 
 # The analyzer's BADGES_SCHEMA_VERSION this hub understands.

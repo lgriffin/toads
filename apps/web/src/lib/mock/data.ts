@@ -45,14 +45,6 @@ export interface Raid {
   cancelledCasts: { player: string; count: number }[];
 }
 
-export interface MeRaid {
-  raidId: string;
-  date: string;
-  zone: string;
-  mine: number;
-  median: number;
-}
-
 export interface Receipt {
   item: string;
   count: number;
@@ -232,23 +224,6 @@ export const raids: Raid[] = [...RAIDS].sort((a, b) => b.date.localeCompare(a.da
 
 export const me = {
   name: 'Hopscotch',
-  characters: [
-    { name: 'Hopscotch', spec: 'Combat Rogue', role: 'Melee' as Role, metric: 'DPS' },
-    { name: 'Lilypadd', spec: 'Restoration Shaman', role: 'Healer' as Role, metric: 'HPS' }
-  ],
-  history: {
-    Hopscotch: [
-      { raidId: 'mag-0910', date: '2026-09-10', zone: 'Magtheridon', mine: 1184, median: 1102 },
-      { raidId: 'gruul-0913', date: '2026-09-13', zone: 'Gruul', mine: 1231, median: 1140 },
-      { raidId: 'ssc-0917', date: '2026-09-17', zone: 'SSC', mine: 1098, median: 1071 },
-      { raidId: 'tk-0920', date: '2026-09-20', zone: 'TK', mine: 1302, median: 1166 },
-      { raidId: 'ssc-0924', date: '2026-09-24', zone: 'SSC', mine: 1275, median: 1119 }
-    ],
-    Lilypadd: [
-      { raidId: 'kara-0913', date: '2026-09-13', zone: 'Karazhan', mine: 712, median: 655 },
-      { raidId: 'tk-0920', date: '2026-09-20', zone: 'TK', mine: 690, median: 701 }
-    ]
-  } as Record<string, MeRaid[]>,
   receipts: [
     { item: 'Flask of Relentless Assault', count: 4, date: '2026-09-23', request: 'Wed SSC progression' },
     { item: 'Elixir of Major Agility', count: 10, date: '2026-09-16', request: 'Weekly consumables' },

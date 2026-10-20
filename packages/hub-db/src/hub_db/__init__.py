@@ -25,6 +25,7 @@ from hub_db.credentials import (
 from hub_db.logs import LogIndex, LogRaid
 from hub_db.models import (
     AnalyzerBadgePage,
+    AnalyzerCharacterPage,
     AnalyzerHomePage,
     AnalyzerPerformancePage,
     AuditEntry,
@@ -44,6 +45,7 @@ from hub_db.role_badges import DiscordRoleBadge
 __all__ = [
     "EVERY_DAY",
     "AnalyzerBadgePage",
+    "AnalyzerCharacterPage",
     "AnalyzerHomePage",
     "AnalyzerPerformancePage",
     "Application",

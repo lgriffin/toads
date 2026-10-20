@@ -3,8 +3,14 @@
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+
+def fold(name: str) -> str:
+    """Case- and width-insensitive, as claims compare names; accents still count."""
+    return unicodedata.normalize("NFKC", name).strip().casefold()
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,15 @@ class StoredBadges:
 
 
 @dataclass(frozen=True)
+class StoredCharacterPage:
+    """One character's page as the worker built it (toads_worker.jobs.characters, wcl_app.character_pages)."""
+
+    version: int
+    generated_at: str
+    page: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class MemberCharacters:
     """The names a member's own numbers may be under."""
 
@@ -80,6 +95,22 @@ class HomeRepository(Protocol):
 
     def member_characters(self, member_id: int) -> MemberCharacters | None: ...
 
+    def character_names(self) -> list[str]:
+        """Every name a member may go by: approved claims and server nicknames, the characters the worker builds a
+        page for."""
+        ...
+
+    def character_page(self, name: str) -> StoredCharacterPage | None: ...
+
+    def character_pages_generated_at(self) -> str | None:
+        """When the stored character pages were built; None before the worker has published any."""
+        ...
+
+    def save_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
+        """Replace every character page with `pages` unless the stored ones are newer, in one transaction. Returns
+        whether they were kept."""
+        ...
+
 
 @dataclass
 class InMemoryHomeRepository:
@@ -91,6 +122,7 @@ class InMemoryHomeRepository:
     performance: StoredPerformance | None = None
     badges: StoredBadges | None = None
     characters: dict[int, MemberCharacters] = field(default_factory=dict)
+    character_pages: dict[str, StoredCharacterPage] = field(default_factory=dict)
 
     def layout(self, member_id: int) -> list[StoredWidget] | None:
         found = self.layouts.get(member_id)
@@ -131,3 +163,20 @@ class InMemoryHomeRepository:
 
     def member_characters(self, member_id: int) -> MemberCharacters | None:
         return self.characters.get(member_id)
+
+    def character_names(self) -> list[str]:
+        names = (n for c in self.characters.values() for n in (c.nickname, *c.approved) if n.strip())
+        by_key = {fold(n): n.strip() for n in names}
+        return sorted(by_key.values(), key=str.casefold)
+
+    def character_page(self, name: str) -> StoredCharacterPage | None:
+        return self.character_pages.get(fold(name))
+
+    def character_pages_generated_at(self) -> str | None:
+        return max((p.generated_at for p in self.character_pages.values()), default=None)
+
+    def save_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
+        if any(p.generated_at > generated_at for p in self.character_pages.values()):
+            return False
+        self.character_pages = {fold(str(p["name"])): StoredCharacterPage(version, generated_at, p) for p in pages}
+        return True

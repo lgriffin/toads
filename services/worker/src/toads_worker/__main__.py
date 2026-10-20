@@ -8,6 +8,7 @@ from rq import Worker
 
 from toads_worker import schedule
 from toads_worker.jobs.badges import publish_badges
+from toads_worker.jobs.characters import publish_character_pages
 from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.logs import publish_logs
 from toads_worker.jobs.performance import publish_performance
@@ -39,6 +40,10 @@ def main() -> None:
     if sys.argv[1:] == ["publish-badges"]:
         # Rebuild every raider's Toads badges for their /me page.
         print(json.dumps(publish_badges(settings), indent=2))
+        return
+    if sys.argv[1:] == ["publish-characters"]:
+        # Rebuild each member's character pages for their Me page.
+        print(json.dumps(publish_character_pages(settings), indent=2))
         return
     if sys.argv[1:] == ["publish-logs"]:
         # Rebuild the Logs page: the raid list, the boss history and any raid analysis the hub does not hold yet.

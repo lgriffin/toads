@@ -6,7 +6,7 @@ others. Intervals come from the environment, and 0 turns a job off:
 
 - sync-guild: every TOADS_SYNC_REFRESH_MINUTES (default 15), first, so the publish jobs see the raids it imports;
   only once TOADS_WCL_CLIENT_ID and TOADS_WCL_GUILD_ID are set
-- publish-home, publish-performance, publish-badges, publish-reference and publish-logs: every
+- publish-home, publish-performance, publish-badges, publish-characters, publish-reference and publish-logs: every
   TOADS_HUB_REFRESH_MINUTES (default 30)
 - import-sheets: every TOADS_SHEETS_REFRESH_MINUTES (default 360), only when the raid sheets config exists
 """
@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import structlog
 
 from toads_worker.jobs.badges import publish_badges
+from toads_worker.jobs.characters import publish_character_pages
 from toads_worker.jobs.home import publish_home_page
 from toads_worker.jobs.logs import publish_logs
 from toads_worker.jobs.performance import publish_performance
@@ -54,6 +55,8 @@ def jobs_for(settings: Settings) -> list[Job]:
         jobs.append(Job("publish-home", every, lambda: publish_home_page(settings)))
         jobs.append(Job("publish-performance", every, lambda: publish_performance(settings)))
         jobs.append(Job("publish-badges", every, lambda: publish_badges(settings)))
+        # Each member's own raids on Me.
+        jobs.append(Job("publish-characters", every, lambda: publish_character_pages(settings)))
         # The raids officers pick from on the reference comparison page, so newly synced raids show up there.
         jobs.append(Job("publish-reference", every, lambda: publish_reference_page(settings)))
         # The Logs page: the raid list, each raid's analysis and the boss history.

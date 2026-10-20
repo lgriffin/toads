@@ -11,6 +11,8 @@
   import { myAwards, titlesOf, type AwardOut } from '$lib/awards';
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
+  import CharacterCard from '$lib/components/CharacterCard.svelte';
+  import { myCharacterPage, type MyCharacterPage } from '$lib/characters';
   import MemberToads from '$lib/components/MemberToads.svelte';
   import SpecsCard from '$lib/components/SpecsCard.svelte';
   import { getMe } from '$lib/me-context';
@@ -20,6 +22,21 @@
   type Loaded = { kind: 'loading' } | { kind: 'ok'; value: MyBadges } | { kind: 'error'; message: string };
   let badges = $state<Loaded>({ kind: 'loading' });
   let awards = $state<AwardOut[] | null>(null);
+  type Raids = { kind: 'loading' } | { kind: 'ok'; value: MyCharacterPage } | { kind: 'error'; message: string };
+  let raids = $state<Raids>({ kind: 'loading' });
+
+  // The member's main character first; `pick` loads another of theirs, keeping the current page until it arrives.
+  async function loadRaids(name: string | null = null) {
+    try {
+      raids = { kind: 'ok', value: await myCharacterPage(name) };
+    } catch (e) {
+      const message =
+        e instanceof ApiError && e.status === 401
+          ? 'Sign in with Discord to see your raids.'
+          : 'Could not load your raids; try again later.';
+      raids = { kind: 'error', message };
+    }
+  }
   // The same toads the header shows beside the member's name, loaded once by the layout; the titles come from the
   // awards fetched here, so an award given since the layout loaded shows too.
   const me = getMe();
@@ -43,6 +60,7 @@
     myAwards()
       .then((a) => (awards = a))
       .catch(() => (awards = []));
+    void loadRaids();
     try {
       badges = { kind: 'ok', value: await myBadges() };
     } catch (e) {
@@ -81,10 +99,19 @@
   <p><a href="{base}/me/claim">Claim a character</a> · <a href="{base}/me/settings">Your settings</a></p>
 {:else}
   <h1>Your performance <MemberToads {...facts} size={40} /></h1>
-  <p>
-    Claim your characters and see how each raid went for you against the guild median for your role.
-    The seven charts from the build spec arrive in milestone H3.
-  </p>
+  <p>Claim your characters and see how each raid went for you against the median for your role in that raid.</p>
+  {#if raids.kind === 'ok'}
+    <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)} />
+  {:else}
+    <section class="card" aria-labelledby="character-h">
+      <h2 id="character-h">Your raids</h2>
+      {#if raids.kind === 'loading'}
+        <p class="muted" role="status">Loading…</p>
+      {:else}
+        <p class="err" role="alert">{raids.message}</p>
+      {/if}
+    </section>
+  {/if}
   <SpecsCard />
   {@render absenceSection()}
   {#if badges.kind === 'ok'}
