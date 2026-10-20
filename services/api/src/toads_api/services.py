@@ -42,6 +42,8 @@ from toads_api.logs.sql import SqlLogRepository
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.officer_board.service import OfficerBoardService
 from toads_api.officer_board.sql import SqlBoardRepository
+from toads_api.officer_grants.service import NO_STANDING, OfficerGrantService
+from toads_api.officer_grants.sql import SqlOfficerGrantRepository
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
 from toads_api.raid_sheets.service import RaidSheetService
@@ -91,6 +93,8 @@ class Services:
     bank_events: BankEvents = field(init=False)
     # Who besides officers may import bank snapshots or run the request queue (docs/bank.md "Grants").
     bank_grants: BankGrantService = field(init=False)
+    # Officer powers a super admin gave a member on top of their Discord roles (docs/admin.md "Officer grants").
+    officer_grants: OfficerGrantService = field(init=False)
 
     def principal_for(
         self,
@@ -101,10 +105,19 @@ class Services:
         discord_username: str = "",
     ) -> Principal:
         """A member's hub roles from their Discord roles: raid_days.yaml, plus the roles a super admin tied to each
-        night's badge on the Admin page, which make their holders that night's raiders (docs/admin.md)."""
+        night's badge on the Admin page, which make their holders that night's raiders, plus the officer grants a
+        super admin gave them there (docs/admin.md). Both are read on every call, so a revoke counts at once."""
         nights = self.role_badges.night_roles((d.id, d.name) for d in self.raid_days.raid_days)
+        granted = NO_STANDING if discord_user_id is None else self.officer_grants.standing(discord_user_id)
         return self.raid_days.principal_for(
-            member_id, set(role_ids), display_name, discord_user_id, discord_username, night_roles=nights
+            member_id,
+            set(role_ids),
+            display_name,
+            discord_user_id,
+            discord_username,
+            night_roles=nights,
+            officer_days=granted.days,
+            granted_global_officer=granted.global_officer,
         )
 
     def __post_init__(self) -> None:
@@ -127,6 +140,9 @@ class Services:
             SqlBankGrantRepository(self.db),
             (d.id for d in self.raid_days.raid_days),
             clock=lambda: datetime.fromtimestamp(self.clock(), UTC),
+        )
+        self.officer_grants = OfficerGrantService(
+            SqlOfficerGrantRepository(self.db), (d.id for d in self.raid_days.raid_days)
         )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))
