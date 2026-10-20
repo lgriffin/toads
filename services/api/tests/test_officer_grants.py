@@ -138,6 +138,7 @@ def test_search_finds_server_members(hub: Hub) -> None:
     found = hub.get("/api/admin/officer-grants/discord-members?q=Bobt", admin)
     assert found.status_code == 200, found.text
     assert {"discord_user_id": str(bob.user_id), "username": bob.username, "display_name": "Bobtoad"} in found.json()
+    assert hub.get("/api/admin/officer-grants/discord-members?q=%20%20", admin).status_code == 422
 
 
 def test_officers_and_raiders_cannot_manage_officer_grants(hub: Hub) -> None:

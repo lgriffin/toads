@@ -106,6 +106,8 @@ async def list_officer_grants(_: SuperAdmin, grants: Grants, live: Live) -> Offi
 async def find_discord_members(
     q: Annotated[str, Query(min_length=1, max_length=32)], _: SuperAdmin, live: Live
 ) -> list[DiscordMemberOut]:
+    if not q.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Type a name to search")
     try:
         found = await live.discord.search_members(q.strip(), limit=10)
     except DiscordError:

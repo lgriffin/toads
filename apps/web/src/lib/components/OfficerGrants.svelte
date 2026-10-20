@@ -44,6 +44,15 @@
       loadError = officerGrantError(e);
     }
   }
+
+  // After a grant or revoke: a failed refresh keeps the desk and its last list, and says so beside the result.
+  async function reload() {
+    try {
+      data = await backend.load();
+    } catch (e) {
+      message += ` The list could not be refreshed: ${officerGrantError(e)}`;
+    }
+  }
   $effect(() => {
     load();
   });
@@ -71,13 +80,12 @@
       await action();
       message = done;
       failed = false;
-      await load();
     } catch (e) {
       message = officerGrantError(e);
       failed = true;
-    } finally {
-      busy = false;
     }
+    if (!failed) await reload();
+    busy = false;
   }
 
   async function grant(event: SubmitEvent) {
