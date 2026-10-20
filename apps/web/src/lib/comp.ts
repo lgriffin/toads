@@ -341,6 +341,8 @@ export interface PoolEntry {
   wow_class: string | null;
   primary: string | null;
   secondary: string | null;
+  /** False for someone holding the night's Discord role who has never signed in to the hub, so has no specs. */
+  signed_in: boolean;
 }
 
 /** What the roster is narrowed to: a class, a spec (matching a primary or secondary), and a name search. */

@@ -4,8 +4,9 @@ the members a bot acts for."""
 from __future__ import annotations
 
 import json
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import anyio
 import structlog
@@ -76,8 +77,9 @@ def record_raid_days(services: Services, member_id: int, role_ids: Collection[in
             row.raid_days = days
 
 
-def upsert_member(services: Services, member: GuildMember) -> int:
-    """The hub member row for a Discord member, created on first sight; returns its id."""
+def upsert_member(services: Services, member: GuildMember, *, signing_in: bool = False) -> int:
+    """The hub member row for a Discord member, created on first sight; returns its id. `signing_in` stamps the
+    sign-in, which tells the comp builder the member has used the hub (docs/comps.md)."""
     # Read before the write opens: the night badges' roles come from the database too.
     days = raid_days_of(services, member.role_ids)
     with services.db.begin() as db:
@@ -92,7 +94,56 @@ def upsert_member(services: Services, member: GuildMember) -> int:
             row.display_name = member.server_name
             row.discord_username = member.username
         row.raid_days = days
+        if signing_in:
+            row.signed_in_at = datetime.fromtimestamp(services.clock(), UTC)
         return row.id
+
+
+ROSTERS_SYNCED_KEY = "comps:rosters:synced"
+
+
+def sync_raid_rosters(services: Services, members: Iterable[GuildMember]) -> int:
+    """Put every Discord member holding a raid night's roles on that night's comp roster, signed in or not, and take
+    everyone else off; `members` is the whole server. Returns how many hold a night. The rows it creates carry no
+    sign-in, so the comp builder marks them (docs/comps.md). Never a source of permissions."""
+    holders: dict[int, tuple[GuildMember, list[str]]] = {}
+    for m in members:
+        # The same reading of roles as a sign-in, badge ties included; the server is a few hundred members at most.
+        if days := raid_days_of(services, m.role_ids):
+            holders[m.user_id] = (m, days)
+    with services.db.begin() as db:
+        rows = {r.discord_user_id: r for r in db.scalars(select(Member))}
+        for user_id, row in rows.items():
+            if user_id not in holders and row.raid_days:
+                row.raid_days = []
+        for user_id, (m, days) in holders.items():
+            known = rows.get(user_id)
+            if known is None:
+                db.add(
+                    Member(
+                        discord_user_id=user_id, display_name=m.server_name, discord_username=m.username, raid_days=days
+                    )
+                )
+                continue
+            known.display_name, known.discord_username = m.server_name, m.username
+            if known.raid_days != days:
+                known.raid_days = days
+    return len(holders)
+
+
+async def refresh_raid_rosters(services: Services) -> None:
+    """Re-read the server's raid-role holders with the Toad Bot's token, at most once per `role_refresh_seconds`
+    across the hub. If Discord does not answer, the rosters stay as last read and the next request tries again."""
+    if not await services.redis.set(ROSTERS_SYNCED_KEY, "1", nx=True, ex=services.settings.role_refresh_seconds):
+        return
+    try:
+        members = await services.discord.guild_members()
+    except DiscordError:
+        await services.redis.delete(ROSTERS_SYNCED_KEY)
+        log.warning("comps.rosters_unavailable")
+        return
+    holders = await anyio.to_thread.run_sync(sync_raid_rosters, services, members)
+    log.info("comps.rosters_synced", members=len(members), holders=holders)
 
 
 class NotAMemberError(Exception):

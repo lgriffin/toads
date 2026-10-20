@@ -405,8 +405,8 @@
           <p class="err" role="alert">{poolError}</p>
         {:else if pool.length === 0}
           <p class="muted">
-            Nobody is on {dayLabel(day)}'s roster yet. Members join it when they sign in to the hub with that night's
-            Discord role.
+            Nobody is on {dayLabel(day)}'s roster yet. Everyone holding that night's Discord roles joins it, whether or
+            not they have signed in to the hub.
           </p>
         {:else}
           <p class="hint" role="status">{shown.length} of {withSpecs.length} with specs set</p>
@@ -439,8 +439,15 @@
           {#if unset.length}
             <details class="unset">
               <summary>{unset.length} without specs yet</summary>
-              <p class="hint">They can set them on the Me page.</p>
-              <ul>{#each unset as e (e.member_id)}<li>{e.name}</li>{/each}</ul>
+              <p class="hint">
+                They can set them on the Me page.{#if unset.some((e) => !e.signed_in)} Those marked not signed in hold the
+                night's Discord role but have not visited the hub yet.{/if}
+              </p>
+              <ul>
+                {#each unset as e (e.member_id)}
+                  <li>{e.name}{#if !e.signed_in} <span class="pill quiet">Not signed in</span>{/if}</li>
+                {/each}
+              </ul>
             </details>
           {/if}
         {/if}
@@ -653,6 +660,7 @@
   .member .pill { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
   .unset summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
   .unset ul { gap: 0.2rem; font-size: 0.9rem; }
+  .unset .pill.quiet { color: var(--muted); background: none; border: 1px solid var(--line); }
 
   .placing { margin: 0 0 0.5rem; min-height: 2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; color: var(--muted); }
   .groups { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }

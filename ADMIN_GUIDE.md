@@ -109,8 +109,8 @@ Discord application details:
 
 You can grant Manage Channels and Manage Permissions on the interview category alone instead of server-wide. If rooms
 also let in officer roles (no `interviewers` set), the bot's own role must sit above those roles in Server Settings >
-Roles. Privileged intents in the developer portal: **Server Members** (find the interviewers by username) and
-**Message Content** (mirrored channels).
+Roles. Privileged intents in the developer portal: **Server Members** (find the interviewers by username, and list each
+raid night's role holders for the comp builder) and **Message Content** (mirrored channels).
 
 The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
 member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.
@@ -360,8 +360,9 @@ Rules worth knowing:
   Sunday raider roles.
   A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
   (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the
-  team at once. The comp builder's roster catches up as each member next signs in or has their roles refreshed, since
-  the hub never stores who holds which role. Officer roles still come from `officer_roles`. The rank
+  team at once. The comp builder's roster reads the server's role holders with the Toad Bot's token whenever an
+  officer opens it (at most every 15 minutes), so it lists people who have never signed in too, marked "Not signed
+  in" ([docs/comps.md](docs/comps.md)). Officer roles still come from `officer_roles`. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
   their own team's night, its officers also get an officer desk linking to the night's officer section, and super

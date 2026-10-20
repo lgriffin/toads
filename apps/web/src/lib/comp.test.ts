@@ -23,10 +23,10 @@ import {
   type Slots
 } from './comp';
 
-const ele: PoolEntry = { member_id: 1, name: 'Hopscotch', wow_class: 'shaman', primary: 'shaman-elemental', secondary: 'shaman-restoration' };
-const resto: PoolEntry = { member_id: 2, name: 'Lilypadd', wow_class: 'shaman', primary: 'shaman-restoration', secondary: 'shaman-elemental' };
-const enh: PoolEntry = { member_id: 3, name: 'Galewart', wow_class: 'shaman', primary: 'shaman-enhancement', secondary: null };
-const tank: PoolEntry = { member_id: 4, name: 'Ribbit', wow_class: 'warrior', primary: 'warrior-protection', secondary: 'warrior-fury' };
+const ele: PoolEntry = { member_id: 1, name: 'Hopscotch', wow_class: 'shaman', primary: 'shaman-elemental', secondary: 'shaman-restoration', signed_in: true };
+const resto: PoolEntry = { member_id: 2, name: 'Lilypadd', wow_class: 'shaman', primary: 'shaman-restoration', secondary: 'shaman-elemental', signed_in: true };
+const enh: PoolEntry = { member_id: 3, name: 'Galewart', wow_class: 'shaman', primary: 'shaman-enhancement', secondary: null, signed_in: true };
+const tank: PoolEntry = { member_id: 4, name: 'Ribbit', wow_class: 'warrior', primary: 'warrior-protection', secondary: 'warrior-fury', signed_in: true };
 
 const seat = (spec: string, memberId: number | null = null) => ({ spec, memberId });
 
@@ -149,7 +149,7 @@ describe('the roster', () => {
     expect(seatFor(resto)?.spec).toBe('shaman-restoration');
     expect(seatFor(tank, { role: 'melee' })?.spec).toBe('warrior-fury');
     expect(seatFor(enh, { spec: 'shaman-elemental' })?.spec).toBe('shaman-enhancement');
-    expect(seatFor({ member_id: 9, name: 'Lotus', wow_class: null, primary: null, secondary: null })).toBeNull();
+    expect(seatFor({ member_id: 9, name: 'Lotus', wow_class: null, primary: null, secondary: null, signed_in: true })).toBeNull();
   });
 
   it('offers the other spec a seated member plays', () => {
