@@ -33,7 +33,7 @@
 
   function oninput() {
     clearTimeout(timer);
-    const q = query.trim();
+    const q = query.trim().replace(/\s+/g, ' '); // two-word names: "Big  Toad" searches as "Big Toad"
     if (q === searched && !searchFailed) return; // only whitespace changed
     // Results for an older query never stay claimable while the new one runs.
     matches = [];
