@@ -30,6 +30,38 @@ The other night's officers cannot see or change it (403). Global officers and su
 - Every change is on the audit log: `recruitment.panel_add` and `recruitment.panel_remove`, with the raid day.
 - A change applies to the next application. Rooms that are already open keep the people they were opened with.
 
+## When a room does not open
+
+The recruit page waits for the Toad Bot after someone applies. Once the room exists it shows **Open your interview
+room**, a link straight into it (`https://discord.com/channels/<server>/<room>`, built by the API from
+`TOADS_DISCORD_GUILD_ID`). It never links to the invite: an invite drops a member in whichever channel it was made for.
+
+If the bot cannot open the room for a reason retrying will not fix, it says why and the hub keeps that on the
+application as `interview_room_error` (migration 0025). The applicant sees it on the page; officers see it in
+`GET /api/.../admin/applications`, and asking for the room again (`POST .../interview-room`) clears it. The reasons:
+
+- `The Toad Bot needs Manage Channels, Manage Roles in the Interviews category` (or `in the server`): grant them
+  (ADMIN_GUIDE "Discord permissions for interview rooms").
+- `The applicant is no longer in the Discord server`.
+- `Discord refused: ...`: Discord's own error, such as 403 Missing Permissions, or a full category (Discord allows
+  50 channels in one).
+
+A Discord outage or rate limit is not a reason: the job stays in the outbox and the next poll (every 30 seconds) tries
+again. The bot logs everything else, starting with a check at startup:
+
+```bash
+cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml logs --since 1h bot
+```
+
+| Bot log line | Meaning |
+| --- | --- |
+| `the Toad Bot is in Toads and can open interview rooms` | Startup check passed |
+| `the Toad Bot is not in server ... (TOADS_DISCORD_GUILD_ID)` | Wrong server id in `services/bot/.env`, or the bot was never invited |
+| `the Toad Bot needs ... to open interview rooms` | Missing permissions, server-wide |
+| `cannot read the hub's outbox at ...` | `TOADS_HUB_API_URL` or `TOADS_HUB_SERVICE_TOKEN` in `services/bot/.env` is wrong, or the API is down |
+| `interview_category_id ... is not a category` | Fix the id in `config/community.yaml`; rooms open at the top of the channel list until then |
+| `outbox job ... failed: ...` | The reason above, also shown on the application |
+
 ## API
 
 - `GET /api/public/raid-nights`: the nights the recruit page offers, `[{id, name}]` in `config/raid_days.yaml` order.

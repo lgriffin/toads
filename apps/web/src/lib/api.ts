@@ -186,6 +186,10 @@ export interface SentApplication {
     | "accepted"
     | "declined"
     | "withdrawn";
+  /** The applicant's link into their room, once the Toad Bot has opened it. */
+  interview_room_url?: string | null;
+  /** Why the Toad Bot could not open the room. */
+  interview_room_error?: string | null;
 }
 
 export const sendApplication = (
@@ -196,6 +200,9 @@ export const sendApplication = (
     method: "POST",
     body: JSON.stringify(body),
   });
+
+export const myApplications = (f: Fetch = fetch) =>
+  call<SentApplication[]>(f, "/api/applications/mine");
 
 /** Why an application did not go through, and whether joining the Discord is the fix. */
 export function applicationError(e: unknown): {

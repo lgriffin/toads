@@ -114,3 +114,19 @@ Feature: HUB RECRUIT
     When the applicant applies for Wednesday as "  Big   Toad "
     Then the application is recorded for "Big Toad"
     And the names "Big Toad2", "Big-Toad" and "Big_Toad" are refused
+
+  @ears_unwanted_behavior @member @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-016 If the bot cannot open an interview room for a reason retrying will not fix, then the hub shall record why on the application, show it to the applicant and the officers, and let an officer ask for the room again
+    Given the demo guild with interviewers _gallagher and hadur117
+    And the applicant has applied for Wednesday
+    When the bot reports that it needs Manage Roles to open the room
+    Then the applicant's application says the room could not open because the bot needs Manage Roles
+    And the Wednesday officer can ask for the room again, which clears the reason
+
+  @ears_event_driven @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-017 When the bot has opened an applicant's interview room, the hub shall give the applicant a link straight into that room, and no link before it exists
+    Given the demo guild with interviewers _gallagher and hadur117
+    And the applicant has applied for Wednesday
+    Then the applicant's application has no room link
+    When the bot reports the room it opened
+    Then the applicant's application links to that room in the Toads Discord

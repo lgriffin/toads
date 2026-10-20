@@ -134,15 +134,27 @@ async def apply(
     services: Services = Depends(get_services),  # noqa: B008
 ) -> Application:
     await ensure_in_discord(services, svc.discord_id_of(p.member_id))
-    return svc.apply(p.member_id, body)
+    return with_room_url(svc.apply(p.member_id, body), services.settings.discord_guild_id)
 
 
 @member.get("/applications/mine")
 async def my_applications(
     svc: CommunityService = S,
     p: Principal = _APPLY,
+    services: Services = Depends(get_services),  # noqa: B008
 ) -> list[Application]:
-    return svc.my_applications(p.member_id)
+    guild_id = services.settings.discord_guild_id
+    return [with_room_url(a, guild_id) for a in svc.my_applications(p.member_id)]
+
+
+def with_room_url(app: Application, guild_id: int) -> Application:
+    """The applicant's link straight into their room. Only a room the bot has opened gets one: an invite link would
+    drop them in whichever channel the invite was made for."""
+    if app.interview_channel_id is None:
+        return app
+    return app.model_copy(
+        update={"interview_room_url": f"https://discord.com/channels/{guild_id}/{app.interview_channel_id}"}
+    )
 
 
 @member.post("/applications/{app_id}/withdraw")
