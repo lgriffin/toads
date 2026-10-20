@@ -2,8 +2,10 @@
 in wcl-store and publishes it to the hub API, which serves it to members' hub homes.
 
 The API decides which widgets it keeps; this job builds the analyzer widgets the hub places and posts them with the
-service token. `toads-worker schedule` runs it every TOADS_HUB_REFRESH_MINUTES; run it by hand after new raids are
-analysed with `toads-worker publish-home`, or enqueue `publish_home_page`.
+service token. The API's answer names each raid night's weekday, and the job then builds the same widgets from that
+night's raids only, one page per night, for the Logs page (docs/logs.md). `toads-worker schedule` runs it every
+TOADS_HUB_REFRESH_MINUTES; run it by hand after new raids are analysed with `toads-worker publish-home`, or enqueue
+`publish_home_page`.
 """
 
 from __future__ import annotations
@@ -11,14 +13,18 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+import structlog
 from wcl_app import HomeLayout, HomeService
 from wcl_app.context import StorageFactory
+from wcl_store import RaidScope
 
 from toads_worker import hub_api, store
 from toads_worker.settings import Settings
 
-# The analyzer widgets the hub places (toads_api.home.service.CATALOGUE). The analyzer's quick actions and tracked
-# players have no hub page, so they are not built.
+log = structlog.get_logger(__name__)
+
+# The analyzer widgets the hub keeps for Logs (toads_api.home.service.ANALYZER_WIDGETS). The analyzer's quick actions
+# and tracked players have no hub page, so they are not built.
 HUB_WIDGETS = (
     "guild_snapshot",
     "last_raid",
@@ -39,9 +45,11 @@ HUB_WIDGETS = (
 )
 
 
-def build_page(storage: StorageFactory) -> dict[str, Any]:
-    """The page as JSON. A widget that fails to build carries its own `error`; the rest still build."""
-    return HomeService(storage).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
+def build_page(storage: StorageFactory, weekday: int | None = None) -> dict[str, Any]:
+    """The page as JSON, from every guild raid or only those raided on `weekday` (0 is Monday). A widget that fails
+    to build carries its own `error`; the rest still build."""
+    scope = RaidScope(weekdays=(weekday,)) if weekday is not None else None
+    return HomeService(storage, scope=scope).page(HomeLayout.of(HUB_WIDGETS)).to_dict()
 
 
 def publish_home_page(
@@ -50,7 +58,29 @@ def publish_home_page(
     storage: StorageFactory | None = None,
     hub: httpx.Client | None = None,
 ) -> dict[str, Any]:
-    """Build the page and PUT it to the hub API. Returns the API's answer (how many widgets it kept)."""
+    """Build the guild-wide page and PUT it to the hub API, then each raid night's page the API asked for. Returns
+    the API's answer (how many widgets it kept, and the nights) with `night_widgets`, the widgets kept per night.
+
+    A night that fails (refused, unreachable, or a build error) does not stop the others; the job raises after
+    trying every night, so the run still reports the failure."""
     settings = settings or Settings()
     hub_api.service_token(settings)
-    return hub_api.put(settings, "/api/worker/home-page", build_page(storage or store.storage(settings)), hub)
+    storage = storage or store.storage(settings)
+    with hub_api.client(settings, hub) as client:
+        answer = hub_api.put(settings, "/api/worker/home-page", build_page(storage), client)
+        nights: dict[str, int] = answer.get("nights") or {}
+        kept: dict[str, int] = {}
+        failed: list[str] = []
+        for day, weekday in nights.items():
+            try:
+                night = hub_api.put(
+                    settings, f"/api/worker/home-page/nights/{day}", build_page(storage, weekday), client
+                )
+            except Exception:  # one night's failure must not leave the other nights stale
+                log.exception("home.night_page_failed", day=day)
+                failed.append(day)
+                continue
+            kept[day] = night["widgets"]
+    if failed:
+        raise RuntimeError(f"Could not publish the home page for {', '.join(failed)}")
+    return {**answer, "night_widgets": kept} if nights else answer

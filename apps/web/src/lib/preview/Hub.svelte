@@ -2,7 +2,6 @@
   import { base } from '$app/paths';
   import { PROVIDER_LABELS } from '$lib/clips';
   import { isOfficer, visibleHighlights } from '$lib/community';
-  import AnalyzerWidget from '$lib/components/AnalyzerWidget.svelte';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
   import DeskList from '$lib/components/DeskList.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
@@ -14,9 +13,7 @@
   import RaidTotals from '$lib/components/RaidTotals.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
   import { deskLines } from '$lib/community-api';
-  import { catalogueTitle, defaultLayout, isAnalyzer, saved, type HomeWidget } from '$lib/home';
-  import { widgetById } from '$lib/home-payload';
-  import { analyzerPage } from '$lib/mock/analyzer';
+  import { defaultLayout, saved, type HomeWidget } from '$lib/home';
   import { needs, story, viewer } from '$lib/mock/community';
   import { nextRaid, type Role } from '$lib/mock/data';
   import { previewNextRaid, previewNow, previewPerformance } from '$lib/mock/hub';
@@ -108,8 +105,6 @@
       </section>
     {:else if id === 'my_performance'}
       <PerformanceCard mine={previewPerformance} />
-    {:else if isAnalyzer(id)}
-      <AnalyzerWidget widget={widgetById(analyzerPage, id)} title={catalogueTitle(id)} missing="Not in this sample." />
     {:else if id === 'raid_totals'}
       <RaidTotals raids={sheetTrend} />
     {:else if id === 'posts'}

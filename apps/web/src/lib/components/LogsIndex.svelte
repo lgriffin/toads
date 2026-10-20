@@ -16,13 +16,12 @@
   } from '$lib/logs';
   import WeekdayChips from './WeekdayChips.svelte';
 
-  // The raid list and the boss history, both cut to the weekdays picked above them. Who sees per-player numbers is
-  // the API's call (docs/logs.md); this only shows what came back.
-  let { backend }: { backend: LogsBackend } = $props();
+  // The raid list and the boss history, both cut to the weekdays picked above them (the page starts them on the
+  // picked raid night). Who sees per-player numbers is the API's call (docs/logs.md); this only shows what came back.
+  let { backend, weekdays = $bindable([]) }: { backend: LogsBackend; weekdays?: number[] } = $props();
 
   let overview = $state<LogsOverview | null>(null);
   let error = $state('');
-  let weekdays = $state<number[]>([]);
   let zone = $state('');
   let query = $state('');
 

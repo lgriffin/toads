@@ -6,7 +6,6 @@
     deskSummary,
     getHome,
     getSession,
-    analyzerHome,
     guildHighlights,
     homeError,
     myPerformance,
@@ -21,7 +20,6 @@
   import { PROVIDER_LABELS } from '$lib/clips';
   import type { Highlight, Post } from '$lib/community';
   import { deskLines, needFromApi, type ApiStory, type DeskSummary } from '$lib/community-api';
-  import AnalyzerWidget from '$lib/components/AnalyzerWidget.svelte';
   import ClipPlayer from '$lib/components/ClipPlayer.svelte';
   import DeskList from '$lib/components/DeskList.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
@@ -31,8 +29,7 @@
   import PostCard from '$lib/components/PostCard.svelte';
   import ProgressBars from '$lib/components/ProgressBars.svelte';
   import RaidTotals from '$lib/components/RaidTotals.svelte';
-  import { isAnalyzer, shownIds, type HomeLayout, type HomeWidget, type WidgetId } from '$lib/home';
-  import { PAGE_VERSION, widgetById, type AnalyzerPage } from '$lib/home-payload';
+  import { shownIds, type HomeLayout, type HomeWidget, type WidgetId } from '$lib/home';
   import type { NextRaidAnswer } from '$lib/next-raid';
   import type { MyPerformance } from '$lib/performance';
   import Hub from '$lib/preview/Hub.svelte';
@@ -52,7 +49,6 @@
   let highlights = $state<Loaded<Highlight[]>>({ kind: 'loading' });
   let story = $state<Loaded<ApiStory>>({ kind: 'loading' });
   let desk = $state<Loaded<DeskSummary>>({ kind: 'loading' });
-  let analyzer = $state<Loaded<AnalyzerPage>>({ kind: 'loading' });
   let next = $state<Loaded<NextRaidAnswer>>({ kind: 'loading' });
   let perf = $state<Loaded<MyPerformance>>({ kind: 'loading' });
   // Re-read each minute so the countdown stays current while the page is open.
@@ -75,9 +71,7 @@
   }
 
   // Each widget's data is fetched the first time it is shown, so a hidden widget costs nothing.
-  type Source = WidgetId | 'analyzer';
-  const loaders: Partial<Record<Source, () => void>> = {
-    analyzer: () => load(analyzerHome(), (v) => (analyzer = v)),
+  const loaders: Partial<Record<WidgetId, () => void>> = {
     raid_totals: () => load(raidTrend(), (v) => (totals = v)),
     posts: () => load(postsFeed(), (v) => (posts = v)),
     highlights: () => load(guildHighlights(), (v) => (highlights = v)),
@@ -86,13 +80,13 @@
     next_raid: () => load(nextRaid(), (v) => (next = v)),
     my_performance: () => load(myPerformance(), (v) => (perf = v))
   };
-  const requested = new Set<Source>();
+  const requested = new Set<WidgetId>();
 
   $effect(() => {
     if (view.kind !== 'ready') return;
     for (const id of shownIds(view.layout)) {
-      // Progression and recruiting both come from the public story; analyzer widgets share one page.
-      const key: Source = isAnalyzer(id) ? 'analyzer' : id === 'recruiting' ? 'progression' : id;
+      // Progression and recruiting both come from the public story.
+      const key: WidgetId = id === 'recruiting' ? 'progression' : id;
       if (!requested.has(key)) {
         requested.add(key);
         loaders[key]?.();
@@ -127,7 +121,6 @@
   const save = (widgets: HomeWidget[]) => change(() => saveHome(widgets.filter((w) => w.shown).map((w) => w.id)));
   const reset = () => change(() => resetHome());
 
-  const title = (layout: HomeLayout, id: WidgetId) => layout.widgets.find((w) => w.id === id)?.title ?? id;
 </script>
 
 <svelte:head><title>Hub · Toads</title></svelte:head>
@@ -146,24 +139,7 @@
   {@const layout = view.layout}
   <HomeView name={view.session.display_name} {layout} {save} {reset}>
     {#snippet widget(id)}
-      {#if isAnalyzer(id)}
-        {#if analyzer.kind === 'ok' && analyzer.value.version === PAGE_VERSION}
-          <AnalyzerWidget
-            widget={widgetById(analyzer.value, id)}
-            title={title(layout, id)}
-            missing={analyzer.value.generated_at
-              ? 'The analyzer has nothing for this yet.'
-              : 'Shows once the worker has analysed the guild’s raids.'}
-          />
-        {:else}
-          <section class="card" aria-labelledby="{id}-h">
-            <h2 id="{id}-h">{title(layout, id)}</h2>
-            {#if analyzer.kind === 'ok'}
-              <p class="muted">This hub cannot draw the analyzer’s newer page yet.</p>
-            {:else}{@render status(analyzer)}{/if}
-          </section>
-        {/if}
-      {:else if id === 'raid_totals'}
+      {#if id === 'raid_totals'}
         {#if totals.kind === 'ok'}
           <RaidTotals raids={totals.value} />
         {:else}

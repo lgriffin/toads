@@ -96,6 +96,11 @@ def test_home_013() -> None:
     pass
 
 
+@_bind(14)
+def test_home_014() -> None:
+    pass
+
+
 @pytest.fixture
 def ctx() -> dict[str, Any]:
     return {}
@@ -368,11 +373,6 @@ def publish_oversized(hub: Hub, ctx: dict[str, Any]) -> None:
     ctx["response"] = hub.client.put("/api/worker/home-page", headers=WORKER, json=_healing_page(series=9))
 
 
-@then("their home shows weekly healing by default")
-def healing_shown(hub: Hub, ctx: dict[str, Any]) -> None:
-    assert "healing_weekly" in _shown(hub, ctx["sid"])
-
-
 @then("the weekly healing chart carries the four-week average and no target")
 def healing_measured(hub: Hub, ctx: dict[str, Any]) -> None:
     page = hub.get("/api/home/analyzer", ctx["sid"]).json()
@@ -454,9 +454,8 @@ def publish_roster(hub: Hub) -> None:
     assert r.status_code == 200, r.text
 
 
-@then(parsers.parse('the officer\'s home offers the badge roster with "{name}" in it'))
+@then(parsers.parse('the officer receives the badge roster with "{name}" in it'))
 def officer_sees_roster(hub: Hub, ctx: dict[str, Any], name: str) -> None:
-    assert "badges" in _shown(hub, ctx["officer"])
     page = hub.get("/api/home/analyzer", ctx["officer"]).json()
     roster = next(w for w in page["widgets"] if w["id"] == "badges")
     assert [h["name"] for h in roster["holders"]] == [name]
@@ -464,14 +463,7 @@ def officer_sees_roster(hub: Hub, ctx: dict[str, Any], name: str) -> None:
 
 @then("the raider receives no badge roster")
 def raider_sees_no_roster(hub: Hub, ctx: dict[str, Any]) -> None:
-    assert "badges" not in [w["id"] for w in hub.get("/api/me/home", ctx["sid"]).json()["widgets"]]
     assert all(w["id"] != "badges" for w in hub.get("/api/home/analyzer", ctx["sid"]).json()["widgets"])
-
-
-@when("they place the flasks widget")
-def place_flasks(hub: Hub, ctx: dict[str, Any]) -> None:
-    r = hub.client.put("/api/me/home", headers=hub.as_(ctx["sid"]), json={"shown": ["flasks"]})
-    assert r.status_code == 200, r.text
 
 
 @when(parsers.parse('the worker publishes the last raid\'s flasks table with "{name}" on a flask'))
@@ -495,9 +487,24 @@ def publish_flasks(hub: Hub, name: str) -> None:
     assert r.status_code == 200, r.text
 
 
-@then(parsers.parse('their home shows "{name}" prepared with a flask'))
+@then(parsers.parse('they receive "{name}" prepared with a flask'))
 def shows_flasks(hub: Hub, ctx: dict[str, Any], name: str) -> None:
-    assert _shown(hub, ctx["sid"]) == ["flasks"]
     page = hub.get("/api/home/analyzer", ctx["sid"]).json()
     flasks = next(w for w in page["widgets"] if w["id"] == "flasks")
     assert [(r["cells"]["name"], r["values"]["prepared"]) for r in flasks["rows"]] == [(name, "flask")]
+
+
+# --- the raid widgets live on Logs (REQ-HUB-HOME-014) ---------------------------------------------------------------
+
+
+@then("their home offers none of the analyzer's raid widgets")
+def no_analyzer_widgets(hub: Hub, ctx: dict[str, Any]) -> None:
+    widgets = hub.get("/api/me/home", ctx["sid"]).json()["widgets"]
+    assert widgets and all(w["source"] == "hub" for w in widgets)
+    assert not {"last_raid", "top_damage", "healing_weekly", "flasks"} & {w["id"] for w in widgets}
+
+
+@then("placing the flasks widget is refused with 422")
+def flasks_refused(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = hub.client.put("/api/me/home", headers=hub.as_(ctx["sid"]), json={"shown": ["flasks"]})
+    assert r.status_code == 422

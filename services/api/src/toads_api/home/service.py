@@ -43,14 +43,12 @@ class Widget:
     source: Source = Source.HUB
 
 
-def _analyzer(
-    wid: str, title: str, description: str, *, default_shown: bool = True, audience: Audience = Audience.MEMBER
-) -> Widget:
-    return Widget(wid, title, description, audience, default_shown=default_shown, source=Source.ANALYZER)
+def _analyzer(wid: str, title: str, description: str, *, audience: Audience = Audience.MEMBER) -> Widget:
+    return Widget(wid, title, description, audience, source=Source.ANALYZER)
 
 
-# In default display order. The analyzer's `quick_actions` (desktop commands) and `tracked_players` (the desktop's
-# player pages) have no hub page yet, so they are left out; the hub's navigation covers the first.
+# The hub home's widgets, in default display order: the hub's own data. The analyzer's raid widgets used to sit here
+# too, with every raid night mixed together; they live under Logs now, one page per night (ANALYZER_WIDGETS).
 CATALOGUE: tuple[Widget, ...] = (
     Widget("next_raid", "Next raid", "When the next raid starts and how many have signed up in Discord."),
     Widget(
@@ -59,10 +57,18 @@ CATALOGUE: tuple[Widget, ...] = (
         "Applications, posts, highlights and spotlights waiting on officers.",
         Audience.OFFICER,
     ),
-    _analyzer("guild_snapshot", "Guild at a glance", "Raids stored, active raiders, raids this month, last raid."),
-    _analyzer("last_raid", "Last raid", "Date, duration, bosses killed, raid size, total damage and healing."),
     Widget("my_performance", "Your performance", "Your main character's last raid against the guild median."),
     Widget("raid_totals", "Raid totals", "Consumes, buffs and deaths per raid from the CBA and RPB sheets."),
+    Widget("posts", "Guild posts", "News and posts from officers and Discord."),
+    Widget("highlights", "Recent highlights", "The newest highlight reels."),
+    Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
+    Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
+)
+# The analyzer's widgets the hub keeps and Logs draws, in display order. Its `quick_actions` (desktop commands) and
+# `tracked_players` (the desktop's player pages) have no hub page, so they are left out.
+ANALYZER_WIDGETS: tuple[Widget, ...] = (
+    _analyzer("guild_snapshot", "Guild at a glance", "Raids stored, active raiders, raids this month, last raid."),
+    _analyzer("last_raid", "Last raid", "Date, duration, bosses killed, raid size, total damage and healing."),
     _analyzer("recent_raids", "Recent raids", "The newest guild raids."),
     _analyzer("raid_activity", "Raid activity", "Raids per week over the last eight weeks."),
     _analyzer(
@@ -85,25 +91,14 @@ CATALOGUE: tuple[Widget, ...] = (
         "Badges earned by the last raid's roster, most tiers first.",
         audience=Audience.OFFICER,
     ),
-    Widget("posts", "Guild posts", "News and posts from officers and Discord."),
-    Widget("highlights", "Recent highlights", "The newest highlight reels."),
-    _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order.", default_shown=False),
-    _analyzer("class_mix", "Class mix", "Players per class in the last raid.", default_shown=False),
-    _analyzer(
-        "interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid.", default_shown=False
-    ),
-    _analyzer("consumables", "Consumables", "The top five consumable users in the last raid.", default_shown=False),
-    _analyzer(
-        "flasks",
-        "Flasks and elixirs",
-        "Who came prepared to the last raid: a flask or an elixir pair.",
-        default_shown=False,
-    ),
-    Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
-    Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
+    _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order."),
+    _analyzer("class_mix", "Class mix", "Players per class in the last raid."),
+    _analyzer("interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid."),
+    _analyzer("consumables", "Consumables", "The top five consumable users in the last raid."),
+    _analyzer("flasks", "Flasks and elixirs", "Who came prepared to the last raid: a flask or an elixir pair."),
 )
 MAX_WIDGETS = len(CATALOGUE)
-ANALYZER_IDS = frozenset(w.id for w in CATALOGUE if w.source is Source.ANALYZER)
+ANALYZER_IDS = frozenset(w.id for w in ANALYZER_WIDGETS)
 # The analyzer's HOME_SCHEMA_VERSION this hub understands; it changes only when a payload field changes meaning.
 ANALYZER_SCHEMA_VERSION = 1
 # The analyzer has 16 widgets today; far more than this is a broken publisher.
@@ -173,6 +168,11 @@ def catalogue_for(audience: Audience) -> list[Widget]:
     return [w for w in CATALOGUE if audience is Audience.OFFICER or w.audience is Audience.MEMBER]
 
 
+def analyzer_widgets_for(audience: Audience) -> list[Widget]:
+    """The analyzer's widgets this audience may read on Logs: officers all, members the member ones."""
+    return [w for w in ANALYZER_WIDGETS if audience is Audience.OFFICER or w.audience is Audience.MEMBER]
+
+
 def default_layout(audience: Audience) -> list[WidgetChoice]:
     return [WidgetChoice(w, w.default_shown) for w in catalogue_for(audience)]
 
@@ -232,8 +232,11 @@ def _holders_problem(holders: Sequence[Mapping[str, Any]]) -> str | None:
 
 
 class HomeService:
-    def __init__(self, repo: HomeRepository) -> None:
+    def __init__(self, repo: HomeRepository, nights: Mapping[str, int] | None = None) -> None:
         self.repo = repo
+        # Each raid day's weekday (0 is Monday), as the logs and raid sheets read it: the nights the worker builds a
+        # page for.
+        self.nights: dict[str, int] = dict(nights or {})
 
     def layout(self, member_id: int, audience: Audience) -> HomeLayout:
         stored = self.repo.layout(member_id)
@@ -277,33 +280,66 @@ class HomeService:
         """Keep the worker's latest build of the analyzer's home page; returns how many widgets were kept. Widgets
         the hub does not place (the analyzer's quick actions and tracked players, or ids newer than this hub) are
         dropped here rather than stored."""
-        if version != ANALYZER_SCHEMA_VERSION:
-            raise HomeError(f"Unsupported home page version {version}", status=422)
-        if not generated_at_ok(generated_at):
-            raise HomeError("generated_at must look like 2026-09-27 12:00:00", status=422)
-        if len(widgets) > MAX_ANALYZER_WIDGETS:
-            raise HomeError("Too many widgets", status=422)
-        kept: dict[str, dict[str, Any]] = {}
-        for w in widgets:
-            wid = w.get("id")
-            if not isinstance(wid, str) or wid not in ANALYZER_IDS or wid in kept:
-                continue
-            problem = malformed(w)
-            if problem:
-                raise HomeError(f"Widget {wid}: {problem}", status=422)
-            kept[wid] = dict(w)
+        page = _checked(version, generated_at, widgets)
         current = self.repo.analyzer_page()
         if current is not None and generated_at < current.generated_at:
             # A delayed or retried build must not replace a newer one.
             raise HomeError("A newer home page is already published", status=409)
-        self.repo.save_analyzer_page(StoredPage(version, generated_at, list(kept.values())))
-        return len(kept)
+        self.repo.save_analyzer_page(page)
+        return len(page.widgets)
+
+    def publish_night_page(
+        self, day: str, version: int, generated_at: str, widgets: Sequence[Mapping[str, Any]]
+    ) -> int:
+        """Keep the worker's latest build of one raid night's page (the same widgets, from that night's raids only),
+        checked as the guild-wide page is."""
+        self._night(day)
+        page = _checked(version, generated_at, widgets)
+        current = self.repo.night_page(day)
+        if current is not None and generated_at < current.generated_at:
+            raise HomeError("A newer page for this night is already published", status=409)
+        self.repo.save_night_page(day, page)
+        return len(page.widgets)
+
+    def night_page(self, day: str, audience: Audience = Audience.MEMBER) -> AnalyzerPage | None:
+        """One raid night's page as this audience may see it, like `analyzer_page`; None until the worker built it."""
+        self._night(day)
+        return _for(self.repo.night_page(day), audience)
+
+    def _night(self, day: str) -> None:
+        if day not in self.nights:
+            raise HomeError("No such raid night", status=404)
 
     def analyzer_page(self, audience: Audience = Audience.MEMBER) -> AnalyzerPage | None:
         """The page as this audience may see it: officer-only widgets (the roster's badges) are left out for
         members, so hiding them in the web is never the only thing keeping them private."""
-        page = self.repo.analyzer_page()
-        if page is None:
-            return None
-        allowed = {w.id for w in catalogue_for(audience)}
-        return AnalyzerPage(page.version, page.generated_at, [dict(w) for w in page.widgets if w.get("id") in allowed])
+        return _for(self.repo.analyzer_page(), audience)
+
+
+def _checked(version: int, generated_at: str, widgets: Sequence[Mapping[str, Any]]) -> StoredPage:
+    """A published analyzer page as the hub stores it: the widgets it places, each checked against the contract."""
+    if version != ANALYZER_SCHEMA_VERSION:
+        raise HomeError(f"Unsupported home page version {version}", status=422)
+    if not generated_at_ok(generated_at):
+        raise HomeError("generated_at must look like 2026-09-27 12:00:00", status=422)
+    if len(widgets) > MAX_ANALYZER_WIDGETS:
+        raise HomeError("Too many widgets", status=422)
+    kept: dict[str, dict[str, Any]] = {}
+    for w in widgets:
+        wid = w.get("id")
+        if not isinstance(wid, str) or wid not in ANALYZER_IDS or wid in kept:
+            continue
+        problem = malformed(w)
+        if problem:
+            raise HomeError(f"Widget {wid}: {problem}", status=422)
+        kept[wid] = dict(w)
+    return StoredPage(version, generated_at, list(kept.values()))
+
+
+def _for(page: StoredPage | None, audience: Audience) -> AnalyzerPage | None:
+    """The page as this audience may see it: officer-only widgets (the roster's badges) are left out for members, so
+    hiding them in the web is never the only thing keeping them private."""
+    if page is None:
+        return None
+    allowed = {w.id for w in analyzer_widgets_for(audience)}
+    return AnalyzerPage(page.version, page.generated_at, [dict(w) for w in page.widgets if w.get("id") in allowed])

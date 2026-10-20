@@ -6,7 +6,7 @@ import math
 
 import pytest
 from toads_api.home.repository import InMemoryHomeRepository, StoredWidget
-from toads_api.home.service import CATALOGUE, Audience, HomeError, HomeService, catalogue_for
+from toads_api.home.service import ANALYZER_WIDGETS, CATALOGUE, Audience, HomeError, HomeService, catalogue_for
 
 from conftest import Hub
 
@@ -175,7 +175,7 @@ def test_analyzer_page_round_trip(hub: Hub) -> None:
     assert (empty["generated_at"], empty["widgets"]) == (None, [])
 
     r = hub.client.put("/api/worker/home-page", headers=WORKER, json=PAGE)
-    assert r.status_code == 200 and r.json() == {"widgets": 1}
+    assert r.status_code == 200 and r.json() == {"widgets": 1, "nights": {"wed": 2, "thu": 3, "sun": 6}}
     page = hub.get("/api/home/analyzer", sid).json()
     assert page["generated_at"] == "2026-09-27 12:00:00"
     assert page["widgets"][0]["tiles"][0]["display"] == "4"
@@ -193,10 +193,82 @@ def test_only_the_worker_publishes_the_page(hub: Hub) -> None:
     assert hub.get("/api/home/analyzer", None).status_code == 401
 
 
-def test_widgets_say_where_their_data_comes_from(hub: Hub) -> None:
+# --- each raid night's page, for the Logs page ------------------------------------------------------------------------
+
+
+def _nights() -> HomeService:
+    return HomeService(InMemoryHomeRepository(), {"wed": 2, "sun": 6})
+
+
+def test_a_night_page_is_kept_apart_from_the_guild_page_and_from_other_nights() -> None:
+    svc = _nights()
+    assert svc.night_page("wed") is None
+    assert svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", PAGE["widgets"]) == 1  # type: ignore[arg-type]
+    wed = svc.night_page("wed")
+    assert wed is not None and [w["id"] for w in wed.widgets] == ["last_raid"]
+    assert svc.night_page("sun") is None and svc.analyzer_page() is None
+
+
+def test_a_night_page_is_checked_like_the_guild_page() -> None:
+    svc = _nights()
+    with pytest.raises(HomeError) as unknown:
+        svc.publish_night_page("mon", 1, "2026-09-27 12:00:00", [])
+    assert unknown.value.status == 404
+    with pytest.raises(HomeError) as version:
+        svc.publish_night_page("wed", 2, "2026-09-27 12:00:00", [])
+    assert version.value.status == 422
+    svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", [])
+    with pytest.raises(HomeError) as older:
+        svc.publish_night_page("wed", 1, "2026-09-27 11:59:59", [])
+    assert older.value.status == 409
+    # Another night's clock is its own.
+    assert svc.publish_night_page("sun", 1, "2026-09-27 11:00:00", []) == 0
+
+
+def test_a_night_page_hides_officer_widgets_from_members() -> None:
+    svc = _nights()
+    badges = {"id": "badges", "title": "Toads badges", "kind": "badges", "size": "half", "holders": []}
+    svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", [badges])
+    assert (svc.night_page("wed", MEMBER) or pytest.fail()).widgets == []
+    assert [w["id"] for w in (svc.night_page("wed", OFFICER) or pytest.fail()).widgets] == ["badges"]
+
+
+def test_night_page_round_trip(hub: Hub) -> None:
+    sid = hub.login(hub.user(("sun", "raider")))
+    assert hub.get("/api/home/nights", sid).json() == {"nights": {"wed": 2, "thu": 3, "sun": 6}}
+    empty = hub.get("/api/home/nights/wed", sid).json()
+    assert (empty["generated_at"], empty["widgets"]) == (None, [])
+
+    r = hub.client.put("/api/worker/home-page/nights/wed", headers=WORKER, json=PAGE)
+    assert r.status_code == 200 and r.json() == {"widgets": 1}
+    # Every member reads every night's page, as they read the guild-wide one.
+    assert hub.get("/api/home/nights/wed", sid).json()["widgets"][0]["id"] == "last_raid"
+    assert hub.get("/api/home/nights/thu", sid).json()["widgets"] == []
+    assert hub.get("/api/home/nights/mon", sid).status_code == 404
+    assert hub.client.put("/api/worker/home-page/nights/mon", headers=WORKER, json=PAGE).status_code == 404
+
+
+@pytest.mark.security
+def test_only_the_worker_publishes_a_night_page(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "officer")))
+    assert hub.client.put("/api/worker/home-page/nights/wed", json=PAGE).status_code == 401
+    assert hub.client.put("/api/worker/home-page/nights/wed", headers=hub.as_(sid), json=PAGE).status_code == 401
+    assert hub.get("/api/home/nights/wed", None).status_code == 401
+    assert hub.get("/api/home/nights", None).status_code == 401
+
+
+def test_the_home_offers_only_hub_widgets(hub: Hub) -> None:
+    # The analyzer's raid widgets moved to Logs (ANALYZER_WIDGETS); a layout saved with them keeps the rest.
     sid = hub.login(hub.user(("wed", "raider")))
     sources = {w["id"]: w["source"] for w in hub.get("/api/me/home", sid).json()["widgets"]}
-    assert sources["last_raid"] == "analyzer" and sources["posts"] == "hub"
+    assert "last_raid" not in sources and set(sources.values()) == {"hub"}
+
+
+def test_a_layout_saved_with_analyzer_widgets_drops_them() -> None:
+    repo = InMemoryHomeRepository()
+    repo.save_layout(1, [StoredWidget("last_raid", True), StoredWidget("posts", True)])
+    shown = HomeService(repo).layout(1, MEMBER).shown
+    assert shown[0] == "posts" and "last_raid" not in shown
 
 
 @pytest.mark.parametrize(
@@ -260,10 +332,9 @@ def _chart_widget(chart: object, **extra: object) -> dict[str, object]:
     return {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart, **extra}
 
 
-def test_weekly_healing_and_healers_are_default_analyzer_widgets() -> None:
-    by_id = {w.id: w for w in CATALOGUE}
-    assert by_id["healing_weekly"].source == "analyzer" and by_id["healing_weekly"].default_shown
-    assert by_id["healers_weekly"].source == "analyzer" and by_id["healers_weekly"].default_shown
+def test_weekly_healing_and_healers_are_analyzer_widgets() -> None:
+    ids = {w.id for w in ANALYZER_WIDGETS}
+    assert {"healing_weekly", "healers_weekly"} <= ids and not ids & {w.id for w in CATALOGUE}
 
 
 def test_a_chart_widget_is_kept_as_published() -> None:

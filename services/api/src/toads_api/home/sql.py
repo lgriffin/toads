@@ -12,6 +12,7 @@ from hub_db import (
     ClaimStatus,
     Member,
     MemberHomeLayout,
+    NightHomePage,
 )
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -77,6 +78,29 @@ class SqlHomeRepository:
             row = db.get(AnalyzerHomePage, _PAGE_ROW)
             if row is None:
                 row = AnalyzerHomePage(id=_PAGE_ROW)
+                db.add(row)
+            row.version = page.version
+            row.generated_at = page.generated_at
+            row.widgets = page.widgets
+            row.updated_at = datetime.now(UTC)
+
+    def night_page(self, day: str) -> StoredPage | None:
+        with self._db() as db:
+            row = db.get(NightHomePage, day)
+            return None if row is None else StoredPage(row.version, row.generated_at, list(row.widgets))
+
+    def save_night_page(self, day: str, page: StoredPage) -> None:
+        try:
+            self._write_night(day, page)
+        except IntegrityError:
+            # The first two publications of this night raced to insert its row; update the one that won.
+            self._write_night(day, page)
+
+    def _write_night(self, day: str, page: StoredPage) -> None:
+        with self._db.begin() as db:
+            row = db.get(NightHomePage, day)
+            if row is None:
+                row = NightHomePage(raid_day_id=day)
                 db.add(row)
             row.version = page.version
             row.generated_at = page.generated_at

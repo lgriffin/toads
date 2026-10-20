@@ -4,10 +4,14 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
 - GET    /api/me/home   the widgets the member may place, in order, and which are shown
 - PUT    /api/me/home   show exactly these widgets, in this order
 - DELETE /api/me/home   back to the default layout
-- GET    /api/home/analyzer        the analyzer's widgets (guild-wide), as the worker last built them; officer-only
-                                  widgets (the roster's badges) only for officers
+- GET    /api/home/analyzer        the analyzer's widgets (guild-wide, Logs' every raid), as the worker last built them;
+                                  officer-only widgets (the roster's badges) only for officers
+- GET    /api/home/nights          the raid nights that have their own page, with each one's weekday (0 is Monday)
+- GET    /api/home/nights/{day}    the same widgets built from one raid night's raids only, for the Logs page
 - GET    /api/me/badges            the caller's own Toads badges
-- PUT    /api/worker/home-page     the worker, with the service token: a fresh build of the analyzer's page
+- PUT    /api/worker/home-page     the worker, with the service token: a fresh build of the analyzer's page; the answer
+                                  names each raid night's weekday, so the worker builds those pages next
+- PUT    /api/worker/home-page/nights/{day}   the worker: a fresh build of one raid night's page
 - PUT    /api/worker/badges        the worker, with the service token: every raider's badges
 """
 
@@ -266,6 +270,27 @@ async def analyzer_page(principal: SignedIn, home: Home) -> AnalyzerPageOut:
     return AnalyzerPageOut(version=page.version, generated_at=page.generated_at, widgets=page.widgets)
 
 
+class NightsOut(BaseModel):
+    # Raid day id to weekday (0 is Monday), in config order: the nights the worker builds a page for.
+    nights: dict[str, int]
+
+
+@guild.get("/nights")
+async def nights(_: SignedIn, home: Home) -> NightsOut:
+    return NightsOut(nights=home.nights)
+
+
+@guild.get("/nights/{day}")
+async def night_page(day: str, principal: SignedIn, home: Home) -> AnalyzerPageOut:
+    try:
+        page = await anyio.to_thread.run_sync(home.night_page, day, audience_of(principal))
+    except HomeError as exc:
+        raise _refused(exc) from None
+    if page is None:
+        return AnalyzerPageOut(version=1, generated_at=None, widgets=[])
+    return AnalyzerPageOut(version=page.version, generated_at=page.generated_at, widgets=page.widgets)
+
+
 @router.get("/performance")
 async def my_performance(principal: SignedIn, performance: Performance) -> MyPerformanceOut:
     mine = await anyio.to_thread.run_sync(performance.mine, principal.member_id)
@@ -332,13 +357,31 @@ async def publish_badges(body: BadgePageIn, badges: Badges) -> dict[str, int]:
     return {"players": kept}
 
 
+class PublishedOut(BaseModel):
+    widgets: int
+    # Each raid day's weekday (0 is Monday): the nights whose own page the worker builds and publishes next.
+    nights: dict[str, int]
+
+
 @worker.put("/home-page")
-async def publish_analyzer_page(body: AnalyzerPageIn, home: Home) -> dict[str, int]:
+async def publish_analyzer_page(body: AnalyzerPageIn, home: Home) -> PublishedOut:
     try:
         kept = await anyio.to_thread.run_sync(home.publish_analyzer_page, body.version, body.generated_at, body.widgets)
     except HomeError as exc:
         raise _refused(exc) from None
     log.info("home.analyzer_page_published", widgets=kept)
+    return PublishedOut(widgets=kept, nights=home.nights)
+
+
+@worker.put("/home-page/nights/{day}")
+async def publish_night_page(day: str, body: AnalyzerPageIn, home: Home) -> dict[str, int]:
+    try:
+        kept = await anyio.to_thread.run_sync(
+            home.publish_night_page, day, body.version, body.generated_at, body.widgets
+        )
+    except HomeError as exc:
+        raise _refused(exc) from None
+    log.info("home.night_page_published", day=day, widgets=kept)
     return {"widgets": kept}
 
 

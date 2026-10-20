@@ -636,7 +636,7 @@ API and worker.
 | Members' keys all show as not working | `TOADS_CREDENTIALS_KEYS` differs between the API and worker, or the key that wrote them was removed. |
 | Reference page says the login is not set up | `TOADS_WCL_CLIENT_ID` is empty in the API. |
 | Warcraft Logs refuses the reference login callback | The redirect URI is not registered on the Warcraft Logs client. |
-| Hub widgets or performance never update | The scheduler is not running, `TOADS_HUB_REFRESH_MINUTES=0`, or the worker's `TOADS_HUB_SERVICE_TOKEN` is wrong. |
+| Logs widgets or performance never update | The scheduler is not running, `TOADS_HUB_REFRESH_MINUTES=0`, or the worker's `TOADS_HUB_SERVICE_TOKEN` is wrong. |
 | Raid sheets not imported | The sheet is not shared by link, `config/raid_sheets.yaml` is missing in the scheduler, or `TOADS_SHEETS_REFRESH_MINUTES=0`. |
 | Claim search finds nobody | The worker has not analysed a raid yet, so wcl-store's character list is empty. |
 | `429` when redeeming a token | Five refused tries in 15 minutes; wait for the window to pass. |

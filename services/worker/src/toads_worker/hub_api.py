@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import httpx
@@ -25,3 +27,13 @@ def put(settings: Settings, path: str, body: dict[str, Any], hub: httpx.Client |
     r.raise_for_status()
     answer: dict[str, Any] = r.json()
     return answer
+
+
+@contextmanager
+def client(settings: Settings, hub: httpx.Client | None) -> Iterator[httpx.Client]:
+    """The caller's client, or one for the whole run, closed after it."""
+    if hub is not None:
+        yield hub
+        return
+    with httpx.Client(base_url=settings.hub_api_url, timeout=30.0) as own:
+        yield own

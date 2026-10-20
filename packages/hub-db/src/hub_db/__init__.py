@@ -33,6 +33,7 @@ from hub_db.models import (
     ClaimStatus,
     Member,
     MemberHomeLayout,
+    NightHomePage,
 )
 from hub_db.officer_board import OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
@@ -68,6 +69,7 @@ __all__ = [
     "MemberAward",
     "MemberHomeLayout",
     "MemberSpec",
+    "NightHomePage",
     "OfficerBoardCard",
     "OfficerGrant",
     "RaidComp",

@@ -67,6 +67,8 @@ class HomeRepository(Protocol):
 
     def analyzer_page(self) -> StoredPage | None: ...
     def save_analyzer_page(self, page: StoredPage) -> None: ...
+    def night_page(self, day: str) -> StoredPage | None: ...
+    def save_night_page(self, day: str, page: StoredPage) -> None: ...
 
     def performance_page(self) -> StoredPerformance | None: ...
     def save_performance_page(self, page: StoredPerformance) -> None: ...
@@ -85,6 +87,7 @@ class InMemoryHomeRepository:
 
     layouts: dict[int, list[StoredWidget]] = field(default_factory=dict)
     page: StoredPage | None = None
+    nights: dict[str, StoredPage] = field(default_factory=dict)
     performance: StoredPerformance | None = None
     badges: StoredBadges | None = None
     characters: dict[int, MemberCharacters] = field(default_factory=dict)
@@ -104,6 +107,12 @@ class InMemoryHomeRepository:
 
     def save_analyzer_page(self, page: StoredPage) -> None:
         self.page = page
+
+    def night_page(self, day: str) -> StoredPage | None:
+        return self.nights.get(day)
+
+    def save_night_page(self, day: str, page: StoredPage) -> None:
+        self.nights[day] = page
 
     def performance_page(self) -> StoredPerformance | None:
         return self.performance

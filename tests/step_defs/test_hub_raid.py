@@ -148,3 +148,39 @@ def overview_only(hub: Hub, people: dict[str, Any], who: str, report: str) -> No
 def global_full(hub: Hub, people: dict[str, Any], report: str) -> None:
     view = _open(hub, people["global"], report)
     assert view["full"] and view["page"]["melee"][0]["name"] == "Hopscotch"
+
+
+def _widgets(subtitle: str) -> dict[str, Any]:
+    last = {
+        "id": "last_raid",
+        "title": "Last raid",
+        "kind": "stats",
+        "size": "full",
+        "subtitle": subtitle,
+        "link": None,
+        "empty": "",
+        "error": "",
+        "tiles": [],
+    }
+    return {"version": 1, "generated_at": "2026-10-19 08:00:00", "widgets": [last]}
+
+
+@given("the worker has published the guild's raid widgets and each raid night's own")
+def published_widgets(hub: Hub) -> None:
+    r = hub.client.put("/api/worker/home-page", headers=WORKER, json=_widgets("Every night"))
+    assert r.status_code == 200, r.text
+    for day in r.json()["nights"]:
+        night = hub.client.put(f"/api/worker/home-page/nights/{day}", headers=WORKER, json=_widgets(f"Night {day}"))
+        assert night.status_code == 200, night.text
+
+
+@when("the raider opens the Wednesday widgets on Logs")
+def raider_opens_wednesday(hub: Hub, people: dict[str, Any]) -> None:
+    r = hub.get("/api/home/nights/wed", people["raider"])
+    assert r.status_code == 200, r.text
+    people["widgets"] = r.json()["widgets"]
+
+
+@then("the raider sees Wednesday's last raid and not the guild-wide one")
+def sees_wednesday(people: dict[str, Any]) -> None:
+    assert [w["subtitle"] for w in people["widgets"]] == ["Night wed"]
