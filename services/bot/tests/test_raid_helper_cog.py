@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import httpx
+import pytest
 from pydantic import SecretStr
 from toads_bot.cogs.raid_helper import MAX_EXPORT_BYTES, RaidHelper, import_summary, read_export, refusal
 from toads_bot.hub import HubClient
@@ -101,3 +102,22 @@ def test_an_unknown_night_never_reaches_the_hub() -> None:
     run(RaidHelper(hub_answering(200, {}, seen)).run_import(i, "Friday", attachment(b"{}")))
     assert seen == []
     assert "no raid night called Friday" in i.followup.send.call_args.args[0]
+
+
+@pytest.mark.parametrize(
+    "nights", [httpx.Response(503), httpx.Response(200, text="<html>"), httpx.Response(200, json=[{}])]
+)
+def test_an_unreadable_night_list_is_explained_and_nothing_is_imported(nights: httpx.Response) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/public/raid-nights":
+            return nights
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    i = interaction()
+    hub = HubClient("http://hub", SecretStr("svc"), transport=httpx.MockTransport(handler))
+    run(RaidHelper(hub).run_import(i, "Sunday", attachment(b"{}")))
+    assert seen == []
+    assert "not answering" in i.followup.send.call_args.args[0]

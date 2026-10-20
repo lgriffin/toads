@@ -41,6 +41,10 @@ OUTCOMES = (
 )
 
 
+class NightsUnavailable(Exception):
+    """The hub's list of raid nights could not be read."""
+
+
 def read_export(raw: bytes) -> dict[str, Any] | None:
     """The export as JSON, or None when the file is not a JSON object."""
     try:
@@ -86,7 +90,7 @@ class RaidHelper(commands.Cog):
     ) -> list[app_commands.Choice[str]]:
         try:
             nights = await self.hub.raid_nights()
-        except httpx.HTTPError:
+        except (httpx.HTTPError, ValueError):
             return []
         wanted = current.strip().lower()
         return [
@@ -105,17 +109,15 @@ class RaidHelper(commands.Cog):
 
     async def resolve_night(self, typed: str) -> tuple[str, str] | None:
         """The night's (id, name) from what was typed or picked: its id ("sun") from the list, or its name ("Sunday")
-        typed before the list came up. None when no night matches. If the hub's list is unreachable, what was typed
-        is used as the id and the hub decides."""
+        typed before the list came up. None when no night matches. Raises NightsUnavailable when the hub's list cannot
+        be read, rather than guessing an id from a name."""
         wanted = typed.strip().casefold()
         try:
             nights = await self.hub.raid_nights()
-        except httpx.HTTPError:
-            return (wanted, typed.strip()) if wanted else None
-        for n in nights:
-            if wanted in (n["id"].casefold(), n["name"].casefold()):
-                return n["id"], n["name"]
-        return None
+            pairs = [(str(n["id"]), str(n["name"])) for n in nights]
+        except (httpx.HTTPError, ValueError, TypeError, KeyError) as e:
+            raise NightsUnavailable from e
+        return next(((i, n) for i, n in pairs if wanted in (i.casefold(), n.casefold())), None)
 
     async def run_import(self, interaction: Any, night: str, export: Any) -> None:
         if export.size > MAX_EXPORT_BYTES:
@@ -126,7 +128,12 @@ class RaidHelper(commands.Cog):
         if data is None:
             await interaction.followup.send("That file is not a Raid-Helper export (it is not JSON).", ephemeral=True)
             return
-        found = await self.resolve_night(night)
+        try:
+            found = await self.resolve_night(night)
+        except NightsUnavailable:
+            log.error("cannot read the raid nights from the hub at %s", self.hub.base_url)
+            await interaction.followup.send("The hub is not answering. Try again in a minute.", ephemeral=True)
+            return
         if found is None:
             await interaction.followup.send(
                 f"There is no raid night called {night[:40]}. Pick one from the list.", ephemeral=True
