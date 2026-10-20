@@ -567,7 +567,8 @@ run at once. Stopping it (Ctrl+C) is safe: run it again and it carries on from w
 
 Merge to main: once CI passes, the Deploy workflow runs `scripts/deploy.sh` on the server, which checks out the commit,
 rebuilds the images, runs both migration jobs (`hub-db-migrate`, `toads-worker-migrate`) and then restarts the API,
-worker, scheduler, web and bots. Run the script by hand (`sudo -iu toads /opt/toads/scripts/deploy.sh [sha]`) after
+worker, scheduler, web and bots. Services whose image did not change keep running, except that the API, worker and scheduler
+restart whenever a file in `config/` changed since the last deploy, since they read it only at startup. Run the script by hand (`sudo -iu toads /opt/toads/scripts/deploy.sh [sha]`) after
 changing an env file, or from Actions → Deploy → Run workflow to roll back ([docs/deploy.md](docs/deploy.md#8-day-to-day)).
 Migrations are numbered Alembic revisions; they run forwards only in normal operation.
 

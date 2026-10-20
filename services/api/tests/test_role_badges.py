@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from toads_api.community.service import RaidDayDirectory
 from toads_api.rbac import HubRole, RaidDaysConfig
 from toads_api.role_badges.catalog import ROLE_BADGES
 from toads_api.role_badges.repository import InMemoryRoleBadgeRepository
@@ -56,6 +57,16 @@ def test_each_night_officer_badges_roles_make_that_nights_officers() -> None:
     # Thursday's officers run Thursday only.
     assert cfg.principal_for(1, {60, 61}, night_officer_roles=officers).day_roles == {"thu": HubRole.OFFICER}
     assert cfg.principal_for(1, {61}, night_officer_roles=officers).day_roles == {}
+
+
+def test_interview_rooms_admit_the_nights_badge_officers() -> None:
+    directory = RaidDayDirectory(
+        global_officer_roles=(900,),
+        officer_roles={"wed": (12,), "thu": ()},
+        badge_officer_roles=lambda: {"thu": {60}, "sun": {70}},
+    )
+    assert directory.officer_role_ids(["thu"]) == [60, 900]
+    assert directory.officer_role_ids([]) == [12, 60, 70, 900]
 
 
 def test_links_are_listed_in_catalogue_order() -> None:

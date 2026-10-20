@@ -47,18 +47,24 @@ class RoleBadgeService:
     def night_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
         """The Discord roles tied to each raid night's badge, by day id, for `(day id, day name)` pairs: the Thursday
         Toad badge is "thursday-toad". Holding one of them puts a member on that night's team."""
-        return self._tied_by_night(nights, night_badge_id)
+        return self.night_badge_roles(nights)[0]
 
     def night_officer_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
         """The Discord roles tied to each raid night's officer badge ("thursday-officer"), by day id. Holding one of
         them makes a member that night's officer."""
-        return self._tied_by_night(nights, night_officer_badge_id)
+        return self.night_badge_roles(nights)[1]
 
-    def _tied_by_night(self, nights: Iterable[tuple[str, str]], badge_of: Callable[[str], str]) -> dict[str, set[int]]:
+    def night_badge_roles(self, nights: Iterable[tuple[str, str]]) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
+        """`night_roles` and `night_officer_roles` from one read of the ties, for building a principal per request."""
         tied: dict[str, set[int]] = {}
         for r in self._live():
             tied.setdefault(r.badge_id, set()).add(r.discord_role_id)
-        return {day_id: roles for day_id, name in nights if (roles := tied.get(badge_of(name)))}
+        pairs = list(nights)
+
+        def by_night(badge_of: Callable[[str], str]) -> dict[str, set[int]]:
+            return {day_id: roles for day_id, name in pairs if (roles := tied.get(badge_of(name)))}
+
+        return by_night(night_badge_id), by_night(night_officer_badge_id)
 
     def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
         """The badges a member's Discord roles earn, each once, in catalogue order."""

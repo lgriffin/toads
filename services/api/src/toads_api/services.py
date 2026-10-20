@@ -102,15 +102,15 @@ class Services:
     ) -> Principal:
         """A member's hub roles from their Discord roles: raid_days.yaml, plus the roles a super admin tied to each
         night's badges on the Admin page, which make their holders that night's raiders or officers (docs/admin.md)."""
-        nights = [(d.id, d.name) for d in self.raid_days.raid_days]
+        raiders, officers = self.role_badges.night_badge_roles((d.id, d.name) for d in self.raid_days.raid_days)
         return self.raid_days.principal_for(
             member_id,
             set(role_ids),
             display_name,
             discord_user_id,
             discord_username,
-            night_roles=self.role_badges.night_roles(nights),
-            night_officer_roles=self.role_badges.night_officer_roles(nights),
+            night_roles=raiders,
+            night_officer_roles=officers,
         )
 
     def __post_init__(self) -> None:
@@ -166,6 +166,9 @@ class Services:
                 global_officer_roles=tuple(self.raid_days.global_officer_roles),
                 officer_roles={d.id: tuple(d.officer_roles) for d in self.raid_days.raid_days},
                 day_names={d.id: d.name for d in self.raid_days.raid_days},
+                badge_officer_roles=lambda: self.role_badges.night_officer_roles(
+                    (d.id, d.name) for d in self.raid_days.raid_days
+                ),
             ),
         )
 
