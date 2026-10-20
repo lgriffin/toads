@@ -1,7 +1,7 @@
 """Recruitment: WoW Forever character names can be two words, so applications and spotlights hold up to 24 characters
 
-Revision ID: 0022
-Revises: 0021
+Revision ID: 0023
+Revises: 0022
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0022"
-down_revision = "0021"
+revision = "0023"
+down_revision = "0022"
 branch_labels = None
 depends_on = None
 
