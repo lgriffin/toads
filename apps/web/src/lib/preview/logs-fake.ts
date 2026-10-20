@@ -3,7 +3,8 @@
  * on GitHub Pages with no hub behind it. Who sees per-player numbers follows the API: a member sees overviews, the
  * Wednesday officer view sees Wednesday raids in full, and a super admin sees everything.
  */
-import { ApiError } from '$lib/api';
+import { ApiError, type Session } from '$lib/api';
+import type { AnalyzerPage } from '$lib/home-payload';
 import type {
   BossHistory,
   Encounter,
@@ -15,6 +16,7 @@ import type {
   RaidSummary,
   RaidView
 } from '$lib/logs';
+import { analyzerPage } from '$lib/mock/analyzer';
 import type { PreviewRole } from './gate';
 
 const WEDNESDAY = 2;
@@ -252,8 +254,21 @@ function seesInFull(role: PreviewRole | null, weekday: number | null): boolean {
   return full === null || (weekday !== null && full.includes(weekday));
 }
 
+/**
+ * Who the preview's pretend sign-in is, for the night Logs opens on: the member and the officer are Wednesday toads
+ * (the officer leads Wednesday), the super admin sees every night.
+ */
+export function previewViewer(role: PreviewRole | null): Pick<Session, 'raid_days' | 'global_officer' | 'super_admin'> {
+  return { raid_days: role ? ['wed'] : [], global_officer: role === 'admin', super_admin: role === 'admin' };
+}
+
 export function previewLogs(role: () => PreviewRole | null): LogsBackend {
   return {
+    async widgets(): Promise<AnalyzerPage> {
+      // One sample page stands in for every night; members do not get the roster's badges, as on the hub.
+      const officer = role() === 'officer' || role() === 'admin';
+      return { ...analyzerPage, widgets: analyzerPage.widgets.filter((w) => officer || w.id !== 'badges') };
+    },
     async overview(): Promise<LogsOverview> {
       const r = role();
       const full = fullWeekdays(r);

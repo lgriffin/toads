@@ -139,8 +139,15 @@ class Services:
             self.account.shown_names,
             today=lambda: datetime.fromtimestamp(self.clock(), guild_time).date(),
         )
+        sheets_config = RaidSheetsConfig.load(self.settings.raid_sheets_config)
+        # Each raid day's weekday (0 is Monday): `weekdays` in raid_sheets.yaml, else the weekday its name says.
+        weekdays = {
+            d.id: day
+            for d in self.raid_days.raid_days
+            if (day := sheets_config.weekdays.get(d.id, weekday_named(d.name))) is not None
+        }
         home_repo = SqlHomeRepository(self.db)
-        self.home = HomeService(home_repo)
+        self.home = HomeService(home_repo, weekdays)
         self.performance = PerformanceService(home_repo)
         self.badges = BadgeService(home_repo)
         self.wcl_login = WclLogin(self.settings, self.redis, self.http)
@@ -163,12 +170,6 @@ class Services:
             ),
         )
 
-        sheets_config = RaidSheetsConfig.load(self.settings.raid_sheets_config)
-        weekdays = {
-            d.id: day
-            for d in self.raid_days.raid_days
-            if (day := sheets_config.weekdays.get(d.id, weekday_named(d.name))) is not None
-        }
         zone = ZoneInfo(self.raid_days.timezone)
         self.absences = AbsenceService(
             SqlAbsenceRepository(self.db),

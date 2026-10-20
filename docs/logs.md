@@ -37,8 +37,28 @@ A raid day's weekday comes from `weekdays` in `raid_sheets.yaml`, else the weekd
 `raid_days.yaml`. A raid on another weekday (an alt run on a Thursday, say) is in full for global officers only.
 `GET /api/logs` tells the page, per raid, whether the caller sees it in full and under which raid day to read it.
 
+## Each night at a glance
+
+The analyzer's raid widgets (guild at a glance, last raid, recent raids, raid activity, weekly healing, healers week on
+week, top damage and healing, attendance, boss kills, class mix, interrupts, consumables, flasks, and the roster's
+badges for officers) used to sit only on the hub home, with every raid night mixed together. Logs now shows them per
+night (REQ-HUB-RAID-005):
+
+1. The worker's `publish-home` job puts the guild-wide page (`PUT /api/worker/home-page`) as before. The API's answer
+   names each raid day's weekday (`nights`, the same weekdays the list uses, above).
+2. For each night the job builds the same widgets from that night's raids only (wcl-store's
+   `RaidScope(weekdays=...)`) and puts them to `PUT /api/worker/home-page/nights/{day}`. The hub-db table is
+   `night_home_pages` (migration 0024).
+3. `GET /api/home/nights/{day}` serves a night's page to any signed-in member, with the same rule as the hub home:
+   the roster's badges are for officers only.
+
+Logs opens on the night of the viewer's Toad badge (the night their Discord role ties them to on /admin). Super
+admins, global officers, members of several nights and members of none open on every raid, which shows the guild-wide
+page. Picking a night also sets the weekday chips below to that night's weekday.
+
 ## The page
 
+- Night tabs (each raid night, or every raid) pick the widgets above the list and start the weekday chips.
 - Weekday chips (Mon to Sun, each with its raid count) pick any mix of days; none picked shows every day. A zone
   picker and a title search narrow it further, as the desktop raid list's day checkboxes and search do
   (REQ-HUB-RAID-002).

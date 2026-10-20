@@ -4,7 +4,9 @@
  * lgriffin/warcraftlogs_project); the API decides who sees per-player numbers. This module shapes the calls and does
  * the filtering and boss-history sums the page shows.
  */
-import { ApiError, call, type Fetch } from './api';
+import { ApiError, analyzerHome, call, type Fetch, type Session } from './api';
+import type { AnalyzerPage } from './home-payload';
+import { RAID_NIGHTS } from './nights';
 
 /** One raid in the list (the analyzer's RaidSummary). */
 export interface RaidSummary {
@@ -151,16 +153,57 @@ export const getRaid = (report: string, day: string | null, f: Fetch = fetch) =>
       : `/api/logs/${encodeURIComponent(report)}`
   );
 
+/** The analyzer's home widgets built from one raid night's raids only (GET /api/home/nights/{day}). */
+export const getNightPage = (day: string, f: Fetch = fetch) =>
+  call<AnalyzerPage>(f, `/api/home/nights/${encodeURIComponent(day)}`);
+
 /** Where the Logs pages read from: the hub, or the preview's sample data. */
 export interface LogsBackend {
   overview(): Promise<LogsOverview>;
   raid(report: string, day: string | null): Promise<RaidView>;
+  /** The analyzer's widgets for one raid night, or for every raid when `night` is null. */
+  widgets(night: string | null): Promise<AnalyzerPage>;
 }
 
 export const hubLogs: LogsBackend = {
   overview: () => getLogs(),
-  raid: (report, day) => getRaid(report, day)
+  raid: (report, day) => getRaid(report, day),
+  widgets: (night) => (night ? getNightPage(night) : analyzerHome())
 };
+
+/** A raid night the Logs page can open on. */
+export interface LogNight {
+  id: string;
+  name: string;
+  /** 0 is Monday; null when the night's name carries no weekday. */
+  weekday: number | null;
+}
+
+/** The guild's raid nights in config order: the session's `day_names`, else the nights the web app knows. */
+export function logNights(dayNames: Record<string, string> | undefined): LogNight[] {
+  const named = dayNames && Object.keys(dayNames).length ? Object.entries(dayNames) : RAID_NIGHTS.map((n) => [n.id, n.name]);
+  return named.map(([id, name]) => ({ id, name, weekday: weekdayNamed(name) }));
+}
+
+/** The weekday a raid day's name says when it names exactly one ("Wednesday", "Wed raid"), as the API reads it. */
+export function weekdayNamed(name: string): number | null {
+  const words = new Set(name.toLowerCase().split(/[^a-z]+/));
+  const hits = WEEKDAYS.filter((w) => words.has(w.name.toLowerCase()) || words.has(w.short.toLowerCase()));
+  return hits.length === 1 ? hits[0].day : null;
+}
+
+/**
+ * The night Logs opens on: the raid night of the viewer's Toad badge. Super admins and global officers see every
+ * night, and a member with no night or with several opens on every raid (null).
+ */
+export function defaultNight(
+  session: Pick<Session, 'raid_days' | 'global_officer' | 'super_admin'>,
+  nights: readonly LogNight[]
+): string | null {
+  if (session.super_admin || session.global_officer) return null;
+  const mine = nights.filter((n) => session.raid_days.includes(n.id));
+  return mine.length === 1 ? mine[0].id : null;
+}
 
 export function logsError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Something went wrong; try again.';

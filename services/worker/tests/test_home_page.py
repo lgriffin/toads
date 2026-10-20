@@ -13,6 +13,7 @@ import pytest
 from pydantic import SecretStr
 from toads_worker.jobs import analyse, home
 from toads_worker.settings import Settings
+from wcl_store.scope import weekday_of
 from wcl_store.sqlite import PerformanceDB
 
 # The analysis job's Warcraft Logs double, loaded by path (tests run with --import-mode=importlib).
@@ -73,6 +74,40 @@ def test_publish_puts_the_page_with_the_service_token(sqlite_storage: Callable[[
     assert (seen["method"], seen["path"]) == ("PUT", "/api/worker/home-page")
     assert seen["auth"] == "Bearer test-service-token"
     assert answer == {"widgets": len(home.HUB_WIDGETS)}
+
+
+def _last_raid(page: dict[str, Any]) -> dict[str, Any]:
+    widget: dict[str, Any] = next(w for w in page["widgets"] if w["id"] == "last_raid")
+    return widget
+
+
+def test_a_night_page_holds_only_that_weekdays_raids(sqlite_storage: Callable[[], PerformanceDB]) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    with sqlite_storage() as db:
+        weekday = weekday_of(db.get_raid_list()[0]["raid_date"])
+    assert weekday is not None
+    assert _last_raid(home.build_page(sqlite_storage, weekday))["tiles"]
+    assert not _last_raid(home.build_page(sqlite_storage, (weekday + 1) % 7))["tiles"]
+
+
+def test_publish_then_puts_each_night_the_hub_names(sqlite_storage: Callable[[], PerformanceDB]) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    with sqlite_storage() as db:
+        weekday = weekday_of(db.get_raid_list()[0]["raid_date"]) or 0
+    pages: dict[str, dict[str, Any]] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        pages[request.url.path] = body
+        if request.url.path == "/api/worker/home-page":
+            return httpx.Response(200, json={"widgets": 15, "nights": {"wed": weekday, "sun": (weekday + 1) % 7}})
+        return httpx.Response(200, json={"widgets": len(body["widgets"])})
+
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    answer = home.publish_home_page(_settings(), storage=sqlite_storage, hub=hub)
+    assert answer["night_widgets"] == {"wed": len(home.HUB_WIDGETS), "sun": len(home.HUB_WIDGETS)}
+    assert _last_raid(pages["/api/worker/home-page/nights/wed"])["tiles"]
+    assert not _last_raid(pages["/api/worker/home-page/nights/sun"])["tiles"]
 
 
 def test_publish_needs_a_service_token(sqlite_storage: Callable[[], PerformanceDB]) -> None:

@@ -175,7 +175,7 @@ def test_analyzer_page_round_trip(hub: Hub) -> None:
     assert (empty["generated_at"], empty["widgets"]) == (None, [])
 
     r = hub.client.put("/api/worker/home-page", headers=WORKER, json=PAGE)
-    assert r.status_code == 200 and r.json() == {"widgets": 1}
+    assert r.status_code == 200 and r.json() == {"widgets": 1, "nights": {"wed": 2, "thu": 3, "sun": 6}}
     page = hub.get("/api/home/analyzer", sid).json()
     assert page["generated_at"] == "2026-09-27 12:00:00"
     assert page["widgets"][0]["tiles"][0]["display"] == "4"
@@ -191,6 +191,68 @@ def test_only_the_worker_publishes_the_page(hub: Hub) -> None:
     assert hub.client.put("/api/worker/home-page", json=PAGE).status_code == 401
     assert hub.client.put("/api/worker/home-page", headers=hub.as_(sid), json=PAGE).status_code == 401
     assert hub.get("/api/home/analyzer", None).status_code == 401
+
+
+# --- each raid night's page, for the Logs page ------------------------------------------------------------------------
+
+
+def _nights() -> HomeService:
+    return HomeService(InMemoryHomeRepository(), {"wed": 2, "sun": 6})
+
+
+def test_a_night_page_is_kept_apart_from_the_guild_page_and_from_other_nights() -> None:
+    svc = _nights()
+    assert svc.night_page("wed") is None
+    assert svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", PAGE["widgets"]) == 1  # type: ignore[arg-type]
+    wed = svc.night_page("wed")
+    assert wed is not None and [w["id"] for w in wed.widgets] == ["last_raid"]
+    assert svc.night_page("sun") is None and svc.analyzer_page() is None
+
+
+def test_a_night_page_is_checked_like_the_guild_page() -> None:
+    svc = _nights()
+    with pytest.raises(HomeError) as unknown:
+        svc.publish_night_page("mon", 1, "2026-09-27 12:00:00", [])
+    assert unknown.value.status == 404
+    with pytest.raises(HomeError) as version:
+        svc.publish_night_page("wed", 2, "2026-09-27 12:00:00", [])
+    assert version.value.status == 422
+    svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", [])
+    with pytest.raises(HomeError) as older:
+        svc.publish_night_page("wed", 1, "2026-09-27 11:59:59", [])
+    assert older.value.status == 409
+    # Another night's clock is its own.
+    assert svc.publish_night_page("sun", 1, "2026-09-27 11:00:00", []) == 0
+
+
+def test_a_night_page_hides_officer_widgets_from_members() -> None:
+    svc = _nights()
+    badges = {"id": "badges", "title": "Toads badges", "kind": "badges", "size": "half", "holders": []}
+    svc.publish_night_page("wed", 1, "2026-09-27 12:00:00", [badges])
+    assert (svc.night_page("wed", MEMBER) or pytest.fail()).widgets == []
+    assert [w["id"] for w in (svc.night_page("wed", OFFICER) or pytest.fail()).widgets] == ["badges"]
+
+
+def test_night_page_round_trip(hub: Hub) -> None:
+    sid = hub.login(hub.user(("sun", "raider")))
+    empty = hub.get("/api/home/nights/wed", sid).json()
+    assert (empty["generated_at"], empty["widgets"]) == (None, [])
+
+    r = hub.client.put("/api/worker/home-page/nights/wed", headers=WORKER, json=PAGE)
+    assert r.status_code == 200 and r.json() == {"widgets": 1}
+    # Every member reads every night's page, as they read the guild-wide one.
+    assert hub.get("/api/home/nights/wed", sid).json()["widgets"][0]["id"] == "last_raid"
+    assert hub.get("/api/home/nights/thu", sid).json()["widgets"] == []
+    assert hub.get("/api/home/nights/mon", sid).status_code == 404
+    assert hub.client.put("/api/worker/home-page/nights/mon", headers=WORKER, json=PAGE).status_code == 404
+
+
+@pytest.mark.security
+def test_only_the_worker_publishes_a_night_page(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "officer")))
+    assert hub.client.put("/api/worker/home-page/nights/wed", json=PAGE).status_code == 401
+    assert hub.client.put("/api/worker/home-page/nights/wed", headers=hub.as_(sid), json=PAGE).status_code == 401
+    assert hub.get("/api/home/nights/wed", None).status_code == 401
 
 
 def test_widgets_say_where_their_data_comes_from(hub: Hub) -> None:

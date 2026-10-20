@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   bossHistory,
+  defaultNight,
+  getNightPage,
+  logNights,
+  weekdayNamed,
   filterRaids,
   getRaid,
   raidDateLabel,
@@ -14,7 +18,7 @@ import {
   type RaidPage,
   type RaidRow
 } from './logs';
-import { PREVIEW_RAID_IDS, previewLogs } from './preview/logs-fake';
+import { PREVIEW_RAID_IDS, previewLogs, previewViewer } from './preview/logs-fake';
 
 function row(report_id: string, weekday: number | null, zone = 'Serpentshrine Cavern'): RaidRow {
   return {
@@ -126,5 +130,54 @@ describe('the preview', () => {
     expect(shown.full).toBe(false);
     expect(JSON.stringify(shown.page)).not.toContain('Hopscotch');
     await expect(previewLogs(() => 'admin').raid('missing', null)).rejects.toThrow();
+  });
+});
+
+describe('the night Logs opens on', () => {
+  const nights = logNights({ wed: 'Wednesday', thu: 'Thursday', sun: 'Sunday' });
+  const member = (raid_days: string[]) => ({ raid_days, global_officer: false, super_admin: false });
+
+  it('lists the configured nights with the weekday each name says', () => {
+    expect(nights).toEqual([
+      { id: 'wed', name: 'Wednesday', weekday: 2 },
+      { id: 'thu', name: 'Thursday', weekday: 3 },
+      { id: 'sun', name: 'Sunday', weekday: 6 }
+    ]);
+    expect(logNights(undefined).map((n) => n.id)).toEqual(['wed', 'thu', 'sun']);
+    expect(weekdayNamed('Sun raid')).toBe(6);
+    expect(weekdayNamed('Alt run')).toBeNull();
+    expect(weekdayNamed('Wednesday or Sunday')).toBeNull();
+  });
+
+  it("opens on the night of the viewer's Toad badge", () => {
+    expect(defaultNight(member(['wed']), nights)).toBe('wed');
+    expect(defaultNight(member(['sun']), nights)).toBe('sun');
+    expect(defaultNight(member(['thu', 'retired-day']), nights)).toBe('thu');
+  });
+
+  it('opens on every raid for no night, several nights, global officers and super admins', () => {
+    expect(defaultNight(member([]), nights)).toBeNull();
+    expect(defaultNight(member(['wed', 'sun']), nights)).toBeNull();
+    expect(defaultNight({ ...member(['wed']), global_officer: true }, nights)).toBeNull();
+    expect(defaultNight({ ...member(['wed']), super_admin: true }, nights)).toBeNull();
+  });
+
+  it("reads a night's widgets from the hub", async () => {
+    const seen: string[] = [];
+    const f = (async (url: string) => {
+      seen.push(url);
+      return new Response(JSON.stringify({ version: 1, generated_at: null, widgets: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await getNightPage('wed', f);
+    expect(seen).toEqual(['/api/home/nights/wed']);
+  });
+
+  it('in the preview, opens the member and officer on Wednesday and the super admin on every raid', async () => {
+    expect(defaultNight(previewViewer('member'), nights)).toBe('wed');
+    expect(defaultNight(previewViewer('officer'), nights)).toBe('wed');
+    expect(defaultNight(previewViewer('admin'), nights)).toBeNull();
+    const ids = async (role: 'member' | 'officer') => (await previewLogs(() => role).widgets('wed')).widgets.map((w) => w.id);
+    expect(await ids('member')).not.toContain('badges');
+    expect(await ids('officer')).toContain('badges');
   });
 });

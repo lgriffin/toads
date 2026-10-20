@@ -161,7 +161,7 @@ def test_the_roster_widget_is_for_officers() -> None:
 
 def test_members_never_receive_the_roster(hub: Hub) -> None:
     page = {"version": 1, "generated_at": GENERATED, "widgets": [_roster_widget()]}
-    assert hub.client.put("/api/worker/home-page", headers=WORKER, json=page).json() == {"widgets": 1}
+    assert hub.client.put("/api/worker/home-page", headers=WORKER, json=page).json()["widgets"] == 1
     raider = hub.login(hub.user(("wed", "raider")))
     officer = hub.login(hub.user(("sun", "officer")))
     assert hub.get("/api/home/analyzer", raider).json()["widgets"] == []

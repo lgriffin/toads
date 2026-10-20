@@ -29,3 +29,10 @@ Feature: HUB RAID
     Then the raider sees "wedSSC" without anyone's numbers
     And the Wednesday officer sees "thuTK" without anyone's numbers
     And the global officer sees "thuTK" in full
+
+  @ears_ubiquitous @member @phase_2_7
+  Scenario: REQ-HUB-RAID-005 The hub shall keep the analyzer's raid widgets for each raid night, built from that night's raids only, so Logs opens on the night of the member's Toad badge
+    Given the worker has published the guild's raid widgets and each raid night's own
+    And a Wednesday raider
+    When the raider opens the Wednesday widgets on Logs
+    Then the raider sees Wednesday's last raid and not the guild-wide one
