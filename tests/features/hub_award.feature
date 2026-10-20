@@ -84,6 +84,17 @@ Feature: HUB AWARD
     Then the raider has no role badges
     And the audit log records "role_badge.remove"
 
+  @ears_event_driven @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-011 When a super admin ties a raid night's badge to a Discord role, the hub shall put everyone holding that role on that night's team with no change to the raid-day config, and take them off it when the badge is untied
+    Given a Discord role named "Thursday Toad"
+    And a member who holds only the "Thursday Toad" role
+    And a super admin
+    When the super admin ties the "thursday-toad" badge to the "Thursday Toad" role
+    Then the member is on the "thu" raid team
+    And the member can tell Thursday's officers they will miss a night
+    When the super admin unties the "thursday-toad" badge from the "Thursday Toad" role
+    Then the member is on no raid team
+
   @ears_ubiquitous @member @phase_2_7
   Scenario: REQ-HUB-AWARD-010 A member's own page shall show the toads the header shows beside their name, rank, member toad and role badges included, as badges ahead of their awards
     Given the member's own page

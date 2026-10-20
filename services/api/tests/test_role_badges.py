@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from toads_api.rbac import HubRole, RaidDaysConfig
 from toads_api.role_badges.catalog import ROLE_BADGES
 from toads_api.role_badges.repository import InMemoryRoleBadgeRepository
 from toads_api.role_badges.service import RoleBadgeError, RoleBadgeService
@@ -26,6 +27,20 @@ def test_a_member_earns_each_badge_their_roles_are_tied_to_once_in_catalogue_ord
     svc.tie(32, "Resto", "healer", by=1)
     assert [b.id for b in svc.earned({30, 31, 32, 99})] == ["wednesday-toad", "healer"]
     assert svc.earned({99}) == []
+
+
+def test_each_night_badges_roles_make_that_nights_team() -> None:
+    svc = RoleBadgeService(InMemoryRoleBadgeRepository())
+    svc.tie(40, "Thursday Toad", "thursday-toad", by=1)
+    svc.tie(41, "Thursday alts", "thursday-toad", by=1)
+    svc.tie(42, "Healers", "healer", by=1)
+    nights = [("wed", "Wednesday"), ("thu", "Thursday"), ("sun", "Sunday")]
+    assert svc.night_roles(nights) == {"thu": {40, 41}}
+    cfg = RaidDaysConfig.model_validate({"raid_days": [{"id": "thu", "name": "Thursday", "officer_roles": [50]}]})
+    assert cfg.principal_for(1, {41}, night_roles=svc.night_roles(nights)).day_roles == {"thu": HubRole.RAIDER}
+    # The night's officer role still wins, and the badge alone makes no officer.
+    assert cfg.principal_for(1, {41, 50}, night_roles=svc.night_roles(nights)).day_roles == {"thu": HubRole.OFFICER}
+    assert cfg.principal_for(1, {41}).day_roles == {}
 
 
 def test_links_are_listed_in_catalogue_order() -> None:

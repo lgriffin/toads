@@ -299,7 +299,8 @@ Restart the API after editing a file.
 - **Adding a raid night** (Thursday joined Wednesday and Sunday in October 2026): make the night's roles in Discord
   (for example `Thursday Toads` for raiders, `Thursday Trials` and `Thursday Officers`), copy each role's id (Developer
   Mode, right-click the role, Copy Role ID), add an entry to `raid_days` with its `id` (`thu`), `name` (`Thursday`),
-  `start_time` and those ids in `raider_roles`, `trial_roles` and `officer_roles`, then restart the API. Members with
+  `start_time` and those ids in `trial_roles` and `officer_roles` (and `raider_roles`, or tie the raider role to the
+  night's badge on the Admin page instead), then restart the API. Members with
   the officer role get that night's officer powers and pages (Raid page desk and board, Calendar, comp builder, logs,
   recruitment panel, bank) at their next role refresh; nothing else gives them sight of it. Then on the Admin page tie
   the raider role to the night's badge (Thursday Toad). A night whose badge art, preview data or homepage wording is
@@ -351,18 +352,26 @@ Rules worth knowing:
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, Tank, Healer, Damage or a
-  class). Everyone
-  holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and Sunday raider roles. The rank
+  class). Everyone holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and
+  Sunday raider roles.
+  A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
+  (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the
+  team at once. The comp builder's roster catches up as each member next signs in or has their roles refreshed, since
+  the hub never stores who holds which role. Officer roles still come from `officer_roles`. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
-  their own team's night, its officers also get the officer desk with the team's upcoming absences, and super admins
-  and global officers switch between every night. On their Me page a raid day's trials and raiders add, change and
+  their own team's night, its officers also get an officer desk linking to the night's officer section, and super
+  admins and global officers switch between every night. On their Me page a raid day's trials and raiders add, change and
   delete the nights they will miss, each with a note (`report_absence`, checked against the raid day in the path), and
-  that day's officers see them all under Officers, Calendar (`/officers/calendar`, `view_absences`). Nothing to
+  that day's officers see them all in the night's officer section and under Officers, Calendar (`/officers/calendar`, `view_absences`). Nothing to
   configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named "Wednesday" raids on Wednesdays).
   Notes are seen only by that night's officers. Not audited: an absence is a member's own word, not an officer action.
-- **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board on
-  the Raid page (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
+- **Officer sections**: `/officers` is the shared Officer console every officer uses (calendar, comp builder,
+  recruitment, reference reports, awards). Each raid night also has its own section, `/officers/nights/{day}`, with that
+  night's absences, task board and interview panel. An officer sees only the sections of the nights they run: a
+  Sunday officer never sees Wednesday's. Global officers and super admins see every night.
+- **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board in
+  its officer section (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
   admins (`MANAGE_OFFICER_BOARD`). Nothing to set up: a night's board appears with the night in
   `config/raid_days.yaml`. Audited as `board.add`, `board.edit`, `board.move` and `board.remove`.
 - **Logs** ([docs/logs.md](docs/logs.md)): `/logs` lists every raid the sync has analysed, filtered by any mix of

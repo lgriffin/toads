@@ -186,19 +186,47 @@ def not_overdue_when_done(hub: Hub, people: dict[str, Any], lane: str) -> None:
 WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
 
 
-@given("the Raid page", target_fixture="raid_page")
-def raid_page() -> str:
-    return (WEB / "routes" / "raid" / "+page.svelte").read_text(encoding="utf-8")
+def _web(path: str) -> str:
+    return (WEB / path).read_text(encoding="utf-8")
 
 
-@then("its officer desk holds the task board for the selected night")
-def desk_holds_board(raid_page: str) -> None:
-    desk = raid_page[raid_page.index("{#if officer}") :]
-    desk = desk[: desk.index("{/if}")]
-    assert "<OfficerBoard backend={board} {day} dayName={name} />" in desk
+@given("the night's officer section", target_fixture="night_page")
+def night_page() -> str:
+    return _web("routes/officers/nights/[day]/+page.svelte")
 
 
-@then("the desk shows only to that night's officers")
-def desk_for_officers(raid_page: str) -> None:
-    assert "const officer = $derived(raidDays.officerDays.includes(day));" in raid_page
-    assert raid_page.count("<OfficerBoard") == 1
+def _shown_to_officers(night_page: str) -> str:
+    # Everything after the refusal for a viewer who does not run the night.
+    return night_page[night_page.index("{:else if !runs}") :].split("{:else}", 1)[1]
+
+
+@then("it holds the night's task board, absences and interview panel")
+def night_holds_its_tools(night_page: str) -> None:
+    shown = _shown_to_officers(night_page)
+    for tool in (
+        "<OfficerBoard backend={board} {day}",
+        "<TeamAbsences backend={absences} {day}",
+        "<InterviewPanelCard",
+    ):
+        assert tool in shown, tool
+
+
+@then("it shows them only to that night's officers")
+def night_for_its_officers(night_page: str) -> None:
+    assert "const runs = $derived(raidDays.officerDays.includes(day));" in night_page
+    refusal = night_page[night_page.index("{:else if !runs}") :].split("{:else}", 1)[0]
+    assert "<OfficerBoard" not in refusal and "<TeamAbsences" not in refusal
+
+
+@then("the Raid page's officer desk links to it instead of holding the board")
+def raid_links(night_page: str) -> None:
+    raid = _web("routes/raid/+page.svelte")
+    assert "<OfficerBoard" not in raid
+    assert 'href="{base}/officers/nights/{day}/"' in raid
+    assert "const officer = $derived(raidDays.officerDays.includes(day));" in raid
+
+
+@then("the Officer console lists only the nights the viewer runs")
+def console_lists_own_nights(night_page: str) -> None:
+    assert "{#each raidDays.officerDays as day (day)}" in _web("lib/components/OfficerNights.svelte")
+    assert "<OfficerNights {raidDays} />" in _web("routes/officers/+page.svelte")

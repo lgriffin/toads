@@ -10,12 +10,45 @@ test('a raider sees their own raid night and no officer desk', async ({ page }) 
   await expect(page.getByRole('region', { name: 'Running Wednesday' })).toHaveCount(0);
 });
 
-test('a raid night officer gets the officer desk with the team\'s absences', async ({ page }) => {
+test('a raid night officer goes from the officer desk to their night\'s own section', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('raid/');
   const desk = page.getByRole('region', { name: 'Running Wednesday' });
-  await expect(desk).toBeVisible();
-  await expect(desk.getByRole('region', { name: 'Wednesday absences' }).getByText('Lilypadd')).toBeVisible();
+  await desk.getByRole('link', { name: 'Open Wednesday’s officer section' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Wednesday officers' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Wednesday absences' }).getByText('Lilypadd')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toBeVisible();
+});
+
+test('a night\'s officers see only their own night\'s section', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('officers/');
+  const nights = page.getByRole('region', { name: 'Your raid night' });
+  await expect(nights.getByRole('link')).toHaveText(['Wednesday officers']);
+  await page.goto('officers/nights/sun/');
+  await expect(page.getByText('another raid night\'s officer section')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Officers’ board' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Sunday absences' })).toHaveCount(0);
+});
+
+test('a super admin sees every night\'s section', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/');
+  const nights = page.getByRole('region', { name: 'Your raid nights' });
+  await expect(nights.getByRole('link')).toHaveText(['Wednesday officers', 'Thursday officers', 'Sunday officers']);
+  await nights.getByRole('link', { name: 'Thursday officers' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Thursday officers' })).toBeVisible();
+  await page.getByRole('link', { name: 'Build Thursday\'s comp' }).click();
+  await expect(page.getByLabel('Raid night')).toHaveValue('thu');
+});
+
+test('moving between night sections shows each night\'s own interview panel', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/nights/wed/');
+  await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toBeVisible();
+  await page.goto('officers/nights/sun/');
+  await expect(page.getByRole('region', { name: 'Sunday interview panel' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toHaveCount(0);
 });
 
 test('a super admin switches between the raid nights', async ({ page }) => {
@@ -25,9 +58,8 @@ test('a super admin switches between the raid nights', async ({ page }) => {
   await expect(nights.getByRole('button', { name: 'Wednesday' })).toHaveAttribute('aria-pressed', 'true');
   await nights.getByRole('button', { name: 'Sunday' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Sunday raid' })).toBeVisible();
-  await expect(
-    page.getByRole('region', { name: 'Running Sunday' }).getByRole('region', { name: 'Sunday absences' }).getByText('Bogwort')
-  ).toBeVisible();
+  await page.getByRole('region', { name: 'Running Sunday' }).getByRole('link', { name: 'Open Sunday’s officer section' }).click();
+  await expect(page.getByRole('region', { name: 'Sunday absences' }).getByText('Bogwort')).toBeVisible();
 });
 
 test('a raider adds a raid night they will miss on Me, changes it and deletes it', async ({ page }) => {
@@ -65,7 +97,7 @@ test('officers read their team\'s absences under Officers, and old Calendar link
 
 test('a raid night officer adds a task to the board and moves it along', async ({ page }) => {
   await signIn(page, 'officer');
-  await page.goto('raid/');
+  await page.goto('officers/nights/wed/');
   const board = page.getByRole('region', { name: 'Officers’ board' });
   await expect(board.getByRole('region', { name: /^To do/ }).getByText('Restock flasks in the guild bank', { exact: true })).toBeVisible();
   await expect(board.getByText('Overdue')).toBeVisible();
@@ -84,8 +116,7 @@ test('a raid night officer adds a task to the board and moves it along', async (
 
 test('each raid night has its own board, and raiders see none', async ({ page }) => {
   await signIn(page, 'admin');
-  await page.goto('raid/');
-  await page.getByRole('group', { name: 'Raid night' }).getByRole('button', { name: 'Sunday' }).click();
+  await page.goto('officers/nights/sun/');
   const board = page.getByRole('region', { name: 'Officers’ board' });
   await expect(board.getByText('Find a fourth healer for Sunday', { exact: true })).toBeVisible();
   await expect(board.getByText('Restock flasks in the guild bank', { exact: true })).toHaveCount(0);
@@ -95,5 +126,7 @@ test('a raider sees no officers’ board', async ({ page }) => {
   await signIn(page, 'member');
   await page.goto('raid/');
   await expect(page.getByRole('heading', { level: 1, name: 'Wednesday raid' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Officers’ board' })).toHaveCount(0);
+  await page.goto('officers/nights/wed/');
   await expect(page.getByRole('region', { name: 'Officers’ board' })).toHaveCount(0);
 });

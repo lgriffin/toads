@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -78,14 +79,18 @@ class RaidDaysConfig(BaseModel):
         display_name: str = "",
         discord_user_id: int | None = None,
         discord_username: str = "",
+        night_roles: Mapping[str, Collection[int]] | None = None,
     ) -> Principal:
-        """Map a member's Discord role ids to hub roles; several matches give the highest per day."""
+        """Map a member's Discord role ids to hub roles; several matches give the highest per day. `night_roles` adds
+        raider roles per day from outside the file: the roles a super admin tied to each night's badge
+        (docs/role-badges.md)."""
+        night_roles = night_roles or {}
         day_roles: dict[str, HubRole] = {}
         for day in self.raid_days:
             role = HubRole.MEMBER
             if discord_role_ids & set(day.trial_roles):
                 role = HubRole.TRIAL
-            if discord_role_ids & set(day.raider_roles):
+            if discord_role_ids & {*day.raider_roles, *night_roles.get(day.id, ())}:
                 role = HubRole.RAIDER
             if discord_role_ids & set(day.officer_roles):
                 role = HubRole.OFFICER

@@ -2,7 +2,8 @@
 
 Raiders add, change and delete the raid nights they will miss on their **Me** page (`/me`, the Your absences section),
 each with a note, and each raid night's officers see the team's upcoming absences in one place: the officers'
-**Calendar** (`/officers/calendar`) and the officer desk of the **Raid** page (`/raid`). Old `/calendar` links land on
+**Calendar** (`/officers/calendar`) and each night's officer section (`/officers/nights/{day}`), which the officer
+desk on the **Raid** page (`/raid`) links to. Old `/calendar` links land on
 Me.
 
 ## Who sees what
@@ -11,8 +12,8 @@ Me.
 | --- | --- | --- | --- |
 | Member with no raid role | "not on a raid team yet" | nothing to report | not shown |
 | Trial or raider | their own team's night (both, if on both teams) | add, change and delete their own | not shown |
-| Raid-day officer | their night, plus the officer desk with its absences | the same | their night's team absences |
-| Global officer, super admin | every night, with a switcher, and the officer desk on each | the same | every night's, with a switcher |
+| Raid-day officer | their night, plus the officer desk linking to its officer section | the same | their night's team absences |
+| Global officer, super admin | every night, with a switcher, and the officer desk on each linking to that night's section | the same | every night's, with a switcher |
 
 The web app only chooses what to render; the API checks every call (REQ-HUB-ABSENCE-002, -003).
 

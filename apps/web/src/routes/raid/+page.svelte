@@ -8,21 +8,16 @@
   import { dayName, hubAbsences, raidDaysOf, type Absence } from '$lib/absences';
   import { PLANNED, dayToad, defaultDay } from '$lib/raid-page';
   import { NIGHTS_OR } from '$lib/nights';
-  import { hubBoard } from '$lib/officer-board';
   import { previewAbsences, previewRaidSession } from '$lib/preview/absences-fake';
-  import { previewBoard } from '$lib/preview/board-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import DaySwitch from '$lib/components/DaySwitch.svelte';
-  import OfficerBoard from '$lib/components/OfficerBoard.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
-  import TeamAbsences from '$lib/components/TeamAbsences.svelte';
 
   // One raid night's home. Members see their team's night; officers also get the officer desk for the nights they
   // run; super admins see every night and switch between them. The API still checks every call.
   let session = $state<Session | null | undefined>(undefined);
   let mine = $state<Absence[]>([]);
   const backend = __PREVIEW__ ? previewAbsences : hubAbsences;
-  const board = __PREVIEW__ ? previewBoard : hubBoard();
   onMount(async () => {
     if (!__PREVIEW__) session = await getSession().catch(() => null);
     mine = await backend.mine().catch(() => []);
@@ -72,10 +67,9 @@
         <div class="head">
           <p class="kicker">Officer desk</p>
           <h2 id="desk-h">Running {name}</h2>
-          <p>You have admin rights on this page for {name}: the team's absences and the officers' task board.</p>
+          <p>{name}'s absences, task board and interview panel live in its own officer section.</p>
         </div>
-        <div class="card"><TeamAbsences {backend} {day} {name} /></div>
-        <OfficerBoard backend={board} {day} dayName={name} />
+        <a class="medal" href="{base}/officers/nights/{day}/">Open {name}’s officer section</a>
       </section>
     {/if}
 
@@ -124,7 +118,7 @@
     font-size: 0.85rem;
     color: var(--teal);
   }
-  .desk :global(.card) { padding: 1.25rem; }
+  .desk .medal { justify-self: start; }
   .planned { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
   .planned li { display: grid; gap: 0.35rem; align-content: start; padding-top: 1rem; border-top: 2px solid var(--bronze); }
   .planned p { margin: 0; color: var(--muted); }

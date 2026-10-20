@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
@@ -46,6 +46,7 @@ from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
 from toads_api.raid_sheets.service import RaidSheetService
 from toads_api.raid_sheets.sql import SqlSheetRepository
+from toads_api.rbac import Principal
 from toads_api.rbac.config import RaidDaysConfig
 from toads_api.reference.login import WclLogin
 from toads_api.reference.queue import RqEnqueue
@@ -90,6 +91,21 @@ class Services:
     bank_events: BankEvents = field(init=False)
     # Who besides officers may import bank snapshots or run the request queue (docs/bank.md "Grants").
     bank_grants: BankGrantService = field(init=False)
+
+    def principal_for(
+        self,
+        member_id: int,
+        role_ids: Collection[int],
+        display_name: str = "",
+        discord_user_id: int | None = None,
+        discord_username: str = "",
+    ) -> Principal:
+        """A member's hub roles from their Discord roles: raid_days.yaml, plus the roles a super admin tied to each
+        night's badge on the Admin page, which make their holders that night's raiders (docs/admin.md)."""
+        nights = self.role_badges.night_roles((d.id, d.name) for d in self.raid_days.raid_days)
+        return self.raid_days.principal_for(
+            member_id, set(role_ids), display_name, discord_user_id, discord_username, night_roles=nights
+        )
 
     def __post_init__(self) -> None:
         # Two-way Discord bots (docs/bots.md). In memory until the bridge has a table: a restart drops queued actions.

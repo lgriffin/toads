@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
@@ -20,6 +21,8 @@
     __PREVIEW__ ? (previewSession.role === 'admin' ? [...NIGHT_IDS] : ['wed']) : (session?.officer_days ?? [])
   );
   const backend = __PREVIEW__ ? previewComps : hubComps();
+  // A night's officer section links here with ?day=thu; the page is pre-rendered, so the query is read in the browser.
+  const initial = browser ? (new URLSearchParams(location.search).get('day') ?? '') : '';
 </script>
 
 <svelte:head><title>Comp builder · Toads</title></svelte:head>
@@ -31,7 +34,7 @@
   <h1>Raid comp builder</h1>
   <p class="muted">The comp builder is for the officers of each raid night.</p>
 {:else}
-  <CompBuilder {backend} {days} />
+  <CompBuilder {backend} {days} {initial} />
 {/if}
 
 <style>

@@ -64,7 +64,7 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
 
 def raid_days_of(services: Services, role_ids: Collection[int]) -> list[str]:
     """The raid days a member's Discord roles put them on, in config order."""
-    return list(services.raid_days.principal_for(0, set(role_ids)).day_roles)
+    return list(services.principal_for(0, role_ids).day_roles)
 
 
 def record_raid_days(services: Services, member_id: int, role_ids: Collection[int]) -> None:
@@ -78,6 +78,8 @@ def record_raid_days(services: Services, member_id: int, role_ids: Collection[in
 
 def upsert_member(services: Services, member: GuildMember) -> int:
     """The hub member row for a Discord member, created on first sight; returns its id."""
+    # Read before the write opens: the night badges' roles come from the database too.
+    days = raid_days_of(services, member.role_ids)
     with services.db.begin() as db:
         row = db.scalar(select(Member).where(Member.discord_user_id == member.user_id))
         if row is None:
@@ -89,7 +91,7 @@ def upsert_member(services: Services, member: GuildMember) -> int:
         else:
             row.display_name = member.server_name
             row.discord_username = member.username
-        row.raid_days = raid_days_of(services, member.role_ids)
+        row.raid_days = days
         return row.id
 
 
@@ -111,7 +113,7 @@ async def _cached_acting(services: Services, discord_user_id: int) -> Principal 
         username = str(seen.get("username", ""))
     except (ValueError, TypeError, KeyError):
         return None
-    return services.raid_days.principal_for(member_id, role_ids, name, discord_user_id, username)
+    return await anyio.to_thread.run_sync(services.principal_for, member_id, role_ids, name, discord_user_id, username)
 
 
 async def acting_principal(services: Services, discord_user_id: int) -> Principal:
@@ -138,6 +140,6 @@ async def acting_principal(services: Services, discord_user_id: int) -> Principa
         "username": member.username,
     }
     await services.redis.set(_acting_key(discord_user_id), json.dumps(seen), ex=services.settings.role_refresh_seconds)
-    return services.raid_days.principal_for(
-        member_id, set(member.role_ids), member.server_name, member.user_id, member.username
+    return await anyio.to_thread.run_sync(
+        services.principal_for, member_id, set(member.role_ids), member.server_name, member.user_id, member.username
     )

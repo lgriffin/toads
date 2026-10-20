@@ -31,3 +31,8 @@ ROLE_BADGES: dict[str, RoleBadge] = {
         *(RoleBadge(c, c.title(), f"classes/{c}") for c in _CLASSES),
     ]
 }
+
+
+def night_badge_id(day_name: str) -> str:
+    """The badge of a raid night, from its name in raid_days.yaml: "Thursday" earns "thursday-toad"."""
+    return f"{day_name.strip().lower()}-toad"

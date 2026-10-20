@@ -5,6 +5,11 @@ Toad for the raid nights, Tank, Healer and Damage, and a toad per class. A super
 Toads server; everyone holding the role wears the badge beside their name on the hub, and loses it when the role is
 taken away in Discord (at their next role refresh).
 
+A raid night's badge does one more thing: it puts its holders on that night's team. Everyone holding a role tied to
+the Thursday Toad badge is a Thursday raider (the night is matched by name: a raid day named "Thursday" in
+`raid_days.yaml` earns `thursday-toad`), so they appear on its roster and can report absences for it. This adds to the
+day's `raider_roles`; it never makes anyone an officer.
+
 Every signed-in member also wears their rank toad without any setup: the member toad for everyone, plus the officer
 toad for officers, the super admin toad for super admins (`TOADS_SUPER_ADMIN_IDS`) and the Archtoad for the guild
 master.
