@@ -36,6 +36,7 @@ def room_problems(perms: discord.Permissions) -> list[str]:
     needed = {
         "view_channel": "View Channels",
         "send_messages": "Send Messages",
+        "read_message_history": "Read Message History",
         "embed_links": "Embed Links",
         "manage_channels": "Manage Channels",
         "manage_roles": "Manage Roles",
@@ -62,9 +63,9 @@ def interview_overwrites(
     talk = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
     return {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        applicant: discord.PermissionOverwrite(
-            view_channel=True, send_messages=True, read_message_history=True, attach_files=True, mention_everyone=False
-        ),
+        # Only permissions the bot holds itself (invite permissions 268520464): Discord refuses an overwrite that
+        # allows or denies anything else with 50013 Missing Permissions, so the room never opens.
+        applicant: talk,
         **{role: talk for role in officer_roles},
         **{person: talk for person in interviewers},
         me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),

@@ -67,10 +67,21 @@ def test_interview_room_is_private() -> None:
     ow = interview_overwrites(guild, applicant, [officer], me)  # type: ignore[arg-type]
     assert ow[everyone].view_channel is False
     assert ow[applicant].view_channel is True
-    assert ow[applicant].mention_everyone is False
+    assert ow[applicant].send_messages is True
     assert ow[officer].send_messages is True
     assert ow[me].manage_channels is True
     assert set(ow) == {everyone, applicant, officer, me}
+
+
+def test_room_overwrites_stay_within_the_bots_own_permissions() -> None:
+    # Discord refuses (50013) an overwrite that allows or denies a permission the bot lacks: the live server's first
+    # applicant got no room because the applicant's overwrite set Attach Files and Mention Everyone.
+    invited = discord.Permissions(268520464)  # the invite link's permissions (ADMIN_GUIDE)
+    everyone, applicant, officer, me = (discord.Object(id=i) for i in (1, 2, 3, 4))
+    ow = interview_overwrites(SimpleNamespace(default_role=everyone), applicant, [officer], me, [discord.Object(id=5)])  # type: ignore[arg-type]
+    for overwrite in ow.values():
+        allow, deny = overwrite.pair()
+        assert allow.is_subset(invited) and deny.is_subset(invited), overwrite
 
 
 def test_post_embed_is_capped() -> None:
@@ -180,7 +191,7 @@ def test_a_room_the_bot_lacks_permission_for_is_reported_to_the_hub() -> None:
     hub.outbox.return_value = [job("create_interview_room", ROOM)]
     guild = fake_guild()
     guild.me.guild_permissions = discord.Permissions(
-        view_channel=True, send_messages=True, embed_links=True, manage_channels=True
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True, manage_channels=True
     )
     run(cog(hub).run_outbox(guild))
     guild.create_text_channel.assert_not_awaited()
@@ -190,7 +201,9 @@ def test_a_room_the_bot_lacks_permission_for_is_reported_to_the_hub() -> None:
 def test_permissions_are_checked_in_the_interview_category() -> None:
     category = MagicMock(spec=discord.CategoryChannel)
     category.name = "Interviews"
-    category.permissions_for.return_value = discord.Permissions(view_channel=True, send_messages=True, embed_links=True)
+    category.permissions_for.return_value = discord.Permissions(
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True
+    )
     hub = AsyncMock()
     hub.outbox.return_value = [job("create_interview_room", {**ROOM, "category_id": 555})]
     run(cog(hub).run_outbox(fake_guild(category)))
@@ -295,7 +308,9 @@ def test_the_startup_check_names_missing_permissions(caplog: pytest.LogCaptureFi
     c = cog(AsyncMock())
     guild = fake_guild()
     guild.name = "Toads"
-    guild.me.guild_permissions = discord.Permissions(view_channel=True, send_messages=True, embed_links=True)
+    guild.me.guild_permissions = discord.Permissions(
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True
+    )
     c.bot.get_guild.return_value = guild
     c.check_setup()
     assert "needs Manage Channels, Manage Roles in Toads" in caplog.text
