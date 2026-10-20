@@ -442,6 +442,9 @@ class CommunityService:
         """The bot's job for a private room: the applicant plus the interviewers when there are any, else the
         officers of the days applied for and the global tier. The answers ride along so the room opens with them."""
         interviewers = self.interviewers_for(app.raid_days)
+        if app.interview_room_error is not None:
+            app.interview_room_error = None
+            self.repo.save_application(app)
         self._enqueue(
             OutboxKind.CREATE_INTERVIEW_ROOM,
             {
@@ -513,10 +516,18 @@ class CommunityService:
             return job  # acks are idempotent: a bot that reconnects may ack twice
         # Apply the ack before marking the job done: if this fails part way the bot retries it, and a repeated lock
         # is harmless where a lost one leaves a closed room writable.
-        if job.kind is OutboxKind.CREATE_INTERVIEW_ROOM and ack.channel_id is not None:
+        if job.kind is OutboxKind.CREATE_INTERVIEW_ROOM and ack.error is not None:
+            # The bot gave up on this room: say why on the application, so the applicant and the officers see it and
+            # an officer can ask for the room again once the cause is fixed.
+            app = self.repo.get_application(int(str(job.payload["application_id"])))
+            if app is not None and app.interview_channel_id is None:
+                app.interview_room_error = ack.error
+                self.repo.save_application(app)
+        elif job.kind is OutboxKind.CREATE_INTERVIEW_ROOM and ack.channel_id is not None:
             app = self.repo.get_application(int(str(job.payload["application_id"])))
             if app is not None:
                 app.interview_channel_id = ack.channel_id
+                app.interview_room_error = None
                 self.repo.save_application(app)
                 if app.status in recruitment.FINAL:
                     # Closed while the bot was still building the room: lock it now, as _move would have.

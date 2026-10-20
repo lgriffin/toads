@@ -18,6 +18,10 @@ class HubClient:
             transport=transport,
         )
 
+    @property
+    def base_url(self) -> str:
+        return str(self._http.base_url)
+
     async def aclose(self) -> None:
         await self._http.aclose()
 
@@ -27,8 +31,12 @@ class HubClient:
         jobs: list[dict[str, Any]] = r.json()
         return jobs
 
-    async def ack(self, job_id: int, *, channel_id: int | None = None, message_id: int | None = None) -> None:
-        body = {k: v for k, v in {"channel_id": channel_id, "message_id": message_id}.items() if v is not None}
+    async def ack(
+        self, job_id: int, *, channel_id: int | None = None, message_id: int | None = None, error: str | None = None
+    ) -> None:
+        """Mark a job done; `error` says why it could not be done, for jobs that retrying will not fix."""
+        fields: dict[str, int | str | None] = {"channel_id": channel_id, "message_id": message_id, "error": error}
+        body = {k: v for k, v in fields.items() if v is not None}
         (await self._http.post(f"/api/bot/outbox/{job_id}/ack", json=body)).raise_for_status()
 
     async def discord_message(

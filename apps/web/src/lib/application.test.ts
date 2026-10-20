@@ -5,6 +5,7 @@ import {
   forgetRecruitDraft,
   nightsList,
   rolesForClass,
+  roomState,
   toApiBody,
   validateApplication,
   type ApplicationInput
@@ -140,5 +141,18 @@ describe('forgetRecruitDraft', () => {
       }
     });
     expect(() => forgetRecruitDraft()).not.toThrow();
+  });
+});
+
+describe('roomState', () => {
+  it('links only to a room the Toad Bot has opened', () => {
+    const url = 'https://discord.com/channels/1/2';
+    expect(roomState([{ id: 3, interview_room_url: url }], 3)).toEqual({ kind: 'ready', url });
+    expect(roomState([{ id: 3, interview_room_url: null }], 3)).toEqual({ kind: 'opening' });
+    expect(roomState([{ id: 4, interview_room_url: url }], 3)).toEqual({ kind: 'opening' });
+  });
+  it('says why a room could not open', () => {
+    const reason = 'The Toad Bot needs Manage Roles in the server';
+    expect(roomState([{ id: 3, interview_room_error: reason }], 3)).toEqual({ kind: 'failed', reason });
   });
 });

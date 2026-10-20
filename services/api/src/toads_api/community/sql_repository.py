@@ -171,6 +171,7 @@ class SqlCommunityRepository:
                     logs_url=app.logs_url,
                     status=app.status.value,
                     interview_channel_id=app.interview_channel_id,
+                    interview_room_error=app.interview_room_error,
                     created_at=app.created_at,
                 )
             )
@@ -231,6 +232,7 @@ class SqlCommunityRepository:
                     logs_url=r.logs_url,
                     status=ApplicationStatus(r.status),
                     interview_channel_id=r.interview_channel_id,
+                    interview_room_error=r.interview_room_error,
                     events=by_app.get(r.id, []),
                     created_at=_utc(r.created_at),
                 )

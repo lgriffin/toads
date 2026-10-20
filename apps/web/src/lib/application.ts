@@ -96,6 +96,24 @@ function roleError(className: string, role: string): string | undefined {
 }
 
 /** "Wednesday, Thursday and Sunday": the nights on offer, for the recruit page's copy. */
+/** Where an applicant's interview room stands, from what the hub knows about their application. */
+export type RoomState =
+  | { kind: 'opening' }
+  | { kind: 'ready'; url: string }
+  | { kind: 'failed'; reason: string };
+
+/** The room for application `id`, from GET /api/applications/mine. Only a room the Toad Bot has opened gets a link:
+ * the server's invite drops people in whichever channel it was made for, not their room. */
+export function roomState(
+  apps: readonly { id: number; interview_room_url?: string | null; interview_room_error?: string | null }[],
+  id: number
+): RoomState {
+  const app = apps.find((a) => a.id === id);
+  if (app?.interview_room_url) return { kind: 'ready', url: app.interview_room_url };
+  if (app?.interview_room_error) return { kind: 'failed', reason: app.interview_room_error };
+  return { kind: 'opening' };
+}
+
 export function nightsList(nights: readonly RaidNight[]): string {
   return inWords(nights.map((n) => n.name));
 }

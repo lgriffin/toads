@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import discord
+import httpx
 from discord.ext import commands, tasks
 
 from toads_bot.hub import HubClient
@@ -23,6 +24,17 @@ log = logging.getLogger(__name__)
 NO_PINGS = discord.AllowedMentions.none()
 EMBED_COLOUR = discord.Colour(0x5FBF6A)
 HUB_KINDS = frozenset({"create_interview_room", "lock_interview_room", "post_message", "edit_message"})
+
+
+class RoomError(Exception):
+    """An interview room the bot cannot open, for a reason retrying will not fix. The message is shown to officers
+    and the applicant, so it says what is wrong in plain words."""
+
+
+def room_problems(perms: discord.Permissions) -> list[str]:
+    """What the bot is missing to open a private interview room where it has these permissions."""
+    needed = {"view_channel": "View Channels", "manage_channels": "Manage Channels", "manage_roles": "Manage Roles"}
+    return [label for flag, label in needed.items() if not getattr(perms, flag)]
 
 
 def interview_channel_name(character: str) -> str:
@@ -51,6 +63,22 @@ def interview_overwrites(
         **{person: talk for person in interviewers},
         me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
     }
+
+
+def interview_category(guild: discord.Guild, category_id: object) -> discord.CategoryChannel | None:
+    """The category rooms go in (`interview_category_id` in config/community.yaml). A wrong id is logged and the room
+    opens at the top of the channel list instead: it is private either way, and the applicant is not kept waiting."""
+    if not category_id:
+        return None
+    category = guild.get_channel(int(str(category_id)))
+    if isinstance(category, discord.CategoryChannel):
+        return category
+    log.error(
+        "interview_category_id %s in config/community.yaml is not a category in %s; opening the room without one",
+        category_id,
+        guild.name,
+    )
+    return None
 
 
 async def find_interviewer(guild: discord.Guild, name: str) -> discord.Member | None:
@@ -160,21 +188,64 @@ class Community(commands.Cog):
     @tasks.loop(seconds=30)
     async def poll(self) -> None:
         guild = self.bot.get_guild(self.guild_id)
-        if guild is not None:
+        if guild is None:
+            log.error(
+                "the Toad Bot is not in server %s (TOADS_DISCORD_GUILD_ID); no interview rooms open", self.guild_id
+            )
+            return
+        try:
             await self.run_outbox(guild)
+        except Exception:  # one bad poll must not stop the loop: tasks.loop ends on an error
+            log.exception("outbox poll failed")
 
     @poll.before_loop
     async def _ready(self) -> None:
         await self.bot.wait_until_ready()
+        self.check_setup()
+
+    def check_setup(self) -> None:
+        """Say at startup, in the bot's log, whether it can open interview rooms, rather than at the first applicant."""
+        guild = self.bot.get_guild(self.guild_id)
+        if guild is None:
+            log.error("the Toad Bot is not in server %s (TOADS_DISCORD_GUILD_ID); invite it first", self.guild_id)
+            return
+        missing = room_problems(guild.me.guild_permissions)
+        if missing:
+            log.error("the Toad Bot needs %s in %s to open interview rooms", ", ".join(missing), guild.name)
+        else:
+            log.info("the Toad Bot is in %s and can open interview rooms", guild.name)
 
     async def run_outbox(self, guild: discord.Guild) -> None:
-        for item in await self.hub.outbox():
+        try:
+            items = await self.hub.outbox()
+        except httpx.HTTPError as e:
+            log.error("cannot read the hub's outbox at %s: %s", self.hub.base_url, e)
+            return
+        for item in items:
             job, post = item["job"], item.get("post")
             try:
                 await self._run(guild, job, post)
+            except (RoomError, discord.Forbidden, discord.NotFound) as e:
+                await self._give_up(job, e)
             except discord.HTTPException:
-                # Left un-acked, so the next poll retries it.
-                log.warning("outbox job %s (%s) failed", job["id"], job["kind"], exc_info=True)
+                # A Discord outage or rate limit: left un-acked, so the next poll retries it.
+                log.warning("outbox job %s (%s) failed; retrying", job["id"], job["kind"], exc_info=True)
+            except httpx.HTTPError:
+                log.exception("outbox job %s (%s) done but the hub did not take the ack", job["id"], job["kind"])
+            except Exception as e:  # a bug in one job must not hide the others or end the loop
+                log.exception("outbox job %s (%s) failed", job["id"], job["kind"])
+                await self._give_up(job, e)
+
+    async def _give_up(self, job: dict[str, Any], e: Exception) -> None:
+        """A room that is not coming is reported to the hub, which shows why; other jobs are logged and retried."""
+        log.error("outbox job %s (%s) failed: %s", job["id"], job["kind"], e)
+        if job["kind"] != "create_interview_room":
+            return
+        reason = str(e) if isinstance(e, RoomError) else f"Discord refused: {e}"
+        try:
+            await self.hub.ack(int(job["id"]), error=reason[:300])
+        except httpx.HTTPError:
+            log.exception("could not tell the hub that job %s failed", job["id"])
 
     async def _run(self, guild: discord.Guild, job: dict[str, Any], post: dict[str, Any] | None) -> None:
         kind, payload, job_id = job["kind"], job["payload"], int(job["id"])
@@ -201,9 +272,12 @@ class Community(commands.Cog):
             log.warning("unknown outbox job kind %r", kind)
 
     async def open_interview_room(self, guild: discord.Guild, payload: dict[str, Any]) -> int:
-        applicant = guild.get_member(int(payload["discord_user_id"])) or await guild.fetch_member(
-            int(payload["discord_user_id"])
-        )
+        try:
+            applicant = guild.get_member(int(payload["discord_user_id"])) or await guild.fetch_member(
+                int(payload["discord_user_id"])
+            )
+        except discord.NotFound:
+            raise RoomError("The applicant is no longer in the Discord server") from None
         roles = [r for rid in payload.get("officer_role_ids") or [] if (r := guild.get_role(int(rid))) is not None]
         names = [str(n) for n in payload.get("interviewers") or []]
         found = {n: await find_interviewer(guild, n) for n in names}
@@ -211,10 +285,14 @@ class Community(commands.Cog):
         missing = [n for n, m in found.items() if m is None]
         if missing:
             log.warning("interviewers not in the server: %s", ", ".join(missing))
-        category = guild.get_channel(int(payload["category_id"])) if payload.get("category_id") else None
+        category = interview_category(guild, payload.get("category_id"))
+        missing_perms = room_problems(category.permissions_for(guild.me) if category else guild.me.guild_permissions)
+        if missing_perms:
+            where = f"the {category.name} category" if category else "the server"
+            raise RoomError(f"The Toad Bot needs {', '.join(missing_perms)} in {where}")
         channel = await guild.create_text_channel(
             interview_channel_name(str(payload["character_name"])),
-            category=category if isinstance(category, discord.CategoryChannel) else None,
+            category=category,
             overwrites=interview_overwrites(guild, applicant, roles, guild.me, interviewers),
             reason=f"Toads Hub application {payload['application_id']}",
         )

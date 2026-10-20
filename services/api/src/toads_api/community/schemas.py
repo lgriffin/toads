@@ -119,6 +119,10 @@ class Application(BaseModel):
     logs_url: str | None
     status: ApplicationStatus
     interview_channel_id: int | None = None
+    # Set when the Toad Bot reported that it could not open the room; cleared when a room opens or is asked for again.
+    interview_room_error: str | None = None
+    # The room's Discord link for its applicant; only the applicant's own routes fill it in.
+    interview_room_url: str | None = None
     events: list[ApplicationEvent]
     created_at: datetime
 
@@ -337,6 +341,9 @@ class OutboxAck(BaseModel):
 
     channel_id: Snowflake | None = None
     message_id: Snowflake | None = None
+    # The job could not be done and retrying will not help (missing permission, applicant left the server): the bot
+    # says why, and the hub shows it instead of waiting for a room that is not coming.
+    error: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)] | None = None
 
 
 class DeskSummary(BaseModel):

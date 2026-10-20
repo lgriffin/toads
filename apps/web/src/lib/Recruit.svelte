@@ -5,7 +5,7 @@
   import '$lib/pond.css';
   import { base } from '$app/paths';
   import PondHero from '$lib/components/PondHero.svelte';
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
     APPLICATION_LIMITS,
     CLASSES,
@@ -19,6 +19,7 @@
     type ApplicationField,
     type ApplicationInput,
     type RaidNight,
+    type RoomState,
     nightsList
   } from '$lib/application';
   import NeedsList from '$lib/components/NeedsList.svelte';
@@ -33,7 +34,8 @@
     loginHref,
     needs = [],
     nights = [],
-    send
+    send,
+    room
   }: {
     /** null while the page is still asking who is here. */
     signedIn: boolean | null;
@@ -42,7 +44,9 @@
     /** The raid nights to choose between; each night's officers pick who interviews its applicants. */
     nights?: RaidNight[];
     /** Resolves with the new application's status; rejects with what to tell the applicant. */
-    send: (input: ApplicationInput) => Promise<{ status: string }>;
+    send: (input: ApplicationInput) => Promise<{ id: number; status: string }>;
+    /** Where the new application's interview room stands; the page asks until the room is ready or has failed. */
+    room?: (id: number) => Promise<RoomState>;
   } = $props();
 
   let form = $state<ApplicationInput>({ ...EMPTY_APPLICATION });
@@ -50,6 +54,28 @@
   let sending = $state(false);
   let failure = $state<{ message: string; joinDiscord: boolean; signIn?: boolean } | null>(null);
   let sent = $state<{ name: string; roomOpen: boolean } | null>(null);
+  let roomNow = $state<RoomState>({ kind: 'opening' });
+  let roomSlow = $state(false);
+  let gone = false;
+  onDestroy(() => (gone = true));
+
+  const ROOM_POLL_MS = 3000;
+  const ROOM_POLLS = 40;
+
+  // The Toad Bot opens the room within a poll or two; ask the hub until it says the room is ready or could not open.
+  async function watchRoom(id: number) {
+    if (!room) return;
+    for (let i = 0; i < ROOM_POLLS && !gone; i++) {
+      await new Promise((r) => setTimeout(r, ROOM_POLL_MS));
+      try {
+        roomNow = await room(id);
+      } catch {
+        continue; // a missed poll; ask again
+      }
+      if (roomNow.kind !== 'opening') return;
+    }
+    roomSlow = true;
+  }
 
   const classRoles = $derived(rolesForClass(form.className));
   const errorList = $derived(Object.entries(errors) as [ApplicationField, string][]);
@@ -125,6 +151,7 @@
       sent = { name: form.characterName.trim(), roomOpen: app.status === 'interviewing' };
       await tick();
       document.getElementById('apply-done')?.focus();
+      if (sent.roomOpen) void watchRoom(app.id);
     } catch (err) {
       failure = err as { message: string; joinDiscord: boolean; signIn?: boolean };
       await tick();
@@ -194,18 +221,35 @@
 
     {#if sent}
       <div id="apply-done" class="done" role="status" tabindex="-1">
-        <h3>{sent.roomOpen ? 'Your interview room is opening' : 'Application sent'}</h3>
-        {#if sent.roomOpen}
+        {#if !sent.roomOpen}
+          <h3>Application sent</h3>
+          <p>Thanks, {sent.name}! An officer will open your private interview room in our Discord shortly.</p>
+        {:else if roomNow.kind === 'ready'}
+          <h3>Your interview room is ready</h3>
+          <p>Thanks, {sent.name}! Our officers will say hello in <strong>#{roomName(sent.name)}</strong>.</p>
+          <a class="btn" href={roomNow.url} target="_blank" rel="noopener noreferrer">
+            Open your interview room<span class="sr-only"> (opens Discord in a new tab)</span>
+          </a>
+        {:else if roomNow.kind === 'failed'}
+          <h3>Your application is in, but your room did not open</h3>
           <p>
-            Thanks, {sent.name}! Look in Discord for <strong>#{roomName(sent.name)}</strong>. The Toad Bot will mention you
-            there once it is ready, and our officers will say hello.
+            Thanks, {sent.name}! The Toad Bot could not open your interview room: {roomNow.reason}. Our officers can see
+            this on your application and will open the room for you.
           </p>
         {:else}
-          <p>Thanks, {sent.name}! An officer will open your private interview room in our Discord shortly.</p>
+          <h3>Your interview room is opening</h3>
+          {#if roomSlow}
+            <p>
+              Thanks, {sent.name}! This is taking longer than usual. The Toad Bot will mention you in
+              <strong>#{roomName(sent.name)}</strong> in our Discord when it is ready.
+            </p>
+          {:else}
+            <p>
+              Thanks, {sent.name}! The Toad Bot is setting up <strong>#{roomName(sent.name)}</strong>. Its link appears here
+              when it is ready.
+            </p>
+          {/if}
         {/if}
-        <a class="btn" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">
-          Open Discord<span class="sr-only"> (opens in a new tab)</span>
-        </a>
       </div>
     {:else}
       <form novalidate onsubmit={submit}>

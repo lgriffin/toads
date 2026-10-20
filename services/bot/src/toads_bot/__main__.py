@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import discord
 from discord.ext import commands
 
@@ -36,6 +38,8 @@ def create_bot(settings: Settings) -> commands.Bot:
 
 def main() -> None:
     settings = Settings()  # fails fast on a missing variable
+    # INFO and up to stderr, so `docker compose logs bot` shows the startup check and every failed outbox job.
+    discord.utils.setup_logging(level=logging.INFO)
     create_bot(settings).run(settings.discord_bot_token.get_secret_value(), log_handler=None)
 
 

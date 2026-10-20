@@ -279,7 +279,7 @@ def bot_creates(world: World) -> None:
     [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
     guild = MagicMock()
     guild.default_role = discord.Object(id=1)
-    guild.me = discord.Object(id=99)
+    guild.me = MagicMock(id=99, guild_permissions=discord.Permissions.all())
     guild.get_member.return_value = MagicMock(id=10_005, mention="<@10005>")
     guild.get_role.side_effect = lambda rid: discord.Object(id=rid)
     guild.get_channel.return_value = None
@@ -398,7 +398,7 @@ def bot_creates_for_interviewers(world: World) -> None:
         people.append(person)
     guild = MagicMock()
     guild.default_role = discord.Object(id=1)
-    guild.me = discord.Object(id=99)
+    guild.me = MagicMock(id=99, guild_permissions=discord.Permissions.all())
     guild.members = people
     guild.get_member.return_value = MagicMock(id=10_005, mention="<@10005>")
     guild.get_channel.return_value = None
@@ -416,6 +416,56 @@ def bot_creates_for_interviewers(world: World) -> None:
     }
     embed = created.send.await_args.kwargs["embed"]
     assert {f.name: f.value for f in embed.fields}["Why Toads?"] == "A friend raids here."
+
+
+def _room_job(world: World) -> Any:
+    return next(j for j in world.store.pending_jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM)
+
+
+def _mine(world: World) -> dict[str, Any]:
+    [app] = world.client("applicant").get("/api/applications/mine").json()
+    assert app["id"] == world.app_id
+    return dict(app)
+
+
+@when("the bot reports that it needs Manage Roles to open the room")
+def bot_gives_up(world: World) -> None:
+    world.store.ack(_room_job(world).id, OutboxAck(error="The Toad Bot needs Manage Roles in the server"))
+
+
+@then("the applicant's application says the room could not open because the bot needs Manage Roles")
+def room_error_shown(world: World) -> None:
+    mine = _mine(world)
+    assert mine["interview_room_error"] == "The Toad Bot needs Manage Roles in the server"
+    assert mine["interview_room_url"] is None
+    [seen] = world.store.applications_for("wed")
+    assert seen.interview_room_error == mine["interview_room_error"]
+    assert world.store.pending_jobs() == []  # given up, not retried forever
+
+
+@then("the Wednesday officer can ask for the room again, which clears the reason")
+def room_asked_again(world: World) -> None:
+    world.store.open_interview_room(world.who("Wednesday officer").member_id, "wed", world.app_id)
+    assert world.store.repo.get_application(world.app_id).interview_room_error is None
+    world.store.ack(_room_job(world).id, OutboxAck(channel_id=6002))
+    assert world.store.repo.get_application(world.app_id).interview_channel_id == 6002
+
+
+@then("the applicant's application has no room link")
+def no_room_link(world: World) -> None:
+    assert _mine(world)["interview_room_url"] is None
+
+
+@when("the bot reports the room it opened")
+def bot_opened(world: World) -> None:
+    world.store.ack(_room_job(world).id, OutboxAck(channel_id=6001))
+
+
+@then("the applicant's application links to that room in the Toads Discord")
+def room_link(world: World) -> None:
+    from conftest import GUILD_ID
+
+    assert _mine(world)["interview_room_url"] == f"https://discord.com/channels/{GUILD_ID}/6001"
 
 
 @when("an applicant who has left the Toads Discord sends an application")
