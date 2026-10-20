@@ -30,6 +30,10 @@ export the sign-up as a JSON file, and that file is what the Toad Bot takes.
 3. The bot answers only to you, with what happened: how many members were pre-filled, updated from an earlier import,
    already up to date, or kept because they set their own specs on Me, then who was skipped and why.
 
+If the reply says the hub did not accept the Toad Bot's call, the bot and the API hold different
+`TOADS_HUB_SERVICE_TOKEN` values (`scripts/server-setup.sh` writes the same one to both), or the API is running an
+older version than the bot; redeploy both. A night can be picked from the list or typed by name ("Sunday").
+
 Run it again whenever the sign-up changes: a newer import updates what an earlier one set and leaves everything else
 alone.
 
