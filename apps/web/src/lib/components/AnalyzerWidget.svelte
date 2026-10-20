@@ -6,16 +6,23 @@
 
   // One widget of the analyzer's home page. Payload text (names, zones) comes from logs, so it is only ever
   // interpolated as text, never with {@html}. `title` is used while the page has no payload for this widget yet.
-  // `day`: the raid night whose officers the viewer is among, so a raid link opens that night's full analysis.
+  // `dayOf`: the raid night a report opens under (one whose officers the viewer is among), so a raid link opens that
+  // night's full analysis.
   let {
     widget,
     title,
     missing,
-    day = null
-  }: { widget: PayloadWidget | null; title: string; missing: string; day?: string | null } = $props();
+    dayOf = () => null
+  }: {
+    widget: PayloadWidget | null;
+    title: string;
+    missing: string;
+    dayOf?: (report: string) => string | null;
+  } = $props();
 
   const hid = $derived(`aw-${widget?.id ?? title.toLowerCase().replace(/[^a-z]+/g, '-')}`);
-  const target = (link: PayloadLink | null | undefined) => linkTarget(link, base, day);
+  const target = (link: PayloadLink | null | undefined) =>
+    linkTarget(link, base, link?.kind === 'raid' ? dayOf(link.params.report_id ?? '') : null);
   const open = $derived(target(widget?.link));
 </script>
 

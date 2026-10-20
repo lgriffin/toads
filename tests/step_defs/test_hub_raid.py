@@ -205,4 +205,6 @@ def opens_raid_page(links: str) -> None:
 @then("a night officer's link carries their raid night")
 def carries_night() -> None:
     page = (WEB / "routes" / "logs" / "+page.svelte").read_text(encoding="utf-8")
-    assert "viewer?.officer_days?.includes(night)" in page and "{officerDay}" in page
+    # Each raid opens under the night the raid list gives it (on every tab), else the shown night for its officers.
+    assert "viewer?.officer_days?.includes(night)" in page and "raidDayOf(rows, officerDay)" in page
+    assert "{dayOf}" in page
