@@ -9,7 +9,7 @@ times instead.
 from __future__ import annotations
 
 import enum
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -43,7 +43,8 @@ class RaidSlot:
     day_name: str
     # Monday is 0.
     weekday: int
-    start: time
+    # None when the config gives no start time: the night still claims its weekday's Discord events.
+    start: time | None
 
 
 @dataclass(frozen=True)
@@ -84,10 +85,23 @@ class NextRaidService:
         self._clock = clock
         self._cached: tuple[float, list[ScheduledEvent]] | None = None
 
-    async def next_raid(self) -> NextRaid | None:
+    async def next_raid(self, days: Collection[str] | None = None) -> NextRaid | None:
+        """The soonest raid on one of `days` (the member's raid nights), or on any night when `days` is None or empty.
+        A Discord event on a weekday that is no raid night (a one-off raid) is shown to everyone."""
         now = datetime.fromtimestamp(self._clock(), UTC)
-        from_discord = self._soonest_event(await self._read_events(), now)
-        return from_discord or self._soonest_slot(now)
+        nights = set(days or ())
+        events = [e for e in await self._read_events() if self._event_for(e.starts_at, nights)]
+        from_discord = self._soonest_event(events, now)
+        slots = [s for s in self._slots if not nights or s.day_id in nights]
+        return from_discord or self._soonest_slot(now, slots)
+
+    def _event_for(self, starts_at: datetime, nights: set[str]) -> bool:
+        """An event counts for every raid day on its weekday (two days may share one); none means a one-off."""
+        if not nights:
+            return True
+        weekday = starts_at.astimezone(self._tz).weekday()
+        days = {s.day_id for s in self._slots if s.weekday == weekday}
+        return not days or bool(days & nights)
 
     async def _read_events(self) -> list[ScheduledEvent]:
         """Discord's events, reused for CACHE_SECONDS. If Discord fails, the last good read stands in (or none)."""
@@ -124,10 +138,12 @@ class NextRaidService:
             url=f"https://discord.com/events/{self._guild_id}/{event.event_id}",
         )
 
-    def _soonest_slot(self, now: datetime) -> NextRaid | None:
+    def _soonest_slot(self, now: datetime, slots: Sequence[RaidSlot]) -> NextRaid | None:
         today = now.astimezone(self._tz).date()
         starts: list[tuple[datetime, RaidSlot]] = []
-        for slot in self._slots:
+        for slot in slots:
+            if slot.start is None:
+                continue
             # Today through a week out covers every weekday, including one whose raid is under way right now.
             for offset in range(8):
                 day = today + timedelta(days=offset)

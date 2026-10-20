@@ -96,3 +96,10 @@ Feature: HUB HOME
     Given a Wednesday raider signed in to the hub
     Then their home offers none of the analyzer's raid widgets
     And placing the flasks widget is refused with 422
+
+  @ears_state_driven @member @phase_2_3
+  Scenario: REQ-HUB-HOME-015 While a member raids on some nights only, the hub home shall show the next raid on one of their nights rather than the guild's soonest raid
+    Given a Thursday raider signed in to the hub
+    And an officer has posted "Karazhan" as a Discord scheduled event for Wednesday evening
+    And an officer has posted "Gruul's Lair" as a Discord scheduled event for Thursday evening
+    Then their next raid is "Gruul's Lair" on Thursday

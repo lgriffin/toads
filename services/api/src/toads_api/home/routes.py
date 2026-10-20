@@ -315,8 +315,10 @@ async def my_badges(principal: SignedIn, badges: Badges) -> MyBadgesOut:
 
 
 @guild.get("/next-raid")
-async def next_raid(_: SignedIn, next_raids: NextRaids) -> NextRaidOut:
-    raid = await next_raids.next_raid()
+async def next_raid(principal: SignedIn, next_raids: NextRaids) -> NextRaidOut:
+    # Each member's own nights (a Thursday raider sees Thursday's raid); global officers and members of no night see
+    # the guild's soonest raid.
+    raid = await next_raids.next_raid(None if principal.global_officer else list(principal.day_roles))
     if raid is None:
         return NextRaidOut(raid=None)
     return NextRaidOut(

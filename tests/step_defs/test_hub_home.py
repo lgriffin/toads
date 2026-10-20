@@ -101,6 +101,11 @@ def test_home_014() -> None:
     pass
 
 
+@_bind(15)
+def test_home_015() -> None:
+    pass
+
+
 @pytest.fixture
 def ctx() -> dict[str, Any]:
     return {}
@@ -175,10 +180,10 @@ def lands_on_hub(ctx: dict[str, Any]) -> None:
 # --- next raid (001, 006) --------------------------------------------------------------------------
 
 
-def _next_wednesday(hub: Hub, hour: int, minute: int) -> datetime:
-    """The next Wednesday after the hub's clock at this server time, in UTC."""
+def _next_wednesday(hub: Hub, hour: int, minute: int, weekday: int = 2) -> datetime:
+    """The next Wednesday (or `weekday`, 0 for Monday) after the hub's clock at this server time, in UTC."""
     today = datetime.fromtimestamp(hub.now, UTC).astimezone(SERVER_TIME).date()
-    day = next(today + timedelta(days=n) for n in range(1, 8) if (today + timedelta(days=n)).weekday() == 2)
+    day = next(today + timedelta(days=n) for n in range(1, 8) if (today + timedelta(days=n)).weekday() == weekday)
     return datetime(day.year, day.month, day.day, hour, minute, tzinfo=SERVER_TIME).astimezone(UTC)
 
 
@@ -193,6 +198,22 @@ def _next_raid(hub: Hub, sid: str) -> dict[str, Any]:
 def event_posted(hub: Hub, ctx: dict[str, Any], name: str) -> None:
     ctx["start"] = _next_wednesday(hub, 20, 0)
     ctx["event"] = hub.fake.add_event(4242, name, ctx["start"], interested=12)
+
+
+@given(parsers.parse('an officer has posted "{name}" as a Discord scheduled event for Thursday evening'))
+def thursday_event_posted(hub: Hub, name: str) -> None:
+    hub.fake.add_event(4343, name, _next_wednesday(hub, 20, 0, weekday=3))
+
+
+@given("a Thursday raider signed in to the hub")
+def thursday_raider(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["sid"] = hub.login(hub.user(("thu", "raider")))
+
+
+@then(parsers.parse('their next raid is "{name}" on Thursday'))
+def next_raid_on_thursday(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    raid = _next_raid(hub, ctx["sid"])
+    assert (raid["name"], raid["raid_day_id"]) == (name, "thu")
 
 
 @given("Discord has no scheduled events")
