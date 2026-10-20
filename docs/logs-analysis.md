@@ -14,7 +14,7 @@ Logs itself and stores the results in the hub's Postgres database, in wcl-store'
 
 ```
 Warcraft Logs ──(guild key)──> worker: sync-guild ──> Postgres (wcl-store tables)
-                                scheduler: publish-home, publish-performance, publish-badges, publish-reference, publish-logs
+                                scheduler: publish-home, publish-performance, publish-badges, publish-characters, publish-reference, publish-logs
                                         └──(service token)──> API ──> hub home, /me, badges, reference page, Logs
 ```
 
@@ -27,7 +27,7 @@ Super admins are global officers too, so they see every officer view.
 
 | Where | What fills in |
 | --- | --- |
-| `/me` | Your performance against the role median and your Toads badges, once your character claim is approved. |
+| `/me` | Your raids, raid by raid against the median for your role, with trends, personal bests and your lineage ([me.md](me.md)), and your Toads badges, once your character claim is approved. |
 | Claim search | Character names to claim, from the raids the sync analysed. |
 | `/logs` | The analyzer widgets for each raid night (guild snapshot, last raid, recent raids, raid activity, healing week on week, top damage and healing, attendance, boss kills, class mix, interrupts, consumables, flasks, and the officers' badge roster), every analysed raid with the desktop app's raid analysis, filtered by weekday, and the boss history ([logs.md](logs.md)). |
 | `/officers/reference` | The guild raids to compare, and comparisons once the reference login is connected (step 6). |
@@ -115,13 +115,13 @@ sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker \
 Then publish straight away instead of waiting for the next half hour:
 
 ```bash
-for job in publish-home publish-performance publish-badges publish-reference publish-logs; do
+for job in publish-home publish-performance publish-badges publish-characters publish-reference publish-logs; do
   sudo -u toads docker compose -f infra/docker-compose.prod.yml run --rm worker toads-worker "$job"
 done
 ```
 
 Sign in to https://toads.gg and open `/logs`: the analyzer widgets should show the raids you imported. Claim your
-character on `/me/claim` to see your own performance and badges there; a claim matching your Discord nickname is
+character on `/me/claim` to see your own raids and badges there; a claim matching your Discord nickname is
 approved at once, otherwise approve it in the Officers console.
 
 ## 6. Optional: the reference comparison login

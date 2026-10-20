@@ -10,12 +10,11 @@ is ever shown someone else's entry (REQ-HUB-PRIV-001).
 from __future__ import annotations
 
 import enum
-import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from toads_api.home.repository import HomeRepository, MemberCharacters, StoredPerformance
+from toads_api.home.repository import HomeRepository, MemberCharacters, StoredPerformance, fold
 from toads_api.home.service import HomeError, generated_at_ok
 
 # The worker's PAGE_VERSION this hub understands.
@@ -38,11 +37,6 @@ class MyPerformance:
     matched_by: MatchedBy | None
     # The character names looked for, in order of preference, so the widget can say who was missing.
     looked_for: list[str]
-
-
-def fold(name: str) -> str:
-    """Case- and width-insensitive, as claims compare names; accents still count."""
-    return unicodedata.normalize("NFKC", name).strip().casefold()
 
 
 def candidates(chars: MemberCharacters) -> list[tuple[str, MatchedBy]]:

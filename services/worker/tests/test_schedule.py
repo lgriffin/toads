@@ -36,6 +36,7 @@ def test_default_jobs_sync_every_quarter_hour_and_refresh_the_hub_every_half_hou
         ("publish-home", 1800.0),
         ("publish-performance", 1800.0),
         ("publish-badges", 1800.0),
+        ("publish-characters", 1800.0),
         ("publish-reference", 1800.0),
         ("publish-logs", 1800.0),
     ]
@@ -131,6 +132,7 @@ def default_scheduler(tmp_path: Path, ops: dict[str, Any], monkeypatch: pytest.M
     monkeypatch.setattr(schedule, "publish_home_page", publisher("home"))
     monkeypatch.setattr(schedule, "publish_performance", publisher("performance"))
     monkeypatch.setattr(schedule, "publish_badges", publisher("badges"))
+    monkeypatch.setattr(schedule, "publish_character_pages", publisher("characters"))
     monkeypatch.setattr(schedule, "publish_reference_page", publisher("reference"))
     monkeypatch.setattr(schedule, "publish_logs", publisher("logs"))
     monkeypatch.setattr(schedule, "sync_guild_reports", lambda _settings: {"imported": []})
@@ -144,6 +146,7 @@ def first_run_fails(ops: dict[str, Any]) -> None:
         "publish-home",
         "publish-performance",
         "publish-badges",
+        "publish-characters",
         "publish-reference",
         "publish-logs",
     ]
@@ -158,7 +161,8 @@ def published_later(ops: dict[str, Any]) -> None:
         "publish-home",
         "publish-performance",
         "publish-badges",
+        "publish-characters",
         "publish-reference",
         "publish-logs",
     ]
-    assert ops["published"] == ["home", "performance", "badges", "reference", "logs"]
+    assert ops["published"] == ["home", "performance", "badges", "characters", "reference", "logs"]

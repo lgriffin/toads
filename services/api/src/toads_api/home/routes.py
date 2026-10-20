@@ -13,6 +13,9 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
                                   names each raid night's weekday, so the worker builds those pages next
 - PUT    /api/worker/home-page/nights/{day}   the worker: a fresh build of one raid night's page
 - PUT    /api/worker/badges        the worker, with the service token: every raider's badges
+- GET    /api/me/character-page    the caller's own character page (?name= picks another of their characters)
+- GET    /api/worker/character-pages/wanted   the worker: the character names to build pages for
+- PUT    /api/worker/character-pages          the worker: every character page, replacing the last build
 """
 
 from __future__ import annotations
@@ -22,11 +25,12 @@ from typing import Annotated, Any, Literal
 
 import anyio
 import structlog
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
 
 from toads_api.community.deps import require_service
 from toads_api.home.badges import BadgeService
+from toads_api.home.characters import CharacterPageService
 from toads_api.home.next_raid import NextRaidService
 from toads_api.home.performance import PerformanceService
 from toads_api.home.service import (
@@ -44,6 +48,9 @@ from toads_api.rbac.deps import get_services, require
 log = structlog.get_logger(__name__)
 # Everyone who has raided with the guild; the worker sends the highest scores first when there are more.
 MAX_BADGE_PLAYERS = 1000
+# Every name a member may go by; the analyzer keeps at most 40 raids a page.
+MAX_CHARACTER_PAGES = 2000
+MAX_CHARACTER_RAIDS = 40
 router = APIRouter(prefix="/api/me", tags=["home"])
 guild = APIRouter(prefix="/api/home", tags=["home"])
 worker = APIRouter(prefix="/api/worker", tags=["worker"], dependencies=[Depends(require_service)])
@@ -65,10 +72,15 @@ def get_badges(request: Request) -> BadgeService:
     return get_services(request).badges
 
 
+def get_character_pages(request: Request) -> CharacterPageService:
+    return get_services(request).character_pages
+
+
 Home = Annotated[HomeService, Depends(get_home)]
 Performance = Annotated[PerformanceService, Depends(get_performance)]
 NextRaids = Annotated[NextRaidService, Depends(get_next_raid)]
 Badges = Annotated[BadgeService, Depends(get_badges)]
+CharacterPages = Annotated[CharacterPageService, Depends(get_character_pages)]
 SignedIn = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
 
 
@@ -200,6 +212,75 @@ class MyBadgesOut(BaseModel):
     looked_for: list[str]
 
 
+class CharacterRaidEntry(BaseModel):
+    """One raid on a character page (guides/character_pages.md in lgriffin/warcraftlogs_project)."""
+
+    report_id: str = Field(min_length=1, max_length=64)
+    title: str = Field(max_length=200)
+    zone: str = Field(max_length=100)
+    raid_date: str = Field(max_length=40)
+    weekday: int | None = Field(ge=0, le=6)
+    role: Literal["healer", "tank", "melee", "ranged"]
+    metric: str = Field(max_length=40)
+    value: FiniteFloat
+    display: str = Field(max_length=40)
+    median: FiniteFloat | None
+    median_display: str = Field(max_length=40)
+    rank: int = Field(ge=0)
+    of: int = Field(ge=0)
+    percent: FiniteFloat | None
+
+
+class PersonalBestEntry(BaseModel):
+    metric: str = Field(max_length=40)
+    role: str = Field(max_length=20)
+    value: FiniteFloat
+    display: str = Field(max_length=40)
+    report_id: str = Field(min_length=1, max_length=64)
+    raid_date: str = Field(max_length=40)
+
+
+class CharacterPageEntry(BaseModel):
+    """wcl_app CharacterPage.to_dict(): one character's raids, lineage, bests and charts. `metrics`, `casts` and
+    `consumables` are wcl_app.lineage Spread dicts; each chart is checked against the chart contract on publish."""
+
+    version: int
+    name: str = Field(min_length=1, max_length=64)
+    player_class: str = Field(max_length=32)
+    raids: int = Field(ge=0)
+    first_raid: str | None = Field(max_length=40)
+    last_raid: str | None = Field(max_length=40)
+    role_counts: dict[str, int]
+    recent: list[CharacterRaidEntry] = Field(max_length=MAX_CHARACTER_RAIDS)
+    metrics: list[dict[str, Any]] = Field(max_length=20)
+    casts: list[dict[str, Any]] = Field(max_length=20)
+    consumables: list[dict[str, Any]] = Field(max_length=20)
+    bests: list[PersonalBestEntry] = Field(max_length=4)
+    charts: list[dict[str, Any]] = Field(max_length=4)
+
+
+class CharacterPagesIn(BaseModel):
+    version: int
+    generated_at: str = Field(max_length=40)
+    pages: list[CharacterPageEntry] = Field(max_length=MAX_CHARACTER_PAGES)
+
+
+class MyCharacterPageOut(BaseModel):
+    """`generated_at` is null until the worker has published; `page` is null when none of the member's characters
+    has raided with the guild. `characters` lists the member's characters that have a page, best first."""
+
+    generated_at: str | None
+    page: CharacterPageEntry | None
+    # "chosen", "claim" or "nickname", as for performance.
+    matched_by: str | None
+    looked_for: list[str]
+    characters: list[str]
+
+
+class WantedOut(BaseModel):
+    names: list[str]
+
+
 class NextRaidBody(BaseModel):
     name: str
     starts_at: datetime
@@ -314,6 +395,20 @@ async def my_badges(principal: SignedIn, badges: Badges) -> MyBadgesOut:
     )
 
 
+@router.get("/character-page")
+async def my_character_page(
+    principal: SignedIn, characters: CharacterPages, name: Annotated[str | None, Query(max_length=64)] = None
+) -> MyCharacterPageOut:
+    mine = await anyio.to_thread.run_sync(characters.mine, principal.member_id, name)
+    return MyCharacterPageOut(
+        generated_at=mine.generated_at,
+        page=CharacterPageEntry.model_validate(mine.page) if mine.page else None,
+        matched_by=mine.matched_by.value if mine.matched_by else None,
+        looked_for=mine.looked_for,
+        characters=mine.characters,
+    )
+
+
 @guild.get("/next-raid")
 async def next_raid(principal: SignedIn, next_raids: NextRaids) -> NextRaidOut:
     # Each member's own nights (a Thursday raider sees Thursday's raid); global officers and members of no night see
@@ -357,6 +452,22 @@ async def publish_badges(body: BadgePageIn, badges: Badges) -> dict[str, int]:
         raise _refused(exc) from None
     log.info("home.badges_published", players=kept)
     return {"players": kept}
+
+
+@worker.get("/character-pages/wanted")
+async def wanted_character_pages(characters: CharacterPages) -> WantedOut:
+    return WantedOut(names=await anyio.to_thread.run_sync(characters.wanted))
+
+
+@worker.put("/character-pages")
+async def publish_character_pages(body: CharacterPagesIn, characters: CharacterPages) -> dict[str, int]:
+    pages = [p.model_dump() for p in body.pages]
+    try:
+        kept = await anyio.to_thread.run_sync(characters.publish, body.version, body.generated_at, pages)
+    except HomeError as exc:
+        raise _refused(exc) from None
+    log.info("home.character_pages_published", pages=kept)
+    return {"pages": kept}
 
 
 class PublishedOut(BaseModel):

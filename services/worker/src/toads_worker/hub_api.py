@@ -29,6 +29,16 @@ def put(settings: Settings, path: str, body: dict[str, Any], hub: httpx.Client |
     return answer
 
 
+def get(settings: Settings, path: str, hub: httpx.Client | None = None) -> dict[str, Any]:
+    """GET `path` from the hub API with the service token and return its JSON answer; raises on any non-2xx answer."""
+    token = service_token(settings)
+    hub = hub or httpx.Client(base_url=settings.hub_api_url, timeout=30.0)
+    r = hub.get(path, headers={"Authorization": f"Bearer {token}"})
+    r.raise_for_status()
+    answer: dict[str, Any] = r.json()
+    return answer
+
+
 @contextmanager
 def client(settings: Settings, hub: httpx.Client | None) -> Iterator[httpx.Client]:
     """The caller's client, or one for the whole run, closed after it."""

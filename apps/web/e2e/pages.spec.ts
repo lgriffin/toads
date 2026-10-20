@@ -147,6 +147,20 @@ test('raid leaders see the roster\'s badges on Logs and members their own on Me'
   await expect(mine.getByRole('img', { name: /^Drummer, not earned yet/ })).toBeVisible();
 });
 
+test('Me shows a member their own raids against the role median, and switches character', async ({ page }) => {
+  await page.goto('me/');
+  const raids = page.getByRole('region', { name: 'Your raids' });
+  await expect(raids.getByText(/^Hopscotch, Rogue: 5 guild raids/)).toBeVisible();
+  await expect(raids.getByRole('img', { name: /^Damage as melee/ })).toBeVisible();
+  await expect(raids.getByRole('columnheader', { name: 'Role median' })).toBeVisible();
+  await raids.getByRole('button', { name: 'Lilypadd' }).click();
+  await expect(raids.getByText(/^Building your history/)).toBeVisible();
+  await expect(raids.getByRole('img', { name: /^Healing as healer/ })).toHaveCount(0);
+  // Each raid opens its page under Logs.
+  await raids.getByRole('link', { name: 'Tempest Keep' }).first().click();
+  await expect(page).toHaveURL(/\/toads\/logs\/pondThu1015\/$/);
+});
+
 test('the tab shows the toad icon, and every icon file loads under the base path', async ({ page, request }) => {
   await page.goto('./');
   const hrefs = await page.locator('link[rel="icon"], link[rel="apple-touch-icon"]').evaluateAll((links) =>

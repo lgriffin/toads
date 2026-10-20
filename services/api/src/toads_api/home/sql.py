@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from hub_db import (
     AnalyzerBadgePage,
+    AnalyzerCharacterBuild,
+    AnalyzerCharacterPage,
     AnalyzerHomePage,
     AnalyzerPerformancePage,
     CharacterClaim,
@@ -14,12 +17,19 @@ from hub_db import (
     MemberHomeLayout,
     NightHomePage,
 )
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from toads_api.home.performance import fold
-from toads_api.home.repository import MemberCharacters, StoredBadges, StoredPage, StoredPerformance, StoredWidget
+from toads_api.home.repository import (
+    MemberCharacters,
+    StoredBadges,
+    StoredCharacterPage,
+    StoredPage,
+    StoredPerformance,
+    StoredWidget,
+    fold,
+)
 
 # The analyzer's page is guild-wide: one row.
 _PAGE_ROW = 1
@@ -187,3 +197,55 @@ class SqlHomeRepository:
                     for name in db.scalars(select(Member.display_name).where(Member.id != member_id))
                 ),
             )
+
+    def character_names(self) -> list[str]:
+        with self._db() as db:
+            claimed = db.scalars(
+                select(CharacterClaim.character_name).where(CharacterClaim.status == ClaimStatus.APPROVED)
+            ).all()
+            nicknames = db.scalars(select(Member.display_name)).all()
+        by_key = {fold(n): n.strip() for n in (*nicknames, *claimed) if n and n.strip()}
+        return sorted(by_key.values(), key=str.casefold)
+
+    def character_page(self, name: str) -> StoredCharacterPage | None:
+        with self._db() as db:
+            row = db.get(AnalyzerCharacterPage, fold(name))
+            return None if row is None else StoredCharacterPage(row.version, row.generated_at, dict(row.page))
+
+    def character_pages_generated_at(self) -> str | None:
+        with self._db() as db:
+            build = db.get(AnalyzerCharacterBuild, _PAGE_ROW)
+            return None if build is None else build.generated_at
+
+    def save_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
+        try:
+            return self._write_character_pages(version, generated_at, pages)
+        except IntegrityError:
+            # The first two publications raced to insert the build row; the loser tries again behind the winner.
+            return self._write_character_pages(version, generated_at, pages)
+
+    def _write_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
+        with self._db.begin() as db:
+            # The build row is locked for the whole transaction (on Postgres), so publications never interleave, and
+            # it remembers the newest build even when it held no pages: a delayed or retried older one is refused.
+            now = datetime.now(UTC)
+            build = db.get(AnalyzerCharacterBuild, _PAGE_ROW, with_for_update=True)
+            if build is None:
+                build = AnalyzerCharacterBuild(id=_PAGE_ROW, version=version, generated_at=generated_at)
+                db.add(build)
+                db.flush()
+            elif generated_at < build.generated_at:
+                return False
+            build.version, build.generated_at, build.updated_at = version, generated_at, now
+            db.execute(delete(AnalyzerCharacterPage))
+            for page in pages:
+                db.add(
+                    AnalyzerCharacterPage(
+                        name_key=fold(str(page["name"])),
+                        version=version,
+                        generated_at=generated_at,
+                        page=page,
+                        updated_at=now,
+                    )
+                )
+            return True

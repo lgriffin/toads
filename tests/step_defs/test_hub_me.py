@@ -1,0 +1,162 @@
+"""REQ-HUB-ME-*: a member's own raids on Me, from the analyzer's character pages (docs/me.md).
+
+Thin steps over the `hub` fixture (root conftest.py): the real API wired to the fake Discord server, with the worker's
+pages sent as the worker sends them. The trend threshold lives in the web app, so its steps read the source.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import pytest
+from hub_db import CharacterClaim, ClaimStatus
+from pytest_bdd import given, parsers, scenarios, then, when
+
+from conftest import Hub
+
+FEATURES = Path(__file__).resolve().parents[1] / "features"
+scenarios(str(FEATURES / "hub_me.feature"))
+
+WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src" / "lib"
+WORKER = {"Authorization": "Bearer test-service-token"}
+GENERATED = "2026-10-16 08:00:00"
+
+
+@pytest.fixture
+def ctx() -> dict[str, Any]:
+    return {}
+
+
+def _member_id(hub: Hub, sid: str) -> int:
+    member_id: int = hub.get("/api/session", sid).json()["member_id"]
+    return member_id
+
+
+def _raid(value: float, median: float) -> dict[str, Any]:
+    return {
+        "report_id": "pondWed1014",
+        "title": "Serpentshrine Cavern",
+        "zone": "Serpentshrine Cavern",
+        "raid_date": "2026-10-14 20:00:00",
+        "weekday": 2,
+        "role": "healer",
+        "metric": "Healing",
+        "value": value,
+        "display": f"{value / 1_000_000:.1f}M",
+        "median": median,
+        "median_display": f"{median / 1_000_000:.1f}M",
+        "rank": 2,
+        "of": 6,
+        "percent": 18.2,
+    }
+
+
+def _page(name: str, value: float = 1_000_000, median: float = 900_000) -> dict[str, Any]:
+    """wcl_app CharacterPage.to_dict() (guides/character_pages.md in lgriffin/warcraftlogs_project)."""
+    return {
+        "version": 1,
+        "name": name,
+        "player_class": "Priest",
+        "raids": 1,
+        "first_raid": "2026-10-14 20:00:00",
+        "last_raid": "2026-10-14 20:00:00",
+        "role_counts": {"healer": 1},
+        "recent": [_raid(value, median)],
+        "metrics": [],
+        "casts": [],
+        "consumables": [],
+        "bests": [],
+        "charts": [],
+    }
+
+
+def _publish(hub: Hub, *pages: dict[str, Any]) -> None:
+    body = {"version": 1, "generated_at": GENERATED, "pages": list(pages)}
+    r = hub.client.put("/api/worker/character-pages", headers=WORKER, json=body)
+    assert r.status_code == 200, r.text
+
+
+@given("a Wednesday raider signed in to the hub")
+def raider_signed_in(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["sid"] = hub.login(hub.user(("wed", "raider")))
+
+
+@given(parsers.parse('they hold an approved claim on "{name}"'))
+def own_claim(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    ctx["claims"] = ctx.get("claims", 100) + 1
+    with hub.db.begin() as db:
+        db.add(
+            CharacterClaim(
+                character_id=ctx["claims"],
+                member_id=_member_id(hub, ctx["sid"]),
+                character_name=name,
+                status=ClaimStatus.APPROVED,
+            )
+        )
+
+
+@when(
+    parsers.parse(
+        'the worker publishes a character page where "{name}" healed {value:d} against a healer median of {median:d}'
+    )
+)
+def publish_one(hub: Hub, name: str, value: int, median: int) -> None:
+    _publish(hub, _page(name, value, median))
+
+
+@when(parsers.parse('the worker publishes character pages for "{first}", "{second}" and "{third}"'))
+def publish_three(hub: Hub, first: str, second: str, third: str) -> None:
+    _publish(hub, _page(first), _page(second), _page(third))
+
+
+@then(parsers.parse('their raids show "{name}" healing {value:d} against the healer median of {median:d}'))
+def shows_raid(hub: Hub, ctx: dict[str, Any], name: str, value: int, median: int) -> None:
+    mine = hub.get("/api/me/character-page", ctx["sid"]).json()
+    assert mine["page"]["name"] == name
+    (raid,) = mine["page"]["recent"]
+    assert (raid["role"], raid["metric"], raid["value"], raid["median"]) == ("healer", "Healing", value, median)
+
+
+@then(parsers.parse('a member without a claim on "{name}" sees no raids'))
+def others_see_nothing(hub: Hub, name: str) -> None:
+    other = hub.login(hub.user(("wed", "raider")))
+    mine = hub.get(f"/api/me/character-page?name={name}", other).json()
+    assert mine["generated_at"] == GENERATED
+    assert (mine["page"], mine["characters"]) == (None, [])
+
+
+@then(parsers.parse('they can switch between the raids of "{first}" and "{second}"'))
+def can_switch(hub: Hub, ctx: dict[str, Any], first: str, second: str) -> None:
+    mine = hub.get("/api/me/character-page", ctx["sid"]).json()
+    assert mine["characters"] == [first, second]
+    assert mine["page"]["name"] == first
+    assert hub.get(f"/api/me/character-page?name={second.lower()}", ctx["sid"]).json()["page"]["name"] == second
+
+
+@then(parsers.parse('asking for "{other}" shows "{name}" instead'))
+def no_other_page(hub: Hub, ctx: dict[str, Any], other: str, name: str) -> None:
+    mine = hub.get(f"/api/me/character-page?name={other}", ctx["sid"]).json()
+    assert mine["page"]["name"] == name
+
+
+@given("the raids card on Me")
+def raids_card(ctx: dict[str, Any]) -> None:
+    ctx["lib"] = (WEB / "characters.ts").read_text(encoding="utf-8")
+    ctx["card"] = (WEB / "components" / "CharacterCard.svelte").read_text(encoding="utf-8")
+
+
+@then(parsers.parse("it draws trend lines only from {n:d} guild raids"))
+def trend_threshold(ctx: dict[str, Any], n: int) -> None:
+    assert re.search(rf"export const MIN_TREND_RAIDS = {n};", ctx["lib"])
+    assert "page.raids >= MIN_TREND_RAIDS" in ctx["lib"]
+    # The charts sit inside the showTrends branch only.
+    trends = ctx["card"].index("{#if showTrends(page)}")
+    assert trends < ctx["card"].index("<PayloadChart") < ctx["card"].index("{:else}", trends)
+
+
+@then("below that it says the history is building")
+def building(ctx: dict[str, Any]) -> None:
+    after = ctx["card"][ctx["card"].index("{#if showTrends(page)}") :]
+    assert "Building your history." in after[: after.index("{/if}")]
