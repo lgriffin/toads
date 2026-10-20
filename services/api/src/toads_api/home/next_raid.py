@@ -90,15 +90,18 @@ class NextRaidService:
         A Discord event on a weekday that is no raid night (a one-off raid) is shown to everyone."""
         now = datetime.fromtimestamp(self._clock(), UTC)
         nights = set(days or ())
-        events = [e for e in await self._read_events() if self._on(self._day_for(e.starts_at), nights, one_off=True)]
+        events = [e for e in await self._read_events() if self._event_for(e.starts_at, nights)]
         from_discord = self._soonest_event(events, now)
-        return from_discord or self._soonest_slot(now, [s for s in self._slots if self._on(s, nights, one_off=False)])
+        slots = [s for s in self._slots if not nights or s.day_id in nights]
+        return from_discord or self._soonest_slot(now, slots)
 
-    @staticmethod
-    def _on(day: RaidSlot | None, nights: set[str], *, one_off: bool) -> bool:
+    def _event_for(self, starts_at: datetime, nights: set[str]) -> bool:
+        """An event counts for every raid day on its weekday (two days may share one); none means a one-off."""
         if not nights:
             return True
-        return one_off if day is None else day.day_id in nights
+        weekday = starts_at.astimezone(self._tz).weekday()
+        days = {s.day_id for s in self._slots if s.weekday == weekday}
+        return not days or bool(days & nights)
 
     async def _read_events(self) -> list[ScheduledEvent]:
         """Discord's events, reused for CACHE_SECONDS. If Discord fails, the last good read stands in (or none)."""

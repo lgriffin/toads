@@ -189,3 +189,10 @@ def test_a_one_off_raid_on_no_raid_night_is_shown_to_everyone() -> None:
     saturday = datetime(2026, 10, 3, 20, 0, tzinfo=PARIS)
     raid = _next_for(_service(Events(_event(9, saturday)), [MONDAY_NOON.timestamp()]), ["sun"])
     assert raid is not None and (raid.name, raid.raid_day_id) == ("Raid 9", None)
+
+
+def test_an_event_counts_for_every_raid_day_on_its_weekday() -> None:
+    wed = datetime(2026, 9, 30, 20, 0, tzinfo=PARIS)
+    late = RaidSlot("wed2", "Wednesday late", 2, None)
+    raid = _next_for(_service(Events(_event(1, wed)), [MONDAY_NOON.timestamp()], (WED, late, SUN)), ["wed2"])
+    assert raid is not None and raid.name == "Raid 1"
