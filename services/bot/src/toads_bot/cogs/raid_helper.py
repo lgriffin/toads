@@ -24,7 +24,10 @@ log = logging.getLogger(__name__)
 MAX_EXPORT_BYTES = 512 * 1024
 # What a refusal from the hub means, in words for the officer.
 REFUSALS = {
-    401: "The Toad Bot could not sign in to the hub. Tell a super admin.",
+    401: (
+        "The hub did not accept the Toad Bot's call. Tell a super admin: the bot and the API may hold different "
+        "TOADS_HUB_SERVICE_TOKEN values, or the API is older than the bot."
+    ),
     403: "Only that night's officers can import its sign-ups.",
     404: "The hub has no such raid night.",
     503: "Discord is not answering the hub right now. Try again in a minute.",
@@ -36,6 +39,10 @@ OUTCOMES = (
     ("kept", "kept (they set their own on Me)"),
     ("skipped", "skipped"),
 )
+
+
+class NightsUnavailable(Exception):
+    """The hub's list of raid nights could not be read."""
 
 
 def read_export(raw: bytes) -> dict[str, Any] | None:
@@ -83,7 +90,7 @@ class RaidHelper(commands.Cog):
     ) -> list[app_commands.Choice[str]]:
         try:
             nights = await self.hub.raid_nights()
-        except httpx.HTTPError:
+        except (httpx.HTTPError, ValueError):
             return []
         wanted = current.strip().lower()
         return [
@@ -100,6 +107,18 @@ class RaidHelper(commands.Cog):
     ) -> None:
         await self.run_import(interaction, night, export)
 
+    async def resolve_night(self, typed: str) -> tuple[str, str] | None:
+        """The night's (id, name) from what was typed or picked: its id ("sun") from the list, or its name ("Sunday")
+        typed before the list came up. None when no night matches. Raises NightsUnavailable when the hub's list cannot
+        be read, rather than guessing an id from a name."""
+        wanted = typed.strip().casefold()
+        try:
+            nights = await self.hub.raid_nights()
+            pairs = [(str(n["id"]), str(n["name"])) for n in nights]
+        except (httpx.HTTPError, ValueError, TypeError, KeyError) as e:
+            raise NightsUnavailable from e
+        return next(((i, n) for i, n in pairs if wanted in (i.casefold(), n.casefold())), None)
+
     async def run_import(self, interaction: Any, night: str, export: Any) -> None:
         if export.size > MAX_EXPORT_BYTES:
             await interaction.response.send_message("That file is too big to be a Raid-Helper export.", ephemeral=True)
@@ -110,7 +129,19 @@ class RaidHelper(commands.Cog):
             await interaction.followup.send("That file is not a Raid-Helper export (it is not JSON).", ephemeral=True)
             return
         try:
-            response = await self.hub.import_raid_helper(night, interaction.user.id, data)
+            found = await self.resolve_night(night)
+        except NightsUnavailable:
+            log.error("cannot read the raid nights from the hub at %s", self.hub.base_url)
+            await interaction.followup.send("The hub is not answering. Try again in a minute.", ephemeral=True)
+            return
+        if found is None:
+            await interaction.followup.send(
+                f"There is no raid night called {night[:40]}. Pick one from the list.", ephemeral=True
+            )
+            return
+        day, name = found
+        try:
+            response = await self.hub.import_raid_helper(day, interaction.user.id, data)
         except httpx.HTTPError as e:
             log.error("cannot reach the hub at %s for a Raid-Helper import: %s", self.hub.base_url, e)
             await interaction.followup.send("The hub is not answering. Try again in a minute.", ephemeral=True)
@@ -118,4 +149,4 @@ class RaidHelper(commands.Cog):
         if response.status_code != 200:
             await interaction.followup.send(refusal(response), ephemeral=True)
             return
-        await interaction.followup.send(import_summary(night, response.json()), ephemeral=True)
+        await interaction.followup.send(import_summary(name, response.json()), ephemeral=True)

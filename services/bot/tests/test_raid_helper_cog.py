@@ -9,10 +9,12 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import httpx
+import pytest
 from pydantic import SecretStr
 from toads_bot.cogs.raid_helper import MAX_EXPORT_BYTES, RaidHelper, import_summary, read_export, refusal
 from toads_bot.hub import HubClient
 
+NIGHTS = [{"id": "wed", "name": "Wednesday"}, {"id": "sun", "name": "Sunday"}]
 EXPORT = {"slots": [{"name": "Tadpole", "userId": "42", "className": "Priest", "specName": "Holy"}]}
 
 
@@ -34,6 +36,8 @@ def attachment(raw: bytes, size: int | None = None) -> Any:
 
 def hub_answering(status: int, body: object, seen: list[httpx.Request]) -> HubClient:
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/public/raid-nights":
+            return httpx.Response(200, json=NIGHTS)
         seen.append(request)
         return httpx.Response(status, json=body)
 
@@ -81,3 +85,39 @@ def test_read_export_and_summary() -> None:
     assert text.startswith("Raid-Helper import for sun: 3 pre-filled, 1 kept (they set their own on Me), 17 skipped.")
     assert "- Seat0: Not confirmed" in text
     assert "- and 2 more" in text
+
+
+def test_a_night_typed_by_name_reaches_the_hub_by_id() -> None:
+    seen: list[httpx.Request] = []
+    result = {"added": 2, "rows": []}
+    i = interaction()
+    run(RaidHelper(hub_answering(200, result, seen)).run_import(i, " Sunday ", attachment(b"{}")))
+    assert [r.url.path for r in seen] == ["/api/days/sun/comps/raid-helper"]
+    assert i.followup.send.call_args.args[0].startswith("Raid-Helper import for Sunday: 2 pre-filled")
+
+
+def test_an_unknown_night_never_reaches_the_hub() -> None:
+    seen: list[httpx.Request] = []
+    i = interaction()
+    run(RaidHelper(hub_answering(200, {}, seen)).run_import(i, "Friday", attachment(b"{}")))
+    assert seen == []
+    assert "no raid night called Friday" in i.followup.send.call_args.args[0]
+
+
+@pytest.mark.parametrize(
+    "nights", [httpx.Response(503), httpx.Response(200, text="<html>"), httpx.Response(200, json=[{}])]
+)
+def test_an_unreadable_night_list_is_explained_and_nothing_is_imported(nights: httpx.Response) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/public/raid-nights":
+            return nights
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    i = interaction()
+    hub = HubClient("http://hub", SecretStr("svc"), transport=httpx.MockTransport(handler))
+    run(RaidHelper(hub).run_import(i, "Sunday", attachment(b"{}")))
+    assert seen == []
+    assert "not answering" in i.followup.send.call_args.args[0]
