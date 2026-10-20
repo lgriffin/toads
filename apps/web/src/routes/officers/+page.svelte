@@ -34,6 +34,14 @@
     </p>
     <a class="btn primary" href="{base}/officers/comp">Open the comp builder</a>
   </section>
+  <section class="card comp-link" aria-labelledby="recruit-link-h">
+    <h2 id="recruit-link-h">Recruitment</h2>
+    <p class="muted">
+      Pick who from the Toads Discord interviews each night's applicants. Someone applying for Sunday meets the Sunday
+      panel in their interview room.
+    </p>
+    <a class="btn primary" href="{base}/officers/recruitment">Set interview panels</a>
+  </section>
 {/snippet}
 
 {#if __PREVIEW__}

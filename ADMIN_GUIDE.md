@@ -133,7 +133,9 @@ not technical. Send it to them together with the invite link from step 3. The we
    <https://discord.com/oauth2/authorize?client_id=1561652680768626688&permissions=268520464&integration_type=0&scope=bot+applications.commands>,
    and docs/discord-setup.md already carries it.
 4. **Put the admin's three numbers into `config/community.yaml`**: the category id, plus user ids rather than
-   usernames, so a renamed account can't take an interviewer's place:
+   usernames, so a renamed account can't take an interviewer's place. These interviewers are the fallback: once a
+   night's officers set its panel on **Officers > Recruitment** (docs/recruitment.md), that night's applicants meet
+   the panel instead, with no restart:
 
    ```yaml
    interview_category_id: 1187654321098765432
@@ -299,9 +301,10 @@ Restart the API after editing a file.
 `services/api/src/toads_api/community/story.py`, and change with a deploy), `discord_invite`
 (discord.gg or discord.com/invite links only; the Story page hides its Discord button without one),
 `mirrored_channels` (channel id plus `raid_day`, `null` for guild-wide), `post_channels` (`guild` plus one per raid
-day), `interview_category_id` and `interviewers` (the officers who interview every applicant: Discord user ids, or
-usernames such as `[_gallagher, hadur117]`; prefer ids, since a username someone gives up can be claimed by another
-member). The homepage's own words are site text, not configuration: they live in `apps/web/src/lib/landing.ts` and
+day), `interview_category_id` and `interviewers` (who interviews applicants for a night with no interview panel:
+Discord user ids, or usernames such as `[_gallagher, hadur117]`; prefer ids, since a username someone gives up can be
+claimed by another member). Each night's panel is set by its officers on Officers > Recruitment, not here
+(docs/recruitment.md). The homepage's own words are site text, not configuration: they live in `apps/web/src/lib/landing.ts` and
 change through a PR.
 
 **`config/raid_sheets.yaml`** (worker, API): the CBA and RPB spreadsheets, which tabs to keep, `follows: cba` for RPB,
@@ -430,11 +433,13 @@ consent-gated spotlights, and the public pages (`/` landing, `/story`, `/recruit
 - **Nothing from Discord is shown until an officer publishes it.** Messages in `mirrored_channels` reach the curation
   queue; raid-day officers curate their day's channels, global officers the guild-wide ones.
 - **Only the global tier posts to the public Story.** An edit made in Discord sends a public post back to review.
-- **Applications** ask five questions (character, class, primary and secondary role, why Toads; no age, e-mail or
-  real name), need a Discord account that is in the server when the applicant presses send, and have a 30-day reapply
-  cooldown. With `interviewers` set, the Toad Bot opens the interview room under `interview_category_id` the moment
-  someone applies, with only the applicant and those interviewers in it, and posts their answers there. Without it,
-  an officer opens the room from the officer console and the officers of the days applied for see it. Officers move
+- **Applications** ask six questions (character, class, primary and secondary role, raid night, why Toads; no age,
+  e-mail or real name), need a Discord account that is in the server when the applicant presses send, and have a
+  30-day reapply cooldown. The Toad Bot opens the interview room under `interview_category_id` the moment someone
+  applies, with only the applicant and the chosen night's interview panel in it, and posts their answers there. Each
+  night's officers pick their panel from the Discord on **Officers > Recruitment**; a night without one uses
+  `interviewers` from the config (docs/recruitment.md). With neither, an officer opens the room from the officer
+  console and the officers of the days applied for see it. Officers move
   applications through their states either way, and the room is locked (never deleted) when one closes.
 - **Highlights**: raiders submit clips (YouTube, Twitch and Streamable only, loaded on click); global officers review
   them. **Spotlights** need the member's consent before they are published.

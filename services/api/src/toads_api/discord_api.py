@@ -1,5 +1,5 @@
 """The few Discord endpoints the API needs: OAuth2 token exchange, the caller's guild member, the bot's application,
-the guild's roles and its scheduled events.
+the guild's roles, a member search and its scheduled events.
 
 `DiscordAPI` is a protocol so tests and the dev stack can swap in the fake server
 (`toads_api.testing.fake_discord`) through an httpx transport; nothing here reads the environment.
@@ -149,6 +149,11 @@ class DiscordAPI(Protocol):
         acting-member calls use it to read that member's roles (docs/bank.md)."""
         ...
 
+    async def search_members(self, query: str, limit: int = 10) -> list[GuildMember]:
+        """Members of the Toads server whose username or nickname starts with `query` (bot token). Officers pick the
+        interview panels from these (docs/recruitment.md)."""
+        ...
+
     async def scheduled_events(self) -> list[ScheduledEvent]:
         """The Toads server's scheduled events that have not finished, with interested counts (bot token)."""
         ...
@@ -255,6 +260,22 @@ class HttpDiscord:
         if r.status_code != 200:
             raise DiscordError(f"Discord member lookup failed with HTTP {r.status_code}")
         return GuildMember.from_api(r.json())
+
+    async def search_members(self, query: str, limit: int = 10) -> list[GuildMember]:
+        try:
+            r = await self._http.get(
+                f"{self._base}/guilds/{self._guild_id}/members/search",
+                params={"query": query, "limit": str(max(1, min(limit, 100)))},
+                headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+            )
+        except httpx.HTTPError as exc:
+            raise DiscordError("Discord member search could not reach Discord") from exc
+        if r.status_code != 200:
+            raise DiscordError(f"Discord member search failed with HTTP {r.status_code}")
+        try:
+            return [GuildMember.from_api(m) for m in r.json()]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DiscordError("Discord sent a member the hub could not read") from exc
 
     async def scheduled_events(self) -> list[ScheduledEvent]:
         r = await self._http.get(

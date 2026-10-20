@@ -79,37 +79,47 @@ APPLICATION = {
 
 # Every community route with the permission it needs. A new route without a row here fails
 # test_every_community_route_is_in_the_matrix, so no route ships without a permission (REQ-HUB-DAY-021).
-ROUTES: list[tuple[str, str, Permission]] = [
-    ("GET", "/api/posts", Permission.VIEW_GUILD_RAIDS),
-    ("GET", "/api/highlights", Permission.VIEW_GUILD_RAIDS),
-    ("POST", "/api/highlights", Permission.SUBMIT_HIGHLIGHT),
-    ("POST", "/api/applications", Permission.APPLY),
-    ("GET", "/api/applications/mine", Permission.APPLY),
-    ("POST", "/api/applications/{app_id}/withdraw", Permission.APPLY),
-    ("GET", "/api/me/spotlights", Permission.VIEW_GUILD_RAIDS),
-    ("POST", "/api/me/spotlights/{sp_id}/consent", Permission.VIEW_GUILD_RAIDS),
-    ("GET", "/api/desk", Permission.VIEW_GUILD_RAIDS),
-    ("PUT", "/api/admin/recruitment/needs", Permission.MANAGE_RECRUITMENT),
-    ("GET", "/api/admin/highlights", Permission.MANAGE_HIGHLIGHTS),
-    ("POST", "/api/admin/highlights/{hl_id}/review", Permission.MANAGE_HIGHLIGHTS),
-    ("GET", "/api/admin/spotlights", Permission.MANAGE_HIGHLIGHTS),
-    ("POST", "/api/admin/spotlights", Permission.MANAGE_HIGHLIGHTS),
-    ("POST", "/api/admin/spotlights/{sp_id}/publish", Permission.MANAGE_HIGHLIGHTS),
-    ("POST", "/api/admin/spotlights/{sp_id}/retire", Permission.MANAGE_HIGHLIGHTS),
-] + [
-    (method, f"{prefix}{path}", perm)
-    for prefix in ("/api/admin", "/api/days/{day}/admin")
-    for method, path, perm in [
-        ("GET", "/applications", Permission.MANAGE_RECRUITMENT),
-        ("POST", "/applications/{app_id}/transition", Permission.MANAGE_RECRUITMENT),
-        ("POST", "/applications/{app_id}/interview-room", Permission.MANAGE_RECRUITMENT),
-        ("GET", "/curation", Permission.MANAGE_POSTS),
-        ("POST", "/curation/{post_id}", Permission.MANAGE_POSTS),
-        ("POST", "/posts", Permission.MANAGE_POSTS),
-        ("PUT", "/posts/{post_id}", Permission.MANAGE_POSTS),
+ROUTES: list[tuple[str, str, Permission]] = (
+    [
+        ("GET", "/api/posts", Permission.VIEW_GUILD_RAIDS),
+        ("GET", "/api/highlights", Permission.VIEW_GUILD_RAIDS),
+        ("POST", "/api/highlights", Permission.SUBMIT_HIGHLIGHT),
+        ("POST", "/api/applications", Permission.APPLY),
+        ("GET", "/api/applications/mine", Permission.APPLY),
+        ("POST", "/api/applications/{app_id}/withdraw", Permission.APPLY),
+        ("GET", "/api/me/spotlights", Permission.VIEW_GUILD_RAIDS),
+        ("POST", "/api/me/spotlights/{sp_id}/consent", Permission.VIEW_GUILD_RAIDS),
+        ("GET", "/api/desk", Permission.VIEW_GUILD_RAIDS),
+        ("PUT", "/api/admin/recruitment/needs", Permission.MANAGE_RECRUITMENT),
+        ("GET", "/api/admin/highlights", Permission.MANAGE_HIGHLIGHTS),
+        ("POST", "/api/admin/highlights/{hl_id}/review", Permission.MANAGE_HIGHLIGHTS),
+        ("GET", "/api/admin/spotlights", Permission.MANAGE_HIGHLIGHTS),
+        ("POST", "/api/admin/spotlights", Permission.MANAGE_HIGHLIGHTS),
+        ("POST", "/api/admin/spotlights/{sp_id}/publish", Permission.MANAGE_HIGHLIGHTS),
+        ("POST", "/api/admin/spotlights/{sp_id}/retire", Permission.MANAGE_HIGHLIGHTS),
     ]
-]
-PUBLIC = {("GET", "/api/public/story"), ("GET", "/api/public/recruitment")}
+    + [
+        (method, f"{prefix}{path}", perm)
+        for prefix in ("/api/admin", "/api/days/{day}/admin")
+        for method, path, perm in [
+            ("GET", "/applications", Permission.MANAGE_RECRUITMENT),
+            ("POST", "/applications/{app_id}/transition", Permission.MANAGE_RECRUITMENT),
+            ("POST", "/applications/{app_id}/interview-room", Permission.MANAGE_RECRUITMENT),
+            ("GET", "/curation", Permission.MANAGE_POSTS),
+            ("POST", "/curation/{post_id}", Permission.MANAGE_POSTS),
+            ("POST", "/posts", Permission.MANAGE_POSTS),
+            ("PUT", "/posts/{post_id}", Permission.MANAGE_POSTS),
+        ]
+    ]
+    + [
+        # A raid night's interview panel is that night's: there is no guild-wide one.
+        ("GET", "/api/days/{day}/admin/interview-panel", Permission.MANAGE_RECRUITMENT),
+        ("POST", "/api/days/{day}/admin/interview-panel", Permission.MANAGE_RECRUITMENT),
+        ("DELETE", "/api/days/{day}/admin/interview-panel/{discord_user_id}", Permission.MANAGE_RECRUITMENT),
+        ("GET", "/api/days/{day}/admin/discord-members", Permission.MANAGE_RECRUITMENT),
+    ]
+)
+PUBLIC = {("GET", "/api/public/story"), ("GET", "/api/public/recruitment"), ("GET", "/api/public/raid-nights")}
 BOT_ROUTES = {
     ("GET", "/api/bot/outbox"),
     ("POST", "/api/bot/outbox/{job_id}/ack"),
@@ -139,6 +149,7 @@ def _concrete(path: str, day: str) -> str:
         .replace("{post_id}", "999999")
         .replace("{hl_id}", "999999")
         .replace("{sp_id}", "999999")
+        .replace("{discord_user_id}", "999999")
     )
 
 
@@ -654,3 +665,93 @@ def test_recruitment_needs_are_global_only(as_: Any) -> None:
     assert as_(None).get("/api/public/recruitment").json()[0]["spec"] == "Feral"
     bad = [{**needs[0], "raid_days": ["fri"]}]
     assert as_("global officer").put("/api/admin/recruitment/needs", json=bad).status_code == 422
+
+
+# ------------------------------------------------------- interview panels
+
+
+def _panel(as_: Any, who: str, day: str, *discord_ids: int) -> dict[str, Any]:
+    body: dict[str, Any] = {}
+    for discord_id in discord_ids:
+        r = as_(who).post(f"/api/days/{day}/admin/interview-panel", json={"discord_user_id": str(discord_id)})
+        assert r.status_code == 201, r.text
+        body = r.json()
+    return body
+
+
+def test_the_recruit_page_offers_each_raid_night(as_: Any) -> None:
+    assert as_(None).get("/api/public/raid-nights").json() == [
+        {"id": "wed", "name": "Wednesday"},
+        {"id": "sun", "name": "Sunday"},
+    ]
+
+
+def test_officers_find_discord_members_to_put_on_their_panel(as_: Any) -> None:
+    r = as_("Sunday officer").get("/api/days/sun/admin/discord-members", params={"q": "ribb"})
+    assert r.status_code == 200
+    assert r.json() == [{"discord_user_id": "10001", "username": "ribbitz", "display_name": "ribbitz"}]
+    assert as_("Sunday officer").get("/api/days/sun/admin/discord-members", params={"q": ""}).status_code == 422
+
+
+def test_a_sunday_applicant_gets_the_sunday_panel(as_: Any, store: CommunityService) -> None:
+    store.config = store.config.model_copy(update={"interviewers": ["_gallagher"]})
+    _panel(as_, "Wednesday officer", "wed", 10_001)
+    panel = _panel(as_, "Sunday officer", "sun", 10_002, 10_003)
+    assert [i["username"] for i in panel["interviewers"]] == ["croakley", "pondkeeper"]
+    assert panel["fallback"] == ["_gallagher"]
+    app = as_("applicant").post("/api/applications", json={**APPLICATION, "raid_days": ["sun"]}).json()
+    assert app["status"] == "interviewing"
+    [job] = store.pending_jobs()
+    assert job.payload["interviewers"] == ["10002", "10003"]
+    assert job.payload["officer_role_ids"] == []
+    assert [(a.action, a.raid_day) for a in store.repo.audit()][-1] == ("application.interview_room", None)
+
+
+def test_a_night_without_a_panel_falls_back_to_the_configured_interviewers(as_: Any, store: CommunityService) -> None:
+    store.config = store.config.model_copy(update={"interviewers": ["_gallagher", "hadur117"]})
+    _panel(as_, "Sunday officer", "sun", 10_002)
+    as_("applicant").post("/api/applications", json=APPLICATION)  # Wednesday, which has no panel
+    [job] = store.pending_jobs()
+    assert job.payload["interviewers"] == ["_gallagher", "hadur117"]
+
+
+def test_with_no_panel_and_no_configured_interviewers_officers_open_rooms(as_: Any, store: CommunityService) -> None:
+    app = as_("applicant").post("/api/applications", json=APPLICATION).json()
+    assert app["status"] == "applied"
+    assert store.pending_jobs() == []
+
+
+def test_officers_take_people_off_their_panel(as_: Any, store: CommunityService) -> None:
+    _panel(as_, "global officer", "wed", 10_001, 10_002)
+    r = as_("Wednesday officer").delete("/api/days/wed/admin/interview-panel/10001")
+    assert r.status_code == 200
+    assert [i["discord_user_id"] for i in r.json()["interviewers"]] == ["10002"]
+    assert as_("Wednesday officer").delete("/api/days/wed/admin/interview-panel/10001").status_code == 404
+    assert [a.action for a in store.repo.audit()] == [
+        "recruitment.panel_add",
+        "recruitment.panel_add",
+        "recruitment.panel_remove",
+    ]
+
+
+def test_a_panel_refuses_doubles_strangers_and_unknown_nights(as_: Any, store: CommunityService) -> None:
+    _panel(as_, "Wednesday officer", "wed", 10_001)
+    again = as_("Wednesday officer").post("/api/days/wed/admin/interview-panel", json={"discord_user_id": "10001"})
+    assert again.status_code == 409
+    stranger = as_("Wednesday officer").post("/api/days/wed/admin/interview-panel", json={"discord_user_id": "424242"})
+    assert stranger.status_code == 422
+    assert "not in the Toads Discord" in stranger.json()["detail"]
+    nowhere = as_("global officer").get("/api/days/fri/admin/interview-panel")
+    assert nowhere.status_code == 404
+
+
+def test_a_panel_has_room_for_ten(as_: Any, store: CommunityService) -> None:
+    from toads_api.community.schemas import Interviewer
+
+    store.repo.set_interview_panel(
+        "wed",
+        [Interviewer(discord_user_id=str(20_000 + i), username=f"u{i}", display_name=f"U{i}") for i in range(10)],
+        1,
+    )
+    r = as_("Wednesday officer").post("/api/days/wed/admin/interview-panel", json={"discord_user_id": "10001"})
+    assert r.status_code == 409

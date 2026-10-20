@@ -46,6 +46,7 @@ def demo_service(clock: Callable[[], datetime], repo: CommunityRepository | None
         day_ids=frozenset({"wed", "sun"}),
         global_officer_roles=(GLOBAL_ROLE,),
         officer_roles={"wed": (WED_OFFICER_ROLE,), "sun": (SUN_OFFICER_ROLE,)},
+        day_names={"wed": "Wednesday", "sun": "Sunday"},
     )
     config = CommunityConfig(
         discord_invite="https://discord.gg/toads",

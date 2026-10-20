@@ -1,4 +1,5 @@
-"""Community tables: posts mirrored both ways with Discord, applications, highlight reels, spotlights, bot outbox.
+"""Community tables: posts mirrored both ways with Discord, applications and interview panels, highlight reels,
+spotlights, bot outbox.
 
 The API reads and writes them through `toads_api.community.sql_repository.SqlCommunityRepository`.
 Enum columns are stored as strings (native_enum=False) so values match the API schemas without a shared import.
@@ -92,6 +93,25 @@ class RecruitmentNeed(Base):
     role: Mapped[str] = mapped_column(String(8))
     priority: Mapped[str] = mapped_column(String(8))
     raid_days: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+
+class InterviewPanelist(Base):
+    """One Discord member on a raid night's interview panel: the Toad Bot adds them to the interview room of everyone
+    who applies for that night (docs/recruitment.md). Not a members row: interviewers need not have used the hub."""
+
+    __tablename__ = "interview_panelists"
+    __table_args__ = (UniqueConstraint("raid_day_id", "discord_user_id", name="uq_interview_panelist"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The raid day's id from config/raid_days.yaml (not a foreign key: raid days are config, not rows).
+    raid_day_id: Mapped[str] = mapped_column(String(32), index=True)
+    discord_user_id: Mapped[int] = mapped_column(BigInteger)
+    username: Mapped[str] = mapped_column(String(32))
+    # Their server name when they were added, so the panel reads well without asking Discord each time.
+    display_name: Mapped[str] = mapped_column(String(100))
+    position: Mapped[int] = mapped_column(default=0)
+    added_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Highlight(Base):

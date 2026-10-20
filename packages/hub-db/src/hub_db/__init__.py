@@ -10,6 +10,7 @@ from hub_db.community import (
     CommunityId,
     CommunityPost,
     Highlight,
+    InterviewPanelist,
     RecruitmentNeed,
     Spotlight,
 )
@@ -58,6 +59,7 @@ __all__ = [
     "CredentialDecryptError",
     "DiscordRoleBadge",
     "Highlight",
+    "InterviewPanelist",
     "LogIndex",
     "LogRaid",
     "Member",
