@@ -33,7 +33,13 @@ class RoomError(Exception):
 
 def room_problems(perms: discord.Permissions) -> list[str]:
     """What the bot is missing to open a private interview room where it has these permissions."""
-    needed = {"view_channel": "View Channels", "manage_channels": "Manage Channels", "manage_roles": "Manage Roles"}
+    needed = {
+        "view_channel": "View Channels",
+        "send_messages": "Send Messages",
+        "embed_links": "Embed Links",
+        "manage_channels": "Manage Channels",
+        "manage_roles": "Manage Roles",
+    }
     return [label for flag, label in needed.items() if not getattr(perms, flag)]
 
 
@@ -138,6 +144,8 @@ class Community(commands.Cog):
         self.guild_id = guild_id
         self.mirror_channel_ids = mirror_channel_ids
         self.post_to_channels = post_to_channels
+        # Rooms opened whose ack the hub has not taken yet, by job id: a retry acks the same room, never opens another.
+        self.opened_rooms: dict[int, int] = {}
 
     async def cog_load(self) -> None:
         self.poll.start()
@@ -225,23 +233,25 @@ class Community(commands.Cog):
             job, post = item["job"], item.get("post")
             try:
                 await self._run(guild, job, post)
-            except (RoomError, discord.Forbidden, discord.NotFound) as e:
-                await self._give_up(job, e)
-            except discord.HTTPException:
-                # A Discord outage or rate limit: left un-acked, so the next poll retries it.
-                log.warning("outbox job %s (%s) failed; retrying", job["id"], job["kind"], exc_info=True)
+            except RoomError as e:
+                await self._give_up(job, str(e))
+            except discord.HTTPException as e:
+                if 400 <= e.status < 500 and e.status != 429:
+                    # Discord said no (missing permission, unknown member, full category): retrying will not help.
+                    await self._give_up(job, f"Discord refused: {e.status} {e.text}".strip())
+                else:
+                    # A Discord outage or rate limit: left un-acked, so the next poll retries it.
+                    log.warning("outbox job %s (%s) failed; retrying", job["id"], job["kind"], exc_info=True)
             except httpx.HTTPError:
                 log.exception("outbox job %s (%s) done but the hub did not take the ack", job["id"], job["kind"])
-            except Exception as e:  # a bug in one job must not hide the others or end the loop
-                log.exception("outbox job %s (%s) failed", job["id"], job["kind"])
-                await self._give_up(job, e)
+            except Exception:  # a bug in one job must not hide the others or end the loop; it is retried
+                log.exception("outbox job %s (%s) failed; retrying", job["id"], job["kind"])
 
-    async def _give_up(self, job: dict[str, Any], e: Exception) -> None:
+    async def _give_up(self, job: dict[str, Any], reason: str) -> None:
         """A room that is not coming is reported to the hub, which shows why; other jobs are logged and retried."""
-        log.error("outbox job %s (%s) failed: %s", job["id"], job["kind"], e)
+        log.error("outbox job %s (%s) failed: %s", job["id"], job["kind"], reason)
         if job["kind"] != "create_interview_room":
             return
-        reason = str(e) if isinstance(e, RoomError) else f"Discord refused: {e}"
         try:
             await self.hub.ack(int(job["id"]), error=reason[:300])
         except httpx.HTTPError:
@@ -250,7 +260,10 @@ class Community(commands.Cog):
     async def _run(self, guild: discord.Guild, job: dict[str, Any], post: dict[str, Any] | None) -> None:
         kind, payload, job_id = job["kind"], job["payload"], int(job["id"])
         if kind == "create_interview_room":
-            await self.hub.ack(job_id, channel_id=await self.open_interview_room(guild, payload))
+            if job_id not in self.opened_rooms:
+                self.opened_rooms[job_id] = await self.open_interview_room(guild, payload)
+            await self.hub.ack(job_id, channel_id=self.opened_rooms[job_id])
+            del self.opened_rooms[job_id]
         elif kind == "lock_interview_room":
             await self.lock_interview_room(guild, payload)
             await self.hub.ack(job_id)
@@ -298,11 +311,15 @@ class Community(commands.Cog):
         )
         greeting = " ".join([applicant.mention, *(m.mention for m in interviewers)])
         note = f"\n\n(Could not find {', '.join(missing)} in the server to add them.)" if missing else ""
-        await channel.send(
-            f"{greeting} {WELCOME}{note}",
-            embed=application_embed(payload),
-            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[applicant, *interviewers]),
-        )
+        try:
+            await channel.send(
+                f"{greeting} {WELCOME}{note}",
+                embed=application_embed(payload),
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[applicant, *interviewers]),
+            )
+        except discord.HTTPException:
+            # The room exists, so the hub must hear about it; a missing welcome is only worth a log line.
+            log.exception("opened #%s but could not post its welcome", channel.name)
         return int(channel.id)
 
     async def lock_interview_room(self, guild: discord.Guild, payload: dict[str, Any]) -> None:

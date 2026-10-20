@@ -60,13 +60,17 @@
   onDestroy(() => (gone = true));
 
   const ROOM_POLL_MS = 3000;
-  const ROOM_POLLS = 40;
+  const SLOW_POLL_MS = 30000;
+  const FAST_POLLS = 40;
 
   // The Toad Bot opens the room within a poll or two; ask the hub until it says the room is ready or could not open.
-  async function watchRoom(id: number) {
+  // After two minutes (or when an officer will open it) keep asking, more slowly, for as long as the page is open.
+  async function watchRoom(id: number, fast: boolean) {
     if (!room) return;
-    for (let i = 0; i < ROOM_POLLS && !gone; i++) {
-      await new Promise((r) => setTimeout(r, ROOM_POLL_MS));
+    for (let i = 0; !gone; i++) {
+      if (fast && i === FAST_POLLS) roomSlow = true;
+      await new Promise((r) => setTimeout(r, fast && i < FAST_POLLS ? ROOM_POLL_MS : SLOW_POLL_MS));
+      if (gone) return;
       try {
         roomNow = await room(id);
       } catch {
@@ -74,7 +78,6 @@
       }
       if (roomNow.kind !== 'opening') return;
     }
-    roomSlow = true;
   }
 
   const classRoles = $derived(rolesForClass(form.className));
@@ -151,7 +154,7 @@
       sent = { name: form.characterName.trim(), roomOpen: app.status === 'interviewing' };
       await tick();
       document.getElementById('apply-done')?.focus();
-      if (sent.roomOpen) void watchRoom(app.id);
+      void watchRoom(app.id, sent.roomOpen);
     } catch (err) {
       failure = err as { message: string; joinDiscord: boolean; signIn?: boolean };
       await tick();
@@ -221,10 +224,7 @@
 
     {#if sent}
       <div id="apply-done" class="done" role="status" tabindex="-1">
-        {#if !sent.roomOpen}
-          <h3>Application sent</h3>
-          <p>Thanks, {sent.name}! An officer will open your private interview room in our Discord shortly.</p>
-        {:else if roomNow.kind === 'ready'}
+        {#if roomNow.kind === 'ready'}
           <h3>Your interview room is ready</h3>
           <p>Thanks, {sent.name}! Our officers will say hello in <strong>#{roomName(sent.name)}</strong>.</p>
           <a class="btn" href={roomNow.url} target="_blank" rel="noopener noreferrer">
@@ -236,12 +236,18 @@
             Thanks, {sent.name}! The Toad Bot could not open your interview room: {roomNow.reason}. Our officers can see
             this on your application and will open the room for you.
           </p>
+        {:else if !sent.roomOpen}
+          <h3>Application sent</h3>
+          <p>
+            Thanks, {sent.name}! An officer will open your private interview room in our Discord shortly. Its link
+            appears here when it is ready.
+          </p>
         {:else}
           <h3>Your interview room is opening</h3>
           {#if roomSlow}
             <p>
               Thanks, {sent.name}! This is taking longer than usual. The Toad Bot will mention you in
-              <strong>#{roomName(sent.name)}</strong> in our Discord when it is ready.
+              <strong>#{roomName(sent.name)}</strong> in our Discord when it is ready, and its link appears here.
             </p>
           {:else}
             <p>
