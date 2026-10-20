@@ -252,7 +252,8 @@ def tabs_previewed(previews: str) -> None:
 @then("the Bank tab shows the bankers' features to officers and a mockup labelled as sample data")
 def bank_mockup(previews: str) -> None:
     assert "title: 'For bankers, and visible to officers'" in previews
-    assert "{#if preview.mockup === 'bank'}<BankMockup />{/if}" in _read("lib/components/ForeverNotice.svelte")
+    notice = _read("lib/components/ForeverNotice.svelte")
+    assert "{#if preview.mockup === 'bank'}<BankCounter /><BankMockup />{/if}" in notice
     mockup = _read("lib/components/BankMockup.svelte")
     for part in ("In the bank", "Requests", "/bank request", "Ledger: who got what, and when", "Fairness:"):
         assert part in mockup, part

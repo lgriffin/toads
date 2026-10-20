@@ -34,6 +34,7 @@
     type NewRequest,
     type Replica
   } from '$lib/bank';
+  import BankCounter from './BankCounter.svelte';
   import BankGrants from './BankGrants.svelte';
   import BankOfficer from './BankOfficer.svelte';
   import BankRedeem from './BankRedeem.svelte';
@@ -186,6 +187,7 @@
   <p class="warn" role="alert">{view.message}</p>
   <button class="btn" type="button" onclick={load}>Try again</button>
 {:else}
+  <BankCounter formId="req-item" />
   <p class="notice" role="status" aria-live="polite">{notice}</p>
 
   <section class="card" aria-labelledby="sources-h">
