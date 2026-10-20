@@ -67,6 +67,8 @@ class Application(Base):
     logs_url: Mapped[str | None] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(16), default="applied", index=True)
     interview_channel_id: Mapped[int | None] = mapped_column(BigInteger)
+    # Why the Toad Bot could not open the interview room, until a room opens.
+    interview_room_error: Mapped[str | None] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

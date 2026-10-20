@@ -67,10 +67,21 @@ def test_interview_room_is_private() -> None:
     ow = interview_overwrites(guild, applicant, [officer], me)  # type: ignore[arg-type]
     assert ow[everyone].view_channel is False
     assert ow[applicant].view_channel is True
-    assert ow[applicant].mention_everyone is False
+    assert ow[applicant].send_messages is True
     assert ow[officer].send_messages is True
     assert ow[me].manage_channels is True
     assert set(ow) == {everyone, applicant, officer, me}
+
+
+def test_room_overwrites_stay_within_the_bots_own_permissions() -> None:
+    # Discord refuses (50013) an overwrite that allows or denies a permission the bot lacks: the live server's first
+    # applicant got no room because the applicant's overwrite set Attach Files and Mention Everyone.
+    invited = discord.Permissions(268520464)  # the invite link's permissions (ADMIN_GUIDE)
+    everyone, applicant, officer, me = (discord.Object(id=i) for i in (1, 2, 3, 4))
+    ow = interview_overwrites(SimpleNamespace(default_role=everyone), applicant, [officer], me, [discord.Object(id=5)])  # type: ignore[arg-type]
+    for overwrite in ow.values():
+        allow, deny = overwrite.pair()
+        assert allow.is_subset(invited) and deny.is_subset(invited), overwrite
 
 
 def test_post_embed_is_capped() -> None:
@@ -123,7 +134,7 @@ def fake_guild(channel: Any = None) -> Any:
     officer_role = discord.Object(id=12)
     guild = MagicMock()
     guild.default_role = discord.Object(id=GUILD)
-    guild.me = discord.Object(id=99)
+    guild.me = MagicMock(id=99, guild_permissions=discord.Permissions.all())
     guild.get_member.return_value = applicant
     guild.get_role.side_effect = lambda rid: officer_role if rid == 12 else None
     guild.get_channel.return_value = channel
@@ -160,6 +171,149 @@ def test_opens_an_interview_room_and_acks_it() -> None:
     # The welcome pings only the applicant.
     mentions = guild.created.send.await_args.kwargs["allowed_mentions"]
     assert (mentions.everyone, mentions.roles) == (False, False)
+
+
+ROOM = {
+    "application_id": 3,
+    "discord_user_id": APPLICANT,
+    "character_name": "Mossbeard",
+    "category_id": None,
+    "officer_role_ids": [12],
+}
+
+
+def http_error(status: int, cls: type[discord.HTTPException] = discord.HTTPException) -> discord.HTTPException:
+    return cls(MagicMock(status=status, reason="x"), "boom")
+
+
+def test_a_room_the_bot_lacks_permission_for_is_reported_to_the_hub() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.me.guild_permissions = discord.Permissions(
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True, manage_channels=True
+    )
+    run(cog(hub).run_outbox(guild))
+    guild.create_text_channel.assert_not_awaited()
+    hub.ack.assert_awaited_once_with(7, error="The Toad Bot needs Manage Roles in the server")
+
+
+def test_permissions_are_checked_in_the_interview_category() -> None:
+    category = MagicMock(spec=discord.CategoryChannel)
+    category.name = "Interviews"
+    category.permissions_for.return_value = discord.Permissions(
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True
+    )
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", {**ROOM, "category_id": 555})]
+    run(cog(hub).run_outbox(fake_guild(category)))
+    hub.ack.assert_awaited_once_with(
+        7, error="The Toad Bot needs Manage Channels, Manage Roles in the Interviews category"
+    )
+
+
+def test_an_applicant_who_left_gets_no_room_and_the_hub_is_told() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.get_member.return_value = None
+    guild.fetch_member = AsyncMock(side_effect=http_error(404, discord.NotFound))
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_awaited_once_with(7, error="The applicant is no longer in the Discord server")
+
+
+def test_discord_refusing_the_room_is_reported_to_the_hub() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.create_text_channel = AsyncMock(side_effect=http_error(403, discord.Forbidden))
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_awaited_once_with(7, error="Discord refused: 403 boom")
+
+
+def test_a_full_category_is_reported_to_the_hub() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.create_text_channel = AsyncMock(side_effect=http_error(400))
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_awaited_once_with(7, error="Discord refused: 400 boom")
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_a_discord_outage_leaves_the_room_for_the_next_poll(status: int) -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.create_text_channel = AsyncMock(side_effect=http_error(status))
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_not_awaited()
+
+
+def test_a_broken_job_is_retried_and_the_next_one_still_runs() -> None:
+    hub = AsyncMock()
+    broken = {"job": {"id": 6, "kind": "create_interview_room", "payload": {"application_id": 2}}, "post": None}
+    hub.outbox.return_value = [broken, job("create_interview_room", ROOM)]
+    run(cog(hub).run_outbox(fake_guild()))
+    hub.ack.assert_awaited_once_with(7, channel_id=6001)  # job 6 stays in the outbox, unreported
+
+
+def test_a_room_whose_ack_failed_is_acked_again_not_opened_again() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    hub.ack.side_effect = [httpx.ConnectError("api down"), None]
+    guild, c = fake_guild(), cog(hub)
+    run(c.run_outbox(guild))
+    run(c.run_outbox(guild))
+    guild.create_text_channel.assert_awaited_once()
+    assert [call.kwargs for call in hub.ack.await_args_list] == [{"channel_id": 6001}] * 2
+    assert c.opened_rooms == {}
+
+
+def test_a_room_whose_welcome_failed_is_still_reported_as_open() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", ROOM)]
+    guild = fake_guild()
+    guild.created.send = AsyncMock(side_effect=http_error(403, discord.Forbidden))
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_awaited_once_with(7, channel_id=6001)
+
+
+def test_a_wrong_category_id_still_opens_the_room(caplog: pytest.LogCaptureFixture) -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("create_interview_room", {**ROOM, "category_id": 1550042856754782208})]
+    guild = fake_guild(MagicMock(spec=discord.TextChannel))  # the id names a text channel, not a category
+    run(cog(hub).run_outbox(guild))
+    assert guild.create_text_channel.await_args.kwargs["category"] is None
+    hub.ack.assert_awaited_once_with(7, channel_id=6001)
+    assert "is not a category" in caplog.text
+
+
+def test_an_unreachable_hub_does_not_stop_the_poll(caplog: pytest.LogCaptureFixture) -> None:
+    hub = AsyncMock()
+    hub.base_url = "http://api:8000"
+    hub.outbox.side_effect = httpx.ConnectError("refused")
+    run(cog(hub).run_outbox(fake_guild()))
+    assert "cannot read the hub's outbox at http://api:8000" in caplog.text
+
+
+def test_a_bot_outside_the_server_says_so(caplog: pytest.LogCaptureFixture) -> None:
+    c = cog(AsyncMock())
+    c.bot.get_guild.return_value = None
+    c.check_setup()
+    assert "not in server 1" in caplog.text
+
+
+def test_the_startup_check_names_missing_permissions(caplog: pytest.LogCaptureFixture) -> None:
+    c = cog(AsyncMock())
+    guild = fake_guild()
+    guild.name = "Toads"
+    guild.me.guild_permissions = discord.Permissions(
+        view_channel=True, send_messages=True, read_message_history=True, embed_links=True
+    )
+    c.bot.get_guild.return_value = guild
+    c.check_setup()
+    assert "needs Manage Channels, Manage Roles in Toads" in caplog.text
 
 
 def test_named_interviewers_join_the_room_with_the_answers() -> None:
@@ -313,6 +467,7 @@ def test_hub_client_sends_the_service_token_and_caps_text() -> None:
         hub = HubClient("http://api:8000/", SecretStr("svc"), transport=httpx.MockTransport(handler))
         await hub.outbox()
         await hub.ack(7, channel_id=6001)
+        await hub.ack(8, error="The Toad Bot needs Manage Roles in the server")
         await hub.discord_message(
             channel_id=1, message_id=2, author_name="a" * 200, content="c" * 5000, created_at=datetime.now(UTC)
         )
@@ -323,10 +478,12 @@ def test_hub_client_sends_the_service_token_and_caps_text() -> None:
     assert [r.url.path for r in seen] == [
         "/api/bot/outbox",
         "/api/bot/outbox/7/ack",
+        "/api/bot/outbox/8/ack",
         "/api/bot/discord-messages",
         "/api/bot/discord-messages/2/deleted",
     ]
     assert all(r.headers["authorization"] == "Bearer svc" for r in seen)
     assert json.loads(seen[1].content) == {"channel_id": 6001}
-    body = json.loads(seen[2].content)
+    assert json.loads(seen[2].content) == {"error": "The Toad Bot needs Manage Roles in the server"}
+    body = json.loads(seen[3].content)
     assert (len(body["author_name"]), len(body["content"])) == (100, 4000)
