@@ -108,12 +108,12 @@ services:
     depends_on: [api]
     profiles: [bot]  # needs a real bot token; `docker compose --profile bot up`
 
-  # The guild bank's bot (docs/bank.md). Its own Discord application: set TOADS_DISCORD_BOT_TOKEN and
-  # TOADS_BOT_CHANNEL_IDS for it here, not the Toad Bot's.
+  # The guild bank's bot (docs/bank.md). Its own Discord application: copy services/bot/.env.example to
+  # services/bot/.env.bank and set TOADS_DISCORD_BOT_TOKEN and TOADS_BOT_CHANNEL_IDS there, not in the Toad Bot's .env.
   bank-bot:
     build: { context: .., dockerfile: services/bot/Dockerfile }
     command: ["toads-botkit"]
-    env_file: ../services/bot/.env
+    env_file: [{ path: ../services/bot/.env.bank, required: false }]
     environment:
       TOADS_BOT_SPEC: bank
     depends_on: [api]
