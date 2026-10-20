@@ -170,6 +170,31 @@ def a_raider_with_role(hub: Hub, people: dict[str, Any], name: str) -> None:
     people["raider"].roles.add(people["roles"][name])
 
 
+@given(parsers.parse('a member who holds only the "{name}" role'))
+def a_member_with_role(hub: Hub, people: dict[str, Any], name: str) -> None:
+    people["raider"] = hub.user(nick="Lilypadma")
+    people["raider"].roles.add(people["roles"][name])
+
+
+@then(parsers.parse('the member is on the "{day}" raid team'))
+def on_team(hub: Hub, people: dict[str, Any], day: str) -> None:
+    assert people["last"].status_code == 201, people["last"].text
+    assert hub.get("/api/session", _raider_sid(hub, people)).json()["raid_days"] == [day]
+
+
+@then("the member can tell Thursday's officers they will miss a night")
+def reports_thursday(hub: Hub, people: dict[str, Any]) -> None:
+    # The hub's clock stands in mid-January 1970; the 15th was a Thursday.
+    body = {"first_date": "1970-01-15", "note": "Working late."}
+    r = hub.post("/api/days/thu/absences", _raider_sid(hub, people), body)
+    assert r.status_code == 201, r.text
+
+
+@then("the member is on no raid team")
+def on_no_team(hub: Hub, people: dict[str, Any]) -> None:
+    assert hub.get("/api/session", _raider_sid(hub, people)).json()["raid_days"] == []
+
+
 @given("a super admin")
 def a_super_admin(hub: Hub, people: dict[str, Any]) -> None:
     user = hub.user()

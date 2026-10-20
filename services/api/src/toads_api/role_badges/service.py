@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge
+from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge, night_badge_id
 from toads_api.role_badges.repository import DuplicateLinkError, RoleBadgeLink, RoleBadgeRepository
 
 
@@ -43,6 +43,14 @@ class RoleBadgeService:
         order = {badge_id: i for i, badge_id in enumerate(ROLE_BADGES)}
         rows = sorted(self._live(), key=lambda r: (order[r.badge_id], r.role_name.lower(), r.discord_role_id))
         return [LinkView(r.discord_role_id, r.role_name, ROLE_BADGES[r.badge_id], r.added_at) for r in rows]
+
+    def night_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
+        """The Discord roles tied to each raid night's badge, by day id, for `(day id, day name)` pairs: the Thursday
+        Toad badge is "thursday-toad". Holding one of them puts a member on that night's team."""
+        tied: dict[str, set[int]] = {}
+        for r in self._live():
+            tied.setdefault(r.badge_id, set()).add(r.discord_role_id)
+        return {day_id: roles for day_id, name in nights if (roles := tied.get(night_badge_id(name)))}
 
     def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
         """The badges a member's Discord roles earn, each once, in catalogue order."""

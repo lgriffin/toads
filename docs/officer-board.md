@@ -1,6 +1,6 @@
 # Officers' board
 
-Each raid night has its own Trello-style task board on the Raid page, for that night's officers to assign tasks, set
+Each raid night has its own Trello-style task board in that night's officer section (`/officers/nights/{day}`), for that night's officers to assign tasks, set
 due dates and track the guild's internal work around the raid: rosters to post, consumables to restock, trials to talk
 to, strategy docs to update. Each night's board (Wednesday, Thursday, Sunday) is separate; nothing on one shows on another.
 
@@ -8,8 +8,9 @@ to, strategy docs to update. Each night's board (Wednesday, Thursday, Sunday) is
 
 That raid night's officers, global officers and super admins (`MANAGE_OFFICER_BOARD`, scoped to the raid day in the
 URL like every `/api/days/{day}/...` officer route). Raiders and the other night's officers never see the board, and the
-API refuses them (403; a sibling-day officer's attempt is on the audit log as `rbac.denied`). Super admins switch
-between the nights on the Raid page and see each night's board.
+API refuses them (403; a sibling-day officer's attempt is on the audit log as `rbac.denied`). The Officer console
+(`/officers`) links only the nights the viewer runs; global officers and super admins get every night's link and board.
+Opening another night's section by its URL shows a refusal and none of its content.
 
 ## How it works
 

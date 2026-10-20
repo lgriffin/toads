@@ -5,6 +5,9 @@
   import { giveAward, guildAwards, takeBackAward, type AwardsBackend } from '$lib/awards';
   import AwardsDesk from '$lib/components/AwardsDesk.svelte';
   import ReferenceCard from '$lib/components/ReferenceCard.svelte';
+  import OfficerNights from '$lib/components/OfficerNights.svelte';
+  import { raidDaysOf } from '$lib/absences';
+  import { previewRaidSession } from '$lib/preview/absences-fake';
   import Officers from '$lib/preview/Officers.svelte';
   import { previewAwards } from '$lib/preview/awards-fake';
   import { previewSession } from '$lib/preview/session.svelte';
@@ -20,6 +23,7 @@
     give: (b) => giveAward(b),
     takeBack: (id) => takeBackAward(id)
   };
+  const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
 
@@ -55,6 +59,7 @@
 {/snippet}
 
 {#if __PREVIEW__}
+  <OfficerNights {raidDays} />
   <Officers />
   {@render calendarLink()}
   {@render compLink()}
@@ -65,7 +70,11 @@
   {/if}
 {:else}
   <h1>Officer console</h1>
-  <p>Applications, the Discord curation queue, post composer, highlight review and spotlights arrive with the API.</p>
+  <p>
+    The shared desk every officer uses. Each raid night's own work (its absences, task board and interview panel) is in
+    that night's section, which only its officers see.
+  </p>
+  <OfficerNights {raidDays} />
   {@render calendarLink()}
   {@render compLink()}
   <ReferenceCard />

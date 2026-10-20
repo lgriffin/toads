@@ -44,7 +44,9 @@ Feature: HUB BOARD
     And after it moves to "Done" it is not overdue
 
   @ears_ubiquitous @raid_leader @phase_2_7
-  Scenario: REQ-HUB-BOARD-006 The Raid page shall show the selected raid night's task board to that night's officers only
-    Given the Raid page
-    Then its officer desk holds the task board for the selected night
-    And the desk shows only to that night's officers
+  Scenario: REQ-HUB-BOARD-006 Each raid night's own officer section shall hold that night's task board, absences and interview panel, shown to that night's officers only, and the shared Officer console and the Raid page shall link only the nights the viewer runs
+    Given the night's officer section
+    Then it holds the night's task board, absences and interview panel
+    And it shows them only to that night's officers
+    And the Raid page's officer desk links to it instead of holding the board
+    And the Officer console lists only the nights the viewer runs

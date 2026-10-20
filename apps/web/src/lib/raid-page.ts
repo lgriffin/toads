@@ -1,6 +1,6 @@
 /**
  * The Raid page: one raid night's home on the hub. For now it says what is coming; capabilities plug in as they are
- * built. Members see their own team's night, officers get the officer desk for the nights they run, and super admins
+ * built. Members see their own team's night, officers get an officer desk linking to the night's officer section, and super admins
  * see every night and switch between them (absences.ts `raidDaysOf`).
  */
 import type { RaidDays } from './absences';
