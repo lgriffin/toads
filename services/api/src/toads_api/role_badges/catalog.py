@@ -23,6 +23,10 @@ ROLE_BADGES: dict[str, RoleBadge] = {
         RoleBadge("wednesday-toad", "Wednesday Toad", "days/wednesday-toad"),
         RoleBadge("thursday-toad", "Thursday Toad", "days/thursday-toad"),
         RoleBadge("sunday-toad", "Sunday Toad", "days/sunday-toad"),
+        # Each raid night's officers: tying one makes the role's holders that night's officers (docs/role-badges.md).
+        RoleBadge("wednesday-officer", "Wednesday Officer", "ranks/officer"),
+        RoleBadge("thursday-officer", "Thursday Officer", "ranks/officer"),
+        RoleBadge("sunday-officer", "Sunday Officer", "ranks/officer"),
         # What a member does in the raid.
         RoleBadge("tank", "Tank", "roles/tank"),
         RoleBadge("healer", "Healer", "roles/healer"),
@@ -36,3 +40,8 @@ ROLE_BADGES: dict[str, RoleBadge] = {
 def night_badge_id(day_name: str) -> str:
     """The badge of a raid night, from its name in raid_days.yaml: "Thursday" earns "thursday-toad"."""
     return f"{day_name.strip().lower()}-toad"
+
+
+def night_officer_badge_id(day_name: str) -> str:
+    """The badge of a raid night's officers: "Thursday" has "thursday-officer"."""
+    return f"{day_name.strip().lower()}-officer"

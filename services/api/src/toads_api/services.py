@@ -105,9 +105,10 @@ class Services:
         discord_username: str = "",
     ) -> Principal:
         """A member's hub roles from their Discord roles: raid_days.yaml, plus the roles a super admin tied to each
-        night's badge on the Admin page, which make their holders that night's raiders, plus the officer grants a
-        super admin gave them there (docs/admin.md). Both are read on every call, so a revoke counts at once."""
-        nights = self.role_badges.night_roles((d.id, d.name) for d in self.raid_days.raid_days)
+        night's badges on the Admin page, which make their holders that night's raiders or officers, plus the officer
+        grants a super admin gave them there (docs/admin.md). Both are read on every call, so a revoke counts at
+        once."""
+        raiders, officers = self.role_badges.night_badge_roles((d.id, d.name) for d in self.raid_days.raid_days)
         granted = NO_STANDING if discord_user_id is None else self.officer_grants.standing(discord_user_id)
         return self.raid_days.principal_for(
             member_id,
@@ -115,7 +116,8 @@ class Services:
             display_name,
             discord_user_id,
             discord_username,
-            night_roles=nights,
+            night_roles=raiders,
+            night_officer_roles=officers,
             officer_days=granted.days,
             granted_global_officer=granted.global_officer,
         )
@@ -183,6 +185,9 @@ class Services:
                 global_officer_roles=tuple(self.raid_days.global_officer_roles),
                 officer_roles={d.id: tuple(d.officer_roles) for d in self.raid_days.raid_days},
                 day_names={d.id: d.name for d in self.raid_days.raid_days},
+                badge_officer_roles=lambda: self.role_badges.night_officer_roles(
+                    (d.id, d.name) for d in self.raid_days.raid_days
+                ),
             ),
         )
 

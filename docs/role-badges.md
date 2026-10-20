@@ -10,6 +10,13 @@ the Thursday Toad badge is a Thursday raider (the night is matched by name: a ra
 `raid_days.yaml` earns `thursday-toad`), so they appear on its roster and can report absences for it. This adds to the
 day's `raider_roles`; it never makes anyone an officer.
 
+Each night also has an Officer badge (Wednesday Officer, Thursday Officer, Sunday Officer, wearing the officer toad).
+Everyone holding a role tied to the Thursday Officer badge is a Thursday officer, and no other night's: they get
+Thursday's officer section, board, absences, comp builder and interview panel. This adds to the day's `officer_roles`,
+so a night's officers can be set up entirely on the Admin page. Untie the badge and they stop at once.
+`raid_days.yaml` stays authoritative: badges only add holders on top of it, and nothing on the Admin page removes a
+role the file grants. Individual officer grants for one member, and global officers, are separate.
+
 Every signed-in member also wears their rank toad without any setup: the member toad for everyone, plus the officer
 toad for officers, the super admin toad for super admins (`TOADS_SUPER_ADMIN_IDS`) and the Archtoad for the guild
 master.

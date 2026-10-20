@@ -95,6 +95,17 @@ Feature: HUB AWARD
     When the super admin unties the "thursday-toad" badge from the "Thursday Toad" role
     Then the member is on no raid team
 
+  @ears_event_driven @maintainer @phase_2_7
+  Scenario: REQ-HUB-AWARD-012 When a super admin ties a raid night's Officer badge to a Discord role, the hub shall make everyone holding that role that night's officers, and no other night's, with no change to the raid-day config, and stop when the badge is untied
+    Given a Discord role named "Thursday Officers"
+    And a member who holds only the "Thursday Officers" role
+    And a super admin
+    When the super admin ties the "thursday-officer" badge to the "Thursday Officers" role
+    Then the member runs the "thu" raid night
+    And the member can open Thursday's officer board but not Wednesday's
+    When the super admin unties the "thursday-officer" badge from the "Thursday Officers" role
+    Then the member runs no raid night
+
   @ears_ubiquitous @member @phase_2_7
   Scenario: REQ-HUB-AWARD-010 A member's own page shall show the toads the header shows beside their name, rank, member toad and role badges included, as badges ahead of their awards
     Given the member's own page
