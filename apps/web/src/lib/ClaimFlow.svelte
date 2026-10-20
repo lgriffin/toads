@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MIN_CHARACTER_QUERY, statusLabel, type CharacterMatch, type Claim } from '$lib/api';
+  import { characterQuery, MIN_CHARACTER_QUERY, statusLabel, type CharacterMatch, type Claim } from '$lib/api';
 
   // Claim flow (REQ-HUB-CLAIM-001/003/004, REQ-HUB-PRIV-003). Who is claiming comes from the Discord sign-in; the
   // member only picks the character, by name, from those seen in the guild's logs.
@@ -33,7 +33,7 @@
 
   function oninput() {
     clearTimeout(timer);
-    const q = query.trim();
+    const q = characterQuery(query);
     if (q === searched && !searchFailed) return; // only whitespace changed
     // Results for an older query never stay claimable while the new one runs.
     matches = [];
@@ -48,7 +48,7 @@
       } catch {
         failed = true;
       }
-      if (query.trim() !== q) return; // a later keystroke owns the list now
+      if (characterQuery(query) !== q) return; // a later keystroke owns the list now
       matches = found;
       searchFailed = failed;
       searched = q;
