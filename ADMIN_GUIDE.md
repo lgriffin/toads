@@ -330,9 +330,9 @@ section of [docs/bank.md](docs/bank.md).
 | Tier | Comes from | Can |
 | --- | --- | --- |
 | Member, trial, raider | a raid day's `trial_roles` / `raider_roles` (anyone in the server is a member) | their own pages; raiders upload and submit highlights; everyone may view the bank and request items |
-| Raid-day officer | a raid day's `officer_roles` | officer powers **for that raid day only**: `/api/days/{day}/...` routes, that day's banks, claims, applications, curation |
-| Global officer | `global_officer_roles` | officer powers on every raid day, bank sources, recruitment, highlights, spotlights; sees the grants list |
-| Super admin | `TOADS_SUPER_ADMIN_IDS` | everything a global officer can, plus `MANAGE_GRANTS`: grant and revoke bank grants, mint and revoke officer tokens; and `MANAGE_ROLE_BADGES`: tie badges to Discord roles |
+| Raid-day officer | a raid day's `officer_roles`, or an officer grant for that night on the Admin page | officer powers **for that raid day only**: `/api/days/{day}/...` routes, that day's banks, claims, applications, curation |
+| Global officer | `global_officer_roles`, or an "Every night" officer grant on the Admin page | officer powers on every raid day, bank sources, recruitment, highlights, spotlights; sees the grants list |
+| Super admin | `TOADS_SUPER_ADMIN_IDS` | everything a global officer can, plus `MANAGE_GRANTS`: grant and revoke bank grants, mint and revoke officer tokens; `MANAGE_ROLE_BADGES`: tie badges to Discord roles; and `MANAGE_OFFICER_GRANTS`: grant and revoke officer powers |
 | Break-glass admin | `TOADS_BREAK_GLASS_ADMIN_ID` | always a super admin; visible to everyone in the global tier; every change is audited as `break_glass` |
 
 Rules worth knowing:
@@ -347,10 +347,14 @@ Rules worth knowing:
 - **Grants** give one non-officer `import_bank_snapshot` or `manage_bank`, for one raid day or every bank. They are read
   from the database on every call, so a revoke works on the member's next action. A grant never opens `/api/admin/...`,
   never reaches an officers-only bank and never allocates raid stock.
+- **Officer grants** ([docs/admin.md](docs/admin.md#officer-grants)): on the Admin page a super admin makes one Discord
+  member an officer of a raid night, or of every night (a global officer), on top of their Discord roles. Read on every
+  request, so a revoke works on their next action. A grant never makes a super admin, and its holder cannot grant
+  anything. Audited as `officer.grant` and `officer.revoke`.
 - **Officer tokens** are the self-service way to hand out grants: a super admin mints one on the Bank page or the Admin
   page, passes it on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
-- **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
+- **Audit log** (`audit` table): `officer.grant`, `officer.revoke`, `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,

@@ -92,3 +92,24 @@ test('a super admin sees the same toads on their own page as beside their name',
     await expect(card.getByText(name, { exact: true })).toBeVisible();
   }
 });
+
+test('a super admin makes a member an officer for one night and revokes it', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('admin/');
+  const desk = page.getByRole('region', { name: 'Officer grants' });
+  await expect(desk.getByText('Sunday officer', { exact: true })).toBeVisible();
+  await desk.getByLabel('Find someone in the Toads Discord').fill('rib');
+  await desk.getByRole('button', { name: 'Find' }).click();
+  await desk.getByRole('button', { name: 'Choose Ribbit' }).click();
+  await expect(desk.getByLabel('Officer of').getByRole('option')).toHaveText([
+    'Every night (global officer)',
+    'Wednesday',
+    'Thursday',
+    'Sunday'
+  ]);
+  await desk.getByLabel('Officer of').selectOption('Thursday');
+  await desk.getByRole('button', { name: 'Grant officer powers' }).click();
+  await expect(desk.getByText('Ribbit is now a Thursday officer.')).toBeVisible();
+  await desk.getByRole('button', { name: 'Revoke Thursday officer from Ribbit' }).click();
+  await expect(desk.getByText('Ribbit is no longer a Thursday officer by grant.')).toBeVisible();
+});

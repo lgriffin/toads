@@ -56,13 +56,13 @@ SPEC: dict[str, set[Permission]] = {
         P.SUBMIT_HIGHLIGHT,
         P.REPORT_ABSENCE,
     },
-    # Everything but managing grants and tokens and tying badges to Discord roles, which are the super admins' alone
-    # (docs/admin.md, docs/role-badges.md).
-    "officer": set(Permission) - {P.MANAGE_GRANTS, P.MANAGE_ROLE_BADGES},
+    # Everything but managing bank and officer grants and tokens and tying badges to Discord roles, which are the super
+    # admins' alone (docs/admin.md, docs/role-badges.md).
+    "officer": set(Permission) - {P.MANAGE_GRANTS, P.MANAGE_ROLE_BADGES, P.MANAGE_OFFICER_GRANTS},
 }
 # Super admins (TOADS_SUPER_ADMIN_IDS, docs/admin.md) hold everything a global officer has, and alone manage grants
-# and role badges.
-SUPER_ONLY = {P.MANAGE_GRANTS, P.MANAGE_ROLE_BADGES}
+# (bank and officer) and role badges.
+SUPER_ONLY = {P.MANAGE_GRANTS, P.MANAGE_ROLE_BADGES, P.MANAGE_OFFICER_GRANTS}
 # What a super admin may grant one Discord user (docs/bank.md "Grants"): the bank's upkeep, on one raid day's banks
 # or on every bank. A grant only ever counts on a raid day's routes, never on guild-wide (global tier) ones.
 GRANTS = {P.IMPORT_BANK_SNAPSHOT, P.MANAGE_BANK}
@@ -209,6 +209,10 @@ def test_grant_and_token_routes_are_the_super_admins_alone() -> None:
         ("GET", "/api/admin/role-badges"),
         ("POST", "/api/admin/role-badges"),
         ("DELETE", "/api/admin/role-badges/{discord_role_id}/{badge_id}"),
+        ("GET", "/api/admin/officer-grants"),
+        ("GET", "/api/admin/officer-grants/discord-members"),
+        ("POST", "/api/admin/officer-grants"),
+        ("DELETE", "/api/admin/officer-grants/{grant_id}"),
     }
     for rule in super_rules:
         assert not rule.scoped
@@ -273,6 +277,7 @@ def test_nobody_below_a_super_admin_manages_grants(day: str | None) -> None:
     ):
         assert not can(p, P.MANAGE_GRANTS, day)
         assert not can(p, P.MANAGE_ROLE_BADGES, day)
+        assert not can(p, P.MANAGE_OFFICER_GRANTS, day)
 
 
 def test_super_admin_is_a_global_officer_and_break_glass_a_super_admin() -> None:

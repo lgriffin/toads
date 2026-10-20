@@ -81,10 +81,14 @@ class RaidDaysConfig(BaseModel):
         discord_username: str = "",
         night_roles: Mapping[str, Collection[int]] | None = None,
         night_officer_roles: Mapping[str, Collection[int]] | None = None,
+        officer_days: Collection[str] = (),
+        granted_global_officer: bool = False,
     ) -> Principal:
         """Map a member's Discord role ids to hub roles; several matches give the highest per day. `night_roles` and
         `night_officer_roles` add raider and officer roles per day from outside the file: the roles a super admin tied
-        to each night's Toad and Officer badges (docs/role-badges.md)."""
+        to each night's Toad and Officer badges (docs/role-badges.md). `officer_days` and `granted_global_officer` are
+        the officer grants a super admin gave this member (docs/admin.md "Officer grants"); they never make anyone a
+        super admin."""
         night_roles = night_roles or {}
         night_officer_roles = night_officer_roles or {}
         day_roles: dict[str, HubRole] = {}
@@ -94,14 +98,14 @@ class RaidDaysConfig(BaseModel):
                 role = HubRole.TRIAL
             if discord_role_ids & {*day.raider_roles, *night_roles.get(day.id, ())}:
                 role = HubRole.RAIDER
-            if discord_role_ids & {*day.officer_roles, *night_officer_roles.get(day.id, ())}:
+            if discord_role_ids & {*day.officer_roles, *night_officer_roles.get(day.id, ())} or day.id in officer_days:
                 role = HubRole.OFFICER
             if role is not HubRole.MEMBER:
                 day_roles[day.id] = role
         return Principal(
             member_id=member_id,
             display_name=display_name,
-            global_officer=bool(discord_role_ids & set(self.global_officer_roles)),
+            global_officer=granted_global_officer or bool(discord_role_ids & set(self.global_officer_roles)),
             day_roles=day_roles,
             discord_user_id=discord_user_id,
             discord_username=discord_username,
