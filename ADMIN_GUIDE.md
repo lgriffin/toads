@@ -294,6 +294,9 @@ Restart the API after editing a file.
 - `raid_days`: one entry per raid day, with `id` (lowercase, used in URLs such as `/api/days/wed/...`), `name`,
   optional `start_time` (`HH:MM`, the fallback for "Next raid" when Discord has no scheduled event), `trial_roles`,
   `raider_roles`, `officer_roles` and `channels` (`raid_logs`, `signups`, `bank_requests`).
+- "Next raid" on the hub home is the soonest raid on the member's own nights: a Discord scheduled event counts for the
+  night whose weekday it falls on. Global officers and members of no night see the guild's soonest raid, and an event
+  on a weekday that is no raid night (a one-off) shows to everyone.
 - Every role id must exist in the server. One that does not (a role deleted or recreated in Discord) grants nothing, and
   the API logs a `discord_role_missing` error naming the day and role; put the role's new id in the config.
 - **Adding a raid night** (Thursday joined Wednesday and Sunday in October 2026): make the night's roles in Discord

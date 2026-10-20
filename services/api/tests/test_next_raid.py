@@ -161,3 +161,31 @@ def test_discord_errors_on_the_route_fall_back_to_the_schedule(hub: Hub) -> None
     hub.fake.events_down = True
     raid = hub.get("/api/home/next-raid", sid).json()["raid"]
     assert raid["source"] == "schedule" and raid["raid_day_id"] == "wed"
+
+
+def _next_for(svc: NextRaidService, days: list[str] | None) -> NextRaid | None:
+    return anyio.run(svc.next_raid, days)
+
+
+def test_a_member_sees_the_next_raid_on_their_own_night() -> None:
+    wed = datetime(2026, 9, 30, 20, 0, tzinfo=PARIS)
+    events = Events(_event(1, wed), _event(2, wed + timedelta(days=4)))
+    svc = _service(events, [MONDAY_NOON.timestamp()])
+    raid = _next_for(svc, ["sun"])
+    assert raid is not None and (raid.name, raid.raid_day_id) == ("Raid 2", "sun")
+    assert _next_for(svc, ["wed", "sun"]).name == "Raid 1"  # type: ignore[union-attr]
+    # No night (or a global officer, who passes None): the guild's soonest raid.
+    assert _next_for(svc, []).name == "Raid 1"  # type: ignore[union-attr]
+    assert _next_for(svc, None).name == "Raid 1"  # type: ignore[union-attr]
+
+
+def test_a_member_without_an_event_on_their_night_gets_their_night_from_the_schedule() -> None:
+    wed = datetime(2026, 9, 30, 20, 0, tzinfo=PARIS)
+    raid = _next_for(_service(Events(_event(1, wed)), [MONDAY_NOON.timestamp()]), ["sun"])
+    assert raid is not None and (raid.source, raid.raid_day_id, raid.name) == (Source.SCHEDULE, "sun", "Sunday raid")
+
+
+def test_a_one_off_raid_on_no_raid_night_is_shown_to_everyone() -> None:
+    saturday = datetime(2026, 10, 3, 20, 0, tzinfo=PARIS)
+    raid = _next_for(_service(Events(_event(9, saturday)), [MONDAY_NOON.timestamp()]), ["sun"])
+    assert raid is not None and (raid.name, raid.raid_day_id) == ("Raid 9", None)

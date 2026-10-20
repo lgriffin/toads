@@ -204,9 +204,9 @@ class Services:
             self.discord.scheduled_events,
             guild_id=self.settings.discord_guild_id,
             slots=[
-                RaidSlot(d.id, d.name, weekdays[d.id], parse_start(d.start_time))
+                RaidSlot(d.id, d.name, weekdays[d.id], parse_start(d.start_time) if d.start_time else None)
                 for d in self.raid_days.raid_days
-                if d.start_time is not None and d.id in weekdays
+                if d.id in weekdays
             ],
             timezone=ZoneInfo(self.raid_days.timezone),
             clock=lambda: self.clock(),
