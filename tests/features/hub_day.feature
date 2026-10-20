@@ -18,7 +18,7 @@ Feature: HUB DAY
     Then their session lists raid days "wed, sun" and officer days "sun"
     And they are not a global officer
     Given a global officer signed in
-    Then their session lists raid days "" and officer days "wed, sun"
+    Then their session lists raid days "" and officer days "wed, thu, sun"
     And they are a global officer
 
   @ears_ubiquitous @raid_leader @phase_2_2
@@ -86,3 +86,10 @@ Feature: HUB DAY
     When the API starts
     Then the API is up
     And it warns that the server's roles were not checked, naming TOADS_DISCORD_GUILD_ID
+
+  @ears_ubiquitous @raid_leader @phase_2_2
+  Scenario: REQ-HUB-DAY-025 Each raid night in the config, Thursday included, shall be its own officer scope: its officers shall see that night's officer views and no other night's
+    Given a Thursday officer signed in
+    Then they can open the Thursday claims queue
+    And every Wednesday officer view answers them 403
+    And every Sunday officer view answers them 403

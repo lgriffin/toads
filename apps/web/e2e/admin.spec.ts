@@ -36,7 +36,7 @@ test('a super admin posts for either raid night', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('officers/');
   await page.getByLabel('Audience').selectOption('raid_day');
-  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday', 'Sunday']);
+  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday', 'Thursday', 'Sunday']);
   await page.getByLabel('Raid day').selectOption('Sunday');
   await page.getByLabel('Title').fill('Sunday kara');
   await page.getByLabel('Body').fill('Bring fire resistance gear for the opera.');

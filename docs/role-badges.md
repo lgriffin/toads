@@ -1,7 +1,7 @@
 # Role badges
 
-Role badges are toads members earn from the Discord roles they hold: the Wednesday Toad and the Sunday Toad for the
-raid nights, Tank, Healer and Damage, and a toad per class. A super admin ties each badge to one or more roles in the
+Role badges are toads members earn from the Discord roles they hold: the Wednesday Toad, the Thursday Toad and the Sunday
+Toad for the raid nights, Tank, Healer and Damage, and a toad per class. A super admin ties each badge to one or more roles in the
 Toads server; everyone holding the role wears the badge beside their name on the hub, and loses it when the role is
 taken away in Discord (at their next role refresh).
 
@@ -31,7 +31,7 @@ here: the hub only reads which roles a member holds (`Principal.discord_role_ids
 
 ## Adding a badge
 
-1. Draw it. `scripts/toad_art.py` draws the Wednesday, Sunday and super admin toads on the member toad's body
+1. Draw it. `scripts/toad_art.py` draws the Wednesday, Thursday, Sunday and super admin toads on the member toad's body
    (`uv run --with fonttools --with brotli python scripts/toad_art.py`); add a `ToadArt` there for a new one.
 2. Add it to `services/api/src/toads_api/role_badges/catalog.py` and `apps/web/src/lib/role-badges.ts`.
    `test_role_badges.py` fails until both lists and the artwork agree.

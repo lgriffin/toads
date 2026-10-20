@@ -98,7 +98,7 @@ def test_bank_me_says_where_the_caller_is_an_officer(bank: Bank) -> None:
     assert officer["manages_grants"] is False
     assert (officer["sees_grants"], officer["super_admin"], officer["break_glass_admin"]) == (False, False, None)
     admin = bank.get("/api/bank/me", bank.admin).json()
-    assert admin["officer_days"] == admin["import_days"] == admin["manage_days"] == ["wed", "sun"]
+    assert admin["officer_days"] == admin["import_days"] == admin["manage_days"] == ["wed", "thu", "sun"]
     # The global tier sees the grants; only super admins change them (docs/admin.md).
     assert (admin["sees_grants"], admin["manages_grants"], admin["super_admin"]) == (True, False, False)
 
@@ -343,7 +343,11 @@ def test_super_admins_work_every_bank_on_every_day_with_no_role_or_grant(bank: B
         assert user.roles == set()
         session = bank.hub.login(user)
         me = bank.get("/api/bank/me", session).json()
-        assert (me["global_officer"], me["import_days"], me["manage_days"]) == (True, ["wed", "sun"], ["wed", "sun"])
+        assert (me["global_officer"], me["import_days"], me["manage_days"]) == (
+            True,
+            ["wed", "thu", "sun"],
+            ["wed", "thu", "sun"],
+        )
         asked = bank.post(
             "/api/bank/requests",
             bank.member,

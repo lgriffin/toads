@@ -2,7 +2,7 @@
 
 Each raid night has its own Trello-style task board on the Raid page, for that night's officers to assign tasks, set
 due dates and track the guild's internal work around the raid: rosters to post, consumables to restock, trials to talk
-to, strategy docs to update. The Wednesday board and the Sunday board are separate; nothing on one shows on the other.
+to, strategy docs to update. Each night's board (Wednesday, Thursday, Sunday) is separate; nothing on one shows on another.
 
 ## Who sees it
 

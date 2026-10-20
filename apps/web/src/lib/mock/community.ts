@@ -6,7 +6,7 @@ import type { Application, Highlight, Post, PublicStory, RecruitmentNeed, Spotli
 import { progressionFromRaids } from '../progression';
 import { raids } from './data';
 
-/** The preview visitor: Hopscotch raids both nights and is a Wednesday officer. */
+/** The preview visitor: Hopscotch raids Wednesday and Sunday and is a Wednesday officer. */
 export const viewer: Viewer = {
   name: 'Hopscotch',
   signedIn: true,
@@ -28,7 +28,7 @@ export const posts: Post[] = [
   {
     id: 'p-welcome',
     title: 'New to the pond? Start here',
-    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
+    body: 'Welcome, tadpoles.\n\nRaids are Wednesday, Thursday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
     authorName: 'Ribbitz',
     origin: 'hub',
     visibility: 'public',
