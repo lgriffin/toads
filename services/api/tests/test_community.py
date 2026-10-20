@@ -755,3 +755,22 @@ def test_a_panel_has_room_for_ten(as_: Any, store: CommunityService) -> None:
     )
     r = as_("Wednesday officer").post("/api/days/wed/admin/interview-panel", json={"discord_user_id": "10001"})
     assert r.status_code == 409
+
+
+def test_a_new_raid_night_gets_its_own_panel_from_config_alone(store: CommunityService) -> None:
+    """Thursday joined the week: adding it to config/raid_days.yaml is all recruitment needs."""
+    from dataclasses import replace
+
+    from toads_api.community.schemas import ApplicationCreate, Interviewer
+
+    store.raid_days = replace(
+        store.raid_days,
+        day_ids=store.raid_days.day_ids | {"thu"},
+        day_names={"wed": "Wednesday", "thu": "Thursday", "sun": "Sunday"},
+    )
+    assert [n.name for n in store.raid_nights()] == ["Wednesday", "Thursday", "Sunday"]
+    store.add_interviewer(1, "thu", Interviewer(discord_user_id="10003", username="pondkeeper", display_name="Pond"))
+    app = store.apply(5, ApplicationCreate.model_validate({**APPLICATION, "raid_days": ["thu"]}))
+    assert app.status.value == "interviewing"
+    [job] = store.pending_jobs()
+    assert job.payload["interviewers"] == ["10003"]

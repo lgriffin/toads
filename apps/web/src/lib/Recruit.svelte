@@ -18,7 +18,8 @@
     type ApplicationErrors,
     type ApplicationField,
     type ApplicationInput,
-    type RaidNight
+    type RaidNight,
+    nightsList
   } from '$lib/application';
   import NeedsList from '$lib/components/NeedsList.svelte';
   import type { RecruitmentNeed } from '$lib/community';
@@ -145,7 +146,7 @@
 <PondHero
   title="Raid with the Toads"
   line="Horde · PvP · EU"
-  lede="We raid Wednesday and Sunday evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
+  lede="We raid {nights.length ? nightsList(nights) : 'several'} evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
   toads={['roles/healer-badge', 'roles/damage-badge']}
 />
 

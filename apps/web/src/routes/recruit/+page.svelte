@@ -17,6 +17,7 @@
   const needs = $derived(__PREVIEW__ ? sampleNeeds : apiNeeds);
   const PREVIEW_NIGHTS: RaidNight[] = [
     { id: 'wed', name: 'Wednesday' },
+    { id: 'thu', name: 'Thursday' },
     { id: 'sun', name: 'Sunday' }
   ];
   const nights = $derived(__PREVIEW__ ? PREVIEW_NIGHTS : apiNights);

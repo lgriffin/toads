@@ -16,9 +16,9 @@
     session = await getSession().catch(() => null);
     loaded = true;
   });
-  const PREVIEW_NAMES: Record<string, string> = { wed: 'Wednesday', sun: 'Sunday' };
+  const PREVIEW_NAMES: Record<string, string> = { wed: 'Wednesday', thu: 'Thursday', sun: 'Sunday' };
   const days = $derived(
-    __PREVIEW__ ? (previewSession.role === 'admin' ? ['wed', 'sun'] : ['wed']) : (session?.officer_days ?? [])
+    __PREVIEW__ ? (previewSession.role === 'admin' ? ['wed', 'thu', 'sun'] : ['wed']) : (session?.officer_days ?? [])
   );
   const names = $derived(__PREVIEW__ ? PREVIEW_NAMES : (session?.day_names ?? {}));
   const backend = __PREVIEW__ ? previewPanels() : hubPanels();
@@ -34,7 +34,7 @@
   <p class="muted">Interview panels are set by the officers of each raid night.</p>
 {:else}
   <p class="lede">
-    Applicants pick Wednesday or Sunday on the recruit page. The Toad Bot opens their interview room with that night's
+    Applicants pick their raid night on the recruit page. The Toad Bot opens their interview room with that night's
     panel the moment they apply.
   </p>
   <div class="nights">

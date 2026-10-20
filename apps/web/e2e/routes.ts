@@ -12,6 +12,7 @@ export const ROUTES = [
   'officers/reference/',
   'raid/',
   'officers/calendar/',
+  'officers/recruitment/',
   'logs/',
   'logs/pondWed1014/',
   'bank/',

@@ -1,9 +1,9 @@
 # Setting up Discord for Toads applications
 
 When someone applies to Toads on the website, the **Toad Bot** creates a private channel on the Toads Discord server
-called `#interview-<their character>`. Only the applicant and the interviewers for the night they picked (Wednesday or
-Sunday) can see it, and the applicant's answers are posted inside. Each night's officers choose those interviewers on
-the website (Officers > Recruitment); until they do, `_gallagher` and `hadur117` interview everyone.
+called `#interview-<their character>`. Only the applicant and the interviewers for the night they picked (Wednesday,
+Thursday or Sunday) can see it, and the applicant's answers are posted inside. Each night's officers choose those
+interviewers on the website (Officers > Recruitment); until they do, `_gallagher` and `hadur117` interview everyone.
 
 This guide is for the server admin. Everything is done by clicking in Discord. There is no coding and there are no
 files, and no passwords to handle. It takes about 15 minutes.

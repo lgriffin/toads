@@ -17,7 +17,7 @@ const MEMBERS: Interviewer[] = [
 const FALLBACK = ['_gallagher', 'hadur117'];
 
 export function previewPanels(): PanelBackend {
-  const panels: Record<string, Interviewer[]> = { wed: [MEMBERS[0], MEMBERS[1]], sun: [] };
+  const panels: Record<string, Interviewer[]> = { wed: [MEMBERS[0], MEMBERS[1]], thu: [], sun: [] };
   const view = (day: string): InterviewPanel => ({
     raid_day: day,
     interviewers: [...(panels[day] ?? [])],

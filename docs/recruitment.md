@@ -1,6 +1,7 @@
 # Recruitment: raid nights and interview panels
 
-Applicants pick the night they want to raid, **Wednesday** or **Sunday**, on the `/recruit` page. Each night's
+Applicants pick the night they want to raid (Wednesday, Thursday or Sunday) on the `/recruit` page. The choices
+are the raid days in `config/raid_days.yaml`, so a new night shows up once it is configured, with no code change. Each night's
 officers choose that night's interview panel from the members of the Toads Discord on **Officers > Recruitment**
 (`/officers/recruitment`). When someone applies for Sunday, the Toad Bot opens their private interview room straight
 away with the applicant, the Sunday panel and the bot in it, and posts their answers there.

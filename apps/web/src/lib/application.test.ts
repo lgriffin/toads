@@ -3,6 +3,7 @@ import {
   EMPTY_APPLICATION,
   RECRUIT_DRAFT_KEY,
   forgetRecruitDraft,
+  nightsList,
   rolesForClass,
   toApiBody,
   validateApplication,
@@ -95,6 +96,14 @@ describe('rolesForClass', () => {
     expect(rolesForClass('Paladin')).toEqual(['Tank', 'Healer', 'Melee']);
     expect(rolesForClass('Hunter')).toEqual(['Ranged']);
     expect(rolesForClass('__proto__')).toEqual([]);
+  });
+});
+
+describe('nightsList', () => {
+  it('names the nights on offer', () => {
+    const night = (name: string) => ({ id: name.slice(0, 3).toLowerCase(), name });
+    expect(nightsList([night('Wednesday'), night('Thursday'), night('Sunday')])).toBe('Wednesday, Thursday and Sunday');
+    expect(nightsList([night('Sunday')])).toBe('Sunday');
   });
 });
 

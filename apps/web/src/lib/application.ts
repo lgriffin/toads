@@ -94,6 +94,12 @@ function roleError(className: string, role: string): string | undefined {
   return undefined;
 }
 
+/** "Wednesday, Thursday and Sunday": the nights on offer, for the recruit page's copy. */
+export function nightsList(nights: readonly RaidNight[]): string {
+  const names = nights.map((n) => n.name);
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
 /** `nights` are the raid day ids on offer; with none (an older hub), the night is not asked. */
 export function validateApplication(input: ApplicationInput, nights: readonly string[] = []): ApplicationErrors {
   const e: ApplicationErrors = {};
