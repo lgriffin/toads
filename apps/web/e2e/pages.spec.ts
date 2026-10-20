@@ -119,9 +119,10 @@ test('Logs draws the analyzer widgets from their shared payloads', async ({ page
   const flasks = page.getByRole('region', { name: 'Flasks and elixirs' });
   await expect(flasks).toContainText('6 of 7 prepared');
   await expect(flasks.getByRole('row', { name: /Hopscotch/ })).toContainText('Flask of Relentless Assault');
+  // A raid opens its breakdown on the hub, under the night a Wednesday officer reads in full.
   const recent = page.getByRole('region', { name: 'Recent raids' });
   await recent.getByRole('link').first().click();
-  await expect(page).toHaveURL(/\/toads\/logs\/[a-z]+-\d{4}\/$/);
+  await expect(page).toHaveURL(/\/toads\/logs\/[a-z]+-\d{4}\/\?day=wed$/);
 });
 
 test('the hub home leaves the raid widgets to Logs', async ({ page }) => {

@@ -57,7 +57,8 @@ its other widgets. The API keeps them in `ANALYZER_WIDGETS`, apart from the home
 
 Logs opens on the night of the viewer's Toad badge (the night their Discord role ties them to on /admin). Super
 admins, global officers, members of several nights and members of none open on every raid, which shows the guild-wide
-page. Picking a night also sets the weekday chips below to that night's weekday.
+page. Picking a night also sets the weekday chips below to that night's weekday. A raid named in a widget (last raid, recent raids, ...) opens its page under Logs, not its Warcraft Logs report; on a night
+its officers lead, the link carries that night so they read it in full (REQ-HUB-RAID-006).
 
 ## The page
 

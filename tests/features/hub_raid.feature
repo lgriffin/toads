@@ -36,3 +36,9 @@ Feature: HUB RAID
     And a Wednesday raider
     When the raider opens the Wednesday widgets on Logs
     Then the raider sees Wednesday's last raid and not the guild-wide one
+
+  @ears_event_driven @member @phase_2_7
+  Scenario: REQ-HUB-RAID-006 When a member opens a raid from the analyzer's widgets on Logs, the hub shall open that raid's breakdown under Logs rather than its Warcraft Logs report, under the night a night officer reads in full
+    Given the analyzer's widgets link a raid by its report id
+    Then the link opens the raid's page under Logs
+    And a night officer's link carries their raid night

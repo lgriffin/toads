@@ -6,7 +6,13 @@
 
   // The analyzer's raid widgets (last raid, recent raids, top damage, weekly healing, ...) built from one raid night's
   // raids, or from every raid when `night` is null. They used to sit on the hub home with every night mixed together; now only Logs draws them.
-  let { backend, night, label }: { backend: LogsBackend; night: string | null; label: string } = $props();
+  // `officerDay`: the night when the viewer is one of its officers, so raid links open its full analysis.
+  let {
+    backend,
+    night,
+    label,
+    officerDay = null
+  }: { backend: LogsBackend; night: string | null; label: string; officerDay?: string | null } = $props();
 
   let page = $state<AnalyzerPage | null>(null);
   let error = $state('');
@@ -39,7 +45,12 @@
     <div class="grid">
       {#each ids as id (id)}
         <div class="slot" class:wide={isWide(id)} data-widget={id}>
-          <AnalyzerWidget widget={widgetById(page, id)} title={catalogueTitle(id)} missing="Nothing logged for this yet." />
+          <AnalyzerWidget
+            widget={widgetById(page, id)}
+            title={catalogueTitle(id)}
+            missing="Nothing logged for this yet."
+            day={officerDay}
+          />
         </div>
       {/each}
     </div>

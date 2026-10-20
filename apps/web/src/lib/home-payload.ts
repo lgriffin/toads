@@ -6,7 +6,6 @@
 
 import type { BadgeHolder } from './badges';
 import type { ChartPayload } from './charts';
-import { reportUrl } from './sheets';
 
 export type LinkKind = 'raid' | 'character' | 'player_page' | 'action';
 
@@ -86,17 +85,17 @@ export interface Target {
 }
 
 /**
- * Where a payload link goes, or null when there is nowhere to send it (the text shows unlinked). The hub has no
- * analysed-raid page yet, so a raid opens its Warcraft Logs report; the static preview has sample raid pages, so
- * `internalRaids` sends raids there instead.
+ * Where a payload link goes, or null when there is nowhere to send it (the text shows unlinked). A raid opens its
+ * page under Logs, with the analyzer's breakdown; `day` is the raid night a night officer reads it under (the API
+ * checks it), as the Logs list's links carry it.
  */
-export function linkTarget(link: PayloadLink | null | undefined, base: string, internalRaids = false): Target | null {
+export function linkTarget(link: PayloadLink | null | undefined, base: string, day: string | null = null): Target | null {
   if (!link) return null;
   if (link.kind === 'raid') {
     const id = link.params.report_id ?? '';
-    if (internalRaids) return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? { href: `${base}/logs/${id}`, external: false } : null;
-    const url = reportUrl(id);
-    return url ? { href: url, external: true } : null;
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return null;
+    const query = day ? `?day=${encodeURIComponent(day)}` : '';
+    return { href: `${base}/logs/${id}/${query}`, external: false };
   }
   if (link.kind === 'action' && link.params.id === 'raids.browse') return { href: `${base}/logs`, external: false };
   return null;

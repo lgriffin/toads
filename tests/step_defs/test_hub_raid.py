@@ -184,3 +184,25 @@ def raider_opens_wednesday(hub: Hub, people: dict[str, Any]) -> None:
 @then("the raider sees Wednesday's last raid and not the guild-wide one")
 def sees_wednesday(people: dict[str, Any]) -> None:
     assert [w["subtitle"] for w in people["widgets"]] == ["Night wed"]
+
+
+# --- raid links from the widgets (REQ-HUB-RAID-006) ------------------------------------------------------------------
+
+WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
+
+
+@given("the analyzer's widgets link a raid by its report id", target_fixture="links")
+def widget_links() -> str:
+    return (WEB / "lib" / "home-payload.ts").read_text(encoding="utf-8")
+
+
+@then("the link opens the raid's page under Logs")
+def opens_raid_page(links: str) -> None:
+    assert "href: `${base}/logs/${id}/${query}`, external: false" in links
+    assert "warcraftlogs" not in links.split("export function linkTarget")[1].split("\n}\n")[0]
+
+
+@then("a night officer's link carries their raid night")
+def carries_night() -> None:
+    page = (WEB / "routes" / "logs" / "+page.svelte").read_text(encoding="utf-8")
+    assert "viewer?.officer_days?.includes(night)" in page and "{officerDay}" in page

@@ -12,7 +12,7 @@
 
   const backend = __PREVIEW__ ? previewLogs(() => previewSession.role) : hubLogs;
 
-  type Viewer = Pick<Session, 'raid_days' | 'global_officer' | 'super_admin' | 'day_names'>;
+  type Viewer = Pick<Session, 'raid_days' | 'global_officer' | 'super_admin' | 'day_names' | 'officer_days'>;
   let viewer = $state<Viewer | null>(null);
   // undefined until the viewer is known, then the night of their Toad badge, or null for every raid.
   let night = $state<string | null | undefined>(undefined);
@@ -35,7 +35,7 @@
       viewer = null;
     }
     // The page is behind sign-in; an unreadable session still shows every raid rather than nothing.
-    viewer ??= { raid_days: [], global_officer: false, day_names: undefined };
+    viewer ??= { raid_days: [], global_officer: false, day_names: undefined, officer_days: [] };
   });
 
   // The preview's pretend sign-in can change view; each view opens on its own night.
@@ -58,6 +58,8 @@
     weekdays = w === undefined ? [] : [w];
   }
 
+  // A night officer reads that night's raids in full under its day, as the list's links do.
+  const officerDay = $derived(night && viewer?.officer_days?.includes(night) ? night : null);
   const label = $derived(nights.find((n) => n.id === night)?.name ?? 'Every raid');
 </script>
 
@@ -75,7 +77,7 @@
         <NightTabs {nights} value={night} onpick={pick} />
       </div>
       {#key night}
-        <NightGlance {backend} {night} {label} />
+        <NightGlance {backend} {night} {label} {officerDay} />
       {/key}
       <LogsIndex {backend} bind:weekdays />
     {/key}

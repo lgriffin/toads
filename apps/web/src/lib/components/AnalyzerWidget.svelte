@@ -6,14 +6,16 @@
 
   // One widget of the analyzer's home page. Payload text (names, zones) comes from logs, so it is only ever
   // interpolated as text, never with {@html}. `title` is used while the page has no payload for this widget yet.
-  let { widget, title, missing }: { widget: PayloadWidget | null; title: string; missing: string } = $props();
+  // `day`: the raid night whose officers the viewer is among, so a raid link opens that night's full analysis.
+  let {
+    widget,
+    title,
+    missing,
+    day = null
+  }: { widget: PayloadWidget | null; title: string; missing: string; day?: string | null } = $props();
 
   const hid = $derived(`aw-${widget?.id ?? title.toLowerCase().replace(/[^a-z]+/g, '-')}`);
-  // The preview has sample raid pages and prerenders with trailing slashes; the live hub opens Warcraft Logs.
-  const target = (link: PayloadLink | null | undefined) => {
-    const t = linkTarget(link, base, __PREVIEW__);
-    return t && __PREVIEW__ && !t.external ? { ...t, href: `${t.href}/` } : t;
-  };
+  const target = (link: PayloadLink | null | undefined) => linkTarget(link, base, day);
   const open = $derived(target(widget?.link));
 </script>
 

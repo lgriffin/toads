@@ -258,8 +258,15 @@ function seesInFull(role: PreviewRole | null, weekday: number | null): boolean {
  * Who the preview's pretend sign-in is, for the night Logs opens on: the member and the officer are Wednesday toads
  * (the officer leads Wednesday), the super admin sees every night.
  */
-export function previewViewer(role: PreviewRole | null): Pick<Session, 'raid_days' | 'global_officer' | 'super_admin'> {
-  return { raid_days: role ? ['wed'] : [], global_officer: role === 'admin', super_admin: role === 'admin' };
+export function previewViewer(
+  role: PreviewRole | null
+): Pick<Session, 'raid_days' | 'global_officer' | 'super_admin' | 'officer_days'> {
+  return {
+    raid_days: role ? ['wed'] : [],
+    global_officer: role === 'admin',
+    super_admin: role === 'admin',
+    officer_days: role === 'officer' ? ['wed'] : role === 'admin' ? ['wed', 'thu', 'sun'] : []
+  };
 }
 
 export function previewLogs(role: () => PreviewRole | null): LogsBackend {

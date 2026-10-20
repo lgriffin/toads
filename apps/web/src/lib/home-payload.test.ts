@@ -4,18 +4,16 @@ import { barPercent, linkTarget, widgetById, type AnalyzerPage } from './home-pa
 describe('analyzer payload links', () => {
   const raid = (report_id: string) => ({ kind: 'raid' as const, params: { report_id } });
 
-  it('opens a raid on Warcraft Logs, since the live hub has no raid page yet', () => {
-    expect(linkTarget(raid('aBcD1234eFgH5678'), '')).toEqual({
-      href: 'https://classic.warcraftlogs.com/reports/aBcD1234eFgH5678',
-      external: true
-    });
+  it("opens a raid's breakdown under Logs, not Warcraft Logs", () => {
+    expect(linkTarget(raid('aBcD1234eFgH5678'), '')).toEqual({ href: '/logs/aBcD1234eFgH5678/', external: false });
+    expect(linkTarget(raid('ssc-0924'), '/toads')).toEqual({ href: '/toads/logs/ssc-0924/', external: false });
   });
-  it('opens the sample raid page in the preview', () => {
-    expect(linkTarget(raid('ssc-0924'), '/toads', true)).toEqual({ href: '/toads/logs/ssc-0924', external: false });
+  it("carries a night officer's raid night, as the Logs list does", () => {
+    expect(linkTarget(raid('ssc-0924'), '', 'wed')).toEqual({ href: '/logs/ssc-0924/?day=wed', external: false });
   });
   it('refuses raid ids that are not id-shaped', () => {
     expect(linkTarget(raid('../admin'), '')).toBeNull();
-    expect(linkTarget(raid('../admin'), '', true)).toBeNull();
+    expect(linkTarget(raid('../admin'), '', 'wed')).toBeNull();
     expect(linkTarget({ kind: 'raid', params: {} }, '')).toBeNull();
   });
   it('drops links the hub has no page for', () => {
