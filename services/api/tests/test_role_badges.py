@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from toads_api.community.service import RaidDayDirectory
 from toads_api.rbac import HubRole, RaidDaysConfig
 from toads_api.role_badges.catalog import ROLE_BADGES
 from toads_api.role_badges.repository import InMemoryRoleBadgeRepository
@@ -41,6 +42,31 @@ def test_each_night_badges_roles_make_that_nights_team() -> None:
     # The night's officer role still wins, and the badge alone makes no officer.
     assert cfg.principal_for(1, {41, 50}, night_roles=svc.night_roles(nights)).day_roles == {"thu": HubRole.OFFICER}
     assert cfg.principal_for(1, {41}).day_roles == {}
+
+
+def test_each_night_officer_badges_roles_make_that_nights_officers() -> None:
+    svc = RoleBadgeService(InMemoryRoleBadgeRepository())
+    svc.tie(60, "Thursday Officers", "thursday-officer", by=1)
+    svc.tie(61, "Thursday Toad", "thursday-toad", by=1)
+    nights = [("wed", "Wednesday"), ("thu", "Thursday"), ("sun", "Sunday")]
+    assert svc.night_officer_roles(nights) == {"thu": {60}}
+    assert svc.night_roles(nights) == {"thu": {61}}
+    cfg = RaidDaysConfig.model_validate({"raid_days": [{"id": d, "name": n} for d, n in nights]})
+    officers = svc.night_officer_roles(nights)
+    assert cfg.principal_for(1, {60}, night_officer_roles=officers).day_roles == {"thu": HubRole.OFFICER}
+    # Thursday's officers run Thursday only.
+    assert cfg.principal_for(1, {60, 61}, night_officer_roles=officers).day_roles == {"thu": HubRole.OFFICER}
+    assert cfg.principal_for(1, {61}, night_officer_roles=officers).day_roles == {}
+
+
+def test_interview_rooms_admit_the_nights_badge_officers() -> None:
+    directory = RaidDayDirectory(
+        global_officer_roles=(900,),
+        officer_roles={"wed": (12,), "thu": ()},
+        badge_officer_roles=lambda: {"thu": {60}, "sun": {70}},
+    )
+    assert directory.officer_role_ids(["thu"]) == [60, 900]
+    assert directory.officer_role_ids([]) == [12, 60, 70, 900]
 
 
 def test_links_are_listed_in_catalogue_order() -> None:

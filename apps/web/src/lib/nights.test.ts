@@ -17,8 +17,9 @@ describe('raid nights', () => {
     expect(raidNight('fri')).toBeUndefined();
     expect(raidNight('')).toBeUndefined();
   });
-  it('gives every night a role badge with its toad', () => {
+  it('gives every night a role badge with its toad, and one for its officers', () => {
     for (const n of RAID_NIGHTS) expect(ROLE_BADGES.find((b) => b.file === n.toad)?.name).toBe(`${n.name} Toad`);
+    for (const n of RAID_NIGHTS) expect(ROLE_BADGES.find((b) => b.id === `${n.name.toLowerCase()}-officer`)?.name).toBe(`${n.name} Officer`);
   });
   it('gives every night a preview roster', async () => {
     for (const n of RAID_NIGHTS) expect((await previewComps.pool(n.id)).length).toBeGreaterThan(0);

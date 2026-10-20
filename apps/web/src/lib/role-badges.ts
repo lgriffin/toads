@@ -1,6 +1,6 @@
 /**
  * Role badges (docs/role-badges.md): badge toads members earn from the Discord roles they hold, such as the Wednesday
- * Toad, the Thursday Toad, the Sunday Toad, Tank and Healer. A super admin ties each badge to a server role on the admin page; the hub
+ * Toad, the Thursday Toad, the Sunday Toad, each night's Officer, Tank and Healer. A super admin ties each badge to a server role on the admin page; the hub
  * checks the roles. services/api/tests/test_role_badges.py fails if the hub's catalogue and this list drift apart.
  */
 import { call, ApiError, type Fetch } from './api';
@@ -17,6 +17,9 @@ export const ROLE_BADGES: readonly RoleBadge[] = [
   { id: 'wednesday-toad', name: 'Wednesday Toad', file: 'days/wednesday-toad' },
   { id: 'thursday-toad', name: 'Thursday Toad', file: 'days/thursday-toad' },
   { id: 'sunday-toad', name: 'Sunday Toad', file: 'days/sunday-toad' },
+  { id: 'wednesday-officer', name: 'Wednesday Officer', file: 'ranks/officer' },
+  { id: 'thursday-officer', name: 'Thursday Officer', file: 'ranks/officer' },
+  { id: 'sunday-officer', name: 'Sunday Officer', file: 'ranks/officer' },
   { id: 'tank', name: 'Tank', file: 'roles/tank' },
   { id: 'healer', name: 'Healer', file: 'roles/healer' },
   { id: 'damage', name: 'Damage', file: 'roles/damage' },
@@ -37,6 +40,7 @@ export const ROLE_BADGE_GROUPS: readonly {
   ids: readonly string[];
 }[] = [
   { label: 'Raid nights', ids: ROLE_BADGES.filter((b) => b.file.startsWith('days/')).map((b) => b.id) },
+  { label: 'Raid night officers', ids: ROLE_BADGES.filter((b) => b.id.endsWith('-officer')).map((b) => b.id) },
   { label: 'Raid roles', ids: ['tank', 'healer', 'damage'] },
   { label: 'Classes', ids: ROLE_BADGES.filter((b) => b.file.startsWith('classes/')).map((b) => b.id) }
 ];

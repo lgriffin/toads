@@ -93,3 +93,10 @@ def migrations_first() -> None:
     up = DEPLOY_SCRIPT.index("up -d")
     assert DEPLOY_SCRIPT.index("run --rm migrate") < up
     assert DEPLOY_SCRIPT.index("run --rm analyser-migrate") < up
+    # config/ is read only at startup, so every service that mounts it restarts even when its image did not change.
+    readers = [
+        n
+        for n, s in _yaml("infra/docker-compose.prod.yml")["services"].items()
+        if "../config:/config:ro,z" in [v for v in s.get("volumes", []) if isinstance(v, str)]
+    ]
+    assert DEPLOY_SCRIPT.index(f"restart {' '.join(readers)}") > up
