@@ -75,7 +75,8 @@ services:
       analyser-migrate: { condition: service_completed_successfully }
       api: { condition: service_healthy }
 
-  # Bots run only with COMPOSE_PROFILES=bot in infra/.env; each needs its own Discord application token.
+  # Bots run only when infra/.env names them: COMPOSE_PROFILES=bot for the Toad Bot, bot,bank for the bank bot too.
+  # Each needs its own Discord application token.
   bot:
     build: { context: .., dockerfile: services/bot/Dockerfile }
     restart: unless-stopped
@@ -91,7 +92,7 @@ services:
     environment:
       TOADS_BOT_SPEC: bank
     depends_on: { api: { condition: service_healthy } }
-    profiles: [bot]
+    profiles: [bank]
 
   web:
     build: { context: ../apps/web }

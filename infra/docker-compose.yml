@@ -117,7 +117,7 @@ services:
     environment:
       TOADS_BOT_SPEC: bank
     depends_on: [api]
-    profiles: [bot]
+    profiles: [bank]  # `docker compose --profile bank up`
 
   web:
     build: { context: ../apps/web }

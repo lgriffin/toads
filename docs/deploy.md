@@ -156,8 +156,11 @@ is not listed here.
 [admin guide section 5](../ADMIN_GUIDE.md#5-config-files) describes. The API checks the raid-day roles against Discord
 when it starts, so it will not start with the example ids.
 
-Bots are optional at first. To run them, put the Toad Bot's token in `services/bot/.env` and the **bank bot's own**
-application token in `services/bot/.env.bank`, then set `COMPOSE_PROFILES=bot` in `/opt/toads/infra/.env`.
+Bots are optional at first, and each starts on its own. For the Toad Bot (interview rooms, posts), fill in
+`services/bot/.env` (its token, `TOADS_DISCORD_GUILD_ID`, and `TOADS_HUB_SERVICE_TOKEN` as in the API's env) and set
+`COMPOSE_PROFILES=bot` in `/opt/toads/infra/.env`. For the bank bot, put the **bank bot's own** application token in
+`services/bot/.env.bank` and make it `COMPOSE_PROFILES=bot,bank`. The deploy script builds and starts only the bots
+named there, so a bot left out keeps running its old build.
 
 ## 6. First deploy, by hand
 
