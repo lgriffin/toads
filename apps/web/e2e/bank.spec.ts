@@ -7,6 +7,8 @@ test('a raider requests an item, then cancels it', async ({ page }) => {
   await signIn(page, 'member');
   await page.goto('bank/');
   await expect(page.getByRole('heading', { name: 'Guild bank', level: 1 })).toBeVisible();
+  await page.getByRole('figure', { name: 'Gail keeps the counter' }).getByRole('link', { name: 'Fill in a slip' }).click();
+  await expect(page).toHaveURL(/#req-item$/);
   await expect(page.getByRole('region', { name: 'Banks' }).getByRole('cell', { name: 'Wednesday bank' })).toBeVisible();
   await expect(page.getByText('Officer reserve')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /who else runs the bank/ })).toHaveCount(0);
