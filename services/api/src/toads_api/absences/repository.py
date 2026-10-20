@@ -3,7 +3,7 @@ is `sql.SqlAbsenceRepository`."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from typing import Protocol
 
@@ -24,6 +24,7 @@ class AbsenceRepository(Protocol):
     def for_day(self, raid_day: str, since: date) -> list[AbsenceRecord]: ...
     def get(self, absence_id: int) -> AbsenceRecord | None: ...
     def add(self, member_id: int, raid_day: str, first: date, last: date, note: str | None) -> AbsenceRecord: ...
+    def change(self, absence_id: int, first: date, last: date, note: str | None) -> AbsenceRecord | None: ...
     def remove(self, absence_id: int) -> bool: ...
 
 
@@ -50,6 +51,13 @@ class InMemoryAbsenceRepository:
         row = AbsenceRecord(max(self.rows, default=0) + 1, member_id, raid_day, first, last, note, datetime.now(UTC))
         self.rows[row.id] = row
         return row
+
+    def change(self, absence_id: int, first: date, last: date, note: str | None) -> AbsenceRecord | None:
+        row = self.rows.get(absence_id)
+        if row is None:
+            return None
+        self.rows[absence_id] = replace(row, first_date=first, last_date=last, note=note)
+        return self.rows[absence_id]
 
     def remove(self, absence_id: int) -> bool:
         return self.rows.pop(absence_id, None) is not None

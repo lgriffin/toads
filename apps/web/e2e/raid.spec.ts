@@ -30,19 +30,37 @@ test('a super admin switches between the raid nights', async ({ page }) => {
   ).toBeVisible();
 });
 
-test('a raider reports a raid night they will miss and cancels it', async ({ page }) => {
+test('a raider adds a raid night they will miss on Me, changes it and deletes it', async ({ page }) => {
   await signIn(page, 'member');
-  await page.goto('calendar/');
-  await page.getByLabel('Note for the officers').fill('Dentist');
-  const first = page.getByRole('button', { name: /Wednesday raid\. Report an absence$/ }).last();
+  await page.goto('me/');
+  const absences = page.getByRole('region', { name: 'Your absences' });
+  const first = absences.getByRole('button', { name: /Wednesday raid\. Report an absence$/ }).last();
   await first.click();
-  await page.getByRole('button', { name: 'Report absence' }).click();
+  // Every absence carries a note for the officers.
+  await expect(absences.getByRole('button', { name: 'Report absence' })).toBeDisabled();
+  await absences.getByLabel('Note for the officers').fill('Dentist');
+  await absences.getByRole('button', { name: 'Report absence' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'officers can see you will miss that night' })).toBeVisible();
   const mine = page.getByRole('region', { name: 'Your upcoming absences' });
-  await expect(mine.getByText('Dentist')).toBeVisible();
-  await mine.getByRole('listitem').filter({ hasText: 'Dentist' }).getByRole('button', { name: /^Cancel/ }).click();
+  const row = mine.getByRole('listitem').filter({ hasText: 'Dentist' });
+  await row.getByRole('button', { name: /^Change/ }).click();
+  await absences.getByLabel('Note for the officers').fill('Dentist, moved to the evening');
+  await absences.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /^Changed\./ })).toBeVisible();
+  const changed = mine.getByRole('listitem').filter({ hasText: 'Dentist, moved to the evening' });
+  await changed.getByRole('button', { name: /^Delete/ }).click();
   await expect(mine.getByText('Dentist')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Team absences' })).toHaveCount(0);
+});
+
+test('officers read their team\'s absences under Officers, and old Calendar links land on Me', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('officers/');
+  await page.getByRole('link', { name: 'Open the Calendar' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Calendar' })).toBeVisible();
+  const team = page.getByRole('region', { name: 'Team absences' });
+  await expect(team.getByText('Half-term holiday.').first()).toBeVisible();
+  await page.goto('calendar/');
+  await expect(page).toHaveURL(/\/me\/(#absences)?$/);
 });
 
 test('a raid night officer adds a task to the board and moves it along', async ({ page }) => {

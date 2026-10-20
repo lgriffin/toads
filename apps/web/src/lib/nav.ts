@@ -20,7 +20,6 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 export const MEMBER_NAV: readonly NavItem[] = [
   { href: '/hub', label: 'Hub' },
   { href: '/raid', label: 'Raid' },
-  { href: '/calendar', label: 'Calendar' },
   { href: '/logs', label: 'Logs' },
   { href: '/highlights', label: 'Highlights' },
   { href: '/bank', label: 'Bank' },

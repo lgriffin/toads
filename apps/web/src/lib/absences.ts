@@ -1,6 +1,7 @@
 /**
- * Absences (docs/absences.md): a raid day's trials and raiders say which raid nights they will miss on the Calendar
- * page, and that day's officers see the team's upcoming absences in one place (the Calendar and the Raid page). The
+ * Absences (docs/absences.md): a raid day's trials and raiders say which raid nights they will miss on their Me page,
+ * with a note for each, and that day's officers see the team's upcoming absences in one place (the officers' Calendar
+ * and the Raid page). The
  * API decides who may report for which team and who may see a team's list; this module only shapes the calls and
  * the month grid.
  */
@@ -33,7 +34,8 @@ export interface TeamAbsences {
 export interface AbsenceIn {
   first_date: string;
   last_date?: string;
-  note?: string;
+  /** Why, for the night's officers; the API refuses a blank one. */
+  note: string;
 }
 
 export const NOTE_LIMIT = 200;
@@ -41,6 +43,11 @@ export const NOTE_LIMIT = 200;
 export const myAbsences = (f: Fetch = fetch) => call<Absence[]>(f, '/api/me/absences');
 export const reportAbsence = (day: string, body: AbsenceIn, f: Fetch = fetch) =>
   call<Absence>(f, `/api/days/${encodeURIComponent(day)}/absences`, { method: 'POST', body: JSON.stringify(body) });
+export const changeAbsence = (day: string, id: number, body: AbsenceIn, f: Fetch = fetch) =>
+  call<Absence>(f, `/api/days/${encodeURIComponent(day)}/absences/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body)
+  });
 export const cancelAbsence = (id: number, f: Fetch = fetch) =>
   call<void>(f, `/api/me/absences/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const teamAbsences = (day: string, f: Fetch = fetch) =>
@@ -50,6 +57,7 @@ export const teamAbsences = (day: string, f: Fetch = fetch) =>
 export interface AbsencesBackend {
   mine(): Promise<Absence[]>;
   report(day: string, body: AbsenceIn): Promise<Absence>;
+  change(day: string, id: number, body: AbsenceIn): Promise<Absence>;
   cancel(id: number): Promise<void>;
   team(day: string): Promise<TeamAbsences>;
 }
@@ -57,6 +65,7 @@ export interface AbsencesBackend {
 export const hubAbsences: AbsencesBackend = {
   mine: () => myAbsences(),
   report: (day, body) => reportAbsence(day, body),
+  change: (day, id, body) => changeAbsence(day, id, body),
   cancel: (id) => cancelAbsence(id),
   team: (day) => teamAbsences(day)
 };
