@@ -53,12 +53,13 @@
     }
   }
 
-  async function change(action: () => Promise<InterviewPanel>, done: string) {
+  async function change(action: () => Promise<InterviewPanel>, done: string, clearSearch = false) {
     busy = true;
     try {
       panel = await action();
       message = done;
       failed = false;
+      if (clearSearch) [query, found, searched] = ['', [], ''];
     } catch (e) {
       message = panelError(e);
       failed = true;
@@ -68,7 +69,11 @@
   }
 
   const add = (who: Interviewer) =>
-    change(() => backend.add(day, who.discord_user_id), `${who.display_name} now interviews ${night} applicants.`);
+    change(
+      () => backend.add(day, who.discord_user_id),
+      `${who.display_name} now interviews ${night} applicants.`,
+      true
+    );
   const remove = (who: Interviewer) =>
     change(() => backend.remove(day, who.discord_user_id), `${who.display_name} is off the ${night} panel.`);
 </script>
