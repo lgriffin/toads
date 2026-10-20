@@ -211,6 +211,15 @@ export function defaultNight(
   return mine.length === 1 ? mine[0].id : null;
 }
 
+/**
+ * The raid night a report opens under, as the raid list says (`RaidRow.day`: the night the viewer is an officer of, so
+ * they read it in full), else `fallback` for a report the list does not hold yet.
+ */
+export function raidDayOf(rows: readonly RaidRow[], fallback: string | null = null): (report: string) => string | null {
+  const days = new Map(rows.map((r) => [r.summary.report_id, r.day]));
+  return (report) => (days.has(report) ? (days.get(report) ?? null) : fallback);
+}
+
 export function logsError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
   if (e.status === 401) return 'Sign in with Discord first.';

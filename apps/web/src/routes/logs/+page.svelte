@@ -3,7 +3,7 @@
   import '@fontsource/alegreya-sans/700.css';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
-  import { defaultNight, hubLogs, logNights, type LogNight } from '$lib/logs';
+  import { defaultNight, hubLogs, logNights, raidDayOf, type LogNight, type RaidRow } from '$lib/logs';
   import { previewLogs, previewViewer } from '$lib/preview/logs-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import LogsIndex from '$lib/components/LogsIndex.svelte';
@@ -12,13 +12,24 @@
 
   const backend = __PREVIEW__ ? previewLogs(() => previewSession.role) : hubLogs;
 
-  type Viewer = Pick<Session, 'raid_days' | 'global_officer' | 'super_admin' | 'day_names'>;
+  type Viewer = Pick<Session, 'raid_days' | 'global_officer' | 'super_admin' | 'day_names' | 'officer_days'>;
   let viewer = $state<Viewer | null>(null);
   // undefined until the viewer is known, then the night of their Toad badge, or null for every raid.
   let night = $state<string | null | undefined>(undefined);
   let weekdays = $state<number[]>([]);
   // Each raid night's weekday as the API resolves it; empty until read (or when it cannot be), which leaves Every raid.
   let nightDays = $state<Record<string, number> | null>(null);
+
+  // The raid list says which night each raid opens under for this viewer; the widgets' raid links follow it.
+  let rows = $state<RaidRow[]>([]);
+
+  $effect(() => {
+    void previewSession.role; // the preview's pretend sign-in changes which nights read in full
+    backend.overview().then(
+      (o) => (rows = o.raids),
+      () => (rows = [])
+    );
+  });
 
   onMount(() => {
     backend.nights().then(
@@ -35,7 +46,7 @@
       viewer = null;
     }
     // The page is behind sign-in; an unreadable session still shows every raid rather than nothing.
-    viewer ??= { raid_days: [], global_officer: false, day_names: undefined };
+    viewer ??= { raid_days: [], global_officer: false, day_names: undefined, officer_days: [] };
   });
 
   // The preview's pretend sign-in can change view; each view opens on its own night.
@@ -58,6 +69,10 @@
     weekdays = w === undefined ? [] : [w];
   }
 
+  // A night officer reads that night's raids in full under its day, as the list's links do: on every tab, each raid
+  // opens under the night the list gives it, and a raid the list does not hold yet under the shown night.
+  const officerDay = $derived(night && viewer?.officer_days?.includes(night) ? night : null);
+  const dayOf = $derived(raidDayOf(rows, officerDay));
   const label = $derived(nights.find((n) => n.id === night)?.name ?? 'Every raid');
 </script>
 
@@ -75,7 +90,7 @@
         <NightTabs {nights} value={night} onpick={pick} />
       </div>
       {#key night}
-        <NightGlance {backend} {night} {label} />
+        <NightGlance {backend} {night} {label} {dayOf} />
       {/key}
       <LogsIndex {backend} bind:weekdays />
     {/key}

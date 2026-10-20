@@ -6,6 +6,7 @@ import {
   getNights,
   logNights,
   filterRaids,
+  raidDayOf,
   getRaid,
   raidDateLabel,
   raidLength,
@@ -74,6 +75,19 @@ const HYDROSS: BossHistory = {
     '3': { kills: 1, duration_ms: 300_000, damage: 3_000_000, healing: 0 }
   }
 };
+
+describe('raid links from the widgets', () => {
+  it('open each raid under the night the list gives it, on every tab', () => {
+    const rows = [{ ...row('wed', 2), day: 'wed' }, row('sun', 6)];
+    const dayOf = raidDayOf(rows, null);
+    expect([dayOf('wed'), dayOf('sun'), dayOf('unlisted')]).toEqual(['wed', null, null]);
+  });
+
+  it('open a raid the list does not hold yet under the shown night', () => {
+    expect(raidDayOf([], 'wed')('new')).toBe('wed');
+    expect(raidDayOf([row('sun', 6)], 'wed')('sun')).toBeNull();
+  });
+});
 
 describe('the boss history', () => {
   it('adds up the picked weekdays and averages per kill', () => {
