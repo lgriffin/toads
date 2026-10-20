@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any, ClassVar
 
+import httpx
 import pytest
 import structlog
 from hub_db import AuditEntry, Base, CredentialCipher, Member, WclCredential
@@ -25,13 +26,13 @@ from structlog.testing import capture_logs
 from toads_api.discord_api import MismatchedDiscordApplicationError
 from toads_api.rbac import HubRole, UnknownDiscordRoleError
 from toads_api.rbac.deps import route_rules
-from toads_api.rbac.permissions import ROLE_PERMISSIONS
+from toads_api.rbac.permissions import ROLE_PERMISSIONS, Permission
 from toads_api.sessions import SESSION_COOKIE
 from toads_worker.settings import Settings as WorkerSettings
 from toads_worker.wcl_keys import MemberKeys, client_for
 from wcl_core.common.errors import AuthenticationError
 
-from conftest import CREDENTIALS_KEY, RAID_DAYS, Hub
+from conftest import CREDENTIALS_KEY, RAID_DAYS, Hub, make_settings
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +74,11 @@ def test_rbac_001() -> None:
 
 @_bind("hub_rbac.feature", 2)
 def test_rbac_002() -> None:
+    pass
+
+
+@_bind("hub_rbac.feature", 5)
+def test_rbac_005() -> None:
     pass
 
 
@@ -263,13 +269,87 @@ def officer_on_wed_only(hub: Hub, ctx: dict[str, Any]) -> None:
     assert info["global_officer"] is False
 
 
-@then("no route or table assigns hub roles")
+@then("no route or table besides officer grants assigns hub roles")
 def no_role_assignment(hub: Hub) -> None:
     rules, _ = route_rules(hub.app)
     # Role badges (docs/role-badges.md) read Discord roles to hand out badge art; they grant no permission.
     badge_desk = "/api/admin/role-badges"
     assert not [r for r in rules if r.method != "GET" and "role" in r.path and not r.path.startswith(badge_desk)]
     assert not [c.name for c in Member.__table__.columns if "role" in c.name]
+    # Officer grants (REQ-HUB-RBAC-005) are the one hub-side assignment, and only super admins reach them.
+    officer_desk = [r for r in rules if r.path.startswith("/api/admin/officer-grants")]
+    assert officer_desk and {r.permission for r in officer_desk} == {Permission.MANAGE_OFFICER_GRANTS}
+
+
+# --- officer grants (REQ-HUB-RBAC-005) -----------------------------------------------------------------
+
+
+@given("a super admin and a Wednesday raider signed in")
+def admin_and_raider(hub: Hub, ctx: dict[str, Any]) -> None:
+    admin = hub.user()
+    hub.services.settings = make_settings(super_admin_ids=str(admin.user_id))
+    ctx["admin"] = hub.login(admin)
+    ctx["raider_user"] = hub.user(("wed", "raider"))
+    ctx["raider"] = hub.login(ctx["raider_user"])
+
+
+def _officer_grant(hub: Hub, ctx: dict[str, Any], sid: str, day: str | None) -> httpx.Response:
+    body = {"discord_user_id": str(ctx["raider_user"].user_id), "raid_day": day}
+    return hub.post("/api/admin/officer-grants", sid, body)
+
+
+@when(parsers.parse('the super admin grants the raider officer powers for raid day "{day}"'))
+def grant_day_officer(hub: Hub, ctx: dict[str, Any], day: str) -> None:
+    assert _officer_grant(hub, ctx, ctx["admin"], day).status_code == 201
+
+
+@when("the super admin grants the raider global officer powers")
+def grant_global_officer(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert _officer_grant(hub, ctx, ctx["admin"], None).status_code == 201
+
+
+@when("the super admin revokes the raider's officer grants")
+def revoke_officer_grants(hub: Hub, ctx: dict[str, Any]) -> None:
+    for g in hub.get("/api/admin/officer-grants", ctx["admin"]).json()["grants"]:
+        assert hub.delete(f"/api/admin/officer-grants/{g['id']}", ctx["admin"]).status_code == 204
+
+
+@then(
+    parsers.parse('the raider\'s session reports officer standing for raid day "{day}" and raider standing for "{own}"')
+)
+def granted_day_standing(hub: Hub, ctx: dict[str, Any], day: str, own: str) -> None:
+    info = hub.get("/api/session", ctx["raider"]).json()
+    assert info["day_roles"] == {own: "raider", day: "officer"}
+    assert (info["officer_days"], info["global_officer"]) == ([day], False)
+
+
+@then("the raider's session reports a global officer who is not a super admin")
+def granted_global_standing(hub: Hub, ctx: dict[str, Any]) -> None:
+    info = hub.get("/api/session", ctx["raider"]).json()
+    assert (info["global_officer"], info["super_admin"], info["break_glass"]) == (True, False, False)
+
+
+@then("the raider may not grant officer powers")
+def raider_cannot_grant(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert _officer_grant(hub, ctx, ctx["raider"], "wed").status_code == 403
+
+
+@then("the raider's session reports no officer standing")
+def no_officer_standing(hub: Hub, ctx: dict[str, Any]) -> None:
+    info = hub.get("/api/session", ctx["raider"]).json()
+    assert (info["day_roles"], info["officer_days"], info["global_officer"]) == ({"wed": "raider"}, [], False)
+
+
+@then("the audit log records each officer grant and revoke")
+def officer_grants_audited(hub: Hub) -> None:
+    with hub.db() as db:
+        rows = [(a.action, a.raid_day_id) for a in db.scalars(select(AuditEntry).order_by(AuditEntry.id))]
+    assert [r for r in rows if r[0].startswith("officer.")] == [
+        ("officer.grant", "sun"),
+        ("officer.grant", None),
+        ("officer.revoke", "sun"),
+        ("officer.revoke", None),
+    ]
 
 
 @when("they gain the Sunday raider role in Discord")
