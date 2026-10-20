@@ -25,6 +25,12 @@ Feature: HUB COMP
     Then the Wednesday officer's roster lists the Wednesday raider with "shaman-restoration" and "shaman-elemental"
     And the Wednesday officer's roster does not list the Sunday raider
 
+  @ears_ubiquitous @raid_leader @phase_2_7
+  Scenario: REQ-HUB-COMP-006 The comp builder's roster for a raid night shall list everyone in the Discord server holding that night's roles, marking those who have never signed in to the hub
+    Given a Wednesday officer
+    And a Wednesday raider who has never signed in to the hub
+    Then the Wednesday officer's roster lists the raider who has never signed in, marked as not signed in
+
   @ears_event_driven @raid_leader @phase_2_7
   Scenario: REQ-HUB-COMP-004 When a raid night's officer locks in a comp, the hub shall store it for that night with its seats and record it on the audit log
     Given a Wednesday raider

@@ -55,6 +55,9 @@ const THURSDAY: Row[] = [
   ['Newtling', null, null, null]
 ];
 
+// Holders of the night's Discord role who have never signed in to the hub.
+const UNSIGNED = new Set(['Lotus', 'Lagoon', 'Newtling']);
+
 const IDS = new Map<string, number>();
 const idOf = (name: string) => {
   if (!IDS.has(name)) IDS.set(name, IDS.size + 1);
@@ -63,7 +66,14 @@ const idOf = (name: string) => {
 
 const entries = (rows: Row[]): PoolEntry[] =>
   rows
-    .map(([name, wow_class, primary, secondary]) => ({ member_id: idOf(name), name, wow_class, primary, secondary }))
+    .map(([name, wow_class, primary, secondary]) => ({
+      member_id: idOf(name),
+      name,
+      wow_class,
+      primary,
+      secondary,
+      signed_in: !UNSIGNED.has(name)
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
 const POOLS: Record<string, PoolEntry[]> = { wed: entries(WEDNESDAY), thu: entries(THURSDAY), sun: entries(SUNDAY) };

@@ -32,10 +32,19 @@ whole raid. Update `BUFFS` in `comp.ts` as Blizzard confirms changes.
 
 ## Who is on a night's roster
 
-A member is on a raid night's roster when their Discord roles put them on that night (trial, raider or officer). The
-hub records those nights on the member's row at every sign-in and role refresh (`members.raid_days`, migration 0017);
-it is never a source of permissions. Someone who has not signed in since the roles changed shows on their old nights
-until they do; losing a night's role or leaving the server takes them off at the next role refresh.
+A member is on a raid night's roster when their Discord roles put them on that night: the night's trial, raider or
+officer roles in `config/raid_days.yaml`, or a role a super admin tied to the night's Toad badge on /admin
+(docs/role-badges.md). Nobody has to sign in to the hub first. When an officer opens the roster, the API lists the
+Discord server's members with the Toad Bot's token (`GET /guilds/{id}/members`, which needs the Server Members intent
+the bot already has) and records each holder's nights on their member row (`members.raid_days`), creating the row for
+someone the hub has not met yet. It reads the server at most once per `role_refresh_seconds` across the hub; if Discord
+does not answer, the roster stays as last read and the next request tries again. Sign-ins and role refreshes keep a
+member's nights current in between. None of this is a source of permissions.
+
+People who have never signed in (`members.signed_in_at` is null, migration 0023) come back with `signed_in: false` and
+are listed under "without specs yet" marked **Not signed in**, since only a signed-in member can set specs. Officers
+can still seat them in a spec; signing in later keeps the same member, so the seat stays theirs. Losing a night's
+roles or leaving the server takes someone off at the next read.
 
 ## Permissions
 

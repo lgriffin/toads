@@ -16,6 +16,8 @@ from pydantic import SecretStr
 
 # identify: who the user is; guilds.members.read: their nickname and roles in the Toads server.
 SCOPES = "identify guilds.members.read"
+# Discord's largest page of a server's member list.
+MEMBER_PAGE = 1000
 
 
 class DiscordError(Exception):
@@ -149,6 +151,11 @@ class DiscordAPI(Protocol):
         acting-member calls use it to read that member's roles (docs/bank.md)."""
         ...
 
+    async def guild_members(self) -> list[GuildMember]:
+        """Everyone in the Toads server (bot token, which needs the Server Members intent the Toad Bot already has).
+        The comp builder lists each night's role holders from it, signed in to the hub or not (docs/comps.md)."""
+        ...
+
     async def search_members(self, query: str, limit: int = 10) -> list[GuildMember]:
         """Members of the Toads server whose username or nickname starts with `query` (bot token). Officers pick the
         interview panels from these (docs/recruitment.md)."""
@@ -260,6 +267,29 @@ class HttpDiscord:
         if r.status_code != 200:
             raise DiscordError(f"Discord member lookup failed with HTTP {r.status_code}")
         return GuildMember.from_api(r.json())
+
+    async def guild_members(self) -> list[GuildMember]:
+        members: list[GuildMember] = []
+        after = 0
+        while True:
+            try:
+                r = await self._http.get(
+                    f"{self._base}/guilds/{self._guild_id}/members",
+                    params={"limit": str(MEMBER_PAGE), "after": str(after)},
+                    headers={"Authorization": f"Bot {self._bot_token.get_secret_value()}"},
+                )
+            except httpx.HTTPError as exc:
+                raise DiscordError("Discord member listing could not reach Discord") from exc
+            if r.status_code != 200:
+                raise DiscordError(f"Discord member listing failed with HTTP {r.status_code}")
+            try:
+                page = [GuildMember.from_api(m) for m in r.json()]
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DiscordError("Discord sent a member the hub could not read") from exc
+            members.extend(page)
+            if len(page) < MEMBER_PAGE:
+                return members
+            after = max(m.user_id for m in page)
 
     async def search_members(self, query: str, limit: int = 10) -> list[GuildMember]:
         try:

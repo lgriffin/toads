@@ -117,7 +117,7 @@ async def callback(
     old = request.cookies.get(SESSION_COOKIE)
     if old:
         await services.sessions.delete(old)
-    member_id = await anyio.to_thread.run_sync(upsert_member, services, member)
+    member_id = await anyio.to_thread.run_sync(lambda: upsert_member(services, member, signing_in=True))
     session_id = await services.sessions.create(
         SessionData(
             member_id=member_id,

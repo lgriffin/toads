@@ -3,7 +3,8 @@
 - GET    /api/me/specs                     the caller's class and primary and secondary spec, or null
 - PUT    /api/me/specs                     set them
 - DELETE /api/me/specs                     clear them
-- GET    /api/days/{day}/comps/pool        the raid day's roster with each member's specs (that day's officers)
+- GET    /api/days/{day}/comps/pool        the raid day's roster with each member's specs (that day's officers), read
+                                           from the Discord server's role holders at most every role refresh
 - GET    /api/days/{day}/comps             the comps locked in for the raid day
 - POST   /api/days/{day}/comps             lock in a new one
 - PUT    /api/days/{day}/comps/{comp_id}   replace one
@@ -24,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from toads_api.comps.repository import Seat, SpecRecord
 from toads_api.comps.service import CompError, CompService, CompView, PoolEntry
+from toads_api.identity import refresh_raid_rosters
 from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
 
@@ -59,6 +61,8 @@ class PoolEntryOut(BaseModel):
     wow_class: str | None
     primary: str | None
     secondary: str | None
+    # False for a holder of the night's Discord role who has never signed in to the hub (so has no specs).
+    signed_in: bool
 
 
 class SeatIn(BaseModel):
@@ -94,7 +98,12 @@ def _specs(r: SpecRecord | None) -> SpecsOut | None:
 
 def _entry(e: PoolEntry) -> PoolEntryOut:
     return PoolEntryOut(
-        member_id=e.member_id, name=e.name, wow_class=e.wow_class, primary=e.primary, secondary=e.secondary
+        member_id=e.member_id,
+        name=e.name,
+        wow_class=e.wow_class,
+        primary=e.primary,
+        secondary=e.secondary,
+        signed_in=e.signed_in,
     )
 
 
@@ -144,7 +153,9 @@ async def clear_my_specs(principal: SignedIn, comps: Comps) -> Response:
 
 
 @router.get("/api/days/{day}/comps/pool")
-async def comp_pool(day: str, principal: DayOfficer, comps: Comps) -> list[PoolEntryOut]:
+async def comp_pool(day: str, principal: DayOfficer, comps: Comps, request: Request) -> list[PoolEntryOut]:
+    # The night's role holders come from the server itself, so people who never signed in are listed too.
+    await refresh_raid_rosters(get_services(request))
     return [_entry(e) for e in await anyio.to_thread.run_sync(comps.pool, day)]
 
 
