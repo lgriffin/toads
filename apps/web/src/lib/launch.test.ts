@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, absencesOnly, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
@@ -8,10 +8,17 @@ describe('launch hold', () => {
       expect(launchHold(path, 'raider', true)).toBe('coming-soon');
   });
 
-  it('opens the Raid page and the Calendar to every signed-in tier', () => {
+  it('opens the Raid page and Me, where absences live, to every signed-in tier', () => {
     for (const tier of ['raider', 'officer', 'admin'] as const)
-      for (const path of ['/raid', '/raid/', '/calendar', '/calendar/']) expect(launchHold(path, tier, true)).toBe('open');
-    expect(launchHold('/raids', 'raider', true)).toBe('open');
+      for (const path of ['/raid', '/raid/', '/me', '/me/']) expect(launchHold(path, tier, true)).toBe('open');
+    // The old /raids and /calendar links only redirect.
+    for (const path of ['/raids', '/calendar']) expect(launchHold(path, 'raider', true)).toBe('open');
+  });
+
+  it('keeps a raider\'s Me to their absences while the hold is on', () => {
+    expect(absencesOnly('raider', true)).toBe(true);
+    for (const tier of ['officer', 'admin'] as const) expect(absencesOnly(tier, true)).toBe(false);
+    expect(absencesOnly('raider', false)).toBe(false);
   });
 
   it('opens every page to officers but the bank, which keeps the Forever notice', () => {
@@ -23,7 +30,7 @@ describe('launch hold', () => {
   });
 
   it('gives super admins exactly the officers\' view, with the Admin console open', () => {
-    for (const path of ['/hub', '/logs', '/raid', '/calendar', '/highlights', '/bank', '/me', '/me/claim', '/welcome'])
+    for (const path of ['/hub', '/logs', '/raid', '/highlights', '/bank', '/me', '/me/claim', '/officers/calendar', '/welcome'])
       expect(launchHold(path, 'admin', true)).toBe(launchHold(path, 'officer', true));
     expect(launchHold('/me', 'admin', true)).toBe('open');
     expect(launchHold('/bank', 'admin', true)).toBe('forever-notice');
@@ -43,8 +50,8 @@ describe('launch hold', () => {
     expect(launchHold('/officers', 'officer', false)).toBe('open');
   });
 
-  it('shows raiders the hub, Raid and Calendar links and leaves other tiers their tabs', () => {
-    expect(heldNav(memberNav(false), 'raider', true).map((i) => i.href)).toEqual(['/hub', '/raid', '/calendar']);
+  it('shows raiders the hub, Raid and Me links and leaves other tiers their tabs', () => {
+    expect(heldNav(memberNav(false), 'raider', true).map((i) => i.href)).toEqual(['/hub', '/raid', '/me']);
     expect(heldNav(memberNav(true), 'officer', true)).toEqual(memberNav(true));
     expect(heldNav(memberNav(false), 'raider', false)).toEqual(memberNav(false));
   });

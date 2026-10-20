@@ -2,6 +2,7 @@
 
 - GET    /api/me/absences                the caller's absences that have not ended, soonest first
 - POST   /api/days/{day}/absences        report an absence from that raid day's team (its trials and raiders)
+- PUT    /api/days/{day}/absences/{absence_id}  change the dates or note of one of the caller's own on that team
 - DELETE /api/me/absences/{absence_id}   cancel one of the caller's own absences
 - GET    /api/days/{day}/absences        that raid day's upcoming nights and who is away (its officers)
 
@@ -64,6 +65,7 @@ class AbsenceIn(BaseModel):
     first_date: date
     # Defaults to the first date: one night.
     last_date: date | None = None
+    # Why, for the night's officers; required (the service refuses a blank one with a message).
     note: str | None = Field(default=None, max_length=NOTE_LIMIT)
 
 
@@ -107,6 +109,22 @@ async def report_absence(day: str, body: AbsenceIn, principal: DayReporter, abse
     except AbsenceError as exc:
         raise _refused(exc) from None
     log.info("absence.reported", member_id=principal.member_id, day=day, nights=len(view.nights))
+    return _out(view)
+
+
+@router.put("/api/days/{day}/absences/{absence_id}")
+async def change_absence(
+    day: str, absence_id: int, body: AbsenceIn, principal: DayReporter, absences: Absences
+) -> AbsenceOut:
+    # Scoped like reporting: a member changes an absence only while they are on its team.
+    last = body.last_date or body.first_date
+    try:
+        view = await anyio.to_thread.run_sync(
+            lambda: absences.change(principal.member_id, day, absence_id, body.first_date, last, body.note)
+        )
+    except AbsenceError as exc:
+        raise _refused(exc) from None
+    log.info("absence.changed", member_id=principal.member_id, day=day, absence=absence_id)
     return _out(view)
 
 

@@ -344,11 +344,11 @@ Rules worth knowing:
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
   their own team's night, its officers also get the officer desk with the team's upcoming absences, and super admins
-  and global officers switch between every night. On `/calendar` a raid day's trials and raiders report the nights they
-  will miss (`report_absence`, checked against the raid day in the path), and that day's officers see them all
-  (`view_absences`). Nothing to configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named
-  "Wednesday" raids on Wednesdays). Notes are seen only by that night's officers. Not audited: an absence is a member's
-  own word, not an officer action.
+  and global officers switch between every night. On their Me page a raid day's trials and raiders add, change and
+  delete the nights they will miss, each with a note (`report_absence`, checked against the raid day in the path), and
+  that day's officers see them all under Officers, Calendar (`/officers/calendar`, `view_absences`). Nothing to
+  configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named "Wednesday" raids on Wednesdays).
+  Notes are seen only by that night's officers. Not audited: an absence is a member's own word, not an officer action.
 - **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board on
   the Raid page (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
   admins (`MANAGE_OFFICER_BOARD`). Nothing to set up: a night's board appears with the night in
@@ -363,7 +363,8 @@ Rules worth knowing:
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 - **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one
   coming-soon page (guild bank management, logs analysis, raid assistance) on every member page except Raid and
-  Calendar, and the Members nav shows only Hub, Raid and Calendar, so raiders can report absences now. Officers see every member page as it is being built (the hub fills in from the historic TBC raids
+  Me, and the Members nav shows only Hub, Raid and Me, so raiders can report absences now (their Me shows only their
+  absences until launch). Officers see every member page as it is being built (the hub fills in from the historic TBC raids
   the worker synced), except Bank, which shows what is coming with the Forever launch and a mockup until the bank has
   data. Super admins see exactly what officers see, plus the Admin console. The hold is in the web app
   only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`

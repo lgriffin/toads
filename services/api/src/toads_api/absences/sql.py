@@ -55,6 +55,15 @@ class SqlAbsenceRepository:
             db.flush()
             return _record(row)
 
+    def change(self, absence_id: int, first: date, last: date, note: str | None) -> AbsenceRecord | None:
+        with self._db.begin() as db:
+            row = db.get(MemberAbsence, absence_id)
+            if row is None:
+                return None
+            row.first_date, row.last_date, row.note = first, last, note
+            db.flush()
+            return _record(row)
+
     def remove(self, absence_id: int) -> bool:
         with self._db.begin() as db:
             row = db.get(MemberAbsence, absence_id)

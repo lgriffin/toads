@@ -39,7 +39,7 @@ const SEED: [number, string, string, number, number, string | null][] = [
   [ME, 'Hopscotch', 'wed', 2, 2, 'Family wedding.'],
   [2, 'Lilypadd', 'wed', 0, 0, 'Working late.'],
   [3, 'Ribbit', 'wed', 1, 3, 'Half-term holiday.'],
-  [4, 'Croak', 'sun', 0, 1, null],
+  [4, 'Croak', 'sun', 0, 1, 'Visiting family.'],
   [5, 'Bogwort', 'sun', 3, 3, 'Moving house.']
 ];
 
@@ -49,6 +49,21 @@ let rows: Absence[] = SEED.map(([member_id, member_name, raid_day, from, to, not
   return { id: i + 1, member_id, member_name, raid_day, first_date, last_date, note, nights: nightsOf(raid_day, first_date, last_date) };
 });
 
+/** The same rules as the API, so the preview refuses what the hub would. */
+function check(day: string, body: AbsenceIn, editing?: number): Pick<Absence, 'first_date' | 'last_date' | 'note' | 'nights'> {
+  const first_date = body.first_date;
+  const last_date = body.last_date || first_date;
+  if (last_date < first_date) throw new ApiError(422, 'The last day comes before the first');
+  if (first_date < isoDate(new Date())) throw new ApiError(422, 'Pick a date from today on');
+  const nights = nightsOf(day, first_date, last_date);
+  if (!nights.length) throw new ApiError(422, 'Those dates hold no raid night for this team');
+  const note = body.note?.trim() ?? '';
+  if (!note) throw new ApiError(422, 'Add a note so the officers know why');
+  const clash = (r: Absence) => r.member_id === ME && r.raid_day === day && r.id !== editing && r.first_date <= last_date && first_date <= r.last_date;
+  if (rows.some(clash)) throw new ApiError(409, 'You already have an absence on those dates; change that one instead');
+  return { first_date, last_date, note, nights };
+}
+
 const soonest = (a: Absence, b: Absence) => a.first_date.localeCompare(b.first_date) || a.id - b.id;
 
 export const previewAbsences: AbsencesBackend = {
@@ -56,26 +71,16 @@ export const previewAbsences: AbsencesBackend = {
     return rows.filter((r) => r.member_id === ME).sort(soonest);
   },
   async report(day: string, body: AbsenceIn) {
-    const first_date = body.first_date;
-    const last_date = body.last_date || first_date;
-    if (last_date < first_date) throw new ApiError(422, 'The last day comes before the first');
-    if (first_date < isoDate(new Date())) throw new ApiError(422, 'Pick a date from today on');
-    const nights = nightsOf(day, first_date, last_date);
-    if (!nights.length) throw new ApiError(422, 'Those dates hold no raid night for this team');
-    if (rows.some((r) => r.member_id === ME && r.raid_day === day && r.first_date <= last_date && first_date <= r.last_date)) {
-      throw new ApiError(409, 'You already have an absence on those dates; cancel it first to change it');
-    }
-    const row: Absence = {
-      id: Math.max(0, ...rows.map((r) => r.id)) + 1,
-      member_id: ME,
-      member_name: 'Hopscotch',
-      raid_day: day,
-      first_date,
-      last_date,
-      note: body.note?.trim() || null,
-      nights
-    };
+    const checked = check(day, body);
+    const row: Absence = { id: Math.max(0, ...rows.map((r) => r.id)) + 1, member_id: ME, member_name: 'Hopscotch', raid_day: day, ...checked };
     rows = [...rows, row];
+    return row;
+  },
+  async change(day: string, id: number, body: AbsenceIn) {
+    const held = rows.find((r) => r.id === id && r.member_id === ME && r.raid_day === day);
+    if (!held) throw new ApiError(404, 'No such absence');
+    const row: Absence = { ...held, ...check(day, body, id) };
+    rows = rows.map((r) => (r.id === id ? row : r));
     return row;
   },
   async cancel(id: number) {

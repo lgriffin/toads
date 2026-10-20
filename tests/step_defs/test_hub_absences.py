@@ -45,8 +45,8 @@ def a_day_officer(hub: Hub, people: dict[str, Any], day: str) -> None:
         people[day] = hub.login(hub.user((DAY_IDS[day], "officer")))
 
 
-def _report(hub: Hub, people: dict[str, Any], day: str, first: str, last: str, note: str = "") -> Any:
-    body = {"first_date": first, "last_date": last, "note": note or None}
+def _report(hub: Hub, people: dict[str, Any], day: str, first: str, last: str, note: str = "Away") -> Any:
+    body = {"first_date": first, "last_date": last, "note": note}
     r = hub.post(f"/api/days/{DAY_IDS[day]}/absences", people["raider"], body)
     people["last"] = r
     return r
@@ -131,3 +131,31 @@ def raider_cancels(hub: Hub, people: dict[str, Any]) -> None:
 @then("the raider has no absences")
 def raider_has_none(hub: Hub, people: dict[str, Any]) -> None:
     assert hub.get("/api/me/absences", people["raider"]).json() == []
+
+
+def _change(hub: Hub, sid: str, day: str, absence: int, first: str, last: str, note: str) -> Any:
+    body = {"first_date": first, "last_date": last, "note": note}
+    return hub.client.put(f"/api/days/{DAY_IDS[day]}/absences/{absence}", headers=hub.as_(sid), json=body)
+
+
+@when(parsers.parse('the raider changes it to "{first}" to "{last}" saying "{note}"'))
+def raider_changes(hub: Hub, people: dict[str, Any], first: str, last: str, note: str) -> None:
+    r = _change(hub, people["raider"], "Wednesday", people["absence"], first, last, note)
+    assert r.status_code == 200, r.text
+
+
+@then("the Wednesday officer cannot change it")
+def officer_cannot_change(hub: Hub, people: dict[str, Any]) -> None:
+    r = _change(hub, people["Wednesday"], "Wednesday", people["absence"], "2026-10-28", "2026-10-28", "Mine now")
+    assert r.status_code == 404
+
+
+@then("changing it without a note is refused as invalid")
+def change_needs_note(hub: Hub, people: dict[str, Any]) -> None:
+    r = _change(hub, people["raider"], "Wednesday", people["absence"], "2026-10-28", "2026-10-28", "  ")
+    assert r.status_code == 422
+
+
+@then("reporting without a note is refused as invalid")
+def report_needs_note(hub: Hub, people: dict[str, Any]) -> None:
+    assert _report(hub, people, "Wednesday", "2026-11-11", "2026-11-11", "").status_code == 422

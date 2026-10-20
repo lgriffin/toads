@@ -13,9 +13,9 @@
     type RaidDays
   } from '$lib/absences';
 
-  // A member's calendar: their teams' raid nights month by month, the nights they have said they will miss, and the
-  // form to add one. The API checks the member is on the team they report for.
-  // `onchange` runs after the viewer reports or cancels an absence, so the page can refresh the team lists.
+  // A member's calendar on Me: their teams' raid nights month by month, the nights they have said they will miss, and
+  // the form to add or change one, each with a note for the officers. The API checks the member is on the team.
+  // `onchange` runs after the viewer adds, changes or deletes an absence, so a page can refresh any team list.
   let {
     backend,
     raidDays,
@@ -39,6 +39,8 @@
   let message = $state('');
   let failed = $state(false);
   let firstInput = $state<HTMLInputElement | null>(null);
+  // The absence the form is changing; null while it adds a new one.
+  let editing = $state<Absence | null>(null);
 
   const teams = $derived(raidDays.teams.map((id) => ({ id, name: dayName(id, raidDays.names), weekday: weekdayOf(dayName(id, raidDays.names)) })));
   const weeks = $derived(monthGrid(shown.getFullYear(), shown.getMonth(), today, teams, mine));
@@ -71,6 +73,7 @@
   });
 
   function pick(date: string, raid: string) {
+    editing = null;
     team = raid;
     first = date;
     last = date;
@@ -78,19 +81,36 @@
     firstInput?.focus();
   }
 
+  function edit(a: Absence) {
+    editing = a;
+    team = a.raid_day;
+    first = a.first_date;
+    last = a.last_date;
+    note = a.note ?? '';
+    message = '';
+    firstInput?.focus();
+  }
+
+  function stopEditing() {
+    editing = null;
+    note = '';
+    message = '';
+  }
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!team) return;
+    if (!team || !note.trim()) return;
     busy = true;
     try {
-      const a = await backend.report(team, {
-        first_date: first,
-        ...(last && last !== first ? { last_date: last } : {}),
-        ...(note.trim() ? { note: note.trim() } : {})
-      });
+      const body = { first_date: first, ...(last && last !== first ? { last_date: last } : {}), note: note.trim() };
+      const a = editing ? await backend.change(editing.raid_day, editing.id, body) : await backend.report(team, body);
       const n = a.nights.length;
-      message = `Done. ${dayName(a.raid_day, raidDays.names)}'s officers can see you will miss ${n === 1 ? 'that night' : `${n} nights`}.`;
+      const nights = n === 1 ? 'that night' : `${n} nights`;
+      message = editing
+        ? `Changed. ${dayName(a.raid_day, raidDays.names)}'s officers now see ${nights}.`
+        : `Done. ${dayName(a.raid_day, raidDays.names)}'s officers can see you will miss ${nights}.`;
       failed = false;
+      editing = null;
       note = '';
       onchange();
       await load();
@@ -102,10 +122,11 @@
     }
   }
 
-  async function cancel(a: Absence) {
+  async function remove(a: Absence) {
     try {
       await backend.cancel(a.id);
-      message = `Cancelled your absence for ${rangeLabel(a)}.`;
+      if (editing?.id === a.id) editing = null;
+      message = `Deleted your absence for ${rangeLabel(a)}.`;
       failed = false;
       onchange();
       await load();
@@ -175,9 +196,13 @@
     </section>
 
     <form class="card report" onsubmit={submit} aria-labelledby="report-h">
-      <h2 id="report-h">Can't make it?</h2>
-      <p class="muted">Tell your officers in one go, for one night or a holiday.</p>
-      {#if teams.length > 1}
+      <h2 id="report-h">{editing ? 'Change your absence' : "Can't make it?"}</h2>
+      <p class="muted">
+        {editing ? `Your ${dayName(editing.raid_day, raidDays.names)} absence for ${rangeLabel(editing)}.` : 'Tell your officers in one go, for one night or a holiday.'}
+      </p>
+      {#if editing}
+        <p class="team">Raid team: <strong>{dayName(editing.raid_day, raidDays.names)}</strong></p>
+      {:else if teams.length > 1}
         <div class="field">
           <label for="abs-team">Raid team</label>
           <select id="abs-team" bind:value={team}>
@@ -198,10 +223,15 @@
         </div>
       </div>
       <div class="field">
-        <label for="abs-note">Note for the officers <span class="hint">(optional)</span></label>
-        <textarea id="abs-note" rows="2" maxlength={NOTE_LIMIT} bind:value={note} placeholder="Working late, on holiday…"></textarea>
+        <label for="abs-note">Note for the officers</label>
+        <textarea id="abs-note" rows="2" maxlength={NOTE_LIMIT} bind:value={note} placeholder="Working late, on holiday…" required></textarea>
       </div>
-      <button class="btn primary" type="submit" disabled={busy || !first}>{busy ? 'Saving…' : 'Report absence'}</button>
+      <div class="actions">
+        <button class="btn primary" type="submit" disabled={busy || !first || !note.trim()}>
+          {busy ? 'Saving…' : editing ? 'Save changes' : 'Report absence'}
+        </button>
+        {#if editing}<button class="btn" type="button" onclick={stopEditing}>Stop editing</button>{/if}
+      </div>
       {#if message}<p class={failed ? 'err' : 'ok'} role={failed ? 'alert' : 'status'}>{message}</p>{/if}
     </form>
   </div>
@@ -221,7 +251,10 @@
               <span class="muted">({a.nights.length} {a.nights.length === 1 ? 'raid night' : 'raid nights'})</span>
               {#if a.note}<span class="note">{a.note}</span>{/if}
             </div>
-            <button class="btn danger" type="button" onclick={() => cancel(a)} aria-label="Cancel your absence for {rangeLabel(a)}">Cancel</button>
+            <div class="row-actions">
+              <button class="btn" type="button" onclick={() => edit(a)} aria-label="Change your absence for {rangeLabel(a)}">Change</button>
+              <button class="btn danger" type="button" onclick={() => remove(a)} aria-label="Delete your absence for {rangeLabel(a)}">Delete</button>
+            </div>
           </li>
         {/each}
       </ul>
@@ -274,7 +307,7 @@
   .card h2 { margin: 0; font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--bronze-hi); letter-spacing: 0.03em; }
   .report p { margin: 0; }
   .dates { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report .btn { justify-self: start; }
+  .actions, .row-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .mine { list-style: none; margin: 0; padding: 0; }
   .mine li {
     display: flex;
