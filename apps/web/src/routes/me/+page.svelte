@@ -24,17 +24,26 @@
   let awards = $state<AwardOut[] | null>(null);
   type Raids = { kind: 'loading' } | { kind: 'ok'; value: MyCharacterPage } | { kind: 'error'; message: string };
   let raids = $state<Raids>({ kind: 'loading' });
+  // A failed switch to another character: the shown page stays, with this message beside it.
+  let switchError = $state('');
+  let latest = 0;
 
   // The member's main character first; `pick` loads another of theirs, keeping the current page until it arrives.
+  // Only the latest request lands, so quick switches never end on an earlier character.
   async function loadRaids(name: string | null = null) {
+    const request = ++latest;
+    switchError = '';
     try {
-      raids = { kind: 'ok', value: await myCharacterPage(name) };
+      const value = await myCharacterPage(name);
+      if (request === latest) raids = { kind: 'ok', value };
     } catch (e) {
+      if (request !== latest) return;
       const message =
         e instanceof ApiError && e.status === 401
           ? 'Sign in with Discord to see your raids.'
           : 'Could not load your raids; try again later.';
-      raids = { kind: 'error', message };
+      if (name && raids.kind === 'ok') switchError = message;
+      else raids = { kind: 'error', message };
     }
   }
   // The same toads the header shows beside the member's name, loaded once by the layout; the titles come from the
@@ -102,6 +111,7 @@
   <p>Claim your characters and see how each raid went for you against the median for your role in that raid.</p>
   {#if raids.kind === 'ok'}
     <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)} />
+    {#if switchError}<p class="err" role="alert">{switchError}</p>{/if}
   {:else}
     <section class="card" aria-labelledby="character-h">
       <h2 id="character-h">Your raids</h2>

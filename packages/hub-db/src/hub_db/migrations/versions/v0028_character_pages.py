@@ -17,6 +17,13 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
+        "analyzer_character_builds",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("generated_at", sa.String(40), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+    )
+    op.create_table(
         "analyzer_character_pages",
         sa.Column("name_key", sa.String(64), primary_key=True),
         sa.Column("version", sa.Integer(), nullable=False),
@@ -28,3 +35,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("analyzer_character_pages")
+    op.drop_table("analyzer_character_builds")

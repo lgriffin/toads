@@ -1,5 +1,5 @@
 """Each member's character pages (wcl_app.character_pages: their raids against the raid's median, lineage, personal
-bests and a chart per role), published to the hub API for their Me page (REQ-HUB-ME-001).
+bests and a chart per role), published to the hub API for their Me page (REQ-HUB-ME-002, -004 and -005).
 
 The hub names the characters it wants, every name a member may go by, so the worker builds pages only for members and
 never for the guild's whole history. Pages are built from wcl-store by the analyzer's CharacterPageService, as the

@@ -120,6 +120,18 @@ class AnalyzerBadgePage(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AnalyzerCharacterBuild(Base):
+    """When the worker last published character pages (one row), so an empty build still counts and a delayed older
+    build is refused. Publishers lock this row, so two publications never interleave."""
+
+    __tablename__ = "analyzer_character_builds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column()
+    generated_at: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class AnalyzerCharacterPage(Base):
     """One character's raids, lineage and charts as the worker last built them (toads_worker.jobs.characters,
     wcl_app.character_pages): one row per character a member may go by. The API shows each member only their own."""

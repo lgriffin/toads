@@ -188,6 +188,24 @@ def test_an_older_build_never_replaces_a_newer_one(hub: Hub) -> None:
     assert hub.get("/api/me/character-page", sid).json()["page"]["name"] == "A"
 
 
+def test_an_empty_build_still_holds_its_time(hub: Hub) -> None:
+    put = hub.client.put
+    assert put("/api/worker/character-pages", headers=WORKER, json=_body()).status_code == 200
+    stale = _body(_page("B"), generated_at="2026-10-16 07:00:00")
+    assert put("/api/worker/character-pages", headers=WORKER, json=stale).status_code == 409
+    sid = hub.login(hub.user(("wed", "raider"), nick="B"))
+    mine = hub.get("/api/me/character-page", sid).json()
+    assert (mine["generated_at"], mine["page"]) == (GENERATED, None)
+
+
+def test_an_empty_build_holds_its_time_in_memory() -> None:
+    svc = _service(MemberCharacters("Hopscotch", None, [], frozenset()), [])
+    with pytest.raises(HomeError) as info:
+        svc.publish(1, "2026-10-16 07:00:00", [_page("Hopscotch")])
+    assert info.value.status == 409
+    assert svc.mine(1).generated_at == GENERATED
+
+
 @pytest.mark.security
 def test_only_the_worker_reads_and_publishes_character_pages(hub: Hub) -> None:
     sid = hub.login(hub.user(("sun", "officer")))

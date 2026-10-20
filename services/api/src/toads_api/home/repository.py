@@ -123,6 +123,7 @@ class InMemoryHomeRepository:
     badges: StoredBadges | None = None
     characters: dict[int, MemberCharacters] = field(default_factory=dict)
     character_pages: dict[str, StoredCharacterPage] = field(default_factory=dict)
+    character_build: str | None = None
 
     def layout(self, member_id: int) -> list[StoredWidget] | None:
         found = self.layouts.get(member_id)
@@ -173,10 +174,11 @@ class InMemoryHomeRepository:
         return self.character_pages.get(fold(name))
 
     def character_pages_generated_at(self) -> str | None:
-        return max((p.generated_at for p in self.character_pages.values()), default=None)
+        return self.character_build
 
     def save_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
-        if any(p.generated_at > generated_at for p in self.character_pages.values()):
+        if self.character_build is not None and generated_at < self.character_build:
             return False
+        self.character_build = generated_at
         self.character_pages = {fold(str(p["name"])): StoredCharacterPage(version, generated_at, p) for p in pages}
         return True

@@ -7,6 +7,7 @@ from typing import Any
 
 from hub_db import (
     AnalyzerBadgePage,
+    AnalyzerCharacterBuild,
     AnalyzerCharacterPage,
     AnalyzerHomePage,
     AnalyzerPerformancePage,
@@ -16,7 +17,7 @@ from hub_db import (
     MemberHomeLayout,
     NightHomePage,
 )
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -213,17 +214,30 @@ class SqlHomeRepository:
 
     def character_pages_generated_at(self) -> str | None:
         with self._db() as db:
-            return db.scalar(select(func.max(AnalyzerCharacterPage.generated_at)))
+            build = db.get(AnalyzerCharacterBuild, _PAGE_ROW)
+            return None if build is None else build.generated_at
 
     def save_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
+        try:
+            return self._write_character_pages(version, generated_at, pages)
+        except IntegrityError:
+            # The first two publications raced to insert the build row; the loser tries again behind the winner.
+            return self._write_character_pages(version, generated_at, pages)
+
+    def _write_character_pages(self, version: int, generated_at: str, pages: list[dict[str, Any]]) -> bool:
         with self._db.begin() as db:
-            # The newest stored build; a delayed or retried older one must not replace it. Two overlapping builds
-            # both writing is harmless: the later commit holds a complete set either way.
-            newest = db.scalar(select(func.max(AnalyzerCharacterPage.generated_at)))
-            if newest is not None and generated_at < newest:
-                return False
-            db.execute(delete(AnalyzerCharacterPage))
+            # The build row is locked for the whole transaction (on Postgres), so publications never interleave, and
+            # it remembers the newest build even when it held no pages: a delayed or retried older one is refused.
             now = datetime.now(UTC)
+            build = db.get(AnalyzerCharacterBuild, _PAGE_ROW, with_for_update=True)
+            if build is None:
+                build = AnalyzerCharacterBuild(id=_PAGE_ROW, version=version, generated_at=generated_at)
+                db.add(build)
+                db.flush()
+            elif generated_at < build.generated_at:
+                return False
+            build.version, build.generated_at, build.updated_at = version, generated_at, now
+            db.execute(delete(AnalyzerCharacterPage))
             for page in pages:
                 db.add(
                     AnalyzerCharacterPage(
