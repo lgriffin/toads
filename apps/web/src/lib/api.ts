@@ -10,15 +10,15 @@ import {
   type ApiHighlight,
   type ApiPost,
   type ApiPublicStory,
-  type DeskSummary
-} from './community-api';
-import type { toApiBody } from './application';
-import type { MyBadges } from './badges';
-import type { HomeLayout } from './home';
-import type { AnalyzerPage } from './home-payload';
-import type { NextRaidAnswer } from './next-raid';
-import type { MyPerformance } from './performance';
-import type { RaidHeadline, RaidSheets, RaidSummary } from './sheets';
+  type DeskSummary,
+} from "./community-api";
+import type { toApiBody } from "./application";
+import type { MyBadges } from "./badges";
+import type { HomeLayout } from "./home";
+import type { AnalyzerPage } from "./home-payload";
+import type { NextRaidAnswer } from "./next-raid";
+import type { MyPerformance } from "./performance";
+import type { RaidHeadline, RaidSheets, RaidSummary } from "./sheets";
 
 export interface Session {
   member_id: number;
@@ -30,7 +30,7 @@ export interface Session {
   super_admin?: boolean;
   /** The break-glass admin: always a super admin, and every change they make is audit-logged as such. */
   break_glass?: boolean;
-  day_roles: Record<string, 'trial' | 'raider' | 'officer'>;
+  day_roles: Record<string, "trial" | "raider" | "officer">;
   /** Days the member holds a trial, raider or officer role on, in config order. */
   raid_days: string[];
   /** Days with officer powers; every day for a global officer. */
@@ -46,7 +46,7 @@ export interface MemberEntry {
   discord_user_id: string | null;
 }
 
-export type ClaimStatus = 'pending' | 'approved' | 'rejected';
+export type ClaimStatus = "pending" | "approved" | "rejected";
 
 export interface Claim {
   id: number;
@@ -72,7 +72,7 @@ export class ApiError extends Error {
     message: string,
     readonly code?: string,
     readonly details?: unknown,
-    readonly current?: unknown
+    readonly current?: unknown,
   ) {
     super(message);
   }
@@ -81,24 +81,34 @@ export class ApiError extends Error {
 export type Fetch = typeof fetch;
 
 /** One JSON call to the API; a non-2xx answer throws `ApiError` carrying the API's `detail` (and `error`, if any). */
-export async function call<T>(f: Fetch, path: string, init: RequestInit = {}): Promise<T> {
+export async function call<T>(
+  f: Fetch,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   const extra = (init.headers ?? {}) as Record<string, string>;
   const r = await f(path, {
-    credentials: 'same-origin',
+    credentials: "same-origin",
     ...init,
-    headers: { accept: 'application/json', ...(init.body ? { 'content-type': 'application/json' } : {}), ...extra }
+    headers: {
+      accept: "application/json",
+      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...extra,
+    },
   });
   if (!r.ok) {
     let detail = r.statusText;
-    let error: { code?: unknown; details?: unknown; current?: unknown } | undefined;
+    let error:
+      | { code?: unknown; details?: unknown; current?: unknown }
+      | undefined;
     try {
       const body = await r.json();
-      if (typeof body?.detail === 'string') detail = body.detail;
-      if (body?.error && typeof body.error === 'object') error = body.error;
+      if (typeof body?.detail === "string") detail = body.detail;
+      if (body?.error && typeof body.error === "object") error = body.error;
     } catch {
       // non-JSON error body; keep the status text
     }
-    const code = typeof error?.code === 'string' ? error.code : undefined;
+    const code = typeof error?.code === "string" ? error.code : undefined;
     throw new ApiError(r.status, detail, code, error?.details, error?.current);
   }
   return (r.status === 204 ? undefined : await r.json()) as T;
@@ -107,50 +117,60 @@ export async function call<T>(f: Fetch, path: string, init: RequestInit = {}): P
 /** The signed-in member, or null when nobody is signed in. */
 export async function getSession(f: Fetch = fetch): Promise<Session | null> {
   try {
-    return await call<Session>(f, '/api/session');
+    return await call<Session>(f, "/api/session");
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return null;
     throw e;
   }
 }
 
-export const listMembers = (f: Fetch = fetch) => call<MemberEntry[]>(f, '/api/members');
+export const listMembers = (f: Fetch = fetch) =>
+  call<MemberEntry[]>(f, "/api/members");
 
 /** Shortest search the API answers; shorter queries list nothing. */
 export const MIN_CHARACTER_QUERY = 2;
 
+/** A claim search as typed, trimmed and single spaced: two-word names, so "Big  Toad" searches as "Big Toad". */
+export const characterQuery = (typed: string) =>
+  typed.trim().replace(/\s+/g, " ");
+
 export const searchCharacters = (query: string, f: Fetch = fetch) =>
   call<CharacterMatch[]>(f, `/api/characters?q=${encodeURIComponent(query)}`);
 
-export const listClaims = (f: Fetch = fetch) => call<Claim[]>(f, '/api/claims');
+export const listClaims = (f: Fetch = fetch) => call<Claim[]>(f, "/api/claims");
 
 export const createClaim = (characterId: number, f: Fetch = fetch) =>
-  call<Claim>(f, '/api/claims', { method: 'POST', body: JSON.stringify({ character_id: characterId }) });
+  call<Claim>(f, "/api/claims", {
+    method: "POST",
+    body: JSON.stringify({ character_id: characterId }),
+  });
 
 export const unclaim = (claimId: number, f: Fetch = fetch) =>
-  call<void>(f, `/api/claims/${encodeURIComponent(claimId)}`, { method: 'DELETE' });
+  call<void>(f, `/api/claims/${encodeURIComponent(claimId)}`, {
+    method: "DELETE",
+  });
 
 /** What to tell a member when a claim call fails. */
 export function claimError(e: unknown): string {
-  if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
+  if (!(e instanceof ApiError)) return "Something went wrong; try again.";
   switch (e.status) {
     case 401:
-      return 'Sign in with Discord to claim characters.';
+      return "Sign in with Discord to claim characters.";
     case 403:
-      return 'Claiming needs a trial or raider role on a raid day.';
+      return "Claiming needs a trial or raider role on a raid day.";
     case 404:
-      return 'That character has not appeared in the guild’s logs.';
+      return "That character has not appeared in the guild’s logs.";
     case 409:
-      return 'Someone already holds or is waiting on that character. Ask an officer if it is yours.';
+      return "Someone already holds or is waiting on that character. Ask an officer if it is yours.";
     default:
-      return e.message || 'Something went wrong; try again.';
+      return e.message || "Something went wrong; try again.";
   }
 }
 
-export function statusLabel(c: Pick<Claim, 'status' | 'reason'>): string {
-  if (c.status === 'approved') return 'Approved';
-  if (c.status === 'pending') return 'Waiting for an officer';
-  return c.reason ? `Rejected: ${c.reason}` : 'Rejected';
+export function statusLabel(c: Pick<Claim, "status" | "reason">): string {
+  if (c.status === "approved") return "Approved";
+  if (c.status === "pending") return "Waiting for an officer";
+  return c.reason ? `Rejected: ${c.reason}` : "Rejected";
 }
 
 // --- applying to raid -----------------------------------------------------------------------------
@@ -159,45 +179,74 @@ export function statusLabel(c: Pick<Claim, 'status' | 'reason'>): string {
 export interface SentApplication {
   id: number;
   character_name: string;
-  status: 'applied' | 'interviewing' | 'trial_offered' | 'accepted' | 'declined' | 'withdrawn';
+  status:
+    | "applied"
+    | "interviewing"
+    | "trial_offered"
+    | "accepted"
+    | "declined"
+    | "withdrawn";
   /** The applicant's link into their room, once the Toad Bot has opened it. */
   interview_room_url?: string | null;
   /** Why the Toad Bot could not open the room. */
   interview_room_error?: string | null;
 }
 
-export const sendApplication = (body: ReturnType<typeof toApiBody>, f: Fetch = fetch) =>
-  call<SentApplication>(f, '/api/applications', { method: 'POST', body: JSON.stringify(body) });
+export const sendApplication = (
+  body: ReturnType<typeof toApiBody>,
+  f: Fetch = fetch,
+) =>
+  call<SentApplication>(f, "/api/applications", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 
-export const myApplications = (f: Fetch = fetch) => call<SentApplication[]>(f, '/api/applications/mine');
+export const myApplications = (f: Fetch = fetch) =>
+  call<SentApplication[]>(f, "/api/applications/mine");
 
 /** Why an application did not go through, and whether joining the Discord is the fix. */
-export function applicationError(e: unknown): { message: string; joinDiscord: boolean; signIn?: boolean } {
-  if (!(e instanceof ApiError)) return { message: 'Something went wrong; try again.', joinDiscord: false };
+export function applicationError(e: unknown): {
+  message: string;
+  joinDiscord: boolean;
+  signIn?: boolean;
+} {
+  if (!(e instanceof ApiError))
+    return { message: "Something went wrong; try again.", joinDiscord: false };
   switch (e.status) {
     case 401:
       return {
-        message: 'Your sign-in has expired. Sign in with Discord again; your answers are kept.',
+        message:
+          "Your sign-in has expired. Sign in with Discord again; your answers are kept.",
         joinDiscord: false,
-        signIn: true
+        signIn: true,
       };
     case 403:
       return {
-        message: 'We can’t find you in the Toads Discord. Join it, then send your application again.',
-        joinDiscord: true
+        message:
+          "We can’t find you in the Toads Discord. Join it, then send your application again.",
+        joinDiscord: true,
       };
     case 409:
-      return { message: e.message || 'You already have an application open.', joinDiscord: false };
+      return {
+        message: e.message || "You already have an application open.",
+        joinDiscord: false,
+      };
     case 503:
-      return { message: 'Discord is not answering right now. Try again in a minute.', joinDiscord: false };
+      return {
+        message: "Discord is not answering right now. Try again in a minute.",
+        joinDiscord: false,
+      };
     default:
-      return { message: e.message || 'Something went wrong; try again.', joinDiscord: false };
+      return {
+        message: e.message || "Something went wrong; try again.",
+        joinDiscord: false,
+      };
   }
 }
 
 // --- the member's own settings -------------------------------------------------------------------
 
-export type NameSource = 'discord' | 'character';
+export type NameSource = "discord" | "character";
 
 export interface NameOption {
   source: NameSource;
@@ -205,7 +254,7 @@ export interface NameOption {
   character_id: number | null;
 }
 
-export type WclKeyStatus = 'unverified' | 'working' | 'rejected';
+export type WclKeyStatus = "unverified" | "working" | "rejected";
 
 /** A saved Warcraft Logs key as the API describes it. The id and secret themselves never come back. */
 export interface WclKey {
@@ -223,32 +272,44 @@ export interface AccountSettings {
   name_options: NameOption[];
   wcl_key: WclKey | null;
   /** Which key the member's Warcraft Logs requests use right now. */
-  wcl_key_in_use: 'own' | 'guild';
+  wcl_key_in_use: "own" | "guild";
 }
 
-export const getAccountSettings = (f: Fetch = fetch) => call<AccountSettings>(f, '/api/me/settings');
+export const getAccountSettings = (f: Fetch = fetch) =>
+  call<AccountSettings>(f, "/api/me/settings");
 
-export const chooseName = (option: Pick<NameOption, 'source' | 'character_id'>, f: Fetch = fetch) =>
-  call<AccountSettings>(f, '/api/me/name', {
-    method: 'PUT',
-    body: JSON.stringify({ source: option.source, character_id: option.character_id })
+export const chooseName = (
+  option: Pick<NameOption, "source" | "character_id">,
+  f: Fetch = fetch,
+) =>
+  call<AccountSettings>(f, "/api/me/name", {
+    method: "PUT",
+    body: JSON.stringify({
+      source: option.source,
+      character_id: option.character_id,
+    }),
   });
 
-export const saveWclKey = (clientId: string, clientSecret: string, f: Fetch = fetch) =>
-  call<AccountSettings>(f, '/api/me/wcl-key', {
-    method: 'PUT',
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+export const saveWclKey = (
+  clientId: string,
+  clientSecret: string,
+  f: Fetch = fetch,
+) =>
+  call<AccountSettings>(f, "/api/me/wcl-key", {
+    method: "PUT",
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
   });
 
-export const removeWclKey = (f: Fetch = fetch) => call<AccountSettings>(f, '/api/me/wcl-key', { method: 'DELETE' });
+export const removeWclKey = (f: Fetch = fetch) =>
+  call<AccountSettings>(f, "/api/me/wcl-key", { method: "DELETE" });
 
-export function wclKeyLabel(s: Pick<AccountSettings, 'wcl_key'>): string {
-  if (!s.wcl_key) return 'Not set: your requests use the guild key.';
+export function wclKeyLabel(s: Pick<AccountSettings, "wcl_key">): string {
+  if (!s.wcl_key) return "Not set: your requests use the guild key.";
   const which = `Key ending ${s.wcl_key.client_id_hint}`;
   switch (s.wcl_key.status) {
-    case 'working':
+    case "working":
       return `${which}: working, and used for your requests.`;
-    case 'rejected':
+    case "rejected":
       return `${which}: Warcraft Logs refused it, so your requests use the guild key. Save a new one to fix it.`;
     default:
       return `${which}: saved, and checked the next time it is used.`;
@@ -257,74 +318,103 @@ export function wclKeyLabel(s: Pick<AccountSettings, 'wcl_key'>): string {
 
 /** What to tell a member when a settings call fails. */
 export function settingsError(e: unknown): string {
-  if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
-  if (e.status === 401) return 'Sign in with Discord to change your settings.';
-  return e.message || 'Something went wrong; try again.';
+  if (!(e instanceof ApiError)) return "Something went wrong; try again.";
+  if (e.status === 401) return "Sign in with Discord to change your settings.";
+  return e.message || "Something went wrong; try again.";
 }
 
 // --- raid totals from the CBA and RPB sheets -------------------------------------------------------
 
 function dayQuery(day?: string, limit?: number): string {
   const q = new URLSearchParams();
-  if (day) q.set('day', day);
-  if (limit !== undefined) q.set('limit', String(limit));
+  if (day) q.set("day", day);
+  if (limit !== undefined) q.set("limit", String(limit));
   const qs = q.toString();
-  return qs ? `?${qs}` : '';
+  return qs ? `?${qs}` : "";
 }
 
 /** Each recent raid's sheet totals, newest first; all raid days unless `day` is given. */
-export function raidTrend(day?: string, limit?: number, f: Fetch = fetch): Promise<RaidHeadline[]> {
-  return call<RaidHeadline[]>(f, `/api/raid-sheets/trend${dayQuery(day, limit)}`);
+export function raidTrend(
+  day?: string,
+  limit?: number,
+  f: Fetch = fetch,
+): Promise<RaidHeadline[]> {
+  return call<RaidHeadline[]>(
+    f,
+    `/api/raid-sheets/trend${dayQuery(day, limit)}`,
+  );
 }
 
 /** One raid's totals and per-player lines. `date` is an ISO date. */
 export const raidSummary = (day: string, date: string, f: Fetch = fetch) =>
-  call<RaidSummary>(f, `/api/days/${encodeURIComponent(day)}/raids/${encodeURIComponent(date)}/sheets/summary`);
+  call<RaidSummary>(
+    f,
+    `/api/days/${encodeURIComponent(day)}/raids/${encodeURIComponent(date)}/sheets/summary`,
+  );
 
 /** The latest raids with sheets attached, newest first; all raid days unless `day` is given. */
-export function recentRaidSheets(day?: string, limit?: number, f: Fetch = fetch): Promise<RaidSheets[]> {
-  return call<RaidSheets[]>(f, `/api/raid-sheets/recent${dayQuery(day, limit)}`);
+export function recentRaidSheets(
+  day?: string,
+  limit?: number,
+  f: Fetch = fetch,
+): Promise<RaidSheets[]> {
+  return call<RaidSheets[]>(
+    f,
+    `/api/raid-sheets/recent${dayQuery(day, limit)}`,
+  );
 }
 
 // --- the member's customisable hub home ------------------------------------------------------------
 
-export type { HomeLayout, HomeWidget, WidgetId } from './home';
+export type { HomeLayout, HomeWidget, WidgetId } from "./home";
 
-export const getHome = (f: Fetch = fetch) => call<HomeLayout>(f, '/api/me/home');
+export const getHome = (f: Fetch = fetch) =>
+  call<HomeLayout>(f, "/api/me/home");
 
 /** Show exactly `shown`, in that order; every other widget stays placeable, hidden. */
 export const saveHome = (shown: string[], f: Fetch = fetch) =>
-  call<HomeLayout>(f, '/api/me/home', { method: 'PUT', body: JSON.stringify({ shown }) });
+  call<HomeLayout>(f, "/api/me/home", {
+    method: "PUT",
+    body: JSON.stringify({ shown }),
+  });
 
-export const resetHome = (f: Fetch = fetch) => call<HomeLayout>(f, '/api/me/home', { method: 'DELETE' });
+export const resetHome = (f: Fetch = fetch) =>
+  call<HomeLayout>(f, "/api/me/home", { method: "DELETE" });
 
 /** The analyzer's widgets (guild-wide), as the worker last built them. */
-export const analyzerHome = (f: Fetch = fetch) => call<AnalyzerPage>(f, '/api/home/analyzer');
+export const analyzerHome = (f: Fetch = fetch) =>
+  call<AnalyzerPage>(f, "/api/home/analyzer");
 
 /** The next raid: the soonest Discord scheduled event, else the raid days' usual start time. */
-export const nextRaid = (f: Fetch = fetch) => call<NextRaidAnswer>(f, '/api/home/next-raid');
+export const nextRaid = (f: Fetch = fetch) =>
+  call<NextRaidAnswer>(f, "/api/home/next-raid");
 
 /** The member's main character in the last raid against the guild median for their role. */
-export const myPerformance = (f: Fetch = fetch) => call<MyPerformance>(f, '/api/me/performance');
+export const myPerformance = (f: Fetch = fetch) =>
+  call<MyPerformance>(f, "/api/me/performance");
 
 /** The member's main character's Toads badges, earned or not. */
-export const myBadges = (f: Fetch = fetch) => call<MyBadges>(f, '/api/me/badges');
+export const myBadges = (f: Fetch = fetch) =>
+  call<MyBadges>(f, "/api/me/badges");
 
 /** What to tell a member when saving their home fails. */
 export function homeError(e: unknown): string {
-  if (!(e instanceof ApiError)) return 'Something went wrong; try again.';
-  if (e.status === 401) return 'Sign in with Discord to change your home.';
-  if (e.status === 403) return 'Only officers can place that widget.';
-  return e.message || 'Something went wrong; try again.';
+  if (!(e instanceof ApiError)) return "Something went wrong; try again.";
+  if (e.status === 401) return "Sign in with Discord to change your home.";
+  if (e.status === 403) return "Only officers can place that widget.";
+  return e.message || "Something went wrong; try again.";
 }
 
 // --- community reads the hub home uses -------------------------------------------------------------
 
-export const postsFeed = async (f: Fetch = fetch) => (await call<ApiPost[]>(f, '/api/posts')).map(postFromApi);
+export const postsFeed = async (f: Fetch = fetch) =>
+  (await call<ApiPost[]>(f, "/api/posts")).map(postFromApi);
 
 export const guildHighlights = async (f: Fetch = fetch) =>
-  (await call<ApiHighlight[]>(f, '/api/highlights')).map(highlightFromApi);
+  (await call<ApiHighlight[]>(f, "/api/highlights")).map(highlightFromApi);
 
-export const publicStory = (f: Fetch = fetch) => call<ApiPublicStory>(f, '/api/public/story');
+export const publicStory = (f: Fetch = fetch) =>
+  call<ApiPublicStory>(f, "/api/public/story");
 
-export const deskSummary = (f: Fetch = fetch) => call<DeskSummary>(f, '/api/desk');
+export const deskSummary = (f: Fetch = fetch) =>
+  call<DeskSummary>(f, "/api/desk");

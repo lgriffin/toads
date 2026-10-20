@@ -44,21 +44,36 @@ describe('validateApplication', () => {
     expect(validateApplication({ ...good, raidDay: '' })).toEqual({});
   });
 
-  it.each(['Hopscotch', 'Jo', 'Twelveletter', 'Frögé', 'Ëlùne', '  Tadpole  ', 'Frög'])('accepts name %j', (n) => {
+  it.each([
+    'Hopscotch',
+    'Jo',
+    'Twelveletter',
+    'Frögé',
+    'Ëlùne',
+    '  Tadpole  ',
+    'Frög',
+    'Big Toad',
+    'Lily Pad Hopper',
+    'Big   Toad',
+    'Ëlùne Pond',
+    'Twentyfourletters Toadyy'
+  ])('accepts name %j', (n) => {
     expect(errors({ characterName: n }).characterName).toBeUndefined();
   });
   it.each([
     'X',
-    'Thirteenchars',
+    'Twentyfiveletters Toadyyy',
     'Frog1',
-    'Frog Walker',
+    'Frog Walker2',
+    'Frog\tWalker',
+    'Frog\u00a0Walker',
     'Frog-walker',
     "Frog'); DROP TABLE",
     '<script>',
     'Frog​gy',
     'Frog‮gy',
     'Frog\ngy',
-    '𝐅𝐫𝐨𝐠'.repeat(4),
+    '𝐅𝐫𝐨𝐠'.repeat(7),
     '١٢٣٤'
   ])('rejects name %j', (n) => {
     expect(errors({ characterName: n }).characterName).toBeDefined();
@@ -109,6 +124,10 @@ describe('nightsList', () => {
 });
 
 describe('toApiBody', () => {
+  it('sends a two-word name trimmed and single spaced', () => {
+    expect(toApiBody({ ...good, characterName: '  Big    Toad ' }).character_name).toBe('Big Toad');
+  });
+
   it('sends the API’s field names, trimmed, with no secondary role as null', () => {
     expect(toApiBody({ ...good, characterName: '  Bogwalker ', secondaryRole: '', whyToads: ' Friends. ' })).toEqual({
       character_name: 'Bogwalker',

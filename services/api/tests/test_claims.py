@@ -240,6 +240,12 @@ def test_search_lists_characters_by_name_prefix_matches_first(hub: Hub) -> None:
     assert r.json()[0] == {"id": 1, "name": "Hopscotch", "player_class": ""}
 
 
+def test_search_finds_two_word_names_with_spaces_collapsed(hub: Hub) -> None:
+    hub.characters.names[6] = "Big Toad"
+    sid = hub.login(hub.user(("wed", "raider")))
+    assert [c["name"] for c in hub.get("/api/characters?q=big%20%20%20toad", sid).json()] == ["Big Toad"]
+
+
 def test_search_needs_two_letters(hub: Hub) -> None:
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.get("/api/characters?q=h", sid).json() == []

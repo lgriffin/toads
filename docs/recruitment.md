@@ -37,7 +37,7 @@ room**, a link straight into it (`https://discord.com/channels/<server>/<room>`,
 `TOADS_DISCORD_GUILD_ID`). It never links to the invite: an invite drops a member in whichever channel it was made for.
 
 If the bot cannot open the room for a reason retrying will not fix, it says why and the hub keeps that on the
-application as `interview_room_error` (migration 0024). The applicant sees it on the page; officers see it in
+application as `interview_room_error` (migration 0025). The applicant sees it on the page; officers see it in
 `GET /api/.../admin/applications`, and asking for the room again (`POST .../interview-room`) clears it. The reasons:
 
 - `The Toad Bot needs Manage Channels, Manage Roles in the Interviews category` (or `in the server`): grant them

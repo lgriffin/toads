@@ -55,7 +55,7 @@ class Application(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), index=True)
-    character_name: Mapped[str] = mapped_column(String(12))
+    character_name: Mapped[str] = mapped_column(String(24))
     class_name: Mapped[str] = mapped_column(String(20))
     spec: Mapped[str] = mapped_column(String(30))
     role: Mapped[str] = mapped_column(String(8))
@@ -140,7 +140,7 @@ class Spotlight(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), index=True)
-    character_name: Mapped[str] = mapped_column(String(12))
+    character_name: Mapped[str] = mapped_column(String(24))
     class_name: Mapped[str] = mapped_column(String(20))
     headline: Mapped[str] = mapped_column(String(120))
     body: Mapped[str] = mapped_column(Text)

@@ -16,7 +16,7 @@ test('the recruit form shows field errors, then opens the interview room', async
   const alert = page.getByRole('alert');
   await expect(alert).toBeVisible();
   await expect(alert).toBeFocused();
-  await expect(page.locator('#characterName-error')).toContainText('2 to 12 letters');
+  await expect(page.locator('#characterName-error')).toContainText('2 to 24 letters');
   await expect(page.locator('#className-error')).toBeVisible();
   await expect(page.locator('#primaryRole-error')).toBeVisible();
   await expect(page.locator('#raidDay-error')).toBeVisible();

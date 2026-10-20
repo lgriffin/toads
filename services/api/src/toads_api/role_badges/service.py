@@ -3,11 +3,11 @@ read Discord, and the repository decides where things live."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge, night_badge_id
+from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge, night_badge_id, night_officer_badge_id
 from toads_api.role_badges.repository import DuplicateLinkError, RoleBadgeLink, RoleBadgeRepository
 
 
@@ -47,10 +47,24 @@ class RoleBadgeService:
     def night_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
         """The Discord roles tied to each raid night's badge, by day id, for `(day id, day name)` pairs: the Thursday
         Toad badge is "thursday-toad". Holding one of them puts a member on that night's team."""
+        return self.night_badge_roles(nights)[0]
+
+    def night_officer_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
+        """The Discord roles tied to each raid night's officer badge ("thursday-officer"), by day id. Holding one of
+        them makes a member that night's officer."""
+        return self.night_badge_roles(nights)[1]
+
+    def night_badge_roles(self, nights: Iterable[tuple[str, str]]) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
+        """`night_roles` and `night_officer_roles` from one read of the ties, for building a principal per request."""
         tied: dict[str, set[int]] = {}
         for r in self._live():
             tied.setdefault(r.badge_id, set()).add(r.discord_role_id)
-        return {day_id: roles for day_id, name in nights if (roles := tied.get(night_badge_id(name)))}
+        pairs = list(nights)
+
+        def by_night(badge_of: Callable[[str], str]) -> dict[str, set[int]]:
+            return {day_id: roles for day_id, name in pairs if (roles := tied.get(badge_of(name)))}
+
+        return by_night(night_badge_id), by_night(night_officer_badge_id)
 
     def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
         """The badges a member's Discord roles earn, each once, in catalogue order."""

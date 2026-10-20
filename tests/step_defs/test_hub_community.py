@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from pytest_bdd import given, parsers, scenarios, then, when
 from toads_api.community import recruitment
 from toads_api.community.clips import parse_clip_url
@@ -78,9 +79,9 @@ class World:
 
         return community_client(self.store, PRINCIPALS[who])
 
-    def application(self, day: str) -> ApplicationCreate:
+    def application(self, day: str, name: str = "Mossbeard") -> ApplicationCreate:
         return ApplicationCreate(
-            character_name="Mossbeard",
+            character_name=name,
             class_name="Shaman",
             spec="Restoration",
             role=Role.HEALER,
@@ -144,6 +145,23 @@ def still_declined(world: World) -> None:
 @when(parsers.parse("the applicant applies for {day}"))
 def applicant_applies(world: World, day: str) -> None:
     world.app_id = world.store.apply(PRINCIPALS["applicant"].member_id, world.application(DAYS[day])).id
+
+
+@when(parsers.parse('the applicant applies for {day} as "{name}"'))
+def applicant_applies_as(world: World, day: str, name: str) -> None:
+    world.app_id = world.store.apply(PRINCIPALS["applicant"].member_id, world.application(DAYS[day], name)).id
+
+
+@then(parsers.parse('the application is recorded for "{name}"'))
+def recorded_for(world: World, name: str) -> None:
+    assert world.store.repo.get_application(world.app_id).character_name == name
+
+
+@then(parsers.parse('the names "{a}", "{b}" and "{c}" are refused'))
+def names_refused(world: World, a: str, b: str, c: str) -> None:
+    for name in (a, b, c):
+        with pytest.raises(ValidationError):
+            world.application("wed", name)
 
 
 @given("a Wednesday Discord message is waiting for review")

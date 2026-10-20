@@ -108,8 +108,15 @@ Feature: HUB RECRUIT
     And the global officer can put croakley on the Sunday interview panel
     And the audit log names the Sunday panel change
 
+  @ears_ubiquitous @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-015 The application shall take a WoW Forever character name of one or more words split by a single space, trimmed and with repeated spaces collapsed, and refuse names with digits, symbols or other whitespace
+    Given the demo guild
+    When the applicant applies for Wednesday as "  Big   Toad "
+    Then the application is recorded for "Big Toad"
+    And the names "Big Toad2", "Big-Toad" and "Big_Toad" are refused
+
   @ears_unwanted_behavior @member @raid_leader @phase_2_4
-  Scenario: REQ-HUB-RECRUIT-015 If the bot cannot open an interview room for a reason retrying will not fix, then the hub shall record why on the application, show it to the applicant and the officers, and let an officer ask for the room again
+  Scenario: REQ-HUB-RECRUIT-016 If the bot cannot open an interview room for a reason retrying will not fix, then the hub shall record why on the application, show it to the applicant and the officers, and let an officer ask for the room again
     Given the demo guild with interviewers _gallagher and hadur117
     And the applicant has applied for Wednesday
     When the bot reports that it needs Manage Roles to open the room
@@ -117,7 +124,7 @@ Feature: HUB RECRUIT
     And the Wednesday officer can ask for the room again, which clears the reason
 
   @ears_event_driven @member @phase_2_4
-  Scenario: REQ-HUB-RECRUIT-016 When the bot has opened an applicant's interview room, the hub shall give the applicant a link straight into that room, and no link before it exists
+  Scenario: REQ-HUB-RECRUIT-017 When the bot has opened an applicant's interview room, the hub shall give the applicant a link straight into that room, and no link before it exists
     Given the demo guild with interviewers _gallagher and hadur117
     And the applicant has applied for Wednesday
     Then the applicant's application has no room link

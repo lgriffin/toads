@@ -69,11 +69,14 @@ export const EMPTY_APPLICATION: ApplicationInput = {
   raidDay: ''
 };
 
-/** Letters only (accented letters included), 2 to 12 of them, like the in-game rule. */
-const NAME = /^\p{L}{2,12}$/u;
+/** Letters only (accented letters included), in one or more words split by a single space as WoW Forever allows,
+ * 2 to 24 characters in all (code points, as the API counts them). */
+const NAME = /^\p{L}+(?: \p{L}+)*$/u;
+const NAME_LENGTH = { min: 2, max: 24 };
 
+/** Trimmed, with runs of spaces collapsed to one, so "Big  Toad" is sent as "Big Toad". */
 export function normaliseName(name: string): string {
-  return name.trim().normalize('NFC');
+  return name.trim().replace(/ {2,}/g, ' ').normalize('NFC');
 }
 
 /** The roles some spec of this class can raid as, in ROLES order. */
@@ -123,7 +126,8 @@ export function validateApplication(input: ApplicationInput, nights: readonly st
   const e: ApplicationErrors = {};
   const name = normaliseName(input.characterName ?? '');
   if (!name) e.characterName = 'Enter your main character’s name.';
-  else if (!NAME.test(name)) e.characterName = 'Character names are 2 to 12 letters, with no digits or spaces.';
+  else if (!NAME.test(name) || [...name].length < NAME_LENGTH.min || [...name].length > NAME_LENGTH.max)
+    e.characterName = 'Character names are 2 to 24 letters, with words split by a single space and no digits.';
 
   if (!input.className) e.className = 'Pick your class.';
   else if (!Object.hasOwn(CLASS_SPECS, input.className)) e.className = 'Pick a class from the list.';

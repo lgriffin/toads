@@ -50,6 +50,19 @@ main() {
 		echo "deploy: to go back to the last deploy: $0 $previous" >&2
 		exit 1
 	fi
+	# `up` leaves a container alone when its image is unchanged, but config/ is mounted and read only at startup, so a
+	# deploy after editing raid_days.yaml would otherwise keep serving the old raid days. Restart its readers only when
+	# config/ changed since the last deploy: a restart drops the API's in-memory bot queue (docs/bots.md).
+	local config_sum
+	config_sum="$(find config -maxdepth 1 -name '*.yaml' -type f -print0 | sort -z | xargs -0 -r cat | sha256sum)"
+	if [[ "$config_sum" != "$(cat "$repo/.git/deploy-config.sum" 2>/dev/null)" ]]; then
+		echo "deploy: config/ changed; restarting the services that read it"
+		if ! "${compose[@]}" restart api worker scheduler; then
+			errors_of api
+			echo "deploy: to go back to the last deploy: $0 $previous" >&2
+			exit 1
+		fi
+	fi
 
 	local service id status
 	for service in api web; do
@@ -73,6 +86,7 @@ main() {
 	fi
 
 	docker image prune -f >/dev/null
+	echo "$config_sum" >"$repo/.git/deploy-config.sum"
 	echo "$(date -u +%FT%TZ) $target" >>"$repo/.git/deploy.log"
 	echo "deploy: $target is live"
 }

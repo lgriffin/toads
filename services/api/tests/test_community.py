@@ -425,11 +425,11 @@ def test_applicant_withdraws_only_their_own(as_: Any) -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("character_name", "Moss beard"),
+        ("character_name", "Moss_beard"),
         ("character_name", "M0ssbeard"),
         ("character_name", "<script>"),
         ("character_name", "A"),
-        ("character_name", "Averyveryverylongname"),
+        ("character_name", "Averyveryveryverylongname"),
         ("raid_days", ["fri"]),
         ("raid_days", ["WED"]),
         ("logs_url", "http://fresh.warcraftlogs.com/character/eu/x"),
@@ -550,6 +550,26 @@ def test_accented_character_names_are_fine(as_: Any) -> None:
     assert (
         as_("applicant").post("/api/applications", json={**APPLICATION, "character_name": "Fröggë"}).status_code == 201
     )
+
+
+@pytest.mark.parametrize(
+    ("sent", "kept"),
+    [
+        ("Big Toad", "Big Toad"),
+        ("  Big   Toad ", "Big Toad"),
+        ("Lily Pad Hopper", "Lily Pad Hopper"),
+        ("Ëlùne Pond", "Ëlùne Pond"),
+    ],
+)
+def test_two_word_character_names_are_fine(as_: Any, sent: str, kept: str) -> None:
+    r = as_("applicant").post("/api/applications", json={**APPLICATION, "character_name": sent})
+    assert r.status_code == 201
+    assert r.json()["character_name"] == kept
+
+
+@pytest.mark.parametrize("name", ["X", "Big Toad2", "Big-Toad", "Big\tToad", "Big\nToad", "Big\u00a0Toad", "A" * 25])
+def test_other_character_names_are_refused(as_: Any, name: str) -> None:
+    assert as_("applicant").post("/api/applications", json={**APPLICATION, "character_name": name}).status_code == 422
 
 
 def test_applying_for_any_day_reaches_every_days_officers(as_: Any) -> None:

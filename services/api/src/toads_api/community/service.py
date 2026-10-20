@@ -8,7 +8,7 @@ a viewer belongs to), never as a Principal, so this module has no view of roles 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
@@ -79,13 +79,17 @@ class RaidDayDirectory:
     officer_roles: dict[str, tuple[int, ...]] = field(default_factory=dict)
     # Each day's name by id, in config order: the nights the recruit page offers.
     day_names: dict[str, str] = field(default_factory=dict)
+    # The roles a super admin tied to each night's Officer badge, read when a room is requested since ties change live.
+    badge_officer_roles: Callable[[], Mapping[str, Collection[int]]] = lambda: {}
 
     def officer_role_ids(self, days: list[str]) -> list[int]:
-        """Roles that may see an interview room: the global tier plus the officers of the days applied for."""
+        """Roles that may see an interview room: the global tier plus the officers of the days applied for, from the
+        config and the nights' Officer badges."""
         ids = set(self.global_officer_roles)
-        for day, roles in self.officer_roles.items():
-            if not days or day in days:
-                ids.update(roles)
+        for roles_by_day in (self.officer_roles, self.badge_officer_roles()):
+            for day, roles in roles_by_day.items():
+                if not days or day in days:
+                    ids.update(roles)
         return sorted(ids)
 
 

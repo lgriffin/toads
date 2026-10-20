@@ -190,6 +190,23 @@ def reports_thursday(hub: Hub, people: dict[str, Any]) -> None:
     assert r.status_code == 201, r.text
 
 
+@then(parsers.parse('the member runs the "{day}" raid night'))
+def runs_night(hub: Hub, people: dict[str, Any], day: str) -> None:
+    assert people["last"].status_code == 201, people["last"].text
+    assert hub.get("/api/session", _raider_sid(hub, people)).json()["officer_days"] == [day]
+
+
+@then("the member can open Thursday's officer board but not Wednesday's")
+def opens_thursday_board(hub: Hub, people: dict[str, Any]) -> None:
+    assert hub.get("/api/days/thu/board", _raider_sid(hub, people)).status_code == 200
+    assert hub.get("/api/days/wed/board", _raider_sid(hub, people)).status_code == 403
+
+
+@then("the member runs no raid night")
+def runs_no_night(hub: Hub, people: dict[str, Any]) -> None:
+    assert hub.get("/api/session", _raider_sid(hub, people)).json()["officer_days"] == []
+
+
 @then("the member is on no raid team")
 def on_no_team(hub: Hub, people: dict[str, Any]) -> None:
     assert hub.get("/api/session", _raider_sid(hub, people)).json()["raid_days"] == []

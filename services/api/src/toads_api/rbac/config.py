@@ -80,14 +80,17 @@ class RaidDaysConfig(BaseModel):
         discord_user_id: int | None = None,
         discord_username: str = "",
         night_roles: Mapping[str, Collection[int]] | None = None,
+        night_officer_roles: Mapping[str, Collection[int]] | None = None,
         officer_days: Collection[str] = (),
         granted_global_officer: bool = False,
     ) -> Principal:
-        """Map a member's Discord role ids to hub roles; several matches give the highest per day. `night_roles` adds
-        raider roles per day from outside the file: the roles a super admin tied to each night's badge
-        (docs/role-badges.md). `officer_days` and `granted_global_officer` are the officer grants a super admin gave
-        this member (docs/admin.md "Officer grants"); they never make anyone a super admin."""
+        """Map a member's Discord role ids to hub roles; several matches give the highest per day. `night_roles` and
+        `night_officer_roles` add raider and officer roles per day from outside the file: the roles a super admin tied
+        to each night's Toad and Officer badges (docs/role-badges.md). `officer_days` and `granted_global_officer` are
+        the officer grants a super admin gave this member (docs/admin.md "Officer grants"); they never make anyone a
+        super admin."""
         night_roles = night_roles or {}
+        night_officer_roles = night_officer_roles or {}
         day_roles: dict[str, HubRole] = {}
         for day in self.raid_days:
             role = HubRole.MEMBER
@@ -95,7 +98,7 @@ class RaidDaysConfig(BaseModel):
                 role = HubRole.TRIAL
             if discord_role_ids & {*day.raider_roles, *night_roles.get(day.id, ())}:
                 role = HubRole.RAIDER
-            if discord_role_ids & set(day.officer_roles) or day.id in officer_days:
+            if discord_role_ids & {*day.officer_roles, *night_officer_roles.get(day.id, ())} or day.id in officer_days:
                 role = HubRole.OFFICER
             if role is not HubRole.MEMBER:
                 day_roles[day.id] = role
