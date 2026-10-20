@@ -6,12 +6,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import anyio
 import pytest
 from hub_db import AuditEntry, Member
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from toads_api import identity
 from toads_api.comps.catalog import CLASSES, SPECS
 from toads_api.comps.repository import InMemoryCompRepository, Seat
 from toads_api.comps.service import CompError, CompService
+from toads_api.identity import ROSTERS_SYNCED_KEY
 
 from conftest import Hub
 
@@ -52,6 +56,11 @@ def test_the_pool_is_the_raid_days_members_by_name_with_or_without_specs() -> No
     # Member 9 is no longer in the hub's directory, so they are left out.
     assert [(e.name, e.primary) for e in pool] == [("Hopscotch", None), ("Lilypadd", "shaman-restoration")]
     assert [e.name for e in svc.pool("sun")] == ["Hopscotch", "Ribbit"]
+
+
+def test_the_pool_marks_role_holders_who_never_signed_in() -> None:
+    repo = InMemoryCompRepository(raid_days={1: ["wed"], 2: ["wed"]}, unsigned={2})
+    assert [(e.name, e.signed_in) for e in _service(repo).pool("wed")] == [("Hopscotch", True), ("Lilypadd", False)]
 
 
 def test_a_comp_is_named_sized_and_seats_each_member_once() -> None:
@@ -147,6 +156,72 @@ def test_losing_a_nights_role_takes_the_member_off_its_roster(hub: Hub) -> None:
     assert row.raid_days == []
 
 
+def _officer_pool(hub: Hub, sid: str, day: str = "wed") -> dict[str, dict[str, object]]:
+    r = hub.get(f"/api/days/{day}/comps/pool", sid)
+    assert r.status_code == 200, r.text
+    return {e["name"]: e for e in r.json()}
+
+
+def test_the_roster_lists_the_servers_role_holders_who_never_signed_in(hub: Hub) -> None:
+    officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
+    hub.user(("wed", "raider"), nick="Lilypadd")
+    hub.user(("wed", "trial"), nick="Tadpole")
+    hub.user(("sun", "raider"), nick="Ribbit")
+    hub.user(nick="Lurker")
+    hub.user(("wed", "raider"), nick="Gone", in_guild=False)
+    with hub.db() as db:
+        croak = db.scalars(select(Member.id).where(Member.display_name == "Croak")).one()
+    # A role a super admin tied to the night's Toad badge counts as a raider role, as at sign-in.
+    hub.services.role_badges.tie(77, "Wednesday alts", "wednesday-toad", by=croak)
+    hub.user(nick="Alt").roles.add(77)
+
+    pool = _officer_pool(hub, officer)
+    assert sorted(pool) == ["Alt", "Croak", "Lilypadd", "Tadpole"]
+    assert {n: e["signed_in"] for n, e in pool.items()} == {
+        "Alt": False,
+        "Croak": True,
+        "Lilypadd": False,
+        "Tadpole": False,
+    }
+    assert pool["Lilypadd"]["wow_class"] is None
+
+    # Officers can seat them before they sign in; signing in keeps the same member, so the seat stays theirs.
+    slots: list[object] = [None] * 10
+    slots[0] = {"spec": "shaman-restoration", "member_id": pool["Lilypadd"]["member_id"]}
+    assert hub.post("/api/days/wed/comps", officer, {"name": "Kara", "size": 10, "slots": slots}).status_code == 201
+    lily = next(u for u in hub.fake.users.values() if u.nick == "Lilypadd")
+    lily_sid = hub.login(lily)
+    _put(hub, "/api/me/specs", lily_sid, {"wow_class": "shaman", "primary": "shaman-restoration"})
+    entry = _officer_pool(hub, officer)["Lilypadd"]
+    assert (entry["member_id"], entry["signed_in"], entry["primary"]) == (
+        pool["Lilypadd"]["member_id"],
+        True,
+        "shaman-restoration",
+    )
+    assert hub.get("/api/days/wed/comps", officer).json()[0]["slots"][0]["member_name"] == "Lilypadd"
+
+
+def test_the_server_is_read_once_per_role_refresh_and_losing_the_role_drops_them(hub: Hub) -> None:
+    officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
+    lily = hub.user(("wed", "raider"), nick="Lilypadd")
+    assert "Lilypadd" in _officer_pool(hub, officer)
+    lily.roles.clear()
+    # Still listed until the next read of the server, at most role_refresh_seconds later.
+    assert "Lilypadd" in _officer_pool(hub, officer)
+    anyio.run(hub.redis.delete, ROSTERS_SYNCED_KEY)
+    assert "Lilypadd" not in _officer_pool(hub, officer)
+
+
+def test_when_discord_is_down_the_roster_reads_as_last_seen(hub: Hub) -> None:
+    officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
+    hub.fake.members_down = True
+    hub.user(("wed", "raider"), nick="Lilypadd")
+    assert sorted(_officer_pool(hub, officer)) == ["Croak"]
+    hub.fake.members_down = False
+    # The failed read did not count as a read, so the next request tries again.
+    assert sorted(_officer_pool(hub, officer)) == ["Croak", "Lilypadd"]
+
+
 def test_officers_see_their_nights_roster_and_lock_in_comps(hub: Hub) -> None:
     ele = hub.user(("wed", "raider"), nick="Hopscotch")
     ele_sid = hub.login(ele)
@@ -200,3 +275,27 @@ def test_raiders_and_other_nights_officers_cannot_build_comps(hub: Hub) -> None:
     glob = hub.login(hub.user(("global", "officer")))
     assert hub.get("/api/days/wed/comps/pool", glob).status_code == 200
     assert hub.get("/api/days/nope/comps", glob).status_code == 404
+
+
+def test_signing_in_stamps_the_sign_in(hub: Hub) -> None:
+    user = hub.user(("wed", "raider"))
+    officer = hub.login(hub.user(("wed", "officer")))
+    hub.get("/api/days/wed/comps/pool", officer)
+    with hub.db() as db:
+        assert db.scalars(select(Member.signed_in_at).where(Member.discord_user_id == user.user_id)).one() is None
+    hub.login(user)
+    with hub.db() as db:
+        assert db.scalars(select(Member.signed_in_at).where(Member.discord_user_id == user.user_id)).one() is not None
+
+
+def test_a_failed_roster_write_serves_the_stored_roster_and_retries(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
+    officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
+    hub.user(("wed", "raider"), nick="Lilypadd")
+
+    def clash(*_: object) -> int:
+        raise IntegrityError("INSERT", {}, Exception("duplicate discord_user_id"))
+
+    monkeypatch.setattr(identity, "sync_raid_rosters", clash)
+    assert sorted(_officer_pool(hub, officer)) == ["Croak"]
+    monkeypatch.undo()
+    assert sorted(_officer_pool(hub, officer)) == ["Croak", "Lilypadd"]

@@ -74,6 +74,11 @@ class SqlCompRepository:
             rows = db.execute(select(Member.id, Member.raid_days).where(Member.raid_days.is_not(None)))
             return [member_id for member_id, days in rows if isinstance(days, list) and raid_day in days]
 
+    def signed_in(self, member_ids: Iterable[int]) -> set[int]:
+        query = select(Member.id).where(Member.id.in_(list(member_ids)), Member.signed_in_at.is_not(None))
+        with self._db() as db:
+            return set(db.scalars(query))
+
     def comps(self, raid_day: str) -> list[CompRecord]:
         with self._db() as db:
             query = select(RaidComp).where(RaidComp.raid_day_id == raid_day).order_by(RaidComp.id)

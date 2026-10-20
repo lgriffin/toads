@@ -9,6 +9,8 @@ It implements just what the hub uses, with the same paths and shapes as Discord:
 - GET  /api/v10/users/@me/guilds/{id}/member     the token owner's guild member, 404 when not in the server
 - GET  /api/v10/oauth2/applications/@me          the bot's application (any `Bot` token)
 - GET  /api/v10/guilds/{id}/roles                the server's roles (any `Bot` token)
+- GET  /api/v10/guilds/{id}/members              the server's members by user id, paged by `limit` and `after`
+                                                 (any `Bot` token)
 - GET  /api/v10/guilds/{id}/members/search       members whose name starts with `query` (any `Bot` token)
 - GET  /api/v10/guilds/{id}/members/{user}       one member of the server (any `Bot` token), 404 when not in it
 - GET  /api/v10/guilds/{id}/scheduled-events     the server's scheduled events (any `Bot` token)
@@ -68,6 +70,8 @@ class FakeDiscordState:
     events: list[dict[str, Any]] = field(default_factory=list)
     # Tests set this to make the scheduled events listing fail as Discord does when it is down.
     events_down: bool = False
+    # Tests set this to make the server's member listing fail as Discord does when it is down.
+    members_down: bool = False
     # False answers the server's role listing as Discord does before Toad Bot is invited: 404 Unknown Guild.
     bot_in_server: bool = True
 
@@ -190,6 +194,17 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
             "nick": user.nick,
             "roles": [str(r) for r in sorted(user.roles)],
         }
+
+    @app.get("/api/v10/guilds/{guild_id}/members")
+    async def list_members(guild_id: int, request: Request) -> list[dict[str, Any]]:
+        if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
+            raise HTTPException(401, detail="401: Unauthorized")
+        if state.members_down:
+            raise HTTPException(503, detail="Service Unavailable")
+        limit = int(request.query_params.get("limit", "1"))
+        after = int(request.query_params.get("after", "0"))
+        found = sorted((u for u in state.users.values() if u.in_guild and u.user_id > after), key=lambda u: u.user_id)
+        return [_member_json(u) for u in found[:limit]]
 
     # Declared before /members/{user_id}, which would otherwise take "search" for a user id.
     @app.get("/api/v10/guilds/{guild_id}/members/search")

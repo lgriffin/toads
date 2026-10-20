@@ -23,7 +23,8 @@ class Base(DeclarativeBase):
 
 
 class Member(Base):
-    """A Discord user who has logged in to the hub. Roles are never stored here (REQ-HUB-RBAC-001)."""
+    """A Discord user the hub knows: someone who signed in, a member a bot acted for, or a holder of a raid night's
+    Discord roles listed for the comp builder (docs/comps.md). Roles are never stored here (REQ-HUB-RBAC-001)."""
 
     __tablename__ = "members"
 
@@ -43,6 +44,9 @@ class Member(Base):
     # and role refresh. Never a source of permissions: the officers' comp builder reads it for a raid day's pool.
     # Null until the member signs in again after it was added.
     raid_days: Mapped[list[str] | None] = mapped_column(JSON)
+    # When the member last signed in to the hub. Null for someone the hub only knows from Discord: a raid night's role
+    # holder the comp builder lists, or a member a bot acted for. Rows from before migration 0023 take created_at.
+    signed_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     profile_public: Mapped[bool] = mapped_column(default=False)
     dms_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
