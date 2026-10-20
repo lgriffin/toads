@@ -21,6 +21,7 @@ ROLE_BADGES: dict[str, RoleBadge] = {
     for b in [
         # The raid nights.
         RoleBadge("wednesday-toad", "Wednesday Toad", "days/wednesday-toad"),
+        RoleBadge("thursday-toad", "Thursday Toad", "days/thursday-toad"),
         RoleBadge("sunday-toad", "Sunday Toad", "days/sunday-toad"),
         # What a member does in the raid.
         RoleBadge("tank", "Tank", "roles/tank"),

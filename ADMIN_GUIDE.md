@@ -296,6 +296,14 @@ Restart the API after editing a file.
   `raider_roles`, `officer_roles` and `channels` (`raid_logs`, `signups`, `bank_requests`).
 - Every role id must exist in the server. One that does not (a role deleted or recreated in Discord) grants nothing, and
   the API logs a `discord_role_missing` error naming the day and role; put the role's new id in the config.
+- **Adding a raid night** (Thursday joined Wednesday and Sunday in October 2026): make the night's roles in Discord
+  (for example `Thursday Toads` for raiders, `Thursday Trials` and `Thursday Officers`), copy each role's id (Developer
+  Mode, right-click the role, Copy Role ID), add an entry to `raid_days` with its `id` (`thu`), `name` (`Thursday`),
+  `start_time` and those ids in `raider_roles`, `trial_roles` and `officer_roles`, then restart the API. Members with
+  the officer role get that night's officer powers and pages (Raid page desk and board, Calendar, comp builder, logs,
+  recruitment panel, bank) at their next role refresh; nothing else gives them sight of it. Then on the Admin page tie
+  the raider role to the night's badge (Thursday Toad). A night whose badge art, preview data or homepage wording is
+  new also needs `apps/web/src/lib/nights.ts`, `scripts/toad_art.py` and both badge catalogues in a PR.
 
 **`config/community.yaml`** (API): guild name and realm for the `/story` page (its tagline and story live in the repo,
 `services/api/src/toads_api/community/story.py`, and change with a deploy), `discord_invite`
@@ -342,8 +350,9 @@ Rules worth knowing:
 - **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
-  pick a server role and the badge it earns (Wednesday Toad, Sunday Toad, Tank, Healer, Damage or a class). Everyone
-  holding the role wears the badge beside their name. Start by tying the Wednesday and Sunday raider roles. The rank
+  pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, Tank, Healer, Damage or a
+  class). Everyone
+  holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and Sunday raider roles. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
   their own team's night, its officers also get the officer desk with the team's upcoming absences, and super admins

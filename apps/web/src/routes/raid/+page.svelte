@@ -7,6 +7,7 @@
   import { getSession, type Session } from '$lib/api';
   import { dayName, hubAbsences, raidDaysOf, type Absence } from '$lib/absences';
   import { PLANNED, dayToad, defaultDay } from '$lib/raid-page';
+  import { NIGHTS_OR } from '$lib/nights';
   import { hubBoard } from '$lib/officer-board';
   import { previewAbsences, previewRaidSession } from '$lib/preview/absences-fake';
   import { previewBoard } from '$lib/preview/board-fake';
@@ -44,7 +45,7 @@
   <section class="card none" aria-labelledby="raid-h">
     <h1 id="raid-h">Raid</h1>
     <p>
-      You are not on a raid team yet. Once the officers give you the Wednesday or Sunday role in Discord, your raid
+      You are not on a raid team yet. Once the officers give you the {NIGHTS_OR} role in Discord, your raid
       night's page opens here.
     </p>
   </section>
@@ -60,7 +61,7 @@
       title="{name} raid"
       line="Coming soon"
       lede="{name}'s home on the hub. Raid-night tools plug in here as they are built; until then the night runs from Discord and the officers' Drive."
-      toads={[dayToad(day)]}
+      toads={[dayToad(day, name)]}
     >
       {#if onTeam}<a class="medal" href="{base}/me/#absences">Report an absence</a>{/if}
       <a class="ghost" href="{base}/logs/">See the logs</a>

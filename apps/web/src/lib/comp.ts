@@ -4,6 +4,7 @@
  * services/api/src/toads_api/comps/catalog.py; services/api/tests/test_comps.py fails if the two drift apart.
  */
 import { ApiError, call, type Fetch } from './api';
+import { dayName } from './absences';
 
 export type Role = 'tank' | 'healer' | 'melee' | 'ranged';
 
@@ -444,7 +445,5 @@ export function compError(e: unknown): string {
   return 'The hub could not be reached; try again.';
 }
 
-const DAY_NAMES: Record<string, string> = { wed: 'Wednesday', sun: 'Sunday' };
-
 /** A raid day's name from its config id. */
-export const dayLabel = (id: string) => DAY_NAMES[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
+export const dayLabel = (id: string) => dayName(id);

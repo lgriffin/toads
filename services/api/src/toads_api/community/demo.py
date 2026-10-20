@@ -1,4 +1,4 @@
-"""A small, fully fake guild for tests and local development: two raid days, their officers, and a few members.
+"""A small, fully fake guild for tests and local development: three raid days, their officers, and a few members.
 
 Nothing here is real data; ids are made up and every name is a toad pun.
 """
@@ -14,13 +14,14 @@ from toads_api.community.schemas import Priority, Progress, RecruitmentNeed, Rol
 from toads_api.community.service import CommunityService, RaidDayDirectory
 from toads_api.rbac import HubRole, Principal
 
-GLOBAL_ROLE, WED_OFFICER_ROLE, SUN_OFFICER_ROLE = 900, 12, 22
+GLOBAL_ROLE, WED_OFFICER_ROLE, THU_OFFICER_ROLE, SUN_OFFICER_ROLE = 900, 12, 32, 22
 ANNOUNCEMENTS, WED_CHAT, GUILD_POSTS, WED_POSTS, INTERVIEWS = 111, 222, 333, 444, 555
 
 PRINCIPALS: dict[str, Principal] = {
     "global officer": Principal(member_id=1, global_officer=True),
     "Wednesday officer": Principal(member_id=2, day_roles={"wed": HubRole.OFFICER}),
     "Sunday officer": Principal(member_id=3, day_roles={"sun": HubRole.OFFICER}),
+    "Thursday officer": Principal(member_id=7, day_roles={"thu": HubRole.OFFICER}),
     "Wednesday raider": Principal(member_id=4, day_roles={"wed": HubRole.RAIDER}),
     "applicant": Principal(member_id=5),
     "Sunday trial": Principal(member_id=6, day_roles={"sun": HubRole.TRIAL}),
@@ -33,6 +34,7 @@ MEMBERS = {
     4: MemberCard("Hopscotch", 10_004),
     5: MemberCard("Newtonian", 10_005),
     6: MemberCard("Tadpole", 10_006),
+    7: MemberCard("Lilypadma", 10_007),
 }
 
 
@@ -43,10 +45,10 @@ DEMO_PROGRESSION = [Progress(zone="Serpentshrine Cavern", killed=5, total=6)]
 def demo_service(clock: Callable[[], datetime], repo: CommunityRepository | None = None) -> CommunityService:
     """The demo guild over `repo` (default: in memory). A given repo must already know MEMBERS and DEMO_PROGRESSION."""
     directory = RaidDayDirectory(
-        day_ids=frozenset({"wed", "sun"}),
+        day_ids=frozenset({"wed", "thu", "sun"}),
         global_officer_roles=(GLOBAL_ROLE,),
-        officer_roles={"wed": (WED_OFFICER_ROLE,), "sun": (SUN_OFFICER_ROLE,)},
-        day_names={"wed": "Wednesday", "sun": "Sunday"},
+        officer_roles={"wed": (WED_OFFICER_ROLE,), "thu": (THU_OFFICER_ROLE,), "sun": (SUN_OFFICER_ROLE,)},
+        day_names={"wed": "Wednesday", "thu": "Thursday", "sun": "Sunday"},
     )
     config = CommunityConfig(
         discord_invite="https://discord.gg/toads",

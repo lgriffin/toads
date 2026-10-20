@@ -25,4 +25,5 @@ sources:
 # Weekday per raid day (0 = Monday). Days left out use the weekday in their name in raid_days.yaml.
 weekdays: {}
 #  wed: 2
+#  thu: 3
 #  sun: 6

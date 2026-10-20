@@ -58,5 +58,5 @@ def test_plain_member_has_no_days(hub: Hub) -> None:
 def test_global_officer_is_officer_everywhere(hub: Hub) -> None:
     info = hub.get("/api/session", hub.login(hub.user(("global", "officer"), ("wed", "trial")))).json()
     assert info["raid_days"] == ["wed"]
-    assert info["officer_days"] == ["wed", "sun"]
+    assert info["officer_days"] == ["wed", "thu", "sun"]
     assert info["global_officer"] is True

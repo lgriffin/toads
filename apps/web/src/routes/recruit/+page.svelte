@@ -6,6 +6,7 @@
   import type { RecruitmentNeed } from '$lib/community';
   import { needFromApi, type ApiNeed } from '$lib/community-api';
   import { needs as sampleNeeds } from '$lib/mock/community';
+  import { RAID_NIGHTS } from '$lib/nights';
   import { previewSession } from '$lib/preview/session.svelte';
   import Recruit from '$lib/Recruit.svelte';
 
@@ -15,12 +16,7 @@
   let apiNights = $state<RaidNight[]>([]);
   const signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : apiSignedIn);
   const needs = $derived(__PREVIEW__ ? sampleNeeds : apiNeeds);
-  const PREVIEW_NIGHTS: RaidNight[] = [
-    { id: 'wed', name: 'Wednesday' },
-    { id: 'thu', name: 'Thursday' },
-    { id: 'sun', name: 'Sunday' }
-  ];
-  const nights = $derived(__PREVIEW__ ? PREVIEW_NIGHTS : apiNights);
+  const nights = $derived(__PREVIEW__ ? [...RAID_NIGHTS] : apiNights);
 
   onMount(async () => {
     if (__PREVIEW__) return;

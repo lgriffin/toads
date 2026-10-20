@@ -5,6 +5,7 @@
 
 import { CLASSES, CLASS_SPECS } from './application';
 import type { Role } from './mock/data';
+import { NIGHTS_IN_WORDS, TEAM_COUNT } from './nights';
 
 export interface Value {
   title: string;
@@ -14,7 +15,7 @@ export interface Value {
 export const LANDING = {
   guild: 'Toads',
   tagline: 'A very social guild that locks in on raid night, on the EU PvP side of WoW Forever. Horde, one big pond.',
-  schedule: 'two 40-man teams, Wednesday and Sunday, 21:00 to midnight server time',
+  schedule: `${TEAM_COUNT} 40-man teams, ${NIGHTS_IN_WORDS}, 21:00 to midnight server time`,
   who: [
     'We are a very social guild that locks into raiding with a focus on speed and execution. We don’t stack classes: we bring a balanced raid group, and our players step up with consumes and the level of play we expect. We have done this from Classic Fresh to TBC, and now Forever awaits us.',
     'Now we are taking the whole pond to World of Warcraft: Forever. Horde, PvP, EU: the same people, the same habits, a new continent to be unreasonably smug about.'
@@ -225,10 +226,10 @@ export const HOME_PILLARS: readonly HomePillar[] = [
   }
 ];
 
-/** How the two raid teams work, on /how-we-raid. */
+/** How the raid teams work, on /how-we-raid. */
 export const RAID_TEAMS: readonly string[] = [
-  'We are aiming for two 40-man raiding teams, one on Wednesday and one on Sunday. Both groups work as one to support each other, with alts helping out where possible to cover life events.',
-  'We do not expect 100% attendance. We recognise life happens, and with two raid teams we can bench and rotate as needed.',
+  `We are aiming for ${TEAM_COUNT} 40-man raiding teams, one each on ${NIGHTS_IN_WORDS}. All the teams work as one to support each other, with alts helping out where possible to cover life events.`,
+  `We do not expect 100% attendance. We recognise life happens, and with ${TEAM_COUNT} raid teams we can bench and rotate as needed.`,
   'Discord provides our support, our tactics and our strategy, and our raid leaders on the night drive it home.'
 ];
 

@@ -156,6 +156,11 @@ def test_day_024() -> None:
     pass
 
 
+@_bind("hub_day.feature", 25)
+def test_day_025() -> None:
+    pass
+
+
 @pytest.fixture
 def ctx() -> dict[str, Any]:
     return {}
@@ -179,9 +184,12 @@ def raider(hub: Hub, ctx: dict[str, Any], nick: str) -> None:
     ctx["sid"] = hub.login(ctx["user"])
 
 
-@given("a Wednesday officer signed in")
-def wed_officer(hub: Hub, ctx: dict[str, Any]) -> None:
-    ctx["officer_user"] = hub.user(("wed", "officer"))
+DAY_IDS = {d.name: d.id for d in RAID_DAYS.raid_days}
+
+
+@given(parsers.re(r"a (?P<day>Wednesday|Thursday|Sunday) officer signed in$"))
+def day_officer(hub: Hub, ctx: dict[str, Any], day: str) -> None:
+    ctx["officer_user"] = hub.user((DAY_IDS[day], "officer"))
     ctx["officer"] = hub.login(ctx["officer_user"])
 
 
@@ -451,9 +459,9 @@ def anonymous_denied(hub: Hub) -> None:
 # --- raid-day scope ----------------------------------------------------------------------------------
 
 
-@then("they can open the Wednesday claims queue")
-def open_queue(hub: Hub, ctx: dict[str, Any]) -> None:
-    assert hub.get("/api/days/wed/claims", ctx["officer"]).status_code == 200
+@then(parsers.parse("they can open the {day} claims queue"))
+def open_queue(hub: Hub, ctx: dict[str, Any], day: str) -> None:
+    assert hub.get(f"/api/days/{DAY_IDS[day]}/claims", ctx["officer"]).status_code == 200
 
 
 @then("they can trigger a Wednesday sync")
@@ -461,14 +469,14 @@ def wed_sync(hub: Hub, ctx: dict[str, Any]) -> None:
     assert hub.post("/api/days/wed/admin/sync", ctx["officer"]).status_code == 202
 
 
-@then("every Sunday officer view answers them 403")
-def sunday_views_denied(hub: Hub, ctx: dict[str, Any]) -> None:
+@then(parsers.parse("every {day} officer view answers them 403"))
+def other_day_views_denied(hub: Hub, ctx: dict[str, Any], day: str) -> None:
     rules, _ = route_rules(hub.app)
     # Officer views only: scoped routes a plain member may also open (a day's raid sheets) stay open.
     scoped = [r for r in rules if r.scoped and r.permission not in ROLE_PERMISSIONS[HubRole.MEMBER]]
     assert scoped
     for rule in scoped:
-        path = re.sub(r"\{[a-z_]+\}", "1", rule.path.replace("{day}", "sun"))
+        path = re.sub(r"\{[a-z_]+\}", "1", rule.path.replace("{day}", DAY_IDS[day]))
         r = hub.client.request(rule.method, path, headers=hub.as_(ctx["officer"]), json={})
         assert r.status_code == 403, (rule, r.status_code)
 
@@ -542,7 +550,7 @@ def _matrix_module() -> Any:
 @given(parsers.parse("a raid-day config naming Discord role {role:d} for Sunday officers"))
 def config_with_role(ctx: dict[str, Any], role: int) -> None:
     cfg = RAID_DAYS.model_copy(deep=True)
-    cfg.raid_days[1].officer_roles.append(role)
+    cfg.raid_days[-1].officer_roles.append(role)
     ctx["cfg"] = cfg
 
 

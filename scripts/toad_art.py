@@ -88,6 +88,37 @@ WEDNESDAY = ToadArt(
     ),
 )
 
+THURSDAY = ToadArt(
+    file="days/thursday-toad",
+    label="THURSDAY",
+    disc=("#c9b8f4", "#6a4fc0", "#241650"),
+    banner="#6a4fc0",
+    banner_text=CREAM,
+    # Thor's day: a storm cloud over the pond, its bolt striking off to the side.
+    behind=(
+        '<path d="M52 60 L38 84 L48 84 L32 110 L62 76 L52 76 L62 60Z" fill="#ffd96b" stroke="#3a2410" '
+        'stroke-width="2" stroke-linejoin="round"/>'
+        '<path d="M50 62 Q44 46 62 44 Q64 28 84 32 Q96 16 114 28 Q134 22 138 40 Q156 42 150 60 Q146 66 136 64 '
+        'L62 64 Q52 66 50 62Z" fill="#d9d2f2" stroke="#3a2410" stroke-width="2" stroke-linejoin="round"/>'
+        '<path d="M66 54 Q80 58 94 52 M104 48 Q118 54 132 50" fill="none" stroke="#a99ad6" stroke-width="2.4" '
+        'stroke-linecap="round"/>'
+        + "".join(
+            f'<path d="M{x} {y} q-3 6 0 8 q3 -2 0 -8Z" fill="#8fd3f0" stroke="#12303f" stroke-width="1"/>'
+            for x, y in [(120, 70), (134, 74)]
+        )
+    ),
+    # A little bronze warhammer, held up on the right, and a stormy grin.
+    front=(
+        '<g transform="translate(-6 0)">'
+        '<path d="M158 96 L158 168" stroke="#3a2410" stroke-width="8" stroke-linecap="round"/>'
+        '<path d="M158 96 L158 168" stroke="#7a4f23" stroke-width="5" stroke-linecap="round"/>'
+        '<rect x="141" y="80" width="34" height="20" rx="3" fill="url(#bronze)" stroke="#3a2410" stroke-width="2.4"/>'
+        '<path d="M147 84 L147 96 M169 84 L169 96" stroke="#3a2410" stroke-width="1.6" opacity=".6"/>'
+        '<path d="M156 86 L161 86 L158 92Z" fill="#ffd96b" stroke="#3a2410" stroke-width="1"/></g>'
+        '<path d="M86 151 Q100 159 114 151" fill="none" stroke="#6a4fc0" stroke-width="3" stroke-linecap="round"/>'
+    ),
+)
+
 SUNDAY = ToadArt(
     file="days/sunday-toad",
     label="SUNDAY",
@@ -151,7 +182,7 @@ SUPER_ADMIN = ToadArt(
     ),
 )
 
-ALL = (WEDNESDAY, SUNDAY, SUPER_ADMIN)
+ALL = (WEDNESDAY, THURSDAY, SUNDAY, SUPER_ADMIN)
 
 
 def _member_parts() -> tuple[str, str]:

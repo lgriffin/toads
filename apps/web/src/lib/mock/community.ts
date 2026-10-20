@@ -6,7 +6,7 @@ import type { Application, Highlight, Post, PublicStory, RecruitmentNeed, Spotli
 import { progressionFromRaids } from '../progression';
 import { raids } from './data';
 
-/** The preview visitor: Hopscotch raids both nights and is a Wednesday officer. */
+/** The preview visitor: Hopscotch raids Wednesday and Sunday and is a Wednesday officer. */
 export const viewer: Viewer = {
   name: 'Hopscotch',
   signedIn: true,
@@ -28,7 +28,7 @@ export const posts: Post[] = [
   {
     id: 'p-welcome',
     title: 'New to the pond? Start here',
-    body: 'Welcome, tadpoles.\n\nRaids are Wednesday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
+    body: 'Welcome, tadpoles.\n\nRaids are Wednesday, Thursday and Sunday from 21:00 server time. Invites go out at 20:45.\nSign up on the Hub before 19:00 on raid day so the raid leader can balance groups.',
     authorName: 'Ribbitz',
     origin: 'hub',
     visibility: 'public',
@@ -358,7 +358,7 @@ export const story: PublicStory = {
     'Toads has raided together for six years. We are a tight-knit community with a UK and Scandinavian core: we have met up in real life, made lasting friendships and kept turning up for each other, raid after raid.',
     'We cut our teeth on Classic Fresh on Spineshatter, clearing Molten Core through to Naxxramas with a focus on speed runs, then grew to four strong teams in The Burning Crusade, from Karazhan to Black Temple and Mount Hyjal. Three ran as full guild raids under a loot council and one on soft reserves.',
     'Semi-hardcore means organised and competitive without losing the fun. We want players who put the guild first: friendly, prepared and team-focused, with a good sense of humour and the ability to take feedback. Experienced raid leaders run the night, and everyone pulls their weight.',
-    'World of Warcraft: Forever will follow the same pattern: two 40-man teams on Wednesday and Sunday, clearing in one night wherever we can, with Discord as the pond in between.'
+    'World of Warcraft: Forever will follow the same pattern: three 40-man teams on Wednesday, Thursday and Sunday, clearing in one night wherever we can, with Discord as the pond in between.'
   ],
   discordInvite: 'https://discord.gg/example',
   progression: progressionFromRaids(raids),

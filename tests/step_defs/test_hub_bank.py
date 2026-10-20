@@ -535,7 +535,7 @@ def standing_imports(world: World, day: str) -> None:
 @then("the grantee's bank standing lists every raid day to manage and nothing to import")
 def standing_manages_everywhere(world: World) -> None:
     me = world.get("/api/bank/me", world.session(world.grantee_user)).json()
-    assert (me["import_days"], me["manage_days"]) == ([], ["wed", "sun"])
+    assert (me["import_days"], me["manage_days"]) == ([], ["wed", "thu", "sun"])
 
 
 @then("the grantee may not list or work an officers-only bank's requests")
@@ -764,7 +764,7 @@ def standing_manages(world: World, day: str) -> None:
 @then("the member's bank standing lists every raid day to import")
 def member_imports_everywhere(world: World) -> None:
     me = world.get("/api/bank/me", world.session(world.member_user)).json()
-    assert (me["import_days"], me["manage_days"]) == (["wed", "sun"], [])
+    assert (me["import_days"], me["manage_days"]) == (["wed", "thu", "sun"], [])
 
 
 @then("the token list shows it used by the grantee")

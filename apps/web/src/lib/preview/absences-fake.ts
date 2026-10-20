@@ -5,13 +5,14 @@
 import { ApiError, type Session } from '$lib/api';
 import { isoDate, weekdayOf, type Absence, type AbsenceIn, type AbsencesBackend, type TeamAbsences } from '$lib/absences';
 import type { PreviewRole } from './gate';
+import { NIGHT_IDS, NIGHT_NAMES } from '$lib/nights';
 
-export const PREVIEW_DAY_NAMES: Record<string, string> = { wed: 'Wednesday', sun: 'Sunday' };
+export const PREVIEW_DAY_NAMES: Record<string, string> = { ...NIGHT_NAMES };
 
 /** The preview's raid days per view: Hopscotch raids Wednesday, leads it as an officer, or sees both as a super admin. */
 export function previewRaidSession(role: PreviewRole | null): Pick<Session, 'raid_days' | 'officer_days' | 'day_names'> | null {
   if (role === null) return null;
-  const officer_days = role === 'admin' ? ['wed', 'sun'] : role === 'officer' ? ['wed'] : [];
+  const officer_days = role === 'admin' ? [...NIGHT_IDS] : role === 'officer' ? ['wed'] : [];
   return { raid_days: ['wed'], officer_days, day_names: PREVIEW_DAY_NAMES };
 }
 

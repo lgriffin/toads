@@ -18,7 +18,7 @@
     {
       role: 'admin',
       title: 'Sign in as a super admin',
-      body: 'Everything an officer sees on both nights, plus bank grants, officer tokens and the break-glass notice.'
+      body: 'Everything an officer sees on every night, plus bank grants, officer tokens and the break-glass notice.'
     }
   ];
 

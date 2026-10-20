@@ -44,6 +44,17 @@ const SUNDAY: Row[] = [
   ['Lagoon', null, null, null]
 ];
 
+const THURSDAY: Row[] = [
+  ['Lilypadma', 'paladin', 'paladin-protection', 'paladin-holy'],
+  ['Ribbit', 'warrior', 'warrior-protection', 'warrior-fury'],
+  ['Thunderwart', 'shaman', 'shaman-restoration', 'shaman-enhancement'],
+  ['Stormcroak', 'mage', 'mage-fire', 'mage-arcane'],
+  ['Spawnling', 'priest', 'priest-holy', 'priest-shadow'],
+  ['Hailstone', 'hunter', 'hunter-beast-mastery', null],
+  ['Drizzle', 'rogue', 'rogue-combat', null],
+  ['Newtling', null, null, null]
+];
+
 const IDS = new Map<string, number>();
 const idOf = (name: string) => {
   if (!IDS.has(name)) IDS.set(name, IDS.size + 1);
@@ -55,7 +66,7 @@ const entries = (rows: Row[]): PoolEntry[] =>
     .map(([name, wow_class, primary, secondary]) => ({ member_id: idOf(name), name, wow_class, primary, secondary }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-const POOLS: Record<string, PoolEntry[]> = { wed: entries(WEDNESDAY), sun: entries(SUNDAY) };
+const POOLS: Record<string, PoolEntry[]> = { wed: entries(WEDNESDAY), thu: entries(THURSDAY), sun: entries(SUNDAY) };
 const NAMES = new Map([...IDS].map(([name, id]) => [id, name]));
 
 let saved: SavedComp[] = [];

@@ -682,6 +682,7 @@ def _panel(as_: Any, who: str, day: str, *discord_ids: int) -> dict[str, Any]:
 def test_the_recruit_page_offers_each_raid_night(as_: Any) -> None:
     assert as_(None).get("/api/public/raid-nights").json() == [
         {"id": "wed", "name": "Wednesday"},
+        {"id": "thu", "name": "Thursday"},
         {"id": "sun", "name": "Sunday"},
     ]
 

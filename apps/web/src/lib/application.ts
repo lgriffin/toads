@@ -4,6 +4,7 @@
  * feedback before they send.
  */
 import type { Role } from './mock/data';
+import { inWords } from './nights';
 
 export const ROLES: readonly Role[] = ['Tank', 'Healer', 'Melee', 'Ranged'];
 
@@ -96,8 +97,7 @@ function roleError(className: string, role: string): string | undefined {
 
 /** "Wednesday, Thursday and Sunday": the nights on offer, for the recruit page's copy. */
 export function nightsList(nights: readonly RaidNight[]): string {
-  const names = nights.map((n) => n.name);
-  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  return inWords(nights.map((n) => n.name));
 }
 
 /** `nights` are the raid day ids on offer; with none (an older hub), the night is not asked. */

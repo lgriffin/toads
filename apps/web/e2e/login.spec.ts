@@ -104,7 +104,7 @@ test('a visitor sees how a raid night works without anyone being named', async (
   await expect(page.getByRole('heading', { name: 'How we raid', level: 1 })).toBeVisible();
   await expect(page.getByRole('article', { name: 'Loot Council' }).getByText(/thatsmybis\.com/)).toBeVisible();
   await expect(page.getByRole('article', { name: 'Badges' })).toHaveCount(0);
-  await expect(page.getByText('We are aiming for two 40-man raiding teams', { exact: false })).toBeVisible();
+  await expect(page.getByText('We are aiming for three 40-man raiding teams', { exact: false })).toBeVisible();
 });
 
 test('a signed-out applicant is asked to sign in with Discord and keeps their answers', async ({ page }) => {

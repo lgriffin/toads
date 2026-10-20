@@ -6,6 +6,7 @@
  * the month grid.
  */
 import { ApiError, call, type Fetch, type Session } from './api';
+import { NIGHT_NAMES } from './nights';
 
 export interface Absence {
   id: number;
@@ -91,7 +92,7 @@ export interface RaidDays {
 
 /** Each day's name: from the hub, or the id title-cased for an older hub that sends none. */
 export function dayName(id: string, names: Record<string, string> = {}): string {
-  return names[id] ?? (id === 'wed' ? 'Wednesday' : id === 'sun' ? 'Sunday' : id.charAt(0).toUpperCase() + id.slice(1));
+  return names[id] ?? NIGHT_NAMES[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
 }
 
 /**

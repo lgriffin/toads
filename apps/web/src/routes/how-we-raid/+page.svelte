@@ -6,12 +6,14 @@
   import ModelPillars from '$lib/components/ModelPillars.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
   import { RAID_TEAMS } from '$lib/landing';
+  import { NIGHTS_IN_WORDS, TEAM_COUNT } from '$lib/nights';
   import { sheetTrend } from '$lib/mock/sheets';
 
   // How a Toads raid night works, in full: the same pillars as the homepage, each with its approach, how it is
   // measured and what members see. The preview adds the last four raids' guild totals from the sample raid sheets;
   // the real site will once a public summary exists.
   const trend = __PREVIEW__ ? sheetTrend : [];
+  const TEAMS = TEAM_COUNT.charAt(0).toUpperCase() + TEAM_COUNT.slice(1);
 </script>
 
 <svelte:head><title>How we raid · Toads</title></svelte:head>
@@ -19,8 +21,8 @@
 <div class="pond-page">
   <PondHero
     title="How we raid"
-    line="Wednesday and Sunday · 21:00 to midnight"
-    lede="Two 40-man raid teams, one night each, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
+    line="{NIGHTS_IN_WORDS} · 21:00 to midnight"
+    lede="{TEAMS} 40-man raid teams, one night each, the same expectations for everyone, and the same numbers on show for everyone. Here is what we ask of raiders, how we measure it and what you see once you join."
     toads={['roles/tank-badge', 'roles/healer-badge', 'roles/damage-badge']}
   >
     <a class="medal" href="{base}/recruit/">Apply to raid with us</a>

@@ -4,6 +4,7 @@
   import { getSession, type Session } from '$lib/api';
   import { hubPanels } from '$lib/interview-panels';
   import InterviewPanelCard from '$lib/components/InterviewPanelCard.svelte';
+  import { NIGHT_IDS, NIGHT_NAMES } from '$lib/nights';
   import { previewPanels } from '$lib/preview/panels-fake';
   import { previewSession } from '$lib/preview/session.svelte';
 
@@ -16,11 +17,10 @@
     session = await getSession().catch(() => null);
     loaded = true;
   });
-  const PREVIEW_NAMES: Record<string, string> = { wed: 'Wednesday', thu: 'Thursday', sun: 'Sunday' };
   const days = $derived(
-    __PREVIEW__ ? (previewSession.role === 'admin' ? ['wed', 'thu', 'sun'] : ['wed']) : (session?.officer_days ?? [])
+    __PREVIEW__ ? (previewSession.role === 'admin' ? [...NIGHT_IDS] : ['wed']) : (session?.officer_days ?? [])
   );
-  const names = $derived(__PREVIEW__ ? PREVIEW_NAMES : (session?.day_names ?? {}));
+  const names = $derived(__PREVIEW__ ? NIGHT_NAMES : (session?.day_names ?? {}));
   const backend = __PREVIEW__ ? previewPanels() : hubPanels();
 </script>
 

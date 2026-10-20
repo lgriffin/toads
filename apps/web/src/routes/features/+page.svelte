@@ -39,7 +39,7 @@
   );
   let shownAs = $derived(featureTier(tier));
   // Raider lines a plain member or a trial does not hold yet say which role they need. The preview's Hopscotch raids
-  // both nights.
+  // Wednesday and Sunday.
   let raidRole = $derived<RaidRole>(__PREVIEW__ ? 'raider' : raidRoleOf(session));
   let signedIn = $derived(tier !== 'visitor');
 

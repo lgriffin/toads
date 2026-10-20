@@ -27,7 +27,7 @@ def test_startup_passes_when_every_role_exists() -> None:
 
 def test_startup_survives_a_missing_role_and_logs_it() -> None:
     cfg = RAID_DAYS.model_copy(deep=True)
-    cfg.raid_days[1].officer_roles.append(424242)
+    cfg.raid_days[-1].officer_roles.append(424242)
     hub = Hub(raid_days=cfg)
     with capture_logs() as logs, hub.client:
         assert hub.client.get("/healthz").status_code == 200
@@ -87,7 +87,7 @@ def test_unknown_global_officer_role_is_named() -> None:
 
 def test_example_config_loads() -> None:
     cfg = RaidDaysConfig.load(Path(__file__).resolve().parents[3] / "config" / "raid_days.example.yaml")
-    assert [d.id for d in cfg.raid_days] == ["wed", "sun"]
+    assert [d.id for d in cfg.raid_days] == ["wed", "thu", "sun"]
     cfg.check_roles_exist(set())
 
 
