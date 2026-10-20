@@ -12,6 +12,13 @@ raid_days:
     raider_roles: []
     officer_roles: []
     channels: { raid_logs: null, signups: null, bank_requests: null }
+  - id: thu
+    name: Thursday
+    start_time: "19:30"
+    trial_roles: []
+    raider_roles: []
+    officer_roles: []
+    channels: { raid_logs: null, signups: null, bank_requests: null }
   - id: sun
     name: Sunday
     start_time: "19:30"

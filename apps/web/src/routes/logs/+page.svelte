@@ -2,6 +2,7 @@
   import '@fontsource/alegreya-sans/400.css';
   import '@fontsource/alegreya-sans/700.css';
   import { hubLogs } from '$lib/logs';
+  import { NIGHTS_IN_WORDS } from '$lib/nights';
   import { previewLogs } from '$lib/preview/logs-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import LogsIndex from '$lib/components/LogsIndex.svelte';
@@ -15,8 +16,8 @@
 <div class="logs">
   <h1>Logs</h1>
   <p class="lede muted">
-    Every raid the guild has logged, with the analyser's breakdown. Pick the nights to compare: Wednesday, Sunday, or any
-    other day the toads raided.
+    Every raid the guild has logged, with the analyser's breakdown. Pick the nights to compare: {NIGHTS_IN_WORDS}, or
+    any other day the toads raided.
   </p>
   {#if ready}
     {#key previewSession.role}

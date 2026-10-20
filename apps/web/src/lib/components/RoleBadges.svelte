@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { NIGHTS_IN_WORDS } from '$lib/nights';
   import {
     ROLE_BADGES_CHANGED,
     ROLE_BADGE_GROUPS,
@@ -137,7 +138,7 @@
     <h3>Roles that earn a badge</h3>
     {#if groups.length === 0}
       <p class="muted">
-        No role earns a badge yet. Start with the Wednesday and Sunday raider roles, then the tank and healer roles.
+        No role earns a badge yet. Start with the {NIGHTS_IN_WORDS} raider roles, then the tank and healer roles.
       </p>
     {:else}
       <ul class="ties">

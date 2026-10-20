@@ -4,10 +4,12 @@
  * see every night and switch between them (absences.ts `raidDaysOf`).
  */
 import type { RaidDays } from './absences';
+import { raidNight } from './nights';
 
-/** The toad standing in the Raid page's hero for a night. */
-export function dayToad(day: string): string {
-  return day === 'wed' ? 'days/wednesday-toad-badge' : day === 'sun' ? 'days/sunday-toad-badge' : 'ranks/member-badge';
+/** The toad standing in the Raid page's hero for a night, found by its config id or, failing that, its name. */
+export function dayToad(day: string, name = ''): string {
+  const night = raidNight(day) ?? raidNight(name);
+  return night ? `${night.toad}-badge` : 'ranks/member-badge';
 }
 
 /** The night the page opens on: the viewer's own team first, then the first they run, then the first they see. */

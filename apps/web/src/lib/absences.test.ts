@@ -21,6 +21,7 @@ describe('raidDaysOf', () => {
     expect(defaultDay(raidDaysOf(null))).toBe('');
     expect(raidDaysOf({ raid_days: ['wed'], officer_days: [] }).days).toEqual(['wed']);
     expect(dayName('wed')).toBe('Wednesday');
+    expect(dayName('thu')).toBe('Thursday');
     expect(dayName('fri')).toBe('Fri');
     expect(dayName('wed', { wed: 'Midweek' })).toBe('Midweek');
   });
@@ -58,6 +59,9 @@ describe('calendar helpers', () => {
   it('gives each night its toad', () => {
     expect(dayToad('wed')).toBe('days/wednesday-toad-badge');
     expect(dayToad('sun')).toBe('days/sunday-toad-badge');
+    expect(dayToad('thu')).toBe('days/thursday-toad-badge');
+    // A night whose config id the web app does not know still finds its toad by name.
+    expect(dayToad('t3', 'Thursday')).toBe('days/thursday-toad-badge');
     expect(dayToad('fri')).toBe('ranks/member-badge');
   });
 });

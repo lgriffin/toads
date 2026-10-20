@@ -9,6 +9,7 @@
   import { previewBankFetch } from '$lib/preview/bank-fake';
   import { previewRoleBadges } from '$lib/preview/role-badges-fake';
   import { hubRoleBadges } from '$lib/role-badges';
+  import { NIGHT_IDS } from '$lib/nights';
 
   // The super admin console: which Discord roles earn which badges, who else runs the bank, and where each integration
   // is set up. The hub's routes are the gate (MANAGE_ROLE_BADGES, MANAGE_GRANTS); the preview gates this page in the
@@ -19,7 +20,7 @@
     if (!__PREVIEW__) session = await getSession().catch(() => null);
   });
   const allowed = $derived(__PREVIEW__ || !!session?.super_admin);
-  const days = $derived(__PREVIEW__ ? ['wed', 'sun'] : (session?.officer_days ?? []));
+  const days = $derived(__PREVIEW__ ? [...NIGHT_IDS] : (session?.officer_days ?? []));
   const outside = (href: string) => href.startsWith('https://');
 </script>
 

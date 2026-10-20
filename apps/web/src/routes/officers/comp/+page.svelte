@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
   import { hubComps } from '$lib/comp';
+  import { NIGHT_IDS } from '$lib/nights';
   import CompBuilder from '$lib/components/CompBuilder.svelte';
   import { previewComps } from '$lib/preview/comp-fake';
   import { previewSession } from '$lib/preview/session.svelte';
@@ -16,7 +17,7 @@
     loaded = true;
   });
   const days = $derived(
-    __PREVIEW__ ? (previewSession.role === 'admin' ? ['wed', 'sun'] : ['wed']) : (session?.officer_days ?? [])
+    __PREVIEW__ ? (previewSession.role === 'admin' ? [...NIGHT_IDS] : ['wed']) : (session?.officer_days ?? [])
   );
   const backend = __PREVIEW__ ? previewComps : hubComps();
 </script>

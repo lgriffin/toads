@@ -6,7 +6,7 @@
 export const MOCK_NOW = new Date('2026-09-26T18:00:00Z');
 
 export type Role = 'Tank' | 'Healer' | 'Melee' | 'Ranged';
-export type RaidDay = 'Wednesday' | 'Sunday';
+export type RaidDay = 'Wednesday' | 'Thursday' | 'Sunday';
 
 export interface NextRaid {
   zone: string;

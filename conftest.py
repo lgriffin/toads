@@ -36,6 +36,9 @@ ROLES = {
     ("wed", "trial"): 10,
     ("wed", "raider"): 11,
     ("wed", "officer"): 12,
+    ("thu", "trial"): 30,
+    ("thu", "raider"): 31,
+    ("thu", "officer"): 32,
     ("sun", "trial"): 20,
     ("sun", "raider"): 21,
     ("sun", "officer"): 22,
@@ -53,6 +56,7 @@ RAID_DAYS = RaidDaysConfig.model_validate(
                 "raider_roles": [11],
                 "officer_roles": [12],
             },
+            {"id": "thu", "name": "Thursday", "trial_roles": [30], "raider_roles": [31], "officer_roles": [32]},
             {"id": "sun", "name": "Sunday", "trial_roles": [20], "raider_roles": [21], "officer_roles": [22]},
         ],
     }

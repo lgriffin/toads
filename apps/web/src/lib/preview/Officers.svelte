@@ -5,6 +5,7 @@
   import MemberToads from '$lib/components/MemberToads.svelte';
   import ReferenceCard from '$lib/components/ReferenceCard.svelte';
   import { MOCK_NOW, type RaidDay, type Role } from '$lib/mock/data';
+  import { RAID_NIGHTS } from '$lib/nights';
   import { shortDate } from '$lib/format';
   import { viewer } from '$lib/mock/community';
   import { POST_LIMITS, validatePost, type PostErrors } from '$lib/posts';
@@ -88,7 +89,7 @@
   // --- Compose
   // The super admin view acts as a global officer; the officer view keeps the sample viewer's Wednesday.
   const globalOfficer = $derived(viewer.globalOfficer || previewSession.role === 'admin');
-  const officerDays: RaidDay[] = $derived(globalOfficer ? ['Wednesday', 'Sunday'] : viewer.officerDays);
+  const officerDays: RaidDay[] = $derived(globalOfficer ? (RAID_NIGHTS.map((n) => n.name) as RaidDay[]) : viewer.officerDays);
   let draft = $state({ title: '', body: '', visibility: 'guild' as Visibility, raidDay: null as RaidDay | null, toDiscord: true });
   // Switching between the officer and super admin views changes the days on offer.
   $effect(() => {

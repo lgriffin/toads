@@ -21,6 +21,6 @@ STORY: tuple[str, ...] = (
     "Semi-hardcore means organised and competitive without losing the fun. We want players who put the guild first: "
     "friendly, prepared and team-focused, with a good sense of humour and the ability to take feedback. Experienced "
     "raid leaders run the night, and everyone pulls their weight.",
-    "World of Warcraft: Forever will follow the same pattern: two 40-man teams on Wednesday and Sunday, clearing in "
-    "one night wherever we can, with Discord as the pond in between.",
+    "World of Warcraft: Forever will follow the same pattern: three 40-man teams on Wednesday, Thursday and Sunday, "
+    "clearing in one night wherever we can, with Discord as the pond in between.",
 )
