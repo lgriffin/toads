@@ -5,15 +5,18 @@
   import { ADMIN_GUIDE, INTEGRATIONS, JOBS } from '$lib/admin';
   import { useBankFetch } from '$lib/bank';
   import BankGrants from '$lib/components/BankGrants.svelte';
+  import OfficerGrants from '$lib/components/OfficerGrants.svelte';
   import RoleBadges from '$lib/components/RoleBadges.svelte';
+  import { hubOfficerGrants } from '$lib/officer-grants';
   import { previewBankFetch } from '$lib/preview/bank-fake';
+  import { previewOfficerGrants } from '$lib/preview/officer-grants-fake';
   import { previewRoleBadges } from '$lib/preview/role-badges-fake';
   import { hubRoleBadges } from '$lib/role-badges';
   import { NIGHT_IDS } from '$lib/nights';
 
-  // The super admin console: which Discord roles earn which badges, who else runs the bank, and where each integration
-  // is set up. The hub's routes are the gate (MANAGE_ROLE_BADGES, MANAGE_GRANTS); the preview gates this page in the
-  // layout and answers from sample data.
+  // The super admin console: who is an officer by grant, which Discord roles earn which badges, who else runs the
+  // bank, and where each integration is set up. The hub's routes are the gate (MANAGE_OFFICER_GRANTS,
+  // MANAGE_ROLE_BADGES, MANAGE_GRANTS); the preview gates this page in the layout and answers from sample data.
   if (__PREVIEW__) useBankFetch(previewBankFetch);
   let session = $state<Session | null | undefined>(__PREVIEW__ ? null : undefined);
   onMount(async () => {
@@ -37,9 +40,13 @@
   </section>
 {:else}
   <p class="lede">
-    Badges from Discord roles, grants, officer tokens and the hub's integrations. Super admins are named in the hub's
+    Officer grants, badges from Discord roles, bank grants, officer tokens and the hub's integrations. Super admins are named in the hub's
     configuration, and the break-glass admin's changes are always audited.
   </p>
+
+  <div class="block">
+    <OfficerGrants backend={__PREVIEW__ ? previewOfficerGrants() : hubOfficerGrants()} />
+  </div>
 
   <div class="block">
     <RoleBadges backend={__PREVIEW__ ? previewRoleBadges : hubRoleBadges()} />
