@@ -73,6 +73,8 @@
   });
 
   function pick(date: string, raid: string) {
+    // Leaving a change starts a new absence, which needs its own note.
+    if (editing) note = '';
     editing = null;
     team = raid;
     first = date;
@@ -125,7 +127,7 @@
   async function remove(a: Absence) {
     try {
       await backend.cancel(a.id);
-      if (editing?.id === a.id) editing = null;
+      if (editing?.id === a.id) stopEditing();
       message = `Deleted your absence for ${rangeLabel(a)}.`;
       failed = false;
       onchange();
@@ -215,7 +217,7 @@
       <div class="dates">
         <div class="field">
           <label for="abs-first">From</label>
-          <input id="abs-first" type="date" min={today} bind:value={first} bind:this={firstInput} required />
+          <input id="abs-first" type="date" min={editing && editing.first_date < today ? editing.first_date : today} bind:value={first} bind:this={firstInput} required />
         </div>
         <div class="field">
           <label for="abs-last">To</label>

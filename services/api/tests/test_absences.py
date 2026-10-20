@@ -122,6 +122,18 @@ def test_change_moves_dates_and_note_of_ones_own() -> None:
         assert missing.value.status == 404
 
 
+def test_an_absence_under_way_keeps_its_first_day_when_changed() -> None:
+    svc = _service()
+    a = svc.report(1, "wed", date(2026, 10, 21), date(2026, 11, 4), "Holiday")
+    later = AbsenceService(svc.repo, lambda ids: {}, {"wed": WED}, today=lambda: date(2026, 10, 26))
+    changed = later.change(1, "wed", a.id, date(2026, 10, 21), date(2026, 11, 11), "Longer holiday")
+    assert (changed.first_date, changed.last_date) == (date(2026, 10, 21), date(2026, 11, 11))
+    # Another day in the past is still refused.
+    with pytest.raises(AbsenceError) as past:
+        later.change(1, "wed", a.id, date(2026, 10, 22), date(2026, 11, 11), "Longer holiday")
+    assert past.value.status == 422
+
+
 def test_team_lists_the_next_nights_with_who_is_away() -> None:
     svc = _service()
     svc.report(2, "wed", date(2026, 10, 28), date(2026, 11, 4), "Holiday")

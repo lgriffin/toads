@@ -50,16 +50,18 @@ let rows: Absence[] = SEED.map(([member_id, member_name, raid_day, from, to, not
 });
 
 /** The same rules as the API, so the preview refuses what the hub would. */
-function check(day: string, body: AbsenceIn, editing?: number): Pick<Absence, 'first_date' | 'last_date' | 'note' | 'nights'> {
+function check(day: string, body: AbsenceIn, editing?: Absence): Pick<Absence, 'first_date' | 'last_date' | 'note' | 'nights'> {
+  const today = isoDate(new Date());
   const first_date = body.first_date;
   const last_date = body.last_date || first_date;
   if (last_date < first_date) throw new ApiError(422, 'The last day comes before the first');
-  if (first_date < isoDate(new Date())) throw new ApiError(422, 'Pick a date from today on');
-  const nights = nightsOf(day, first_date, last_date);
+  // One already under way keeps its first day.
+  if ((first_date < today && first_date !== editing?.first_date) || last_date < today) throw new ApiError(422, 'Pick a date from today on');
+  const nights = nightsOf(day, first_date < today ? today : first_date, last_date);
   if (!nights.length) throw new ApiError(422, 'Those dates hold no raid night for this team');
   const note = body.note?.trim() ?? '';
   if (!note) throw new ApiError(422, 'Add a note so the officers know why');
-  const clash = (r: Absence) => r.member_id === ME && r.raid_day === day && r.id !== editing && r.first_date <= last_date && first_date <= r.last_date;
+  const clash = (r: Absence) => r.member_id === ME && r.raid_day === day && r.id !== editing?.id && r.first_date <= last_date && first_date <= r.last_date;
   if (rows.some(clash)) throw new ApiError(409, 'You already have an absence on those dates; change that one instead');
   return { first_date, last_date, note, nights };
 }
@@ -77,9 +79,9 @@ export const previewAbsences: AbsencesBackend = {
     return row;
   },
   async change(day: string, id: number, body: AbsenceIn) {
-    const held = rows.find((r) => r.id === id && r.member_id === ME && r.raid_day === day);
+    const held = rows.find((r) => r.id === id && r.member_id === ME && r.raid_day === day && r.last_date >= isoDate(new Date()));
     if (!held) throw new ApiError(404, 'No such absence');
-    const row: Absence = { ...held, ...check(day, body, id) };
+    const row: Absence = { ...held, ...check(day, body, held) };
     rows = rows.map((r) => (r.id === id ? row : r));
     return row;
   },
