@@ -3,10 +3,10 @@
 Feature: HUB RBAC
 
   @ears_ubiquitous @raid_leader @phase_2_2
-  Scenario: REQ-HUB-RBAC-001 Officer permissions shall derive from Discord roles alone; no hub-side role assignment shall exist
+  Scenario: REQ-HUB-RBAC-001 Officer permissions shall derive from Discord roles and the officer grants of REQ-HUB-RBAC-005 alone; no other hub-side role assignment shall exist
     Given a Wednesday officer signed in
     Then their session reports officer standing for raid day "wed" only
-    And no route or table assigns hub roles
+    And no route or table besides officer grants assigns hub roles
 
   @ears_event_driven @raid_leader @phase_2_2 @phase_2_4
   Scenario: REQ-HUB-RBAC-002 When a Discord role is added or removed, the hub shall reflect the change within 15 minutes and on the member's next login, whichever is sooner
@@ -35,3 +35,17 @@ Feature: HUB RBAC
     And the global tier's bank standing names the break-glass admin
     When the break-glass admin mints an officer token
     Then the audit log marks the mint as a break-glass change
+
+  # Officer grants (docs/admin.md "Officer grants"): a super admin makes one Discord member an officer of a raid night,
+  # or a global officer, on top of their Discord roles. Super admin itself stays configuration only.
+  @ears_event_driven @maintainer @phase_2_6
+  Scenario: REQ-HUB-RBAC-005 When a super admin grants a Discord member officer powers for a raid day or every raid day, the hub shall give them that standing on their next request, take it away on their next request after a revoke, audit both, and never make them a super admin
+    Given a super admin and a Wednesday raider signed in
+    When the super admin grants the raider officer powers for raid day "sun"
+    Then the raider's session reports officer standing for raid day "sun" and raider standing for "wed"
+    When the super admin grants the raider global officer powers
+    Then the raider's session reports a global officer who is not a super admin
+    And the raider may not grant officer powers
+    When the super admin revokes the raider's officer grants
+    Then the raider's session reports no officer standing
+    And the audit log records each officer grant and revoke
