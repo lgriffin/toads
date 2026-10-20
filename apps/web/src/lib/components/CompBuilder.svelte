@@ -19,7 +19,7 @@
     place,
     resize,
     roleCounts,
-    seatFor,
+    seatOnto,
     specLabel,
     specOf,
     specsOfClass,
@@ -121,8 +121,9 @@
     } else if (p.kind === 'spec') {
       slots = place(slots, index, { spec: p.spec, memberId: null });
     } else {
-      const seat = seatFor(p.entry, filter);
+      const seat = seatOnto(p.entry, slots[index], filter);
       if (seat) slots = place(slots, index, seat);
+      else say(`${p.entry.name} has no specs yet: place a spec in the seat, then ${p.entry.name} on it.`);
     }
   }
 
@@ -441,11 +442,25 @@
               <summary>{unset.length} without specs yet</summary>
               <p class="hint">
                 They can set them on the Me page.{#if unset.some((e) => !e.signed_in)} Those marked not signed in hold the
-                night's Discord role but have not visited the hub yet.{/if}
+                night's Discord role but have not visited the hub yet.{/if} To seat one, place a spec, then them on it.
               </p>
               <ul>
                 {#each unset as e (e.member_id)}
-                  <li>{e.name}{#if !e.signed_in} <span class="pill quiet">Not signed in</span>{/if}</li>
+                  <li>
+                    <button
+                      type="button"
+                      class="unset-member"
+                      class:seated={seated.has(e.member_id)}
+                      draggable="true"
+                      aria-pressed={same(picked, { kind: 'member', entry: e })}
+                      ondragstart={(ev) => dragStart(ev, { kind: 'member', entry: e })}
+                      ondragend={dragEnd}
+                      onclick={() => pick({ kind: 'member', entry: e })}
+                    >
+                      {e.name}{#if !e.signed_in} <span class="pill quiet">Not signed in</span>{/if}{#if seated.has(e.member_id)}
+                        <span class="pill">Seated</span>{/if}
+                    </button>
+                  </li>
                 {/each}
               </ul>
             </details>
@@ -660,6 +675,8 @@
   .member .pill { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
   .unset summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
   .unset ul { gap: 0.2rem; font-size: 0.9rem; }
+  .unset-member { background: none; border: 0; padding: 0.1rem 0; color: inherit; font: inherit; cursor: grab; text-align: left; }
+  .unset-member[aria-pressed='true'] { text-decoration: underline; }
   .unset .pill.quiet { color: var(--muted); background: none; border: 1px solid var(--line); }
 
   .placing { margin: 0 0 0.5rem; min-height: 2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; color: var(--muted); }

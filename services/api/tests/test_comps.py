@@ -10,6 +10,8 @@ import anyio
 import pytest
 from hub_db import AuditEntry, Member
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from toads_api import identity
 from toads_api.comps.catalog import CLASSES, SPECS
 from toads_api.comps.repository import InMemoryCompRepository, Seat
 from toads_api.comps.service import CompError, CompService
@@ -284,3 +286,16 @@ def test_signing_in_stamps_the_sign_in(hub: Hub) -> None:
     hub.login(user)
     with hub.db() as db:
         assert db.scalars(select(Member.signed_in_at).where(Member.discord_user_id == user.user_id)).one() is not None
+
+
+def test_a_failed_roster_write_serves_the_stored_roster_and_retries(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
+    officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
+    hub.user(("wed", "raider"), nick="Lilypadd")
+
+    def clash(*_: object) -> int:
+        raise IntegrityError("INSERT", {}, Exception("duplicate discord_user_id"))
+
+    monkeypatch.setattr(identity, "sync_raid_rosters", clash)
+    assert sorted(_officer_pool(hub, officer)) == ["Croak"]
+    monkeypatch.undo()
+    assert sorted(_officer_pool(hub, officer)) == ["Croak", "Lilypadd"]

@@ -16,6 +16,7 @@ import {
   resize,
   roleCounts,
   seatFor,
+  seatOnto,
   specLabel,
   swap,
   toSlots,
@@ -150,6 +151,14 @@ describe('the roster', () => {
     expect(seatFor(tank, { role: 'melee' })?.spec).toBe('warrior-fury');
     expect(seatFor(enh, { spec: 'shaman-elemental' })?.spec).toBe('shaman-enhancement');
     expect(seatFor({ member_id: 9, name: 'Lotus', wow_class: null, primary: null, secondary: null, signed_in: true })).toBeNull();
+  });
+
+  it('seats a member without specs in a bare spec seat only', () => {
+    const lotus: PoolEntry = { member_id: 9, name: 'Lotus', wow_class: null, primary: null, secondary: null, signed_in: false };
+    expect(seatOnto(lotus, { spec: 'priest-holy', memberId: null })).toEqual({ spec: 'priest-holy', memberId: 9, memberName: 'Lotus' });
+    expect(seatOnto(lotus, null)).toBeNull();
+    expect(seatOnto(lotus, { spec: 'priest-holy', memberId: 1 })).toBeNull();
+    expect(seatOnto(resto, { spec: 'priest-holy', memberId: null })?.spec).toBe('shaman-restoration');
   });
 
   it('offers the other spec a seated member plays', () => {

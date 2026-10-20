@@ -12,6 +12,7 @@ import anyio
 import structlog
 from hub_db import Member
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from toads_api.discord_api import DiscordAuthError, DiscordError, GuildMember
 from toads_api.rbac.permissions import Principal
@@ -107,9 +108,13 @@ def sync_raid_rosters(services: Services, members: Iterable[GuildMember]) -> int
     everyone else off; `members` is the whole server. Returns how many hold a night. The rows it creates carry no
     sign-in, so the comp builder marks them (docs/comps.md). Never a source of permissions."""
     holders: dict[int, tuple[GuildMember, list[str]]] = {}
+    # The same reading of roles as a sign-in, badge ties included. Each reading queries the ties, and most members
+    # share a handful of role sets, so each set is read once.
+    nights_of: dict[frozenset[int], list[str]] = {}
     for m in members:
-        # The same reading of roles as a sign-in, badge ties included; the server is a few hundred members at most.
-        if days := raid_days_of(services, m.role_ids):
+        if m.role_ids not in nights_of:
+            nights_of[m.role_ids] = raid_days_of(services, m.role_ids)
+        if days := nights_of[m.role_ids]:
             holders[m.user_id] = (m, days)
     with services.db.begin() as db:
         rows = {r.discord_user_id: r for r in db.scalars(select(Member))}
@@ -142,7 +147,13 @@ async def refresh_raid_rosters(services: Services) -> None:
         await services.redis.delete(ROSTERS_SYNCED_KEY)
         log.warning("comps.rosters_unavailable")
         return
-    holders = await anyio.to_thread.run_sync(sync_raid_rosters, services, members)
+    try:
+        holders = await anyio.to_thread.run_sync(sync_raid_rosters, services, members)
+    except SQLAlchemyError:
+        # Such as a sign-in creating the same new member mid-sync: serve the stored rosters and let the next one retry.
+        await services.redis.delete(ROSTERS_SYNCED_KEY)
+        log.exception("comps.rosters_sync_failed")
+        return
     log.info("comps.rosters_synced", members=len(members), holders=holders)
 
 

@@ -373,6 +373,15 @@ export function seatFor(e: PoolEntry, f: PoolFilter = {}): Seat | null {
   return wanted ? { spec: wanted, memberId: e.member_id, memberName: e.name } : null;
 }
 
+/**
+ * The seat a member takes when dropped on `target`. Someone without specs (a role holder who has not signed in yet)
+ * fills a seat that already holds a bare spec, so officers place the spec first; null when there is none to fill.
+ */
+export function seatOnto(e: PoolEntry, target: Seat | null, f: PoolFilter = {}): Seat | null {
+  if (specsOf(e).length) return seatFor(e, f);
+  return target && !target.memberId ? { spec: target.spec, memberId: e.member_id, memberName: e.name } : null;
+}
+
 /** The other spec a seated member plays, to switch to; null when they play one. */
 export function otherSpec(seat: Seat, pool: readonly PoolEntry[]): string | null {
   const e = pool.find((p) => p.member_id === seat.memberId);
