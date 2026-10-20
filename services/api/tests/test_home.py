@@ -235,6 +235,7 @@ def test_a_night_page_hides_officer_widgets_from_members() -> None:
 
 def test_night_page_round_trip(hub: Hub) -> None:
     sid = hub.login(hub.user(("sun", "raider")))
+    assert hub.get("/api/home/nights", sid).json() == {"nights": {"wed": 2, "thu": 3, "sun": 6}}
     empty = hub.get("/api/home/nights/wed", sid).json()
     assert (empty["generated_at"], empty["widgets"]) == (None, [])
 
@@ -253,6 +254,7 @@ def test_only_the_worker_publishes_a_night_page(hub: Hub) -> None:
     assert hub.client.put("/api/worker/home-page/nights/wed", json=PAGE).status_code == 401
     assert hub.client.put("/api/worker/home-page/nights/wed", headers=hub.as_(sid), json=PAGE).status_code == 401
     assert hub.get("/api/home/nights/wed", None).status_code == 401
+    assert hub.get("/api/home/nights", None).status_code == 401
 
 
 def test_widgets_say_where_their_data_comes_from(hub: Hub) -> None:

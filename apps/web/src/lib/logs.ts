@@ -6,7 +6,7 @@
  */
 import { ApiError, analyzerHome, call, type Fetch, type Session } from './api';
 import type { AnalyzerPage } from './home-payload';
-import { RAID_NIGHTS } from './nights';
+import { raidNight } from './nights';
 
 /** One raid in the list (the analyzer's RaidSummary). */
 export interface RaidSummary {
@@ -153,6 +153,10 @@ export const getRaid = (report: string, day: string | null, f: Fetch = fetch) =>
       : `/api/logs/${encodeURIComponent(report)}`
   );
 
+/** The raid nights with their own widgets, each raid day id to its weekday (0 is Monday), in config order. */
+export const getNights = async (f: Fetch = fetch) =>
+  (await call<{ nights: Record<string, number> }>(f, '/api/home/nights')).nights;
+
 /** The analyzer's home widgets built from one raid night's raids only (GET /api/home/nights/{day}). */
 export const getNightPage = (day: string, f: Fetch = fetch) =>
   call<AnalyzerPage>(f, `/api/home/nights/${encodeURIComponent(day)}`);
@@ -161,6 +165,8 @@ export const getNightPage = (day: string, f: Fetch = fetch) =>
 export interface LogsBackend {
   overview(): Promise<LogsOverview>;
   raid(report: string, day: string | null): Promise<RaidView>;
+  /** The raid nights with their own widgets: each raid day id to its weekday, as the API resolves it. */
+  nights(): Promise<Record<string, number>>;
   /** The analyzer's widgets for one raid night, or for every raid when `night` is null. */
   widgets(night: string | null): Promise<AnalyzerPage>;
 }
@@ -168,6 +174,7 @@ export interface LogsBackend {
 export const hubLogs: LogsBackend = {
   overview: () => getLogs(),
   raid: (report, day) => getRaid(report, day),
+  nights: () => getNights(),
   widgets: (night) => (night ? getNightPage(night) : analyzerHome())
 };
 
@@ -175,21 +182,20 @@ export const hubLogs: LogsBackend = {
 export interface LogNight {
   id: string;
   name: string;
-  /** 0 is Monday; null when the night's name carries no weekday. */
-  weekday: number | null;
+  /** 0 is Monday, as the API resolves it (raid_sheets.yaml, else the night's name). */
+  weekday: number;
 }
 
-/** The guild's raid nights in config order: the session's `day_names`, else the nights the web app knows. */
-export function logNights(dayNames: Record<string, string> | undefined): LogNight[] {
-  const named = dayNames && Object.keys(dayNames).length ? Object.entries(dayNames) : RAID_NIGHTS.map((n) => [n.id, n.name]);
-  return named.map(([id, name]) => ({ id, name, weekday: weekdayNamed(name) }));
-}
-
-/** The weekday a raid day's name says when it names exactly one ("Wednesday", "Wed raid"), as the API reads it. */
-export function weekdayNamed(name: string): number | null {
-  const words = new Set(name.toLowerCase().split(/[^a-z]+/));
-  const hits = WEEKDAYS.filter((w) => words.has(w.name.toLowerCase()) || words.has(w.short.toLowerCase()));
-  return hits.length === 1 ? hits[0].day : null;
+/**
+ * The nights the API builds widgets for, in its order, named from the session's `day_names` (else the nights the web
+ * app knows, else the id). A raid day whose weekday the API cannot tell has no night page, so it gets no tab.
+ */
+export function logNights(weekdays: Record<string, number>, dayNames: Record<string, string> | undefined): LogNight[] {
+  return Object.entries(weekdays).map(([id, weekday]) => ({
+    id,
+    name: dayNames?.[id] ?? raidNight(id)?.name ?? id,
+    weekday
+  }));
 }
 
 /**

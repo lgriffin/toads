@@ -264,6 +264,9 @@ export function previewViewer(role: PreviewRole | null): Pick<Session, 'raid_day
 
 export function previewLogs(role: () => PreviewRole | null): LogsBackend {
   return {
+    async nights(): Promise<Record<string, number>> {
+      return { wed: 2, thu: 3, sun: 6 };
+    },
     async widgets(): Promise<AnalyzerPage> {
       // One sample page stands in for every night; members do not get the roster's badges, as on the hub.
       const officer = role() === 'officer' || role() === 'admin';

@@ -13,12 +13,15 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+import structlog
 from wcl_app import HomeLayout, HomeService
 from wcl_app.context import StorageFactory
 from wcl_store import RaidScope
 
 from toads_worker import hub_api, store
 from toads_worker.settings import Settings
+
+log = structlog.get_logger(__name__)
 
 # The analyzer widgets the hub places (toads_api.home.service.CATALOGUE). The analyzer's quick actions and tracked
 # players have no hub page, so they are not built.
@@ -56,14 +59,28 @@ def publish_home_page(
     hub: httpx.Client | None = None,
 ) -> dict[str, Any]:
     """Build the guild-wide page and PUT it to the hub API, then each raid night's page the API asked for. Returns
-    the API's answer (how many widgets it kept, and the nights) with `night_widgets`, the widgets kept per night."""
+    the API's answer (how many widgets it kept, and the nights) with `night_widgets`, the widgets kept per night.
+
+    A night that fails (refused, unreachable, or a build error) does not stop the others; the job raises after
+    trying every night, so the run still reports the failure."""
     settings = settings or Settings()
     hub_api.service_token(settings)
     storage = storage or store.storage(settings)
-    answer = hub_api.put(settings, "/api/worker/home-page", build_page(storage), hub)
-    nights: dict[str, int] = answer.get("nights") or {}
-    kept = {}
-    for day, weekday in nights.items():
-        night = hub_api.put(settings, f"/api/worker/home-page/nights/{day}", build_page(storage, weekday), hub)
-        kept[day] = night["widgets"]
+    with hub_api.client(settings, hub) as client:
+        answer = hub_api.put(settings, "/api/worker/home-page", build_page(storage), client)
+        nights: dict[str, int] = answer.get("nights") or {}
+        kept: dict[str, int] = {}
+        failed: list[str] = []
+        for day, weekday in nights.items():
+            try:
+                night = hub_api.put(
+                    settings, f"/api/worker/home-page/nights/{day}", build_page(storage, weekday), client
+                )
+            except Exception:  # one night's failure must not leave the other nights stale
+                log.exception("home.night_page_failed", day=day)
+                failed.append(day)
+                continue
+            kept[day] = night["widgets"]
+    if failed:
+        raise RuntimeError(f"Could not publish the home page for {', '.join(failed)}")
     return {**answer, "night_widgets": kept} if nights else answer

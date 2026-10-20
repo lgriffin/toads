@@ -6,6 +6,7 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
 - DELETE /api/me/home   back to the default layout
 - GET    /api/home/analyzer        the analyzer's widgets (guild-wide), as the worker last built them; officer-only
                                   widgets (the roster's badges) only for officers
+- GET    /api/home/nights          the raid nights that have their own page, with each one's weekday (0 is Monday)
 - GET    /api/home/nights/{day}    the same widgets built from one raid night's raids only, for the Logs page
 - GET    /api/me/badges            the caller's own Toads badges
 - PUT    /api/worker/home-page     the worker, with the service token: a fresh build of the analyzer's page; the answer
@@ -267,6 +268,16 @@ async def analyzer_page(principal: SignedIn, home: Home) -> AnalyzerPageOut:
     if page is None:
         return AnalyzerPageOut(version=1, generated_at=None, widgets=[])
     return AnalyzerPageOut(version=page.version, generated_at=page.generated_at, widgets=page.widgets)
+
+
+class NightsOut(BaseModel):
+    # Raid day id to weekday (0 is Monday), in config order: the nights the worker builds a page for.
+    nights: dict[str, int]
+
+
+@guild.get("/nights")
+async def nights(_: SignedIn, home: Home) -> NightsOut:
+    return NightsOut(nights=home.nights)
 
 
 @guild.get("/nights/{day}")

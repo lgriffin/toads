@@ -17,6 +17,15 @@
   // undefined until the viewer is known, then the night of their Toad badge, or null for every raid.
   let night = $state<string | null | undefined>(undefined);
   let weekdays = $state<number[]>([]);
+  // Each raid night's weekday as the API resolves it; empty until read (or when it cannot be), which leaves Every raid.
+  let nightDays = $state<Record<string, number> | null>(null);
+
+  onMount(() => {
+    backend.nights().then(
+      (n) => (nightDays = n),
+      () => (nightDays = {})
+    );
+  });
 
   onMount(async () => {
     if (__PREVIEW__) return;
@@ -36,17 +45,17 @@
     night = undefined;
   });
 
-  const nights: LogNight[] = $derived(logNights(viewer?.day_names));
+  const nights: LogNight[] = $derived(logNights(nightDays ?? {}, viewer?.day_names));
 
-  // Pick the starting night once, when the viewer is first known; the tabs change it after that.
+  // Pick the starting night once, when the viewer and the nights are first known; the tabs change it after that.
   $effect(() => {
-    if (viewer && night === undefined) pick(defaultNight(viewer, nights));
+    if (viewer && nightDays && night === undefined) pick(defaultNight(viewer, nights));
   });
 
   function pick(id: string | null) {
     night = id;
     const w = nights.find((n) => n.id === id)?.weekday;
-    weekdays = w === null || w === undefined ? [] : [w];
+    weekdays = w === undefined ? [] : [w];
   }
 
   const label = $derived(nights.find((n) => n.id === night)?.name ?? 'Every raid');

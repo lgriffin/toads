@@ -110,6 +110,23 @@ def test_publish_then_puts_each_night_the_hub_names(sqlite_storage: Callable[[],
     assert not _last_raid(pages["/api/worker/home-page/nights/sun"])["tiles"]
 
 
+def test_a_refused_night_does_not_stop_the_others(sqlite_storage: Callable[[], PerformanceDB]) -> None:
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.url.path)
+        if request.url.path == "/api/worker/home-page":
+            return httpx.Response(200, json={"widgets": 15, "nights": {"wed": 2, "thu": 3, "sun": 6}})
+        if request.url.path.endswith("/thu"):
+            return httpx.Response(422, json={"detail": "Widget last_raid: bad"})
+        return httpx.Response(200, json={"widgets": 15})
+
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    with pytest.raises(RuntimeError, match="thu"):
+        home.publish_home_page(_settings(), storage=sqlite_storage, hub=hub)
+    assert sent[-1] == "/api/worker/home-page/nights/sun"
+
+
 def test_publish_needs_a_service_token(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     with pytest.raises(RuntimeError, match="HUB_SERVICE_TOKEN"):
         home.publish_home_page(_settings(token=""), storage=sqlite_storage)

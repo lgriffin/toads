@@ -11,8 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -71,16 +70,6 @@ def build_index(built: Built, *, now: Callable[[], datetime] = datetime.now) -> 
     }
 
 
-@contextmanager
-def _client(settings: Settings, hub: httpx.Client | None) -> Iterator[httpx.Client]:
-    """The caller's client, or one for the whole run, closed after it."""
-    if hub is not None:
-        yield hub
-        return
-    with httpx.Client(base_url=settings.hub_api_url, timeout=30.0) as client:
-        yield client
-
-
 def _superseded(exc: httpx.HTTPStatusError) -> bool:
     """409: a newer run's list is already stored, so this run's work is out of date."""
     return exc.response.status_code == httpx.codes.CONFLICT
@@ -98,7 +87,7 @@ def publish_logs(
     built = build_pages(storage or store.storage(settings))
     by_id = {p.summary.report_id: p for p in built.pages}
     sent = 0
-    with _client(settings, hub) as client:
+    with hub_api.client(settings, hub) as client:
         try:
             answer = hub_api.put(settings, "/api/worker/logs", build_index(built), client)
         except httpx.HTTPStatusError as exc:

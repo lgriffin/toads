@@ -48,8 +48,10 @@ night (REQ-HUB-RAID-005):
    names each raid day's weekday (`nights`, the same weekdays the list uses, above).
 2. For each night the job builds the same widgets from that night's raids only (wcl-store's
    `RaidScope(weekdays=...)`) and puts them to `PUT /api/worker/home-page/nights/{day}`. The hub-db table is
-   `night_home_pages` (migration 0024).
-3. `GET /api/home/nights/{day}` serves a night's page to any signed-in member, with the same rule as the hub home:
+   `night_home_pages` (migration 0024). A night that fails does not stop the others; the job reports it after.
+3. `GET /api/home/nights` lists the nights with a page and each one's weekday, which the page's tabs and weekday
+   chips follow (a raid day whose weekday the API cannot tell has no tab). `GET /api/home/nights/{day}` serves a
+   night's page to any signed-in member, with the same rule as the hub home:
    the roster's badges are for officers only.
 
 Logs opens on the night of the viewer's Toad badge (the night their Discord role ties them to on /admin). Super
