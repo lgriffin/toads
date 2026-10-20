@@ -48,7 +48,7 @@ night (REQ-HUB-RAID-005):
    names each raid day's weekday (`nights`, the same weekdays the list uses, above).
 2. For each night the job builds the same widgets from that night's raids only (wcl-store's
    `RaidScope(weekdays=...)`) and puts them to `PUT /api/worker/home-page/nights/{day}`. The hub-db table is
-   `night_home_pages` (migration 0024). A night that fails does not stop the others; the job reports it after.
+   `night_home_pages` (migration 0025). A night that fails does not stop the others; the job reports it after.
 3. `GET /api/home/nights` lists the nights with a page and each one's weekday, which the page's tabs and weekday
    chips follow (a raid day whose weekday the API cannot tell has no tab). `GET /api/home/nights/{day}` serves a
    night's page to any signed-in member, with the same rule as the hub home:
