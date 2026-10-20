@@ -58,11 +58,10 @@ Feature: HUB HOME
     Then their performance shows no character
 
   @ears_ubiquitous @member @phase_2_3
-  Scenario: REQ-HUB-HOME-009 The hub home shall show the guild's healing per raid and average healing per character week on week, each measured against its own four-week average, as the analyzer builds them
+  Scenario: REQ-HUB-HOME-009 The Logs page shall show the guild's healing per raid and average healing per character week on week, each measured against its own four-week average, as the analyzer builds them
     Given a Wednesday raider signed in to the hub
     When the worker publishes the analyzer's weekly healing chart
-    Then their home shows weekly healing by default
-    And the weekly healing chart carries the four-week average and no target
+    Then the weekly healing chart carries the four-week average and no target
 
   @ears_unwanted_behavior @member @phase_2_3
   Scenario: REQ-HUB-HOME-010 If the worker publishes a chart over the chart limits, then the hub shall refuse the whole page
@@ -79,16 +78,21 @@ Feature: HUB HOME
     Then their badges show "Lilypad" with the Epic Loyal Toad badge
 
   @ears_unwanted_behavior @raid_leader @phase_2_3
-  Scenario: REQ-HUB-HOME-012 If a member without officer powers loads the analyzer's home widgets, then the hub shall leave out the last raid's badge roster that raid leaders see
+  Scenario: REQ-HUB-HOME-012 If a member without officer powers loads the analyzer's raid widgets on Logs, then the hub shall leave out the last raid's badge roster that raid leaders see
     Given a Wednesday raider signed in to the hub
     And a Sunday officer signed in to the hub
     When the worker publishes the last raid's badge roster
-    Then the officer's home offers the badge roster with "Hopscotch" in it
+    Then the officer receives the badge roster with "Hopscotch" in it
     And the raider receives no badge roster
 
-  @ears_optional @member @phase_2_3
-  Scenario: REQ-HUB-HOME-013 Where a member places the flasks widget, the hub home shall show who in the last raid came prepared with a flask or an elixir pair, as the analyzer builds it
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-013 The Logs page shall show who in the last raid came prepared with a flask or an elixir pair, as the analyzer builds it
     Given a Wednesday raider signed in to the hub
-    When they place the flasks widget
-    And the worker publishes the last raid's flasks table with "Hopscotch" on a flask
-    Then their home shows "Hopscotch" prepared with a flask
+    When the worker publishes the last raid's flasks table with "Hopscotch" on a flask
+    Then they receive "Hopscotch" prepared with a flask
+
+  @ears_unwanted_behavior @member @phase_2_3
+  Scenario: REQ-HUB-HOME-014 If a member places one of the analyzer's raid widgets on their hub home, then the hub shall refuse it, since those widgets live on Logs, one page per raid night
+    Given a Wednesday raider signed in to the hub
+    Then their home offers none of the analyzer's raid widgets
+    And placing the flasks widget is refused with 422

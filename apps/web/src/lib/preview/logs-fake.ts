@@ -268,7 +268,7 @@ export function previewLogs(role: () => PreviewRole | null): LogsBackend {
       return { wed: 2, thu: 3, sun: 6 };
     },
     async widgets(): Promise<AnalyzerPage> {
-      // One sample page stands in for every night; members do not get the roster's badges, as on the hub.
+      // One sample page stands in for every night; members do not get the roster's badges.
       const officer = role() === 'officer' || role() === 'admin';
       return { ...analyzerPage, widgets: analyzerPage.widgets.filter((w) => officer || w.id !== 'badges') };
     },

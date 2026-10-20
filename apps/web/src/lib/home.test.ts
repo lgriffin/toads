@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOGUE, defaultLayout, isAnalyzer, isWide, move, saved, shownIds, toggle } from './home';
+import { ANALYZER_WIDGETS, CATALOGUE, defaultLayout, isWide, move, saved, shownIds, toggle } from './home';
 
 describe('home catalogue', () => {
   it('has unique ids', () => {
@@ -11,44 +11,26 @@ describe('home catalogue', () => {
     expect(shownIds(defaultLayout(true))).toContain('officer_desk');
   });
 
-  it('shows the badge roster to raid leaders only', () => {
-    expect(isAnalyzer('badges')).toBe(true);
-    expect(shownIds(defaultLayout(true))).toContain('badges');
-    expect(defaultLayout(false).widgets.map((w) => w.id)).not.toContain('badges');
+  it('marks the badge roster for raid leaders only', () => {
+    expect(ANALYZER_WIDGETS.find((w) => w.id === 'badges')?.officer_only).toBe(true);
+  });
+
+  it('leaves the analyzer raid widgets to Logs', () => {
+    const ids = defaultLayout(true).widgets.map((w) => w.id);
+    for (const w of ANALYZER_WIDGETS) expect(ids).not.toContain(w.id);
+    expect(CATALOGUE.every((w) => w.source === 'hub')).toBe(true);
+    expect(ANALYZER_WIDGETS.every((w) => w.source === 'analyzer')).toBe(true);
   });
 
   it('shows the defaults and hides the extras', () => {
     const shown = shownIds(defaultLayout(false));
-    expect(shown).toEqual([
-      'next_raid',
-      'guild_snapshot',
-      'last_raid',
-      'my_performance',
-      'raid_totals',
-      'recent_raids',
-      'raid_activity',
-      'healing_weekly',
-      'healers_weekly',
-      'top_damage',
-      'top_healing',
-      'attendance',
-      'posts',
-      'highlights'
-    ]);
+    expect(shown).toEqual(['next_raid', 'my_performance', 'raid_totals', 'posts', 'highlights']);
     expect(defaultLayout(false).customised).toBe(false);
-  });
-
-  it('tells hub widgets from analyzer ones', () => {
-    expect(CATALOGUE.find((w) => w.id === 'top_damage')?.source).toBe('analyzer');
-    expect(CATALOGUE.find((w) => w.id === 'posts')?.source).toBe('hub');
-    expect(isAnalyzer('attendance')).toBe(true);
-    expect(isAnalyzer('raid_totals')).toBe(false);
   });
 
   it('marks raid totals and the weekly healing charts as wide', () => {
     expect(isWide('raid_totals')).toBe(true);
     expect(isWide('healing_weekly')).toBe(true);
-    expect(isAnalyzer('healers_weekly')).toBe(true);
     expect(isWide('posts')).toBe(false);
   });
 });
@@ -57,7 +39,7 @@ describe('editing a layout', () => {
   const widgets = defaultLayout(false).widgets;
 
   it('moves a widget up and down, and not past either end', () => {
-    expect(move(widgets, 'guild_snapshot', -1).map((w) => w.id).slice(0, 2)).toEqual(['guild_snapshot', 'next_raid']);
+    expect(move(widgets, 'my_performance', -1).map((w) => w.id).slice(0, 2)).toEqual(['my_performance', 'next_raid']);
     expect(move(widgets, 'next_raid', -1)).toEqual(widgets);
     expect(move(widgets, 'recruiting', 1)).toEqual(widgets);
   });
@@ -72,7 +54,7 @@ describe('editing a layout', () => {
     const edited = toggle(move(widgets, 'highlights', -1), 'next_raid');
     const layout = saved(edited);
     expect(layout.customised).toBe(true);
-    expect(shownIds(layout).slice(-3)).toEqual(['attendance', 'highlights', 'posts']);
+    expect(shownIds(layout).slice(-3)).toEqual(['raid_totals', 'highlights', 'posts']);
     expect(shownIds(layout)).not.toContain('next_raid');
     expect(layout.widgets.at(-1)?.shown).toBe(false);
   });

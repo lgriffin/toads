@@ -1,7 +1,7 @@
 /**
  * The customisable hub home. Widget ids are a contract with the API's home service
  * (services/api/src/toads_api/home/service.py): add a widget there and here together. Analyzer widget ids are the
- * analyzer's own (wcl_app.home in lgriffin/warcraftlogs_project). The API decides which widgets a
+ * analyzer's own (wcl_app.home in lgriffin/warcraftlogs_project); those widgets are drawn on Logs, not the home. The API decides which widgets a
  * member may place (officer widgets need officer powers); this file only mirrors the catalogue so the static preview
  * and the customiser can work without a round trip.
  */
@@ -65,21 +65,30 @@ function analyzer(id: WidgetId, title: string, description: string, extra: Parti
   return { id, title, description, officer_only: false, source: 'analyzer', defaultShown: true, ...extra };
 }
 
-/**
- * In default display order, as in the API. Analyzer ids, titles and sizes follow the analyzer's catalogue
- * (guides/home_widgets.md in lgriffin/warcraftlogs_project); its quick actions and tracked players have no hub page.
- */
+/** The hub home's widgets in default display order, as in the API: the hub's own data. */
 export const CATALOGUE: readonly CatalogueEntry[] = [
   hub('next_raid', 'Next raid', 'When the next raid starts and how many have signed up in Discord.'),
   hub('officer_desk', 'Raid leader desk', 'Applications, posts, highlights and spotlights waiting on officers.', {
     officer_only: true
   }),
+  hub('my_performance', 'Your performance', "Your main character's last raid against the guild median."),
+  hub('raid_totals', 'Raid totals', 'Consumes, buffs and deaths per raid from the CBA and RPB sheets.', { wide: true }),
+  hub('posts', 'Guild posts', 'News and posts from officers and Discord.'),
+  hub('highlights', 'Recent highlights', 'The newest highlight reels.'),
+  hub('progression', 'Progression', 'Bosses killed in each raid zone.', { defaultShown: false }),
+  hub('recruiting', 'Recruiting', 'The classes and specs the guild is looking for.', { defaultShown: false })
+];
+
+/**
+ * The analyzer's raid widgets Logs draws for each night, in display order, as in the API. Ids, titles and sizes follow
+ * the analyzer's catalogue (guides/home_widgets.md in lgriffin/warcraftlogs_project); its quick actions and tracked
+ * players have no hub page. They used to be placeable on the hub home, with every night mixed together.
+ */
+export const ANALYZER_WIDGETS: readonly CatalogueEntry[] = [
   analyzer('guild_snapshot', 'Guild at a glance', 'Raids stored, active raiders, raids this month, last raid.', {
     wide: true
   }),
   analyzer('last_raid', 'Last raid', 'Date, duration, bosses killed, raid size, total damage and healing.', { wide: true }),
-  hub('my_performance', 'Your performance', "Your main character's last raid against the guild median."),
-  hub('raid_totals', 'Raid totals', 'Consumes, buffs and deaths per raid from the CBA and RPB sheets.', { wide: true }),
   analyzer('recent_raids', 'Recent raids', 'The newest guild raids.'),
   analyzer('raid_activity', 'Raid activity', 'Raids per week over the last eight weeks.'),
   analyzer(
@@ -101,36 +110,21 @@ export const CATALOGUE: readonly CatalogueEntry[] = [
   analyzer('badges', 'Toads badges', "Badges earned by the last raid's roster, most tiers first.", {
     officer_only: true
   }),
-  hub('posts', 'Guild posts', 'News and posts from officers and Discord.'),
-  hub('highlights', 'Recent highlights', 'The newest highlight reels.'),
-  analyzer('boss_kills', 'Boss kills', 'Bosses killed in the last raid, in kill order.', { defaultShown: false }),
-  analyzer('class_mix', 'Class mix', 'Players per class in the last raid.', { defaultShown: false }),
-  analyzer('interrupts', 'Interrupt casts', 'The most interrupt abilities cast in the last raid.', {
-    defaultShown: false
-  }),
-  analyzer('consumables', 'Consumables', 'The top five consumable users in the last raid.', { defaultShown: false }),
-  analyzer('flasks', 'Flasks and elixirs', 'Who came prepared to the last raid: a flask or an elixir pair.', {
-    defaultShown: false
-  }),
-  hub('progression', 'Progression', 'Bosses killed in each raid zone.', { defaultShown: false }),
-  hub('recruiting', 'Recruiting', 'The classes and specs the guild is looking for.', { defaultShown: false })
+  analyzer('boss_kills', 'Boss kills', 'Bosses killed in the last raid, in kill order.'),
+  analyzer('class_mix', 'Class mix', 'Players per class in the last raid.'),
+  analyzer('interrupts', 'Interrupt casts', 'The most interrupt abilities cast in the last raid.'),
+  analyzer('consumables', 'Consumables', 'The top five consumable users in the last raid.'),
+  analyzer('flasks', 'Flasks and elixirs', 'Who came prepared to the last raid: a flask or an elixir pair.')
 ];
 
-const WIDE = new Set(CATALOGUE.filter((w) => w.wide).map((w) => w.id));
+const WIDE = new Set([...CATALOGUE, ...ANALYZER_WIDGETS].filter((w) => w.wide).map((w) => w.id));
 
 export function isWide(id: WidgetId): boolean {
   return WIDE.has(id);
 }
 
-const ANALYZER = new Set(CATALOGUE.filter((w) => w.source === 'analyzer').map((w) => w.id));
-
-/** Drawn from the analyzer's page (GET /api/home/analyzer) rather than the hub's own data. */
-export function isAnalyzer(id: WidgetId): boolean {
-  return ANALYZER.has(id);
-}
-
 export function catalogueTitle(id: WidgetId): string {
-  return CATALOGUE.find((w) => w.id === id)?.title ?? id;
+  return [...CATALOGUE, ...ANALYZER_WIDGETS].find((w) => w.id === id)?.title ?? id;
 }
 
 /** The layout a member who never customised sees; the API answers the same. */

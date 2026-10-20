@@ -1,11 +1,11 @@
 <script lang="ts">
   import AnalyzerWidget from '$lib/components/AnalyzerWidget.svelte';
-  import { CATALOGUE, isWide, type WidgetId } from '$lib/home';
+  import { ANALYZER_WIDGETS, catalogueTitle, isWide } from '$lib/home';
   import { PAGE_VERSION, widgetById, type AnalyzerPage } from '$lib/home-payload';
   import { logsError, type LogsBackend } from '$lib/logs';
 
   // The analyzer's raid widgets (last raid, recent raids, top damage, weekly healing, ...) built from one raid night's
-  // raids, or from every raid when `night` is null. They used to sit on the hub home with every night mixed together.
+  // raids, or from every raid when `night` is null. They used to sit on the hub home with every night mixed together; now only Logs draws them.
   let { backend, night, label }: { backend: LogsBackend; night: string | null; label: string } = $props();
 
   let page = $state<AnalyzerPage | null>(null);
@@ -19,10 +19,7 @@
   });
 
   // In the hub's order; the API leaves out what this viewer may not see (the roster's badges for members).
-  const ids = $derived(
-    CATALOGUE.filter((w) => w.source === 'analyzer' && page?.widgets.some((p) => p.id === w.id)).map((w) => w.id)
-  );
-  const title = (id: WidgetId) => CATALOGUE.find((w) => w.id === id)?.title ?? id;
+  const ids = $derived(ANALYZER_WIDGETS.filter((w) => page?.widgets.some((p) => p.id === w.id)).map((w) => w.id));
 </script>
 
 <section class="glance" aria-labelledby="glance-h">
@@ -42,7 +39,7 @@
     <div class="grid">
       {#each ids as id (id)}
         <div class="slot" class:wide={isWide(id)} data-widget={id}>
-          <AnalyzerWidget widget={widgetById(page, id)} title={title(id)} missing="Nothing logged for this yet." />
+          <AnalyzerWidget widget={widgetById(page, id)} title={catalogueTitle(id)} missing="Nothing logged for this yet." />
         </div>
       {/each}
     </div>

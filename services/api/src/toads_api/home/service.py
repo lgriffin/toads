@@ -43,14 +43,12 @@ class Widget:
     source: Source = Source.HUB
 
 
-def _analyzer(
-    wid: str, title: str, description: str, *, default_shown: bool = True, audience: Audience = Audience.MEMBER
-) -> Widget:
-    return Widget(wid, title, description, audience, default_shown=default_shown, source=Source.ANALYZER)
+def _analyzer(wid: str, title: str, description: str, *, audience: Audience = Audience.MEMBER) -> Widget:
+    return Widget(wid, title, description, audience, source=Source.ANALYZER)
 
 
-# In default display order. The analyzer's `quick_actions` (desktop commands) and `tracked_players` (the desktop's
-# player pages) have no hub page yet, so they are left out; the hub's navigation covers the first.
+# The hub home's widgets, in default display order: the hub's own data. The analyzer's raid widgets used to sit here
+# too, with every raid night mixed together; they live under Logs now, one page per night (ANALYZER_WIDGETS).
 CATALOGUE: tuple[Widget, ...] = (
     Widget("next_raid", "Next raid", "When the next raid starts and how many have signed up in Discord."),
     Widget(
@@ -59,10 +57,18 @@ CATALOGUE: tuple[Widget, ...] = (
         "Applications, posts, highlights and spotlights waiting on officers.",
         Audience.OFFICER,
     ),
-    _analyzer("guild_snapshot", "Guild at a glance", "Raids stored, active raiders, raids this month, last raid."),
-    _analyzer("last_raid", "Last raid", "Date, duration, bosses killed, raid size, total damage and healing."),
     Widget("my_performance", "Your performance", "Your main character's last raid against the guild median."),
     Widget("raid_totals", "Raid totals", "Consumes, buffs and deaths per raid from the CBA and RPB sheets."),
+    Widget("posts", "Guild posts", "News and posts from officers and Discord."),
+    Widget("highlights", "Recent highlights", "The newest highlight reels."),
+    Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
+    Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
+)
+# The analyzer's widgets the hub keeps and Logs draws, in display order. Its `quick_actions` (desktop commands) and
+# `tracked_players` (the desktop's player pages) have no hub page, so they are left out.
+ANALYZER_WIDGETS: tuple[Widget, ...] = (
+    _analyzer("guild_snapshot", "Guild at a glance", "Raids stored, active raiders, raids this month, last raid."),
+    _analyzer("last_raid", "Last raid", "Date, duration, bosses killed, raid size, total damage and healing."),
     _analyzer("recent_raids", "Recent raids", "The newest guild raids."),
     _analyzer("raid_activity", "Raid activity", "Raids per week over the last eight weeks."),
     _analyzer(
@@ -85,25 +91,14 @@ CATALOGUE: tuple[Widget, ...] = (
         "Badges earned by the last raid's roster, most tiers first.",
         audience=Audience.OFFICER,
     ),
-    Widget("posts", "Guild posts", "News and posts from officers and Discord."),
-    Widget("highlights", "Recent highlights", "The newest highlight reels."),
-    _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order.", default_shown=False),
-    _analyzer("class_mix", "Class mix", "Players per class in the last raid.", default_shown=False),
-    _analyzer(
-        "interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid.", default_shown=False
-    ),
-    _analyzer("consumables", "Consumables", "The top five consumable users in the last raid.", default_shown=False),
-    _analyzer(
-        "flasks",
-        "Flasks and elixirs",
-        "Who came prepared to the last raid: a flask or an elixir pair.",
-        default_shown=False,
-    ),
-    Widget("progression", "Progression", "Bosses killed in each raid zone.", default_shown=False),
-    Widget("recruiting", "Recruiting", "The classes and specs the guild is looking for.", default_shown=False),
+    _analyzer("boss_kills", "Boss kills", "Bosses killed in the last raid, in kill order."),
+    _analyzer("class_mix", "Class mix", "Players per class in the last raid."),
+    _analyzer("interrupts", "Interrupt casts", "The most interrupt abilities cast in the last raid."),
+    _analyzer("consumables", "Consumables", "The top five consumable users in the last raid."),
+    _analyzer("flasks", "Flasks and elixirs", "Who came prepared to the last raid: a flask or an elixir pair."),
 )
 MAX_WIDGETS = len(CATALOGUE)
-ANALYZER_IDS = frozenset(w.id for w in CATALOGUE if w.source is Source.ANALYZER)
+ANALYZER_IDS = frozenset(w.id for w in ANALYZER_WIDGETS)
 # The analyzer's HOME_SCHEMA_VERSION this hub understands; it changes only when a payload field changes meaning.
 ANALYZER_SCHEMA_VERSION = 1
 # The analyzer has 16 widgets today; far more than this is a broken publisher.
@@ -171,6 +166,11 @@ class HomeLayout:
 def catalogue_for(audience: Audience) -> list[Widget]:
     """Officers see every widget; members see the member ones."""
     return [w for w in CATALOGUE if audience is Audience.OFFICER or w.audience is Audience.MEMBER]
+
+
+def analyzer_widgets_for(audience: Audience) -> list[Widget]:
+    """The analyzer's widgets this audience may read on Logs: officers all, members the member ones."""
+    return [w for w in ANALYZER_WIDGETS if audience is Audience.OFFICER or w.audience is Audience.MEMBER]
 
 
 def default_layout(audience: Audience) -> list[WidgetChoice]:
@@ -341,5 +341,5 @@ def _for(page: StoredPage | None, audience: Audience) -> AnalyzerPage | None:
     hiding them in the web is never the only thing keeping them private."""
     if page is None:
         return None
-    allowed = {w.id for w in catalogue_for(audience)}
+    allowed = {w.id for w in analyzer_widgets_for(audience)}
     return AnalyzerPage(page.version, page.generated_at, [dict(w) for w in page.widgets if w.get("id") in allowed])

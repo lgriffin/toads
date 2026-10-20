@@ -4,8 +4,8 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
 - GET    /api/me/home   the widgets the member may place, in order, and which are shown
 - PUT    /api/me/home   show exactly these widgets, in this order
 - DELETE /api/me/home   back to the default layout
-- GET    /api/home/analyzer        the analyzer's widgets (guild-wide), as the worker last built them; officer-only
-                                  widgets (the roster's badges) only for officers
+- GET    /api/home/analyzer        the analyzer's widgets (guild-wide, Logs' every raid), as the worker last built them;
+                                  officer-only widgets (the roster's badges) only for officers
 - GET    /api/home/nights          the raid nights that have their own page, with each one's weekday (0 is Monday)
 - GET    /api/home/nights/{day}    the same widgets built from one raid night's raids only, for the Logs page
 - GET    /api/me/badges            the caller's own Toads badges

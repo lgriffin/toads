@@ -6,7 +6,7 @@ import math
 
 import pytest
 from toads_api.home.repository import InMemoryHomeRepository, StoredWidget
-from toads_api.home.service import CATALOGUE, Audience, HomeError, HomeService, catalogue_for
+from toads_api.home.service import ANALYZER_WIDGETS, CATALOGUE, Audience, HomeError, HomeService, catalogue_for
 
 from conftest import Hub
 
@@ -257,10 +257,18 @@ def test_only_the_worker_publishes_a_night_page(hub: Hub) -> None:
     assert hub.get("/api/home/nights", None).status_code == 401
 
 
-def test_widgets_say_where_their_data_comes_from(hub: Hub) -> None:
+def test_the_home_offers_only_hub_widgets(hub: Hub) -> None:
+    # The analyzer's raid widgets moved to Logs (ANALYZER_WIDGETS); a layout saved with them keeps the rest.
     sid = hub.login(hub.user(("wed", "raider")))
     sources = {w["id"]: w["source"] for w in hub.get("/api/me/home", sid).json()["widgets"]}
-    assert sources["last_raid"] == "analyzer" and sources["posts"] == "hub"
+    assert "last_raid" not in sources and set(sources.values()) == {"hub"}
+
+
+def test_a_layout_saved_with_analyzer_widgets_drops_them() -> None:
+    repo = InMemoryHomeRepository()
+    repo.save_layout(1, [StoredWidget("last_raid", True), StoredWidget("posts", True)])
+    shown = HomeService(repo).layout(1, MEMBER).shown
+    assert shown[0] == "posts" and "last_raid" not in shown
 
 
 @pytest.mark.parametrize(
@@ -324,10 +332,9 @@ def _chart_widget(chart: object, **extra: object) -> dict[str, object]:
     return {"id": "healing_weekly", "title": "Weekly healing", "kind": "chart", "size": "full", "chart": chart, **extra}
 
 
-def test_weekly_healing_and_healers_are_default_analyzer_widgets() -> None:
-    by_id = {w.id: w for w in CATALOGUE}
-    assert by_id["healing_weekly"].source == "analyzer" and by_id["healing_weekly"].default_shown
-    assert by_id["healers_weekly"].source == "analyzer" and by_id["healers_weekly"].default_shown
+def test_weekly_healing_and_healers_are_analyzer_widgets() -> None:
+    ids = {w.id for w in ANALYZER_WIDGETS}
+    assert {"healing_weekly", "healers_weekly"} <= ids and not ids & {w.id for w in CATALOGUE}
 
 
 def test_a_chart_widget_is_kept_as_published() -> None:

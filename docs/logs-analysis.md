@@ -27,10 +27,9 @@ Super admins are global officers too, so they see every officer view.
 
 | Where | What fills in |
 | --- | --- |
-| `/hub` | The analyzer widgets: guild snapshot, last raid, recent raids, raid activity, healing week on week, top damage and healing, attendance, boss kills, class mix, interrupts, consumables, flasks, and the officers' badge roster. |
 | `/me` | Your performance against the role median and your Toads badges, once your character claim is approved. |
 | Claim search | Character names to claim, from the raids the sync analysed. |
-| `/logs` | Every analysed raid with the desktop app's raid analysis, filtered by weekday, and the boss history ([logs.md](logs.md)). |
+| `/logs` | The analyzer widgets for each raid night (guild snapshot, last raid, recent raids, raid activity, healing week on week, top damage and healing, attendance, boss kills, class mix, interrupts, consumables, flasks, and the officers' badge roster), every analysed raid with the desktop app's raid analysis, filtered by weekday, and the boss history ([logs.md](logs.md)). |
 | `/officers/reference` | The guild raids to compare, and comparisons once the reference login is connected (step 6). |
 | `/admin` | The scheduler's jobs, now including `sync-guild`. |
 
@@ -121,7 +120,7 @@ for job in publish-home publish-performance publish-badges publish-reference pub
 done
 ```
 
-Sign in to https://toads.gg and open `/hub`: the analyzer widgets should show the raids you imported. Claim your
+Sign in to https://toads.gg and open `/logs`: the analyzer widgets should show the raids you imported. Claim your
 character on `/me/claim` to see your own performance and badges there; a claim matching your Discord nickname is
 approved at once, otherwise approve it in the Officers console.
 
@@ -162,7 +161,7 @@ show a job that broke, with the reason.
 | `401` or `invalid_client` from Warcraft Logs | The client id or secret is wrong, or the client was deleted. |
 | A report listed under `failed` every run | Warcraft Logs has no fights in it (an empty or trash-only log). It is retried each run and does not hold back older reports: the next one takes its place in the batch. |
 | The sync imports nothing, `remaining` is 0, but raids are missing | They are not on the guild's Warcraft Logs page (logged as personal reports). Import each with `toads-worker analyse <URL>`. |
-| `/hub` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
+| `/logs` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
 | `429` errors or `sync.rate_limited` in the worker's log | Something else spent the guild key's points (officer imports, a second deployment on the same client). Raise `TOADS_SYNC_RESERVE_PERCENT`. |
 | Still about ten reports an hour | The env file still says `TOADS_SYNC_BATCH=10`; set it to `0` (step 3). |
 | `sync.rate_limit_unreadable` in the log | Warcraft Logs did not answer the rate-limit query; that run falls back to ten reports. |

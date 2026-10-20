@@ -111,18 +111,31 @@ test('a member customises their hub home', async ({ page }) => {
   await expect(widgets.first()).toHaveAttribute('data-widget', 'next_raid');
 });
 
-test('the hub draws the analyzer widgets from their shared payloads', async ({ page }) => {
-  await page.goto('hub/');
+test('Logs draws the analyzer widgets from their shared payloads', async ({ page }) => {
+  await page.goto('logs/');
   const damage = page.getByRole('region', { name: 'Top damage' });
   await expect(damage.getByRole('columnheader', { name: 'Damage' })).toBeVisible();
   await expect(damage.getByRole('row')).toHaveCount(6);
+  const flasks = page.getByRole('region', { name: 'Flasks and elixirs' });
+  await expect(flasks).toContainText('6 of 7 prepared');
+  await expect(flasks.getByRole('row', { name: /Hopscotch/ })).toContainText('Flask of Relentless Assault');
   const recent = page.getByRole('region', { name: 'Recent raids' });
   await recent.getByRole('link').first().click();
   await expect(page).toHaveURL(/\/toads\/logs\/[a-z]+-\d{4}\/$/);
 });
 
-test('raid leaders see the roster\'s badges and members their own', async ({ page }) => {
+test('the hub home leaves the raid widgets to Logs', async ({ page }) => {
   await page.goto('hub/');
+  await expect(page.locator('[data-widget="next_raid"]')).toBeVisible();
+  for (const name of ['Guild at a glance', 'Top damage', 'Recent raids', 'Toads badges']) {
+    await expect(page.getByRole('region', { name, exact: true })).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: 'Customise' }).click();
+  await expect(page.getByRole('checkbox', { name: /Flasks and elixirs/ })).toHaveCount(0);
+});
+
+test('raid leaders see the roster\'s badges on Logs and members their own on Me', async ({ page }) => {
+  await page.goto('logs/');
   const roster = page.getByRole('region', { name: 'Toads badges' });
   await expect(roster.getByText('Hopscotch', { exact: true })).toBeVisible();
   await expect(roster.getByRole('img', { name: /^Loyal Toad, Legendary: 104 raids/ }).first()).toBeVisible();
@@ -131,17 +144,6 @@ test('raid leaders see the roster\'s badges and members their own', async ({ pag
   await expect(mine.getByText(/^Hopscotch: \d+ of 11 earned/)).toBeVisible();
   await expect(mine.getByRole('img', { name: /^Flask Bearer, Legendary: 101 raids/ })).toBeVisible();
   await expect(mine.getByRole('img', { name: /^Drummer, not earned yet/ })).toBeVisible();
-});
-
-test('a member places the flasks widget and sees who came prepared', async ({ page }) => {
-  await page.goto('hub/');
-  await page.getByRole('button', { name: 'Customise' }).click();
-  await page.getByRole('checkbox', { name: /Flasks and elixirs/ }).check();
-  await page.getByRole('region', { name: 'Customise your home' }).getByRole('button', { name: 'Save' }).click();
-  const flasks = page.getByRole('region', { name: 'Flasks and elixirs' });
-  await expect(flasks).toContainText('6 of 7 prepared');
-  await expect(flasks.getByRole('row', { name: /Croakwell/ })).toContainText('None');
-  await expect(flasks.getByRole('row', { name: /Hopscotch/ })).toContainText('Flask of Relentless Assault');
 });
 
 test('the tab shows the toad icon, and every icon file loads under the base path', async ({ page, request }) => {

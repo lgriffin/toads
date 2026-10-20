@@ -23,8 +23,8 @@ from toads_worker.settings import Settings
 
 log = structlog.get_logger(__name__)
 
-# The analyzer widgets the hub places (toads_api.home.service.CATALOGUE). The analyzer's quick actions and tracked
-# players have no hub page, so they are not built.
+# The analyzer widgets the hub keeps for Logs (toads_api.home.service.ANALYZER_WIDGETS). The analyzer's quick actions
+# and tracked players have no hub page, so they are not built.
 HUB_WIDGETS = (
     "guild_snapshot",
     "last_raid",

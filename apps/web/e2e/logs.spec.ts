@@ -34,7 +34,7 @@ test('Logs opens on the raid night of the Toad badge, with every raid a tab away
   await expect(nights.getByRole('button', { name: 'Wednesday' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { level: 2, name: 'Wednesday at a glance' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Last raid' })).toBeVisible();
-  // Members never get the roster's badges, here as on the hub.
+  // Members never get the roster's badges.
   await expect(page.getByRole('heading', { level: 2, name: 'Toads badges' })).toHaveCount(0);
   const raids = page.getByRole('region', { name: 'Raids', exact: true });
   await expect(raids.getByText(/ of 6 raids, Wednesday\.$/)).toBeVisible();

@@ -9,7 +9,7 @@ import pytest
 from toads_api.home.badges import BadgeService
 from toads_api.home.performance import MatchedBy
 from toads_api.home.repository import InMemoryHomeRepository, MemberCharacters
-from toads_api.home.service import Audience, HomeError, HomeService, catalogue_for
+from toads_api.home.service import Audience, HomeError, HomeService, analyzer_widgets_for
 
 from conftest import Hub
 
@@ -155,8 +155,8 @@ def _roster_widget(holders: list[dict[str, Any]] | None = None) -> dict[str, Any
 
 
 def test_the_roster_widget_is_for_officers() -> None:
-    assert "badges" in [w.id for w in catalogue_for(Audience.OFFICER)]
-    assert "badges" not in [w.id for w in catalogue_for(Audience.MEMBER)]
+    assert "badges" in [w.id for w in analyzer_widgets_for(Audience.OFFICER)]
+    assert "badges" not in [w.id for w in analyzer_widgets_for(Audience.MEMBER)]
 
 
 def test_members_never_receive_the_roster(hub: Hub) -> None:
