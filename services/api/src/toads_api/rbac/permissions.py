@@ -51,10 +51,15 @@ class Permission(enum.StrEnum):
     VIEW_ABSENCES = "view_absences"
     # The officers' task board for a raid day (docs/officer-board.md): that day's officers and the global tier.
     MANAGE_OFFICER_BOARD = "manage_officer_board"
+    # Super admins only (docs/admin.md "Officer grants"): make one Discord member an officer of a raid day, or a global
+    # officer, on top of their Discord roles. Nothing grants super admin: that is configuration alone.
+    MANAGE_OFFICER_GRANTS = "manage_officer_grants"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.
-SUPER_ADMIN_ONLY = frozenset({Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_BADGES})
+SUPER_ADMIN_ONLY = frozenset(
+    {Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_BADGES, Permission.MANAGE_OFFICER_GRANTS}
+)
 
 
 # Applicants join the Discord server first, so a plain member (no raid-day role) can apply. Every guild member may see
@@ -80,7 +85,8 @@ ROLE_PERMISSIONS: dict[HubRole, frozenset[Permission]] = {
 
 @dataclass(frozen=True)
 class Principal:
-    """Who is calling, resolved from Discord roles at login / role refresh. Never from the request body."""
+    """Who is calling, resolved from Discord roles at login / role refresh plus the officer grants a super admin gave
+    them (read per request). Never from the request body."""
 
     member_id: int
     global_officer: bool = False

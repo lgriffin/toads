@@ -1,7 +1,7 @@
 # Super admins, the break-glass admin and officer tokens
 
 The hub's roles come from Discord (REQ-HUB-RBAC-001): members, trials, raiders, a raid day's officers and global
-officers. Above them sit a handful of **super admins**, named in the hub's configuration, who hand the bank's upkeep
+officers. A super admin may also make one member an officer through an **officer grant** (REQ-HUB-RBAC-005). Above them sit a handful of **super admins**, named in the hub's configuration, who hand the bank's upkeep
 to other members: directly, as a grant, or through an **officer token** the member redeems themselves. One of them may
 be the **break-glass admin**, who is always a super admin and is never hidden.
 
@@ -20,6 +20,7 @@ For every other setting, first-time setup and routine operations, see the [admin
   it. It opens granting and revoking bank grants, and minting, listing and revoking officer tokens. Global officers
   still see the grants list (`GET /api/admin/bank/grants`).
 - `Permission.MANAGE_ROLE_BADGES` is theirs alone too: tying badges to Discord roles ([role-badges.md](role-badges.md)).
+- `Permission.MANAGE_OFFICER_GRANTS` is theirs alone too: granting and revoking officer grants (below).
 - `/api/session` and `/api/bank/me` say `super_admin: true`.
 
 ## The break-glass admin
@@ -35,6 +36,32 @@ For every other setting, first-time setup and routine operations, see the [admin
     route runs. Reads are not marked.
 - They still sign in with Discord and must be in the Toads server: break-glass widens what they may do, not who can
   sign in.
+
+## Officer grants
+
+Officers normally come from Discord roles in `config/raid_days.yaml`. When someone needs officer powers without a
+Discord role (cover for a night, a trusted helper), a super admin grants them on the Admin page, under "Officer
+grants": find the member in the Toads Discord by username or nickname, pick a raid night or "Every night", and grant.
+
+- A night's grant makes them an officer of that raid day, exactly as that day's `officer_roles` would: its officer
+  section, claims, applications, banks, board. "Every night" makes them a global officer, as `global_officer_roles`
+  would.
+- A grant adds to their Discord roles and never takes from them. Revoking it leaves whatever their roles give.
+- **It never makes anyone a super admin**, and a global officer from a grant cannot grant anything: officer grants,
+  bank grants, tokens and badges stay `SUPER_ADMIN_ONLY`. Super admins come from `TOADS_SUPER_ADMIN_IDS` alone.
+- Grants are read from the database on every request (`Services.principal_for`), on the site and through the bank
+  bot, so a grant or revoke counts on the member's next call, with no sign-in or role refresh needed.
+- Only someone in the Toads server can be granted. Their Discord username and server name are kept for the list.
+- A grant for a raid day later removed from `raid_days.yaml` opens nothing.
+- Discord channel permissions are not touched: interview rooms still open to the officer roles, so a granted officer
+  who should sit interviews goes on that night's interview panel too ([recruitment.md](recruitment.md)).
+- Stored in hub-db's `officer_grants` table (migration `0022`): the Discord user id, names, the raid day (`*` for every
+  night), who granted it and when.
+
+Routes (super admins only): `GET /api/admin/officer-grants` (the grants and the nights one can cover),
+`GET /api/admin/officer-grants/discord-members?q=` (search the server), `POST /api/admin/officer-grants`
+(`{discord_user_id, raid_day}`, `raid_day` null for every night; `201`, or `200` when already held) and
+`DELETE /api/admin/officer-grants/{id}`.
 
 ## Officer tokens
 
@@ -73,6 +100,8 @@ the token is still usable, counts the use and adds the grants it names, as from 
 | `bank.token_minted` | the super admin | `bank token {id}` | the permissions |
 | `bank.token_redeemed` | the redeemer | `bank token {id}` | the grants it gave, by id |
 | `bank.token_revoked` | the super admin | `bank token {id}` | |
+| `officer.grant` | the super admin | `officer grant {id}: officer for discord user {id}` (`global officer` for every night) | |
+| `officer.revoke` | the super admin | the same | |
 | `break_glass` | the break-glass admin | `{METHOD} {path}` | the permission used |
 
 ## Configuration
