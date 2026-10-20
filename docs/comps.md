@@ -58,6 +58,8 @@ members already have their class, spec and badges before they first sign in.
   the officer, counts what happened and lists who was skipped and why.
 - **API**: `POST /api/days/{day}/comps/raid-helper` with the export as the body, for that night's officers.
 
+The officers' walkthrough and the tables an import writes are in [toad-bot.md](toad-bot.md).
+
 What the import does (`toads_api.comps.raid_helper`, `CompService.import_specs`):
 
 - Members are matched by the Discord user id in each seat; the names in the export do not matter. Someone not in the

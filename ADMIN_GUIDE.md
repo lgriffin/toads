@@ -538,7 +538,8 @@ Bank page or into `/bank import` in Discord, then checks the preview and accepts
 Export the night's sign-ups from Raid-Helper (the composition tool or the event), then run
 `/raidhelper import night:<night> export:<file>` on the Toad Bot as one of that night's officers. Everyone the export
 seats gets their class and primary spec, and the class and role badges that come with it, before they sign in; members
-can correct them on Me. Specs a member set themselves are kept. Details in docs/comps.md.
+can correct them on Me. Specs a member set themselves are kept. Details, and where the data lands, in
+[docs/toad-bot.md](docs/toad-bot.md).
 
 ### Approve bank requests
 
