@@ -17,7 +17,15 @@ from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, scenarios, then, when
 from toads_api.community import recruitment
 from toads_api.community.clips import parse_clip_url
-from toads_api.community.demo import ANNOUNCEMENTS, GUILD_POSTS, PRINCIPALS, SUN_OFFICER_ROLE, WED_CHAT, demo_service
+from toads_api.community.demo import (
+    ANNOUNCEMENTS,
+    GUILD_POSTS,
+    MEMBERS,
+    PRINCIPALS,
+    SUN_OFFICER_ROLE,
+    WED_CHAT,
+    demo_service,
+)
 from toads_api.community.deps import audience_of, officer_scopes
 from toads_api.community.repository import InMemoryCommunityRepository, MemberCard
 from toads_api.community.schemas import (
@@ -735,3 +743,62 @@ def other_site_lands_on_hub(world: World) -> None:
 
     _sign_in(world, "https://evil.example/")
     assert world.last.headers["location"] == f"{HUB}/hub"
+
+
+# ------------------------------------------------------------- interview panels
+
+
+def _discord_id(username: str) -> int:
+    return next(card.discord_user_id for card in MEMBERS.values() if card.display_name.lower() == username)
+
+
+def _put_on_panel(world: World, who: str, username: str, day: str) -> Any:
+    body = {"discord_user_id": str(_discord_id(username))}
+    return world.client(who).post(f"/api/days/{DAYS[day]}/admin/interview-panel", json=body)
+
+
+@given(parsers.parse("the Sunday officer has put {first} and {second} from the Discord on the Sunday interview panel"))
+def sunday_panel(world: World, first: str, second: str) -> None:
+    for username in (first, second):
+        found = world.client("Sunday officer").get("/api/days/sun/admin/discord-members", params={"q": username[:4]})
+        assert username in [m["username"] for m in found.json()]
+        assert _put_on_panel(world, "Sunday officer", username, "Sunday").status_code == 201
+
+
+@then(
+    parsers.parse(
+        "the bot is asked for a room for the applicant with {first} and {second} by Discord id and no officer roles"
+    )
+)
+def room_job_for_panel(world: World, first: str, second: str) -> None:
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    assert job.payload["interviewers"] == [str(_discord_id(first)), str(_discord_id(second))]
+    assert job.payload["officer_role_ids"] == []
+
+
+@then(parsers.parse("a Wednesday applicant still gets {first} and {second}"))
+def wednesday_falls_back(world: World, first: str, second: str) -> None:
+    assert world.store.interviewers_for(["wed"]) == [first, second]
+
+
+@when(parsers.parse("the Wednesday officer tries to put {username} on the Sunday interview panel"))
+def wed_officer_tries(world: World, username: str) -> None:
+    world.last = _put_on_panel(world, "Wednesday officer", username, "Sunday")
+
+
+@then("the hub refuses it with 403")
+def refused_403(world: World) -> None:
+    assert world.last.status_code == 403
+    assert world.store.repo.interview_panel("sun") == []
+
+
+@then(parsers.parse("the global officer can put {username} on the Sunday interview panel"))
+def global_officer_puts(world: World, username: str) -> None:
+    r = _put_on_panel(world, "global officer", username, "Sunday")
+    assert r.status_code == 201
+    assert [i["username"] for i in r.json()["interviewers"]] == [username]
+
+
+@then("the audit log names the Sunday panel change")
+def panel_audited(world: World) -> None:
+    assert [(a.action, a.raid_day) for a in world.store.repo.audit()] == [("recruitment.panel_add", "sun")]

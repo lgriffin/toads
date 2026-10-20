@@ -11,6 +11,7 @@ from typing import Protocol
 from toads_api.community.schemas import (
     Application,
     Highlight,
+    Interviewer,
     OutboxJob,
     OutboxKind,
     Post,
@@ -62,6 +63,12 @@ class CommunityRepository(Protocol):
 
     def needs(self) -> list[RecruitmentNeed]: ...
     def set_needs(self, needs: list[RecruitmentNeed]) -> None: ...
+
+    def interview_panel(self, raid_day: str) -> list[Interviewer]:
+        """The night's interview panel, in the order officers added them."""
+        ...
+
+    def set_interview_panel(self, raid_day: str, panel: list[Interviewer], by: int) -> None: ...
     def progression(self) -> list[Progress]: ...
 
     def enqueue(self, kind: OutboxKind, payload: Payload, at: datetime) -> OutboxJob: ...
@@ -86,6 +93,7 @@ class InMemoryCommunityRepository:
     _spotlights: dict[int, Spotlight] = field(default_factory=dict)
     _jobs: dict[int, OutboxJob] = field(default_factory=dict)
     _audit: list[AuditRecord] = field(default_factory=list)
+    _panels: dict[str, list[Interviewer]] = field(default_factory=dict)
     _ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
 
     def next_id(self) -> int:
@@ -138,6 +146,12 @@ class InMemoryCommunityRepository:
 
     def set_needs(self, needs: list[RecruitmentNeed]) -> None:
         self.needs_list = list(needs)
+
+    def interview_panel(self, raid_day: str) -> list[Interviewer]:
+        return list(self._panels.get(raid_day, []))
+
+    def set_interview_panel(self, raid_day: str, panel: list[Interviewer], by: int) -> None:
+        self._panels[raid_day] = list(panel)
 
     def progression(self) -> list[Progress]:
         return list(self.progression_list)

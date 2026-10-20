@@ -23,6 +23,7 @@ from toads_api.community.schemas import (
     ClipProvider,
     Highlight,
     HighlightStatus,
+    Interviewer,
     OutboxJob,
     OutboxKind,
     Post,
@@ -364,6 +365,41 @@ class SqlCommunityRepository:
                 )
                 for n in needs
             )
+
+    def interview_panel(self, raid_day: str) -> list[Interviewer]:
+        query = (
+            select(hub_db.InterviewPanelist)
+            .where(hub_db.InterviewPanelist.raid_day_id == raid_day)
+            .order_by(hub_db.InterviewPanelist.position, hub_db.InterviewPanelist.id)
+        )
+        with self.db() as db:
+            return [
+                Interviewer(discord_user_id=str(r.discord_user_id), username=r.username, display_name=r.display_name)
+                for r in db.scalars(query)
+            ]
+
+    def set_interview_panel(self, raid_day: str, panel: list[Interviewer], by: int) -> None:
+        """Rows for people already on the panel stay, so each keeps who added them and when."""
+        with self.db.begin() as db:
+            rows = {
+                r.discord_user_id: r
+                for r in db.scalars(
+                    select(hub_db.InterviewPanelist).where(hub_db.InterviewPanelist.raid_day_id == raid_day)
+                )
+            }
+            wanted = [int(i.discord_user_id) for i in panel]
+            for user_id, row in rows.items():
+                if user_id not in wanted:
+                    db.delete(row)
+            for position, i in enumerate(panel):
+                user_id = int(i.discord_user_id)
+                row = rows.get(user_id) or hub_db.InterviewPanelist(
+                    raid_day_id=raid_day, discord_user_id=user_id, added_by=by
+                )
+                db.add(row)
+                row.username = i.username
+                row.display_name = i.display_name[:100]
+                row.position = position
 
     def progression(self) -> list[Progress]:
         return list(self.progression_list)

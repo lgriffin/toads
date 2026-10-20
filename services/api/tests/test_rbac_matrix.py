@@ -75,9 +75,10 @@ PUBLIC = {
     "GET /auth/login",
     "GET /auth/callback",
     "POST /auth/logout",
-    # The outward story and recruitment needs, for visitors.
+    # The outward story, recruitment needs and the nights to apply for, for visitors.
     "GET /api/public/story",
     "GET /api/public/recruitment",
+    "GET /api/public/raid-nights",
 }
 GLOBAL_ADMIN_PREFIX = "/api/admin/"
 # The bots' and the worker's routes: guarded by the service token (test_community.py, test_bots.py,

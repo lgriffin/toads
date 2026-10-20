@@ -3,6 +3,7 @@ import {
   EMPTY_APPLICATION,
   RECRUIT_DRAFT_KEY,
   forgetRecruitDraft,
+  nightsList,
   rolesForClass,
   toApiBody,
   validateApplication,
@@ -14,7 +15,8 @@ const good: ApplicationInput = {
   className: 'Shaman',
   primaryRole: 'Melee',
   secondaryRole: 'Healer',
-  whyToads: 'A friend raids Sundays with you and says it is the friendliest pond on the server.'
+  whyToads: 'A friend raids Sundays with you and says it is the friendliest pond on the server.',
+  raidDay: 'sun'
 };
 
 const errors = (over: Partial<ApplicationInput>) => validateApplication({ ...good, ...over });
@@ -30,6 +32,15 @@ describe('validateApplication', () => {
     expect(Object.keys(validateApplication(EMPTY_APPLICATION)).sort()).toEqual(
       ['characterName', 'className', 'primaryRole', 'whyToads'].sort()
     );
+  });
+
+  it('asks for one of the nights on offer', () => {
+    const nights = ['wed', 'sun'];
+    expect(validateApplication(good, nights)).toEqual({});
+    expect(validateApplication({ ...good, raidDay: '' }, nights).raidDay).toBe('Pick the night you want to raid.');
+    expect(validateApplication({ ...good, raidDay: 'fri' }, nights).raidDay).toBeDefined();
+    // An older hub offers no nights, so there is nothing to pick.
+    expect(validateApplication({ ...good, raidDay: '' })).toEqual({});
   });
 
   it.each(['Hopscotch', 'Jo', 'Twelveletter', 'Frögé', 'Ëlùne', '  Tadpole  ', 'Frög'])('accepts name %j', (n) => {
@@ -88,6 +99,14 @@ describe('rolesForClass', () => {
   });
 });
 
+describe('nightsList', () => {
+  it('names the nights on offer', () => {
+    const night = (name: string) => ({ id: name.slice(0, 3).toLowerCase(), name });
+    expect(nightsList([night('Wednesday'), night('Thursday'), night('Sunday')])).toBe('Wednesday, Thursday and Sunday');
+    expect(nightsList([night('Sunday')])).toBe('Sunday');
+  });
+});
+
 describe('toApiBody', () => {
   it('sends the API’s field names, trimmed, with no secondary role as null', () => {
     expect(toApiBody({ ...good, characterName: '  Bogwalker ', secondaryRole: '', whyToads: ' Friends. ' })).toEqual({
@@ -95,8 +114,10 @@ describe('toApiBody', () => {
       class_name: 'Shaman',
       role: 'Melee',
       secondary_role: null,
-      why_toads: 'Friends.'
+      why_toads: 'Friends.',
+      raid_days: ['sun']
     });
+    expect(toApiBody({ ...good, raidDay: '' }).raid_days).toEqual([]);
   });
 });
 

@@ -81,9 +81,16 @@ describe('claims', () => {
 });
 
 describe('applications', () => {
-  it('posts the five answers', async () => {
+  it('posts the answers and the night', async () => {
     const { f, calls } = fakeFetch(201, { id: 9, character_name: 'Bogwalker', status: 'interviewing' });
-    const body = { character_name: 'Bogwalker', class_name: 'Shaman', role: 'Melee', secondary_role: null, why_toads: 'Friends.' };
+    const body = {
+      character_name: 'Bogwalker',
+      class_name: 'Shaman',
+      role: 'Melee',
+      secondary_role: null,
+      why_toads: 'Friends.',
+      raid_days: ['sun']
+    };
     expect((await sendApplication(body, f)).status).toBe('interviewing');
     expect(calls[0]).toMatchObject({ url: '/api/applications', init: { method: 'POST' } });
     expect(JSON.parse(String(calls[0].init.body))).toEqual(body);

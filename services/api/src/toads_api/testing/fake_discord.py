@@ -9,6 +9,7 @@ It implements just what the hub uses, with the same paths and shapes as Discord:
 - GET  /api/v10/users/@me/guilds/{id}/member     the token owner's guild member, 404 when not in the server
 - GET  /api/v10/oauth2/applications/@me          the bot's application (any `Bot` token)
 - GET  /api/v10/guilds/{id}/roles                the server's roles (any `Bot` token)
+- GET  /api/v10/guilds/{id}/members/search       members whose name starts with `query` (any `Bot` token)
 - GET  /api/v10/guilds/{id}/members/{user}       one member of the server (any `Bot` token), 404 when not in it
 - GET  /api/v10/guilds/{id}/scheduled-events     the server's scheduled events (any `Bot` token)
 
@@ -189,6 +190,20 @@ def create_fake_discord(state: FakeDiscordState) -> FastAPI:
             "nick": user.nick,
             "roles": [str(r) for r in sorted(user.roles)],
         }
+
+    # Declared before /members/{user_id}, which would otherwise take "search" for a user id.
+    @app.get("/api/v10/guilds/{guild_id}/members/search")
+    async def search_members(guild_id: int, request: Request) -> list[dict[str, Any]]:
+        if not request.headers.get("authorization", "").startswith("Bot ") or guild_id != state.guild_id:
+            raise HTTPException(401, detail="401: Unauthorized")
+        query = request.query_params.get("query", "").lower()
+        limit = int(request.query_params.get("limit", "1"))
+        found = [
+            u
+            for u in state.users.values()
+            if u.in_guild and any((name or "").lower().startswith(query) for name in (u.username, u.nick))
+        ]
+        return [_member_json(u) for u in found[:limit]]
 
     @app.get("/api/v10/guilds/{guild_id}/members/{user_id}")
     async def guild_member(guild_id: int, user_id: int, request: Request) -> dict[str, Any]:

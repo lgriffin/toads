@@ -10,7 +10,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, FastAPI, Path, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -36,16 +38,21 @@ from toads_api.community.schemas import (
     Highlight,
     HighlightCreate,
     HighlightReview,
+    Interviewer,
+    InterviewerAdd,
+    InterviewPanel,
     OutboxAck,
     OutboxJob,
     Post,
     PostCreate,
     PublicStory,
+    RaidNight,
     RecruitmentNeed,
     Spotlight,
     SpotlightCreate,
 )
 from toads_api.community.service import CommunityError, CommunityService
+from toads_api.discord_api import DiscordError, GuildMember
 from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
 from toads_api.services import Services
@@ -86,6 +93,12 @@ async def story(svc: CommunityService = S) -> PublicStory:
 @public.get("/recruitment")
 async def recruitment_needs(svc: CommunityService = S) -> list[RecruitmentNeed]:
     return svc.needs()
+
+
+@public.get("/raid-nights")
+async def raid_nights(svc: CommunityService = S) -> list[RaidNight]:
+    """The nights the recruit page offers, so an applicant's room gets that night's interview panel."""
+    return svc.raid_nights()
 
 
 # --------------------------------------------------------------------- members
@@ -217,6 +230,58 @@ def _officer_routes(router: APIRouter, scoped: bool) -> None:
 
 _officer_routes(day_admin, scoped=True)
 _officer_routes(global_admin, scoped=False)
+
+# ------------------------------------- one raid night's interview panel (docs/recruitment.md)
+
+_panel = Depends(require(Permission.MANAGE_RECRUITMENT, scoped=True))
+_hub = Depends(get_services)
+DiscordId = Annotated[str, Path(pattern=r"^[1-9][0-9]{0,19}$")]
+
+
+def _interviewer(member: GuildMember) -> Interviewer:
+    return Interviewer(discord_user_id=str(member.user_id), username=member.username, display_name=member.server_name)
+
+
+def _discord_down() -> HTTPException:
+    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Discord is not answering; try again shortly")
+
+
+@day_admin.get("/interview-panel")
+async def interview_panel(request: Request, svc: CommunityService = S, _: Principal = _panel) -> InterviewPanel:
+    return svc.interview_panel(str(scope_of(request)))
+
+
+@day_admin.get("/discord-members")
+async def discord_members(
+    q: Annotated[str, Query(min_length=1, max_length=32)], services: Services = _hub, _: Principal = _panel
+) -> list[Interviewer]:
+    """Members of the Toads Discord whose username or server nickname starts with `q`, to put on a panel."""
+    try:
+        found = await services.discord.search_members(q.strip(), limit=10)
+    except DiscordError:
+        raise _discord_down() from None
+    return [_interviewer(m) for m in found]
+
+
+@day_admin.post("/interview-panel", status_code=status.HTTP_201_CREATED)
+async def add_interviewer(
+    request: Request, body: InterviewerAdd, svc: CommunityService = S, services: Services = _hub, p: Principal = _panel
+) -> InterviewPanel:
+    try:
+        member = await services.discord.guild_member(int(body.discord_user_id))
+    except DiscordError:
+        raise _discord_down() from None
+    if member is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="They are not in the Toads Discord")
+    return svc.add_interviewer(p.member_id, str(scope_of(request)), _interviewer(member))
+
+
+@day_admin.delete("/interview-panel/{discord_user_id}")
+async def remove_interviewer(
+    request: Request, discord_user_id: DiscordId, svc: CommunityService = S, p: Principal = _panel
+) -> InterviewPanel:
+    return svc.remove_interviewer(p.member_id, str(scope_of(request)), discord_user_id)
+
 
 _highlights = Depends(require(Permission.MANAGE_HIGHLIGHTS))
 _recruitment = Depends(require(Permission.MANAGE_RECRUITMENT))
