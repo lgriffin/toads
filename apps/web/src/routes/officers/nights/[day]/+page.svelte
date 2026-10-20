@@ -20,7 +20,8 @@
 
   // One raid night's own officer section: its team's absences, its task board and its interview panel. Only that
   // night's officers see it (global officers and super admins see every night); another night's officers get a
-  // refusal and none of its content. The API checks every call against the night in the path.
+  // refusal and none of its content. The API checks every call against the night in the path. Keyed by night, so
+  // moving to another night's section starts its panels afresh rather than showing the last night's.
   let { data }: { data: { day: string } } = $props();
   let session = $state<Session | null | undefined>(undefined);
   onMount(async () => {
@@ -46,6 +47,7 @@
     <p>This is another raid night's officer section, for its own officers. Yours are on the <a href="{base}/officers/">Officer console</a>.</p>
   </section>
 {:else}
+  {#key day}
   <div class="pond-page">
     <PondHero
       title="{name} officers"
@@ -53,7 +55,7 @@
       lede="Everything {name}'s officers run for their own team: who is away, the task board and the interview panel. Only {name}'s officers and super admins see it."
       toads={[dayToad(day, name)]}
     >
-      <a class="medal" href="{base}/officers/comp">Build {name}'s comp</a>
+      <a class="medal" href="{base}/officers/comp?day={day}">Build {name}'s comp</a>
       <a class="ghost" href="{base}/officers/">Officer console</a>
     </PondHero>
 
@@ -69,6 +71,7 @@
 
     <div class="band dusk"><InterviewPanelCard backend={panels} {day} night={name} /></div>
   </div>
+  {/key}
 {/if}
 
 <style>

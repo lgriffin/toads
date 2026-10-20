@@ -38,6 +38,17 @@ test('a super admin sees every night\'s section', async ({ page }) => {
   await expect(nights.getByRole('link')).toHaveText(['Wednesday officers', 'Thursday officers', 'Sunday officers']);
   await nights.getByRole('link', { name: 'Thursday officers' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Thursday officers' })).toBeVisible();
+  await page.getByRole('link', { name: 'Build Thursday\'s comp' }).click();
+  await expect(page.getByLabel('Raid night')).toHaveValue('thu');
+});
+
+test('moving between night sections shows each night\'s own interview panel', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/nights/wed/');
+  await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toBeVisible();
+  await page.goto('officers/nights/sun/');
+  await expect(page.getByRole('region', { name: 'Sunday interview panel' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toHaveCount(0);
 });
 
 test('a super admin switches between the raid nights', async ({ page }) => {

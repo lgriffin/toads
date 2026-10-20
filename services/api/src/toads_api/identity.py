@@ -113,7 +113,7 @@ async def _cached_acting(services: Services, discord_user_id: int) -> Principal 
         username = str(seen.get("username", ""))
     except (ValueError, TypeError, KeyError):
         return None
-    return services.principal_for(member_id, role_ids, name, discord_user_id, username)
+    return await anyio.to_thread.run_sync(services.principal_for, member_id, role_ids, name, discord_user_id, username)
 
 
 async def acting_principal(services: Services, discord_user_id: int) -> Principal:
@@ -140,4 +140,6 @@ async def acting_principal(services: Services, discord_user_id: int) -> Principa
         "username": member.username,
     }
     await services.redis.set(_acting_key(discord_user_id), json.dumps(seen), ex=services.settings.role_refresh_seconds)
-    return services.principal_for(member_id, set(member.role_ids), member.server_name, member.user_id, member.username)
+    return await anyio.to_thread.run_sync(
+        services.principal_for, member_id, set(member.role_ids), member.server_name, member.user_id, member.username
+    )

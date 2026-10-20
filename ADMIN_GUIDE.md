@@ -356,7 +356,8 @@ Rules worth knowing:
   Sunday raider roles.
   A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
   (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the
-  team. Officer roles still come from `officer_roles`. The rank
+  team at once. The comp builder's roster catches up as each member next signs in or has their roles refreshed, since
+  the hub never stores who holds which role. Officer roles still come from `officer_roles`. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
   their own team's night, its officers also get an officer desk linking to the night's officer section, and super

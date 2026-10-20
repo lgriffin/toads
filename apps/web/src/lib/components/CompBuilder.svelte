@@ -39,7 +39,8 @@
   // roster switch seats that raid night's members by the specs they set on Me. Drag a spec or a member onto a seat,
   // drag seats onto each other to swap them, or tap one then the other where dragging is awkward. The API checks the
   // permission (build_comps, scoped to the raid night); this page only hides the builder from everyone else.
-  let { backend, days }: { backend: CompBackend; days: string[] } = $props();
+  // `initial` is the night to open on, such as the one a night's officer section linked from, when it is one of `days`.
+  let { backend, days, initial = '' }: { backend: CompBackend; days: string[]; initial?: string } = $props();
 
   type Mode = 'any' | 'roster';
   // What is being placed: a spec or a member from the palette, or a seat being moved.
@@ -65,7 +66,7 @@
   let query = $state('');
 
   $effect(() => {
-    if (!day && days.length) day = days[0];
+    if (!day && days.length) day = days.includes(initial) ? initial : days[0];
   });
 
   const size = $derived(slots.length);
