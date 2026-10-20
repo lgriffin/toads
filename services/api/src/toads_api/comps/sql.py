@@ -38,6 +38,18 @@ def _slots(slots: list[Seat | None]) -> list[dict[str, object] | None]:
     return [None if s is None else {"spec": s.spec, "member_id": s.member_id} for s in slots]
 
 
+def _write(db: Session, record: SpecRecord) -> None:
+    row = db.get(MemberSpec, record.member_id)
+    if row is None:
+        row = MemberSpec(member_id=record.member_id)
+        db.add(row)
+    row.wow_class = record.wow_class
+    row.primary_spec = record.primary
+    row.secondary_spec = record.secondary
+    row.imported_from = record.imported_from
+    row.updated_at = datetime.now(UTC)
+
+
 class SqlCompRepository:
     def __init__(self, db: sessionmaker[Session]) -> None:
         self._db = db
@@ -47,18 +59,22 @@ class SqlCompRepository:
         if member_ids is not None:
             query = query.where(MemberSpec.member_id.in_(list(member_ids)))
         with self._db() as db:
-            return [SpecRecord(r.member_id, r.wow_class, r.primary_spec, r.secondary_spec) for r in db.scalars(query)]
+            return [
+                SpecRecord(r.member_id, r.wow_class, r.primary_spec, r.secondary_spec, r.imported_from)
+                for r in db.scalars(query)
+            ]
 
     def set_specs(self, record: SpecRecord) -> None:
         with self._db.begin() as db:
-            row = db.get(MemberSpec, record.member_id)
-            if row is None:
-                row = MemberSpec(member_id=record.member_id)
-                db.add(row)
-            row.wow_class = record.wow_class
-            row.primary_spec = record.primary
-            row.secondary_spec = record.secondary
-            row.updated_at = datetime.now(UTC)
+            _write(db, record)
+
+    def import_specs(self, records: list[SpecRecord], by: int, raid_day: str, source: str) -> None:
+        with self._db.begin() as db:
+            for record in records:
+                _write(db, record)
+            audit.record(
+                db, actor=by, action="specs.import", target=f"{source} {len(records)} members", raid_day=raid_day
+            )
 
     def clear_specs(self, member_id: int) -> bool:
         with self._db.begin() as db:

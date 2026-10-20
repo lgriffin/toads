@@ -114,4 +114,6 @@ What the bot does about the hub going away:
 - **Storage.** `BotBridge` keeps its queue in memory (`InMemoryBridgeStore`), so an API restart drops unsent
   actions. A table behind `BridgeStore` replaces it without changing the rules.
 - **The Toad Bot.** The existing Toad Bot (`toads_bot.cogs.community`, `/api/bot/*`) still runs on its own outbox.
+  Its `/raidhelper import` (`toads_bot.cogs.raid_helper`) carries a Raid-Helper export to the hub as the officer who
+  ran it, the one route the hub service token may act for a member on ([toad-bot.md](toad-bot.md)).
   It can move onto the kit as a `Community` binding once the bridge has its table.

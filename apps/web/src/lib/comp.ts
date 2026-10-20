@@ -395,6 +395,8 @@ export interface MySpecs {
   wow_class: string;
   primary: string;
   secondary: string | null;
+  /** True while the specs are an officer's Raid-Helper import the member has not confirmed or changed. */
+  imported?: boolean;
 }
 
 export interface ApiSeat {

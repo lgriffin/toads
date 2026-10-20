@@ -36,6 +36,18 @@ class PoolEntry:
 
 
 @dataclass(frozen=True)
+class ImportedSpec:
+    """What an import did for one member: "added" specs they had none of, "updated" specs an earlier import set,
+    "unchanged", or "kept" the specs the member chose themselves."""
+
+    member_id: int
+    name: str
+    wow_class: str
+    spec: str
+    outcome: str
+
+
+@dataclass(frozen=True)
 class SeatView:
     spec: str
     member_id: int | None
@@ -84,6 +96,32 @@ class CompService:
 
     def clear_specs(self, member_id: int) -> None:
         self.repo.clear_specs(member_id)
+
+    def import_specs(
+        self, signups: list[tuple[int, str, str, str]], by: int, raid_day: str, source: str
+    ) -> list[ImportedSpec]:
+        """Pre-fill specs from a sign-up sheet, as (member id, name, class, spec). A member's own choice is never
+        overwritten; specs an earlier import set are, so a newer sheet corrects an older one. Imported specs stay
+        marked as imported until the member saves their own on Me."""
+        current = {r.member_id: r for r in self.repo.specs([m for m, *_ in signups])}
+        writes: list[SpecRecord] = []
+        done: list[ImportedSpec] = []
+        for member_id, name, wow_class, spec in signups:
+            check_specs(wow_class, spec, None)
+            had = current.get(member_id)
+            if had is not None and had.imported_from is None:
+                outcome = "kept"
+            elif had is not None and (had.wow_class, had.primary) == (wow_class, spec):
+                outcome = "unchanged"
+            else:
+                # Keep an imported secondary only while it still fits the class and differs from the new primary.
+                keep = had.secondary if had and had.wow_class == wow_class and had.secondary != spec else None
+                writes.append(SpecRecord(member_id, wow_class, spec, keep, source))
+                outcome = "added" if had is None else "updated"
+            done.append(ImportedSpec(member_id, name, wow_class, spec, outcome))
+        if writes:
+            self.repo.import_specs(writes, by, raid_day, source)
+        return done
 
     # ----------------------------------------------------------------- pool
 

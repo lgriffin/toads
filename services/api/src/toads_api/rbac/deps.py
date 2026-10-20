@@ -32,26 +32,41 @@ ACTING_MEMBER_HEADER = "X-Toads-Acting-Member"
 # The audit action every change made by the break-glass admin is recorded under (docs/admin.md).
 BREAK_GLASS_ACTION = "break_glass"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-# The routes a bot may call on a member's behalf (docs/bank.md): the bank's, nothing else.
+# The routes a bot may call on a member's behalf: the bank's for the bank bot (docs/bank.md), nothing else.
 ACTING_PATHS = re.compile(r"^/api/(days/[a-z0-9_-]{1,32}/)?bank/(?!events$)")
+# And the Toad Bot's `/raidhelper import` (docs/comps.md), with the hub service token.
+TOAD_BOT_ACTING_PATHS = re.compile(r"^/api/days/[a-z0-9_-]{1,32}/comps/raid-helper$")
+
+
+def _bearer_is(request: Request, secret: str) -> bool:
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    return (
+        scheme.lower() == "bearer"
+        and bool(token)
+        and bool(secret)
+        and hmac.compare_digest(token.encode(), secret.encode())
+    )
 
 
 def _is_bank_bot_token(request: Request, services: Services) -> bool:
     """The bank bot's own token (TOADS_BANK_BOT_TOKEN), never the shared hub service token."""
-    scheme, _, token = request.headers.get("authorization", "").partition(" ")
-    expected = services.settings.bank_bot_token.get_secret_value()
-    return (
-        scheme.lower() == "bearer"
-        and bool(token)
-        and bool(expected)
-        and hmac.compare_digest(token.encode(), expected.encode())
-    )
+    return _bearer_is(request, services.settings.bank_bot_token.get_secret_value())
+
+
+def _may_act(request: Request, services: Services) -> bool:
+    path = request.url.path
+    if ACTING_PATHS.match(path):
+        return _is_bank_bot_token(request, services)
+    if TOAD_BOT_ACTING_PATHS.match(path):
+        return _bearer_is(request, services.settings.hub_service_token.get_secret_value())
+    return False
 
 
 async def _acting_member(request: Request, services: Services, raw: str) -> Principal:
-    """The bank bot calling with its own token on behalf of the Discord member who used its command or button. The
-    member's roles are read from Discord, so the bot gains no power the member does not have."""
-    if not ACTING_PATHS.match(request.url.path) or not _is_bank_bot_token(request, services):
+    """A bot calling on behalf of the Discord member who used its command or button: the bank bot with its own token
+    on the bank's routes, or the Toad Bot with the hub service token on its Raid-Helper import. The member's roles are
+    read from Discord, so the bot gains no power the member does not have."""
+    if not _may_act(request, services):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not signed in")
     if not raw.isdigit() or len(raw) > 20:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{ACTING_MEMBER_HEADER} must be a user id")

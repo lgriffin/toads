@@ -66,10 +66,11 @@ class RoleBadgeService:
 
         return by_night(night_badge_id), by_night(night_officer_badge_id)
 
-    def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
-        """The badges a member's Discord roles earn, each once, in catalogue order."""
+    def earned(self, discord_role_ids: Iterable[int], also: Iterable[str] = ()) -> list[RoleBadge]:
+        """The badges a member's Discord roles earn, plus the badge ids in `also` (the class and role their primary
+        spec earns), each once, in catalogue order."""
         held = set(discord_role_ids)
-        ids = {r.badge_id for r in self._live() if r.discord_role_id in held}
+        ids = {r.badge_id for r in self._live() if r.discord_role_id in held} | set(also)
         return [b for b in ROLE_BADGES.values() if b.id in ids]
 
     def tie(self, discord_role_id: int, role_name: str, badge_id: str, by: int) -> LinkView:

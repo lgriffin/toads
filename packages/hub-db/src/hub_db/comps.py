@@ -24,6 +24,9 @@ class MemberSpec(Base):
     wow_class: Mapped[str] = mapped_column(String(16))
     primary_spec: Mapped[str] = mapped_column(String(32))
     secondary_spec: Mapped[str | None] = mapped_column(String(32))
+    # Null when the member set these themselves; else where an officer imported them from ("raid-helper"), until the
+    # member saves their own on Me.
+    imported_from: Mapped[str | None] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

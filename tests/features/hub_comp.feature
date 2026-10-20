@@ -45,3 +45,32 @@ Feature: HUB COMP
     And a Sunday officer
     Then the raider is refused Wednesday's roster
     And the Sunday officer is refused Wednesday's roster
+
+  @ears_event_driven @raid_leader @phase_2_7
+  Scenario: REQ-HUB-COMP-007 When a raid night's officer imports a Raid-Helper export, the hub shall pre-fill the specs of everyone it seats who is in the Discord server, marked as imported, and keep the specs members chose themselves
+    Given a Sunday officer
+    And a Sunday raider who has never signed in to the hub
+    And a Sunday raider who set their own specs to "mage-frost"
+    When the Sunday officer imports a Raid-Helper export seating both raiders as "Tank" "Protection1"
+    Then the raider who never signed in is on Sunday's roster as "paladin-protection"
+    And the raider who set their own specs is still "mage-frost"
+    And the audit log records "specs.import"
+
+  @ears_event_driven @member @phase_2_7
+  Scenario: REQ-HUB-COMP-008 When a member whose specs were imported signs in, the hub shall show them as imported with the class and role badges their primary spec earns, until the member saves their own
+    Given a Sunday officer
+    And a Sunday raider who has never signed in to the hub
+    When the Sunday officer imports a Raid-Helper export seating the raider as "Priest" "Holy"
+    And the raider signs in
+    Then their specs read back as "priest-holy", marked as imported
+    And their badges include "priest" and "healer"
+    When the raider confirms their specs
+    Then their specs read back as "priest-holy", not marked as imported
+
+  @ears_unwanted_behavior @raid_leader @phase_2_7
+  Scenario: REQ-HUB-COMP-009 If someone who is not the raid night's officer sends the Toad Bot a Raid-Helper export for that night, then the hub shall refuse it and change no specs
+    Given a Sunday raider who has never signed in to the hub
+    And a Wednesday officer
+    When the Wednesday officer sends the Toad Bot a Sunday export seating the raider as "Priest" "Holy"
+    Then the import is refused
+    And the raider has no specs

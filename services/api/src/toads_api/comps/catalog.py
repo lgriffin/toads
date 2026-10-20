@@ -77,6 +77,16 @@ SPECS: dict[str, Spec] = {
     ]
 }
 
+
+def badges_of_spec(spec_id: str) -> tuple[str, ...]:
+    """The role badges (`toads_api.role_badges.catalog`) a primary spec earns: its class, and Tank, Healer or Damage."""
+    spec = SPECS.get(spec_id)
+    if spec is None:
+        return ()
+    role = {Role.TANK: "tank", Role.HEALER: "healer"}.get(spec.role, "damage")
+    return (spec.wow_class, role)
+
+
 # Raid sizes World of Warcraft: Forever runs, in groups of five.
 RAID_SIZES = (10, 20, 40)
 GROUP_SIZE = 5

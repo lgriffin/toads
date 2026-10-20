@@ -17,6 +17,9 @@ so a night's officers can be set up entirely on the Admin page. Untie the badge 
 `raid_days.yaml` stays authoritative: badges only add holders on top of it, and nothing on the Admin page removes a
 role the file grants. Individual officer grants for one member, and global officers, are separate.
 
+A member's primary spec (set on Me, or imported from a Raid-Helper sign-up by an officer) also earns its class badge and
+Tank, Healer or Damage, with no role to tie (docs/comps.md, "Badges from specs").
+
 Every signed-in member also wears their rank toad without any setup: the member toad for everyone, plus the officer
 toad for officers, the super admin toad for super admins (`TOADS_SUPER_ADMIN_IDS`) and the Archtoad for the guild
 master.

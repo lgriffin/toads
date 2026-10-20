@@ -533,6 +533,14 @@ privately, and let them redeem it on the Bank page or with `/bank redeem <token>
 An officer (or grant holder) scans the bank in game with the ToadsBank addon, exports it, and pastes the parts on the
 Bank page or into `/bank import` in Discord, then checks the preview and accepts it. Details in ToadsBank's guide.
 
+### Pre-fill specs from a Raid-Helper sign-up
+
+Export the night's sign-ups from Raid-Helper (the composition tool or the event), then run
+`/raidhelper import night:<night> export:<file>` on the Toad Bot as one of that night's officers. Everyone the export
+seats gets their class and primary spec, and the class and role badges that come with it, before they sign in; members
+can correct them on Me. Specs a member set themselves are kept. Details, and where the data lands, in
+[docs/toad-bot.md](docs/toad-bot.md).
+
 ### Approve bank requests
 
 Managers get a DM with Approve, Reject and Record delivery buttons when a request is assigned. The same queue is on the

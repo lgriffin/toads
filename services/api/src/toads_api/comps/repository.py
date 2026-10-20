@@ -15,6 +15,8 @@ class SpecRecord:
     wow_class: str
     primary: str
     secondary: str | None
+    # None when the member chose these; else where an officer imported them from, until the member saves their own.
+    imported_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,9 @@ class CompRepository(Protocol):
     def specs(self, member_ids: Iterable[int] | None = None) -> list[SpecRecord]: ...
     def set_specs(self, record: SpecRecord) -> None: ...
     def clear_specs(self, member_id: int) -> bool: ...
+    def import_specs(self, records: list[SpecRecord], by: int, raid_day: str, source: str) -> None:
+        """Write imported specs in one go, recorded on the audit log as one import."""
+        ...
 
     def members_on(self, raid_day: str) -> list[int]:
         """Members whose Discord roles put them on this raid day, as last read from Discord."""
@@ -81,6 +86,10 @@ class InMemoryCompRepository:
 
     def clear_specs(self, member_id: int) -> bool:
         return self.spec_rows.pop(member_id, None) is not None
+
+    def import_specs(self, records: list[SpecRecord], by: int, raid_day: str, source: str) -> None:
+        for record in records:
+            self.spec_rows[record.member_id] = record
 
     def members_on(self, raid_day: str) -> list[int]:
         return sorted(m for m, days in self.raid_days.items() if raid_day in days)

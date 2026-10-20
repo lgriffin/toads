@@ -7,15 +7,19 @@ import re
 from pathlib import Path
 
 import anyio
+import httpx
 import pytest
 from hub_db import AuditEntry, Member
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from toads_api import identity
+from toads_api.comps import raid_helper
 from toads_api.comps.catalog import CLASSES, SPECS
 from toads_api.comps.repository import InMemoryCompRepository, Seat
 from toads_api.comps.service import CompError, CompService
 from toads_api.identity import ROSTERS_SYNCED_KEY
+from toads_api.rbac.deps import ACTING_MEMBER_HEADER
+from toads_api.testing.fake_discord import FakeUser
 
 from conftest import Hub
 
@@ -129,7 +133,7 @@ def test_a_member_sets_reads_and_clears_their_specs(hub: Hub) -> None:
     body = {"wow_class": "shaman", "primary": "shaman-elemental", "secondary": "shaman-restoration"}
     r = _put(hub, "/api/me/specs", sid, body)
     assert r.status_code == 200, r.text
-    assert hub.get("/api/me/specs", sid).json() == body
+    assert hub.get("/api/me/specs", sid).json() == body | {"imported": False}
     bad = _put(hub, "/api/me/specs", sid, {"wow_class": "shaman", "primary": "mage-frost"})
     assert bad.status_code == 422
     assert hub.delete("/api/me/specs", sid).status_code == 204
@@ -299,3 +303,134 @@ def test_a_failed_roster_write_serves_the_stored_roster_and_retries(hub: Hub, mo
     assert sorted(_officer_pool(hub, officer)) == ["Croak"]
     monkeypatch.undo()
     assert sorted(_officer_pool(hub, officer)) == ["Croak", "Lilypadd"]
+
+
+# ------------------------------------------------------------- Raid-Helper imports
+
+
+def _slot(user: int | None, name: str, cls: str, spec: str, colour: str, confirmed: str = "confirmed") -> object:
+    slot: dict[str, object] = {"name": name, "className": cls, "specName": spec, "color": colour}
+    slot["isConfirmed"] = confirmed
+    if user is not None:
+        slot["userId"] = str(user)
+    return slot
+
+
+def test_a_raid_helper_composition_reads_as_our_classes_and_specs() -> None:
+    export = {
+        "slots": [
+            _slot(11, "Anvil", "Tank", "Protection", "#C69B6D"),
+            _slot(12, "Bulwark", "Tank", "Protection1", "#F48CBA"),
+            _slot(13, "Bramble", "Tank", "Guardian", "#FF7C0A"),
+            _slot(14, "Lightly", "Paladin", "Holy1", "#F48CBA"),
+            _slot(15, "Tide", "Shaman", "Restoration1", "#0070DD"),
+            _slot(16, "Arrow", "Hunter", "Beastmastery", "#AAD372"),
+            _slot(None, "Holy(Spot to be filled)", "Paladin", "Holy1", "#F48CBA", "unconfirmed"),
+            _slot(17, "Maybe", "Mage", "Fire", "#3FC7EB", "unconfirmed"),
+            _slot(11, "Anvil again", "Warrior", "Fury", "#C69B6D"),
+            _slot(18, "Monk", "Monk", "Brewmaster", "#00FF98"),
+            {"groupNumber": 3, "slotNumber": 5},
+        ]
+    }
+    signups, skipped = raid_helper.read_export(export)
+    assert [(s.discord_user_id, s.spec) for s in signups] == [
+        (11, "warrior-protection"),
+        (12, "paladin-protection"),
+        (13, "druid-guardian"),
+        (14, "paladin-holy"),
+        (15, "shaman-restoration"),
+        (16, "hunter-beast-mastery"),
+    ]
+    assert [(s.name, s.reason.split(" ")[0]) for s in skipped] == [
+        ("Holy(Spot to be filled)", "An"),
+        ("Maybe", "Not"),
+        ("Anvil again", "Signed"),
+        ("Monk", "Unknown"),
+    ]
+
+
+def test_event_sign_ups_count_only_people_in_the_raid() -> None:
+    export = {
+        "signUps": [
+            {"name": "Seat", "userId": "21", "className": "Priest", "specName": "Discipline", "status": "primary"},
+            {"name": "Bench", "userId": "22", "className": "Bench", "specName": "", "status": "primary"},
+            {"name": "Queued", "userId": "23", "className": "Mage", "specName": "Frost", "status": "queued"},
+        ]
+    }
+    signups, skipped = raid_helper.read_export(export)
+    assert [s.spec for s in signups] == ["priest-discipline"]
+    assert [s.name for s in skipped] == ["Bench", "Queued"]
+
+
+@pytest.mark.parametrize("export", [[], "text", {"title": "x"}, {"slots": [{}] * (raid_helper.MAX_ENTRIES + 1)}])
+def test_anything_else_is_not_an_export(export: object) -> None:
+    with pytest.raises(raid_helper.ExportError):
+        raid_helper.read_export(export)
+
+
+def test_an_import_fills_in_specs_but_never_overwrites_a_members_own() -> None:
+    svc = _service()
+    svc.set_specs(1, "mage", "mage-frost", None)
+    first = svc.import_specs(
+        [(1, "Hop", "priest", "priest-holy"), (2, "Lily", "priest", "priest-holy")], 9, "sun", "rh"
+    )
+    assert [d.outcome for d in first] == ["kept", "added"]
+    own, imported = svc.my_specs(1), svc.my_specs(2)
+    assert own is not None and (own.primary, own.imported_from) == ("mage-frost", None)
+    assert imported is not None and (imported.primary, imported.imported_from) == ("priest-holy", "rh")
+    again = svc.import_specs([(2, "Lily", "priest", "priest-holy")], 9, "sun", "rh")
+    assert [d.outcome for d in again] == ["unchanged"]
+    newer = svc.import_specs([(2, "Lily", "priest", "priest-shadow")], 9, "sun", "rh")
+    assert [d.outcome for d in newer] == ["updated"]
+    # Saving on Me makes them the member's own, so the next import leaves them alone.
+    svc.set_specs(2, "priest", "priest-shadow", "priest-holy")
+    assert [d.outcome for d in svc.import_specs([(2, "Lily", "priest", "priest-holy")], 9, "sun", "rh")] == ["kept"]
+
+
+def _raid_helper(hub: Hub, users: list[FakeUser], headers: dict[str, str]) -> httpx.Response:
+    slots = [_slot(u.user_id, f"Seat{i}", "Priest", "Holy", "#FFFFFF") for i, u in enumerate(users)]
+    return hub.client.post("/api/days/sun/comps/raid-helper", headers=headers, json={"slots": slots})
+
+
+def test_the_import_reports_each_seat_and_skips_people_outside_the_server(hub: Hub) -> None:
+    officer = hub.login(hub.user(("sun", "officer")))
+    raider, gone = hub.user(("sun", "raider"), nick="Tadpole"), hub.user(("sun", "raider"), in_guild=False)
+    r = _raid_helper(hub, [raider, gone], hub.as_(officer))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["added"], body["skipped"]) == (1, 1)
+    assert [(row["discord_user_id"], row["outcome"]) for row in body["rows"]] == [
+        (str(raider.user_id), "added"),
+        (str(gone.user_id), "skipped"),
+    ]
+    bad = hub.client.post("/api/days/sun/comps/raid-helper", headers=hub.as_(officer), json={"title": "x"})
+    assert bad.status_code == 422
+
+
+@pytest.mark.security
+def test_the_toad_bot_imports_only_as_that_nights_officer(hub: Hub) -> None:
+    raider = hub.user(("sun", "raider"))
+    officer, wed_officer = hub.user(("sun", "officer")), hub.user(("wed", "officer"))
+
+    service_token = hub.services.settings.hub_service_token.get_secret_value()
+
+    def bot(user: FakeUser, token: str | None = None) -> dict[str, str]:
+        token = token or service_token
+        return {"authorization": f"Bearer {token}", ACTING_MEMBER_HEADER: str(user.user_id)}
+
+    assert _raid_helper(hub, [raider], bot(raider)).status_code == 403
+    assert _raid_helper(hub, [raider], bot(wed_officer)).status_code == 403
+    assert _raid_helper(hub, [raider], bot(officer, "not-the-token")).status_code == 401
+    assert _raid_helper(hub, [raider], bot(officer)).status_code == 200
+    # The hub service token acts for a member on this import only.
+    assert hub.client.get("/api/me/specs", headers=bot(officer)).status_code == 401
+    assert hub.client.get("/api/days/sun/comps/pool", headers=bot(officer)).status_code == 401
+
+
+def test_the_primary_spec_earns_its_class_and_role_badges(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider")))
+    assert hub.get("/api/me/role-badges", sid).json() == []
+    _put(hub, "/api/me/specs", sid, {"wow_class": "druid", "primary": "druid-guardian", "secondary": "druid-feral"})
+    assert [b["id"] for b in hub.get("/api/me/role-badges", sid).json()] == ["tank", "druid"]
+    _put(hub, "/api/me/specs", sid, {"wow_class": "mage", "primary": "mage-fire"})
+    assert [b["id"] for b in hub.get("/api/me/role-badges", sid).json()] == ["damage", "mage"]
