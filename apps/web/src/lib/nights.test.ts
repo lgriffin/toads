@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NIGHT_IDS, NIGHT_NAMES, NIGHTS_IN_WORDS, NIGHTS_OR, RAID_NIGHTS, TEAM_COUNT, inWords, raidNight } from './nights';
 import { ROLE_BADGES } from './role-badges';
+import { previewComps } from './preview/comp-fake';
 
 describe('raid nights', () => {
   it('runs three teams, Wednesday, Thursday and Sunday, in week order', () => {
@@ -18,6 +19,9 @@ describe('raid nights', () => {
   });
   it('gives every night a role badge with its toad', () => {
     for (const n of RAID_NIGHTS) expect(ROLE_BADGES.find((b) => b.file === n.toad)?.name).toBe(`${n.name} Toad`);
+  });
+  it('gives every night a preview roster', async () => {
+    for (const n of RAID_NIGHTS) expect((await previewComps.pool(n.id)).length).toBeGreaterThan(0);
   });
   it('lists in words', () => {
     expect(inWords([])).toBe('');

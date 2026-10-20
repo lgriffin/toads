@@ -25,10 +25,11 @@ import type {
   ReplicaSlot,
   SourceStock
 } from '$lib/bank';
+import { NIGHT_IDS } from '$lib/nights';
 import { hasOfficerPowers } from './gate';
 import { previewSession } from './session.svelte';
 
-const DAYS = ['wed', 'sun'];
+const DAYS = [...NIGHT_IDS];
 /** Short pretend Discord ids: real ones are 17 to 20 digits. */
 const HOPSCOTCH = '1001';
 const BREAK_GLASS = '1000';
@@ -102,6 +103,15 @@ function seed() {
         { itemId: 32447, name: 'Pattern: Belt of Deep Shadow', count: 1, tab: 3 }
       ],
       raidHeld: { 22854: 4 }
+    },
+    {
+      source: source('thu-main', 'Thursday bank', 'Toads Bank III', 'thu', 'members', 6, ['Consumables', 'Mats']),
+      items: [
+        { itemId: 22838, name: 'Haste Potion', count: 30, tab: 1 },
+        { itemId: 22851, name: 'Flask of Fortification', count: 6, tab: 1 },
+        { itemId: 22849, name: 'Ironshield Potion', count: 12, tab: 2 }
+      ],
+      raidHeld: {}
     },
     {
       source: source('sun-main', 'Sunday bank', 'Toads Bank II', 'sun', 'members', 30, ['Consumables', 'Mats', 'Recipes']),
