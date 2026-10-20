@@ -1,5 +1,5 @@
 /**
- * Recruit form: five questions and nothing personal (no age, email or real name).
+ * Recruit form: six questions and nothing personal (no age, email or real name).
  * The API re-validates everything and checks the applicant is still in the Toads Discord; this gives field-level
  * feedback before they send.
  */
@@ -46,6 +46,14 @@ export interface ApplicationInput {
   /** Empty: no secondary role. */
   secondaryRole: string;
   whyToads: string;
+  /** The raid night they apply for (a raid day id); its officers' interview panel meets them. */
+  raidDay: string;
+}
+
+/** A night the recruit page offers, from GET /api/public/raid-nights. */
+export interface RaidNight {
+  id: string;
+  name: string;
 }
 
 export type ApplicationField = keyof ApplicationInput;
@@ -56,7 +64,8 @@ export const EMPTY_APPLICATION: ApplicationInput = {
   className: '',
   primaryRole: '',
   secondaryRole: '',
-  whyToads: ''
+  whyToads: '',
+  raidDay: ''
 };
 
 /** Letters only (accented letters included), 2 to 12 of them, like the in-game rule. */
@@ -85,7 +94,14 @@ function roleError(className: string, role: string): string | undefined {
   return undefined;
 }
 
-export function validateApplication(input: ApplicationInput): ApplicationErrors {
+/** "Wednesday, Thursday and Sunday": the nights on offer, for the recruit page's copy. */
+export function nightsList(nights: readonly RaidNight[]): string {
+  const names = nights.map((n) => n.name);
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
+/** `nights` are the raid day ids on offer; with none (an older hub), the night is not asked. */
+export function validateApplication(input: ApplicationInput, nights: readonly string[] = []): ApplicationErrors {
   const e: ApplicationErrors = {};
   const name = normaliseName(input.characterName ?? '');
   if (!name) e.characterName = 'Enter your main character’s name.';
@@ -106,6 +122,8 @@ export function validateApplication(input: ApplicationInput): ApplicationErrors 
     else if (input.secondaryRole === input.primaryRole) e.secondaryRole = 'Pick a different role, or “No second role”.';
   }
 
+  if (nights.length && !nights.includes(input.raidDay)) e.raidDay = 'Pick the night you want to raid.';
+
   const why = (input.whyToads ?? '').trim();
   if (!why) e.whyToads = 'Tell us a little about why you want to join.';
   else if (why.length > APPLICATION_LIMITS.whyToads) e.whyToads = `Keep this to ${APPLICATION_LIMITS.whyToads} characters.`;
@@ -119,6 +137,7 @@ export function toApiBody(input: ApplicationInput) {
     class_name: input.className,
     role: input.primaryRole,
     secondary_role: input.secondaryRole || null,
-    why_toads: input.whyToads.trim()
+    why_toads: input.whyToads.trim(),
+    raid_days: input.raidDay ? [input.raidDay] : []
   };
 }

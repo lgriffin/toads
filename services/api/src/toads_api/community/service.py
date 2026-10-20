@@ -28,6 +28,8 @@ from toads_api.community.schemas import (
     HighlightAction,
     HighlightCreate,
     HighlightStatus,
+    Interviewer,
+    InterviewPanel,
     OutboxAck,
     OutboxJob,
     OutboxKind,
@@ -36,6 +38,7 @@ from toads_api.community.schemas import (
     PostOrigin,
     PostStatus,
     PublicStory,
+    RaidNight,
     RecruitmentNeed,
     Spotlight,
     SpotlightConsent,
@@ -74,6 +77,8 @@ class RaidDayDirectory:
     day_ids: frozenset[str] = frozenset()
     global_officer_roles: tuple[int, ...] = ()
     officer_roles: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    # Each day's name by id, in config order: the nights the recruit page offers.
+    day_names: dict[str, str] = field(default_factory=dict)
 
     def officer_role_ids(self, days: list[str]) -> list[int]:
         """Roles that may see an interview room: the global tier plus the officers of the days applied for."""
@@ -319,8 +324,8 @@ class CommunityService:
             created_at=now,
         )
         self.repo.save_application(app)
-        if self.config.interviewers:
-            # The named interviewers see every applicant, so the room opens now rather than waiting for an officer.
+        if self.interviewers_for(app.raid_days):
+            # The interviewers see every applicant, so the room opens now rather than waiting for an officer.
             self._move(app, ApplicationStatus.INTERVIEWING, member_id, "Interview room opened on applying")
             self._request_room(app)
             self._audit(member_id, "application.interview_room", f"application:{app.id}", None)
@@ -434,9 +439,9 @@ class CommunityService:
         return app
 
     def _request_room(self, app: Application) -> None:
-        """The bot's job for a private room: the applicant plus the named interviewers when there are any, else the
+        """The bot's job for a private room: the applicant plus the interviewers when there are any, else the
         officers of the days applied for and the global tier. The answers ride along so the room opens with them."""
-        interviewers = list(self.config.interviewers)
+        interviewers = self.interviewers_for(app.raid_days)
         self._enqueue(
             OutboxKind.CREATE_INTERVIEW_ROOM,
             {
@@ -452,6 +457,48 @@ class CommunityService:
                 "why_toads": app.why_toads,
             },
         )
+
+    # -------------------------------------------------------- interview panels
+
+    def raid_nights(self) -> list[RaidNight]:
+        """The nights someone can apply for, in config order."""
+        return [RaidNight(id=day, name=name) for day, name in self.raid_days.day_names.items()]
+
+    def interviewers_for(self, raid_days: list[str]) -> list[str]:
+        """Who interviews an applicant for these nights: those nights' panels, as Discord user ids. When none of them
+        has a panel (or no night was chosen), the community config's interviewers; empty means officers open rooms."""
+        named = [i.discord_user_id for day in raid_days for i in self.repo.interview_panel(day)]
+        return list(dict.fromkeys(named)) or list(self.config.interviewers)
+
+    def _night(self, scope: str) -> str:
+        if scope not in self.raid_days.day_ids:
+            raise NotFound("No such raid day")
+        return scope
+
+    def interview_panel(self, scope: str) -> InterviewPanel:
+        day = self._night(scope)
+        return InterviewPanel(
+            raid_day=day, interviewers=self.repo.interview_panel(day), fallback=list(self.config.interviewers)
+        )
+
+    def add_interviewer(self, actor_id: int, scope: str, who: Interviewer) -> InterviewPanel:
+        panel = self.repo.interview_panel(self._night(scope))
+        if any(i.discord_user_id == who.discord_user_id for i in panel):
+            raise Conflict(f"{who.display_name} is already on this night's panel")
+        if len(panel) >= recruitment.PANEL_LIMIT:
+            raise Conflict(f"A panel holds {recruitment.PANEL_LIMIT} interviewers; remove someone first")
+        self.repo.set_interview_panel(scope, [*panel, who], actor_id)
+        self._audit(actor_id, "recruitment.panel_add", f"discord_user:{who.discord_user_id}", scope)
+        return self.interview_panel(scope)
+
+    def remove_interviewer(self, actor_id: int, scope: str, discord_user_id: str) -> InterviewPanel:
+        panel = self.repo.interview_panel(self._night(scope))
+        rest = [i for i in panel if i.discord_user_id != discord_user_id]
+        if len(rest) == len(panel):
+            raise NotFound("They are not on this night's panel")
+        self.repo.set_interview_panel(scope, rest, actor_id)
+        self._audit(actor_id, "recruitment.panel_remove", f"discord_user:{discord_user_id}", scope)
+        return self.interview_panel(scope)
 
     # ------------------------------------------------------------------ outbox
 

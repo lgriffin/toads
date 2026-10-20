@@ -157,7 +157,7 @@
       {/each}
     </div>
     <p class="apply-how">
-      Applying is five questions. Join our Discord first: the moment you send them, the Toad Bot opens a private
+      Applying is six questions. Join our Discord first: the moment you send them, the Toad Bot opens a private
       interview room there for you and our recruitment officers.
     </p>
     <p class="cta left">

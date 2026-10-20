@@ -164,6 +164,36 @@ class RecruitmentNeed(BaseModel):
     raid_days: list[DayId] = Field(default_factory=list, max_length=7)
 
 
+class RaidNight(BaseModel):
+    """A raid day an applicant can apply for, as the recruit page offers it."""
+
+    id: DayId
+    name: str
+
+
+class Interviewer(BaseModel):
+    """One Discord member on a raid night's interview panel (docs/recruitment.md)."""
+
+    # A string: Discord ids are past the largest integer a browser can hold exactly.
+    discord_user_id: Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]{0,19}$")]
+    username: str
+    display_name: str
+
+
+class InterviewerAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    discord_user_id: Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]{0,19}$")]
+
+
+class InterviewPanel(BaseModel):
+    """Who interviews a night's applicants. With no one on it, `fallback` (the community config's list) does."""
+
+    raid_day: DayId
+    interviewers: list[Interviewer]
+    fallback: list[str]
+
+
 class ClipProvider(enum.StrEnum):
     YOUTUBE = "youtube"
     TWITCH = "twitch"

@@ -29,6 +29,9 @@ MIN_DISCORD_ACCOUNT_AGE_DAYS = 7
 APPLICATION_LIMIT = 3
 APPLICATION_WINDOW_DAYS = 7
 
+# A raid night's interview panel (docs/recruitment.md): enough for every officer, small enough to fit one room.
+PANEL_LIMIT = 10
+
 # Discord ids are snowflakes: the top 42 bits are milliseconds since this epoch, so an id says when the account began.
 DISCORD_EPOCH_MS = 1_420_070_400_000
 

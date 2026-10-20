@@ -90,3 +90,20 @@ Feature: HUB RECRUIT
     And the applicant has applied and withdrawn 3 times today
     Then a fourth application is refused with 409
     And an application 8 days later is accepted
+
+  @ears_event_driven @member @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-013 When someone applies for a raid night whose officers have set an interview panel, the bot shall open their interview room straight away with only the applicant, that night's panel and the bot in it
+    Given the demo guild with interviewers _gallagher and hadur117
+    And the Sunday officer has put croakley and pondkeeper from the Discord on the Sunday interview panel
+    When the applicant applies for Sunday
+    Then the application is being interviewed
+    And the bot is asked for a room for the applicant with croakley and pondkeeper by Discord id and no officer roles
+    And a Wednesday applicant still gets _gallagher and hadur117
+
+  @ears_ubiquitous @raid_leader @maintainer @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-014 Only a raid night's officers, the global tier and super admins shall see or change that night's interview panel, and every change shall be on the audit log
+    Given the demo guild
+    When the Wednesday officer tries to put croakley on the Sunday interview panel
+    Then the hub refuses it with 403
+    And the global officer can put croakley on the Sunday interview panel
+    And the audit log names the Sunday panel change

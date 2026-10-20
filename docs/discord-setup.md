@@ -1,8 +1,9 @@
 # Setting up Discord for Toads applications
 
 When someone applies to Toads on the website, the **Toad Bot** creates a private channel on the Toads Discord server
-called `#interview-<their character>`. Only the applicant, `_gallagher` and `hadur117` can see it, and the
-applicant's answers are posted inside.
+called `#interview-<their character>`. Only the applicant and the interviewers for the night they picked (Wednesday,
+Thursday or Sunday) can see it, and the applicant's answers are posted inside. Each night's officers choose those
+interviewers on the website (Officers > Recruitment); until they do, `_gallagher` and `hadur117` interview everyone.
 
 This guide is for the server admin. Everything is done by clicking in Discord. There is no coding and there are no
 files, and no passwords to handle. It takes about 15 minutes.
@@ -53,7 +54,7 @@ Interview channels are created inside this category.
 2. Name it `Interviews`.
 3. Switch **Private Category** on, then press **Next**.
 4. On the "Add members or roles" screen, search for **Toad Bot**, tick it, and press **Create Category**. Don't add
-   anyone else: `_gallagher`, `hadur117` and each applicant are let into their own channel automatically.
+   anyone else: the interviewers and each applicant are let into their own channel automatically.
 
 **Check:** the `Interviews` category appears in the channel list with a padlock icon.
 
@@ -81,6 +82,7 @@ They are long numbers, such as `1187654321098765432`. If what you pasted is a na
 
 **Check:** the channel has a message from the Toad Bot that mentions the applicant, `_gallagher` and `hadur117`, with
 the answers underneath. When you look at the channel's member list, it shows only those three, plus server admins.
+(If the night the tester picked already has an interview panel on the website, the room has that panel instead.)
 
 You're done. Server admins can always see every channel, so you will see interview channels too.
 

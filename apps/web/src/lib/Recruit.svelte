@@ -17,7 +17,9 @@
     validateApplication,
     type ApplicationErrors,
     type ApplicationField,
-    type ApplicationInput
+    type ApplicationInput,
+    type RaidNight,
+    nightsList
   } from '$lib/application';
   import NeedsList from '$lib/components/NeedsList.svelte';
   import type { RecruitmentNeed } from '$lib/community';
@@ -30,12 +32,15 @@
     signedIn,
     loginHref,
     needs = [],
+    nights = [],
     send
   }: {
     /** null while the page is still asking who is here. */
     signedIn: boolean | null;
     loginHref: string;
     needs?: RecruitmentNeed[];
+    /** The raid nights to choose between; each night's officers pick who interviews its applicants. */
+    nights?: RaidNight[];
     /** Resolves with the new application's status; rejects with what to tell the applicant. */
     send: (input: ApplicationInput) => Promise<{ status: string }>;
   } = $props();
@@ -56,7 +61,8 @@
     className: 'Class',
     primaryRole: 'Primary role',
     secondaryRole: 'Secondary role',
-    whyToads: 'Why Toads?'
+    whyToads: 'Why Toads?',
+    raidDay: 'Raid night'
   };
 
   let restored = $state(false);
@@ -99,7 +105,10 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     failure = null;
-    errors = validateApplication(form);
+    errors = validateApplication(
+      form,
+      nights.map((n) => n.id)
+    );
     if (Object.keys(errors).length) return showErrors();
     if (!signedIn) {
       window.location.assign(loginHref);
@@ -137,7 +146,7 @@
 <PondHero
   title="Raid with the Toads"
   line="Horde · PvP · EU"
-  lede="We raid Wednesday and Sunday evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
+  lede="We raid {nights.length ? nightsList(nights) : 'several'} evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
   toads={['roles/healer-badge', 'roles/damage-badge']}
 />
 
@@ -168,7 +177,7 @@
   <li class="step">
     <span class="num" aria-hidden="true">3</span>
     <div>
-      <h2>Answer five questions</h2>
+      <h2>Answer six questions</h2>
       <p>
         Send them and the Toad Bot opens a private channel just for you and our recruitment officers. Nobody else in the
         server can see it.
@@ -285,6 +294,22 @@
           {#if errors.secondaryRole}<span id="secondaryRole-error" class="err">{errors.secondaryRole}</span>{/if}
         </fieldset>
 
+        {#if nights.length}
+          <fieldset class="roles" aria-describedby={describedBy('raidDay', 'raidDay-hint')}>
+            <legend id="f-raidDay">Raid night</legend>
+            <span id="raidDay-hint" class="hint">The night you want to raid. That night's officers interview you.</span>
+            <div class="chips">
+              {#each nights as n}
+                <label class="chip plain">
+                  <input type="radio" name="raidDay" value={n.id} bind:group={form.raidDay} />
+                  <span>{n.name}</span>
+                </label>
+              {/each}
+            </div>
+            {#if errors.raidDay}<span id="raidDay-error" class="err">{errors.raidDay}</span>{/if}
+          </fieldset>
+        {/if}
+
         <div class="field">
           <label for="f-whyToads">Why Toads?</label>
           <textarea
@@ -376,6 +401,7 @@
   .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .chip:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
   .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip.plain { padding-inline: 0.9rem; }
   .chip.off { opacity: 0.45; cursor: not-allowed; }
   .chip.off:hover { border-color: var(--line); }
 

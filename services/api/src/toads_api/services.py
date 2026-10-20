@@ -143,6 +143,7 @@ class Services:
                 day_ids=frozenset(d.id for d in self.raid_days.raid_days),
                 global_officer_roles=tuple(self.raid_days.global_officer_roles),
                 officer_roles={d.id: tuple(d.officer_roles) for d in self.raid_days.raid_days},
+                day_names={d.id: d.name for d in self.raid_days.raid_days},
             ),
         )
 

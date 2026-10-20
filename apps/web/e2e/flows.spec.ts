@@ -19,6 +19,7 @@ test('the recruit form shows field errors, then opens the interview room', async
   await expect(page.locator('#characterName-error')).toContainText('2 to 12 letters');
   await expect(page.locator('#className-error')).toBeVisible();
   await expect(page.locator('#primaryRole-error')).toBeVisible();
+  await expect(page.locator('#raidDay-error')).toBeVisible();
   await expect(page.locator('#whyToads-error')).toBeVisible();
   await expect(page.getByLabel('Character name')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('body')).not.toContainText('interview room is opening');
@@ -31,6 +32,7 @@ test('the recruit form shows field errors, then opens the interview room', async
   await primary.getByLabel('Healer').check();
   await expect(secondary.getByLabel('Healer')).toBeDisabled(); // not the same role twice
   await secondary.getByLabel('Tank').check();
+  await page.getByRole('group', { name: 'Raid night' }).getByLabel('Sunday').check();
   await page.getByLabel('Why Toads?').fill('Healed Kara and Gruul.\nA friend says Sundays are the best nights.');
   await page.getByRole('button', { name: 'Send application' }).click();
 
@@ -38,6 +40,20 @@ test('the recruit form shows field errors, then opens the interview room', async
   await expect(done).toBeVisible();
   await expect(done).toContainText('#interview-pondskum');
   await expect(done).toContainText('Pondsküm');
+});
+
+test('an officer puts someone from the Discord on their night’s interview panel', async ({ page }) => {
+  await page.goto('officers/recruitment/');
+  const wed = page.getByRole('region', { name: 'Wednesday interview panel' });
+  await expect(wed.getByText('@_gallagher')).toBeVisible();
+  await wed.getByLabel('Add someone from the Toads Discord').fill('hop');
+  await wed.getByRole('button', { name: 'Find' }).click();
+  await wed.getByRole('button', { name: 'Add Hopscotch to the Wednesday panel' }).click();
+  await expect(wed.getByRole('status')).toContainText('Hopscotch now interviews Wednesday applicants.');
+  await wed.getByRole('button', { name: 'Remove Hopscotch from the Wednesday panel' }).click();
+  await expect(wed.getByRole('button', { name: 'Remove Hopscotch from the Wednesday panel' })).toHaveCount(0);
+  // A Wednesday officer has no Sunday panel to change.
+  await expect(page.getByRole('region', { name: 'Sunday interview panel' })).toHaveCount(0);
 });
 
 test('an officer moves an application from applied to interviewing', async ({ page }) => {
