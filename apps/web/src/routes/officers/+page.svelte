@@ -44,8 +44,19 @@
   </section>
 {/snippet}
 
+{#snippet calendarLink()}
+  <section class="card comp-link" aria-labelledby="calendar-link-h">
+    <h2 id="calendar-link-h">Calendar</h2>
+    <p class="muted">
+      Who will miss your raid nights and why, a few weeks ahead, from the absences members add on their Me page.
+    </p>
+    <a class="btn primary" href="{base}/officers/calendar/">Open the Calendar</a>
+  </section>
+{/snippet}
+
 {#if __PREVIEW__}
   <Officers />
+  {@render calendarLink()}
   {@render compLink()}
   {#if globalTier}
     <AwardsDesk backend={previewAwards} />
@@ -55,6 +66,7 @@
 {:else}
   <h1>Officer console</h1>
   <p>Applications, the Discord curation queue, post composer, highlight review and spotlights arrive with the API.</p>
+  {@render calendarLink()}
   {@render compLink()}
   <ReferenceCard />
   {#if globalTier}<AwardsDesk backend={hub} />{/if}

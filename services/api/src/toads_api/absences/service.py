@@ -102,27 +102,60 @@ class AbsenceService:
         """The member's absences that have not ended yet, soonest first."""
         return self._views(self.repo.for_member(member_id, self._today()))
 
-    def report(self, member_id: int, raid_day: str, first: date, last: date, note: str | None = None) -> AbsenceView:
+    def _checked(
+        self,
+        member_id: int,
+        raid_day: str,
+        first: date,
+        last: date,
+        note: str | None,
+        editing: AbsenceRecord | None = None,
+    ) -> str:
+        """The trimmed note, once the dates and the note pass the rules. `editing` is the absence being changed: it
+        neither overlaps itself nor counts towards the cap, and one already under way keeps its first day."""
         today = self._today()
         if last < first:
             raise AbsenceError("The last day comes before the first", status=422)
-        if first < today:
+        if first < today and (editing is None or first != editing.first_date):
+            raise AbsenceError("Pick a date from today on", status=422)
+        if last < today:
             raise AbsenceError("Pick a date from today on", status=422)
         if (last - first).days >= MAX_SPAN_DAYS:
             raise AbsenceError(f"Keep one absence under {MAX_SPAN_DAYS} days; add another for the rest", status=422)
         if (first - today).days > MAX_AHEAD_DAYS:
             raise AbsenceError("That is more than a year away", status=422)
-        if raid_day in self._weekdays and not self.nights(raid_day, first, last):
+        if raid_day in self._weekdays and not self.nights(raid_day, max(first, today), last):
             raise AbsenceError("Those dates hold no raid night for this team", status=422)
-        note = (note or "").strip() or None
-        if note is not None and len(note) > NOTE_LIMIT:
+        note = (note or "").strip()
+        if not note:
+            raise AbsenceError("Add a note so the officers know why", status=422)
+        if len(note) > NOTE_LIMIT:
             raise AbsenceError(f"Keep the note under {NOTE_LIMIT} characters", status=422)
-        upcoming = [r for r in self.repo.for_member(member_id, today) if r.raid_day == raid_day]
+        editing_id = None if editing is None else editing.id
+        upcoming = [r for r in self.repo.for_member(member_id, today) if r.raid_day == raid_day and r.id != editing_id]
         if any(r.first_date <= last and first <= r.last_date for r in upcoming):
-            raise AbsenceError("You already have an absence on those dates; cancel it first to change it", status=409)
+            raise AbsenceError("You already have an absence on those dates; change that one instead", status=409)
         if len(upcoming) >= MAX_UPCOMING:
             raise AbsenceError(f"You have {MAX_UPCOMING} absences booked already", status=409)
+        return note
+
+    def report(self, member_id: int, raid_day: str, first: date, last: date, note: str | None) -> AbsenceView:
+        note = self._checked(member_id, raid_day, first, last, note)
         return self._views([self.repo.add(member_id, raid_day, first, last, note)])[0]
+
+    def change(
+        self, member_id: int, raid_day: str, absence_id: int, first: date, last: date, note: str | None
+    ) -> AbsenceView:
+        """Change the dates or note of one of the member's own upcoming absences on `raid_day`'s team. Someone else's,
+        one on another team or one already over answers as missing."""
+        row = self.repo.get(absence_id)
+        if row is None or row.member_id != member_id or row.raid_day != raid_day or row.last_date < self._today():
+            raise AbsenceError("No such absence", status=404)
+        note = self._checked(member_id, raid_day, first, last, note, editing=row)
+        changed = self.repo.change(absence_id, first, last, note)
+        if changed is None:
+            raise AbsenceError("No such absence", status=404)
+        return self._views([changed])[0]
 
     def cancel(self, member_id: int, absence_id: int) -> None:
         """Take back one of the member's own absences. Someone else's answers as missing, so ids reveal nothing."""

@@ -31,21 +31,34 @@ function under(path: string, prefixes: readonly string[]): boolean {
 // Forever preview.
 const HELD_FOR_OFFICERS = ['/bank'];
 
-// Open to raiders during the hold too: the Raid page is itself a coming-soon page for each raid night, and the Calendar
-// is where raiders tell their officers which nights they will miss, which matters before launch too.
-const OPEN_TO_MEMBERS = ['/raid', '/calendar'];
+// Open to raiders during the hold too: the Raid page is itself a coming-soon page for each raid night, and Me is where
+// raiders tell their officers which nights they will miss, which matters before launch too. Me alone, not its claim and
+// settings pages; while the hold is on it shows a raider only their absences (`absencesOnly`).
+const OPEN_TO_MEMBERS = ['/raid'];
+const OPEN_TO_MEMBERS_EXACT = ['/me'];
+
+function exactly(path: string, paths: readonly string[]): boolean {
+  const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';
+  return paths.includes(p);
+}
+
+/** True while the hold keeps a raider's Me page to their absences: the rest of it is the Logs analysis, held. */
+export function absencesOnly(tier: Tier, hold = LAUNCH_HOLD): boolean {
+  return hold && tier === 'raider';
+}
 
 /** What a member page shows this tier while the hold is on. Public pages and visitors are never held here. */
 export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
   if (!hold || tier === 'visitor' || !isMemberPath(path)) return 'open';
   // A super admin is an officer with the Admin console on top, so they see the officers' pages.
   if (tier === 'officer' || tier === 'admin') return under(path, HELD_FOR_OFFICERS) ? 'forever-notice' : 'open';
-  return under(path, OPEN_TO_MEMBERS) ? 'open' : 'coming-soon';
+  return under(path, OPEN_TO_MEMBERS) || exactly(path, OPEN_TO_MEMBERS_EXACT) ? 'open' : 'coming-soon';
 }
 
 /** A raider's Members nav during the hold: the hub link, which opens the coming-soon page, then the open pages. */
 export function heldNav(nav: NavItem[], tier: Tier, hold = LAUNCH_HOLD): NavItem[] {
-  return hold && tier === 'raider' ? nav.filter((i) => i.href === '/hub' || OPEN_TO_MEMBERS.includes(i.href)) : nav;
+  const open = [...OPEN_TO_MEMBERS, ...OPEN_TO_MEMBERS_EXACT];
+  return hold && tier === 'raider' ? nav.filter((i) => i.href === '/hub' || open.includes(i.href)) : nav;
 }
 
 export interface Upcoming {
@@ -82,12 +95,11 @@ export const UPCOMING: readonly Upcoming[] = [
 export const TAB_PURPOSE: Record<string, string> = {
   '/hub': 'The raid leader desk, the officers’ posts and each member’s hub home.',
   '/raid': 'Each raid night’s home: your role, sign-ups and prep, with an officer desk for the night’s officers.',
-  '/calendar': 'The raid nights you will miss, and each team’s absences for its officers.',
   '/logs': 'Every logged raid with guild totals, role medians and reference comparisons.',
   '/highlights': 'Highlight reels and consent-gated spotlights from raid night.',
   '/bank': 'Bank requests, imports and each raid night’s stock.',
-  '/me': 'Each member’s own numbers, badges and character claims.',
-  '/officers': 'Character claims, applications, the badge roster and log syncs.',
+  '/me': 'Each member’s own numbers, badges, character claims and the raid nights they will miss.',
+  '/officers': 'Character claims, applications, the badge roster, log syncs and each team’s absences.',
   '/welcome': 'The first sign-in checklist for new members.'
 };
 

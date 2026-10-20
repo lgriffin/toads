@@ -46,7 +46,7 @@ test('the nav splits public and member pages', async ({ page }) => {
   const guild = page.getByRole('navigation', { name: 'Guild' });
   await expect(guild.getByRole('link')).toHaveText(['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']);
   const members = page.getByRole('navigation', { name: 'Members' });
-  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Calendar', 'Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
+  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
   await members.getByRole('link', { name: 'Hub' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
   await expect(members.getByRole('link', { name: 'Hub' })).toHaveAttribute('aria-current', 'page');

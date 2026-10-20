@@ -62,7 +62,7 @@
       lede="{name}'s home on the hub. Raid-night tools plug in here as they are built; until then the night runs from Discord and the officers' Drive."
       toads={[dayToad(day)]}
     >
-      {#if onTeam}<a class="medal" href="{base}/calendar/">Report an absence</a>{/if}
+      {#if onTeam}<a class="medal" href="{base}/me/#absences">Report an absence</a>{/if}
       <a class="ghost" href="{base}/logs/">See the logs</a>
     </PondHero>
 
@@ -86,10 +86,10 @@
             <p>
               You have told {name}'s officers about {away.reduce((n, a) => n + a.nights.length, 0)}
               {away.reduce((n, a) => n + a.nights.length, 0) === 1 ? 'night' : 'nights'} you will miss.
-              <a href="{base}/calendar/">Change them on the Calendar.</a>
+              <a href="{base}/me/#absences">Change them on Me.</a>
             </p>
           {:else}
-            <p>None booked. If you cannot make a raid, <a href="{base}/calendar/">add it on the Calendar</a> so the officers can plan the night.</p>
+            <p>None booked. If you cannot make a raid, <a href="{base}/me/#absences">add it on Me</a> so the officers can plan the night.</p>
           {/if}
         </div>
       </section>

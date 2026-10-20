@@ -28,7 +28,7 @@ export const PLANNED: readonly Planned[] = [
   },
   {
     title: 'Sign-ups and the bench',
-    body: 'Who is in, who is benched and who is away, gathered from Discord and the Calendar.'
+    body: 'Who is in, who is benched and who is away, gathered from Discord and the absences members add on Me.'
   },
   {
     title: 'Prep for the night',

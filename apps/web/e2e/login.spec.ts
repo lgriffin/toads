@@ -22,7 +22,7 @@ test('a raider signs in, sees their own side but not the officer console', async
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
   await expect(page.getByText('Raider', { exact: true })).toBeVisible();
   const members = page.getByRole('navigation', { name: 'Members' });
-  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Calendar', 'Logs', 'Highlights', 'Bank', 'Me']);
+  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Logs', 'Highlights', 'Bank', 'Me']);
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Toads badges' })).toHaveCount(0);
 

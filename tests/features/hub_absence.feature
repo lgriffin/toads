@@ -1,5 +1,5 @@
-# Absences (docs/absences.md): a raid day's trials and raiders say which raid nights they will miss on the Calendar
-# page, and that raid day's officers see the team's upcoming absences in one place.
+# Absences (docs/absences.md): a raid day's trials and raiders say which raid nights they will miss on their Me page,
+# with a note for each, and that raid day's officers see the team's upcoming absences in one place.
 Feature: HUB ABSENCE
 
   @ears_event_driven @member @phase_2_7
@@ -50,3 +50,16 @@ Feature: HUB ABSENCE
     When the raider cancels it
     Then the raider has no absences
     And the Wednesday officer sees nobody away on "2026-10-21"
+
+  @ears_event_driven @member @phase_2_7
+  Scenario: REQ-HUB-ABSENCE-006 When a member changes the dates or note of their own absence, the hub shall show the change to that raid day's officers; another member's change shall find nothing, and an absence without a note shall be refused
+    Given today is "2026-10-19"
+    And a Wednesday raider "Hopscotch"
+    And a Wednesday officer
+    When the raider reports an absence from Wednesday from "2026-10-21" to "2026-10-21" saying "Late shift"
+    Then the Wednesday officer cannot change it
+    And changing it without a note is refused as invalid
+    And reporting without a note is refused as invalid
+    When the raider changes it to "2026-10-28" to "2026-10-28" saying "Moved shift"
+    Then the Wednesday officer sees nobody away on "2026-10-21"
+    And the Wednesday officer sees "Hopscotch" away on "2026-10-28" and "2026-10-28" saying "Moved shift"

@@ -22,7 +22,6 @@ describe('nav groups', () => {
     expect(MEMBER_NAV.map((i) => i.href)).toEqual([
       '/hub',
       '/raid',
-      '/calendar',
       '/logs',
       '/highlights',
       '/bank',
