@@ -299,8 +299,10 @@ Restart the API after editing a file.
 - **Adding a raid night** (Thursday joined Wednesday and Sunday in October 2026): make the night's roles in Discord
   (for example `Thursday Toads` for raiders, `Thursday Trials` and `Thursday Officers`), copy each role's id (Developer
   Mode, right-click the role, Copy Role ID), add an entry to `raid_days` with its `id` (`thu`), `name` (`Thursday`),
-  `start_time` and those ids in `trial_roles` and `officer_roles` (and `raider_roles`, or tie the raider role to the
-  night's badge on the Admin page instead), then restart the API. Members with
+  `start_time` and those ids in `trial_roles` (and `raider_roles` and `officer_roles`, or tie the raider role to the
+  night's Toad badge and the officer role to its Officer badge on the Admin page instead), then restart the API. Role
+  ids go in square brackets, as numbers: `officer_roles: [1300000000000000001]`; a bare number, a role name or a pasted
+  `<@&...>` mention stops the API from starting. Members with
   the officer role get that night's officer powers and pages (Raid page desk and board, Calendar, comp builder, logs,
   recruitment panel, bank) at their next role refresh; nothing else gives them sight of it. Then on the Admin page tie
   the raider role to the night's badge (Thursday Toad). A night whose badge art, preview data or homepage wording is
@@ -351,13 +353,14 @@ Rules worth knowing:
 - **Audit log** (`audit` table): `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
-  pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, Tank, Healer, Damage or a
-  class). Everyone holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and
+  pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,
+  Healer, Damage or a class). Everyone holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and
   Sunday raider roles.
   A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
   (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the
   team at once. The comp builder's roster catches up as each member next signs in or has their roles refreshed, since
-  the hub never stores who holds which role. Officer roles still come from `officer_roles`. The rank
+  the hub never stores who holds which role. A night's Officer badge does the same for its officers: tie Thursday
+  Officer to the `Thursday Officers` role and its holders run Thursday, and only Thursday. The rank
   toads (member, officer, super admin, Archtoad) need no setup. Audited as `role_badge.add` and `role_badge.remove`.
 - **Raid page and absences** ([docs/absences.md](docs/absences.md)): `/raid` is each raid night's page. Members see
   their own team's night, its officers also get an officer desk linking to the night's officer section, and super

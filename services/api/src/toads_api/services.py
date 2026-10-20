@@ -101,10 +101,16 @@ class Services:
         discord_username: str = "",
     ) -> Principal:
         """A member's hub roles from their Discord roles: raid_days.yaml, plus the roles a super admin tied to each
-        night's badge on the Admin page, which make their holders that night's raiders (docs/admin.md)."""
-        nights = self.role_badges.night_roles((d.id, d.name) for d in self.raid_days.raid_days)
+        night's badges on the Admin page, which make their holders that night's raiders or officers (docs/admin.md)."""
+        nights = [(d.id, d.name) for d in self.raid_days.raid_days]
         return self.raid_days.principal_for(
-            member_id, set(role_ids), display_name, discord_user_id, discord_username, night_roles=nights
+            member_id,
+            set(role_ids),
+            display_name,
+            discord_user_id,
+            discord_username,
+            night_roles=self.role_badges.night_roles(nights),
+            night_officer_roles=self.role_badges.night_officer_roles(nights),
         )
 
     def __post_init__(self) -> None:

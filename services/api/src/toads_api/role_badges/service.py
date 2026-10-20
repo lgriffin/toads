@@ -3,11 +3,11 @@ read Discord, and the repository decides where things live."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge, night_badge_id
+from toads_api.role_badges.catalog import ROLE_BADGES, RoleBadge, night_badge_id, night_officer_badge_id
 from toads_api.role_badges.repository import DuplicateLinkError, RoleBadgeLink, RoleBadgeRepository
 
 
@@ -47,10 +47,18 @@ class RoleBadgeService:
     def night_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
         """The Discord roles tied to each raid night's badge, by day id, for `(day id, day name)` pairs: the Thursday
         Toad badge is "thursday-toad". Holding one of them puts a member on that night's team."""
+        return self._tied_by_night(nights, night_badge_id)
+
+    def night_officer_roles(self, nights: Iterable[tuple[str, str]]) -> dict[str, set[int]]:
+        """The Discord roles tied to each raid night's officer badge ("thursday-officer"), by day id. Holding one of
+        them makes a member that night's officer."""
+        return self._tied_by_night(nights, night_officer_badge_id)
+
+    def _tied_by_night(self, nights: Iterable[tuple[str, str]], badge_of: Callable[[str], str]) -> dict[str, set[int]]:
         tied: dict[str, set[int]] = {}
         for r in self._live():
             tied.setdefault(r.badge_id, set()).add(r.discord_role_id)
-        return {day_id: roles for day_id, name in nights if (roles := tied.get(night_badge_id(name)))}
+        return {day_id: roles for day_id, name in nights if (roles := tied.get(badge_of(name)))}
 
     def earned(self, discord_role_ids: Iterable[int]) -> list[RoleBadge]:
         """The badges a member's Discord roles earn, each once, in catalogue order."""

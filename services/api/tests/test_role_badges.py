@@ -43,6 +43,21 @@ def test_each_night_badges_roles_make_that_nights_team() -> None:
     assert cfg.principal_for(1, {41}).day_roles == {}
 
 
+def test_each_night_officer_badges_roles_make_that_nights_officers() -> None:
+    svc = RoleBadgeService(InMemoryRoleBadgeRepository())
+    svc.tie(60, "Thursday Officers", "thursday-officer", by=1)
+    svc.tie(61, "Thursday Toad", "thursday-toad", by=1)
+    nights = [("wed", "Wednesday"), ("thu", "Thursday"), ("sun", "Sunday")]
+    assert svc.night_officer_roles(nights) == {"thu": {60}}
+    assert svc.night_roles(nights) == {"thu": {61}}
+    cfg = RaidDaysConfig.model_validate({"raid_days": [{"id": d, "name": n} for d, n in nights]})
+    officers = svc.night_officer_roles(nights)
+    assert cfg.principal_for(1, {60}, night_officer_roles=officers).day_roles == {"thu": HubRole.OFFICER}
+    # Thursday's officers run Thursday only.
+    assert cfg.principal_for(1, {60, 61}, night_officer_roles=officers).day_roles == {"thu": HubRole.OFFICER}
+    assert cfg.principal_for(1, {61}, night_officer_roles=officers).day_roles == {}
+
+
 def test_links_are_listed_in_catalogue_order() -> None:
     svc = RoleBadgeService(InMemoryRoleBadgeRepository())
     svc.tie(30, "Tanks", "tank", by=1)

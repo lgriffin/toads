@@ -50,6 +50,9 @@ main() {
 		echo "deploy: to go back to the last deploy: $0 $previous" >&2
 		exit 1
 	fi
+	# `up` leaves a container alone when its image is unchanged, but config/ is mounted and read only at startup, so a
+	# deploy after editing raid_days.yaml would otherwise keep serving the old raid days.
+	"${compose[@]}" restart api worker scheduler
 
 	local service id status
 	for service in api web; do
