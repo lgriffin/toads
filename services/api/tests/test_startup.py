@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from structlog.testing import capture_logs
-from toads_api.discord_api import DiscordAuthError, DiscordError, HttpDiscord
+from toads_api.discord_api import MEMBER_PAGE, DiscordAuthError, DiscordError, HttpDiscord
 from toads_api.main import create_app
 from toads_api.rbac import RaidDaysConfig, UnknownDiscordRoleError
 from toads_api.services import build_services
@@ -224,3 +224,26 @@ def test_startup_survives_a_rejected_bot_token(monkeypatch: pytest.MonkeyPatch) 
         assert hub.client.get("/healthz").status_code == 200
     [error] = [e for e in logs if e["event"] == "discord_application_misconfigured"]
     assert "TOADS_DISCORD_BOT_TOKEN" in error["error"]
+
+
+@pytest.mark.anyio
+async def test_member_listing_pages_through_the_server_and_names_failures() -> None:
+    seen: list[str] = []
+
+    def page(request: httpx.Request) -> httpx.Response:
+        after = int(request.url.params["after"])
+        seen.append(str(after))
+        ids = range(after + 1, min(after + 1 + MEMBER_PAGE, 1501))
+        return httpx.Response(200, json=[{"user": {"id": str(i), "username": f"u{i}"}, "roles": []} for i in ids])
+
+    members = await _discord(httpx.MockTransport(page)).guild_members()
+    assert (len(members), seen) == (1500, ["0", "1000"])
+    for transport in (_answer(403, {}), _answer(200, [{"nick": "no user"}])):
+        with pytest.raises(DiscordError):
+            await _discord(transport).guild_members()
+
+    def dropped(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down")
+
+    with pytest.raises(DiscordError):
+        await _discord(httpx.MockTransport(dropped)).guild_members()

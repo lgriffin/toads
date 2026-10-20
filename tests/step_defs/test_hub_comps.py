@@ -44,6 +44,11 @@ def sunday_officer(hub: Hub, people: dict[str, Any]) -> None:
     people["sunday_officer"] = hub.login(hub.user(("sun", "officer"), nick="Bogwort"))
 
 
+@given("a Wednesday raider who has never signed in to the hub")
+def unsigned_raider(hub: Hub) -> None:
+    hub.user(("wed", "raider"), nick="Duckweed")
+
+
 def _set(hub: Hub, sid: str, primary: str, secondary: str) -> Any:
     body = {"wow_class": primary.split("-", 1)[0], "primary": primary, "secondary": secondary}
     return hub.client.put("/api/me/specs", headers=hub.as_(sid), json=body)
@@ -90,6 +95,12 @@ def refused_invalid(people: dict[str, Any]) -> None:
 def roster_lists(hub: Hub, people: dict[str, Any], primary: str, secondary: str) -> None:
     entry = next(e for e in _pool(hub, people) if e["name"] == "Lilypadd")
     assert (entry["primary"], entry["secondary"]) == (primary, secondary)
+
+
+@then("the Wednesday officer's roster lists the raider who has never signed in, marked as not signed in")
+def roster_lists_unsigned(hub: Hub, people: dict[str, Any]) -> None:
+    entry = next(e for e in _pool(hub, people) if e["name"] == "Duckweed")
+    assert (entry["signed_in"], entry["wow_class"]) == (False, None)
 
 
 @then("the Wednesday officer's roster does not list the Sunday raider")

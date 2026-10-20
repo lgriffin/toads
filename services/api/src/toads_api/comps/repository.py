@@ -45,7 +45,11 @@ class CompRepository(Protocol):
     def clear_specs(self, member_id: int) -> bool: ...
 
     def members_on(self, raid_day: str) -> list[int]:
-        """Members whose Discord roles put them on this raid day when they last signed in."""
+        """Members whose Discord roles put them on this raid day, as last read from Discord."""
+        ...
+
+    def signed_in(self, member_ids: Iterable[int]) -> set[int]:
+        """Those of `member_ids` who have signed in to the hub."""
         ...
 
     def comps(self, raid_day: str) -> list[CompRecord]: ...
@@ -65,6 +69,8 @@ class InMemoryCompRepository:
     spec_rows: dict[int, SpecRecord] = field(default_factory=dict)
     raid_days: dict[int, list[str]] = field(default_factory=dict)
     comp_rows: dict[int, CompRecord] = field(default_factory=dict)
+    # Members on a roster who have never signed in.
+    unsigned: set[int] = field(default_factory=set)
 
     def specs(self, member_ids: Iterable[int] | None = None) -> list[SpecRecord]:
         wanted = None if member_ids is None else set(member_ids)
@@ -78,6 +84,9 @@ class InMemoryCompRepository:
 
     def members_on(self, raid_day: str) -> list[int]:
         return sorted(m for m, days in self.raid_days.items() if raid_day in days)
+
+    def signed_in(self, member_ids: Iterable[int]) -> set[int]:
+        return set(member_ids) - self.unsigned
 
     def comps(self, raid_day: str) -> list[CompRecord]:
         return [c for c in self.comp_rows.values() if c.raid_day == raid_day]

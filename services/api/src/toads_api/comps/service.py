@@ -24,13 +24,15 @@ class CompError(Exception):
 
 @dataclass(frozen=True)
 class PoolEntry:
-    """A member on a raid day's roster, by the name they chose. No class means they have not set their specs yet."""
+    """A member on a raid day's roster, by the name they chose. No class means they have not set their specs yet;
+    `signed_in` False means they hold the night's Discord role but have never used the hub, so they cannot have."""
 
     member_id: int
     name: str
     wow_class: str | None
     primary: str | None
     secondary: str | None
+    signed_in: bool = True
 
 
 @dataclass(frozen=True)
@@ -86,10 +88,11 @@ class CompService:
     # ----------------------------------------------------------------- pool
 
     def pool(self, raid_day: str) -> list[PoolEntry]:
-        """Everyone on the raid day, specs set or not, sorted by name."""
+        """Everyone on the raid day, specs set or not and signed in or not, sorted by name."""
         ids = self.repo.members_on(raid_day)
         names = self._names(ids)
         specs = {r.member_id: r for r in self.repo.specs(ids)}
+        signed_in = self.repo.signed_in(ids)
         entries = []
         for member_id in ids:
             if member_id not in names:
@@ -102,6 +105,7 @@ class CompService:
                     s.wow_class if s else None,
                     s.primary if s else None,
                     s.secondary if s else None,
+                    member_id in signed_in,
                 )
             )
         return sorted(entries, key=lambda e: (e.name.casefold(), e.member_id))

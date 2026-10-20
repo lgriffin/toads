@@ -341,6 +341,8 @@ export interface PoolEntry {
   wow_class: string | null;
   primary: string | null;
   secondary: string | null;
+  /** False for someone holding the night's Discord role who has never signed in to the hub, so has no specs. */
+  signed_in: boolean;
 }
 
 /** What the roster is narrowed to: a class, a spec (matching a primary or secondary), and a name search. */
@@ -369,6 +371,15 @@ export function seatFor(e: PoolEntry, f: PoolFilter = {}): Seat | null {
     (f.role && played.find((s) => specOf(s)?.role === f.role)) ||
     e.primary;
   return wanted ? { spec: wanted, memberId: e.member_id, memberName: e.name } : null;
+}
+
+/**
+ * The seat a member takes when dropped on `target`. Someone without specs (a role holder who has not signed in yet)
+ * fills a seat that already holds a bare spec, so officers place the spec first; null when there is none to fill.
+ */
+export function seatOnto(e: PoolEntry, target: Seat | null, f: PoolFilter = {}): Seat | null {
+  if (specsOf(e).length) return seatFor(e, f);
+  return target && !target.memberId ? { spec: target.spec, memberId: e.member_id, memberName: e.name } : null;
 }
 
 /** The other spec a seated member plays, to switch to; null when they play one. */
