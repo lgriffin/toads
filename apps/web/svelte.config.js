@@ -24,7 +24,7 @@ export default {
             'script-src': ['self'],
             'style-src': ['self', 'unsafe-inline'],
             'img-src': ['self', 'data:'],
-            'frame-src': ['https://www.youtube-nocookie.com', 'https://clips.twitch.tv', 'https://streamable.com'],
+            'frame-src': ['https://www.youtube-nocookie.com', 'https://clips.twitch.tv', 'https://player.twitch.tv', 'https://streamable.com'],
             'frame-ancestors': ['none']
           }
         }
