@@ -2,11 +2,13 @@
 
 import base64
 import configparser
+import importlib.util
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +78,15 @@ def pinned_and_ignored(backup: dict[str, Any]) -> None:
 def drill_in_ci() -> None:
     ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
     steps = ci["jobs"]["backup"]["steps"]
-    assert any(step.get("env", {}).get("TOADS_BACKUP_DRILL") == "1" for step in steps)
+    assert any(re.search(r"scripts/dev\.py .*\bbackup\b", str(step.get("run", ""))) for step in steps)
+    spec = importlib.util.spec_from_file_location("toads_dev_tasks", ROOT / "scripts" / "dev.py")
+    assert spec and spec.loader
+    dev = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = dev  # dataclasses look their module up while the class is built
+    spec.loader.exec_module(dev)
+    (drill,) = dev.TASKS["backup"].steps
+    assert "tests/step_defs/test_dev_backup.py" in drill.command
+    assert drill.env == {"TOADS_BACKUP_DRILL": "1"}
     assert DRILL.exists() and os.access(DRILL, os.X_OK)
 
 

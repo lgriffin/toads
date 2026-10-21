@@ -80,6 +80,10 @@ markers = [
     "maintainer: developer / maintainer persona",
 ]
 
+# The floor `scripts/dev.py test` holds the four packages to.
+[tool.coverage.report]
+fail_under = 80
+
 # Architecture contracts, checked by `lint-imports` in CI (just lint). Frontends and the bot reach the hub only
 # through the API; community rules stay free of RBAC, web framework and storage imports.
 [tool.importlinter]
