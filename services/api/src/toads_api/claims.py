@@ -1,10 +1,11 @@
-"""Character claims (REQ-HUB-CLAIM-001/003, REQ-HUB-PRIV-003, REQ-HUB-DAY-010/011).
+"""Character claims (REQ-HUB-CLAIM-001/003/005, REQ-HUB-PRIV-003, REQ-HUB-DAY-010/011).
 
 Members find a character by name (GET /api/characters) and claim it by its wcl-store id; who is claiming comes from
 their Discord sign-in, and the name is looked up server-side. A name that matches the
 member's server nickname is approved at once, anything else waits for an officer of the claimant's
-raid day (their highest-ranked day). Officer routes take the raid day from the path only, and a
-claim outside that day is refused with 403 and an audit row.
+raid nights: the nights their Discord roles put them on now (REQ-HUB-CLAIM-005). Officer routes take the raid day
+from the path only, and a claim outside that night is refused with 403 and an audit row. Claims from members on no
+night go to the global tier's /api/admin/claims, which also decides any night's claims.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException, status
 from hub_db import CharacterClaim, ClaimStatus, Member
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -182,31 +183,65 @@ async def unclaim(
 # --- officer routes (scoped to the raid day in the path) ----------------------------------------
 
 
-def _in_scope(claim: CharacterClaim, day: str, principal: Principal) -> bool:
-    # Claims without a raid day (the claimant holds no day role) belong to the global tier.
-    return claim.raid_day_id == day or (claim.raid_day_id is None and principal.global_officer)
+class QueuedClaimOut(ClaimOut):
+    """A pending claim as an officer sees it: who is claiming, and the raid nights whose officers may decide it."""
+
+    member_name: str
+    nights: list[str]
 
 
-def _queue(services: Services, principal: Principal, day: str) -> list[ClaimOut]:
+def claim_nights(claim: CharacterClaim, member: Member | None) -> list[str]:
+    """The raid nights whose officers decide a claim: the nights the claimant's Discord roles put them on now (their
+    night Toad role, refreshed at every sign-in), else the day recorded when they claimed. Empty means only global
+    officers and super admins decide it."""
+    if member is not None and member.raid_days:
+        return list(member.raid_days)
+    return [claim.raid_day_id] if claim.raid_day_id is not None else []
+
+
+def _queued(claim: CharacterClaim, member: Member | None, nights: list[str]) -> QueuedClaimOut:
+    out = ClaimOut.model_validate(claim).model_dump()
+    return QueuedClaimOut(
+        **out, member_name=member.display_name if member else f"member {claim.member_id}", nights=nights
+    )
+
+
+def _pending(services: Services) -> list[tuple[CharacterClaim, Member | None, list[str]]]:
     with services.db() as db:
-        scope = CharacterClaim.raid_day_id == day
-        if principal.global_officer:
-            scope = or_(scope, CharacterClaim.raid_day_id.is_(None))
-        rows = db.scalars(
-            select(CharacterClaim)
-            .where(scope, CharacterClaim.status == ClaimStatus.PENDING)
+        rows = db.execute(
+            select(CharacterClaim, Member)
+            .join(Member, Member.id == CharacterClaim.member_id, isouter=True)
+            .where(CharacterClaim.status == ClaimStatus.PENDING)
             .order_by(CharacterClaim.created_at, CharacterClaim.id)
-        )
-        return [ClaimOut.model_validate(c) for c in rows]
+        ).all()
+        return [(claim, member, claim_nights(claim, member)) for claim, member in rows]
+
+
+def _queue(services: Services, day: str) -> list[QueuedClaimOut]:
+    return [_queued(c, m, nights) for c, m, nights in _pending(services) if day in nights]
 
 
 @router.get("/api/days/{day}/claims")
 async def claims_queue(
     day: str,
-    principal: Principal = Depends(require(Permission.APPROVE_CLAIMS, scoped=True)),  # noqa: B008
+    _: Principal = Depends(require(Permission.APPROVE_CLAIMS, scoped=True)),  # noqa: B008
     services: Services = Depends(get_services),  # noqa: B008
-) -> list[ClaimOut]:
-    return await anyio.to_thread.run_sync(_queue, services, principal, day)
+) -> list[QueuedClaimOut]:
+    """The night's pending claims: those whose claimant holds this night's role (REQ-HUB-CLAIM-005)."""
+    return await anyio.to_thread.run_sync(_queue, services, day)
+
+
+def _unplaced(services: Services) -> list[QueuedClaimOut]:
+    return [_queued(c, m, nights) for c, m, nights in _pending(services) if not nights]
+
+
+@router.get("/api/admin/claims")
+async def unplaced_claims(
+    _: Principal = Depends(require(Permission.APPROVE_CLAIMS)),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
+) -> list[QueuedClaimOut]:
+    """Pending claims from members who hold no raid night's role, for the global tier (REQ-HUB-CLAIM-005)."""
+    return await anyio.to_thread.run_sync(_unplaced, services)
 
 
 Decision = Literal["approve", "reject", "reassign"]
@@ -228,22 +263,25 @@ def _deny(
 def _decide(
     services: Services,
     principal: Principal,
-    day: str,
+    day: str | None,
     claim_id: int,
     decision: Decision,
     reason: str | None = None,
     new_member_id: int | None = None,
 ) -> ClaimOut:
+    """Decide a claim through a night's path (`day`), or through the global tier's /api/admin path (`day` None), which
+    reaches every claim."""
     with services.db.begin() as db:
         claim = db.get(CharacterClaim, claim_id)
         if claim is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such claim")
-        if not _in_scope(claim, day, principal):
-            if principal.global_officer:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Claim is not in this raid day")
-            denied_day = claim.raid_day_id
-        else:
+        nights = claim_nights(claim, db.get(Member, claim.member_id))
+        # Claims without a night (the claimant holds no night role) belong to the global tier.
+        if day is None or day in nights:
             return _apply(db, principal, claim, decision, reason, new_member_id)
+        if principal.global_officer:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Claim is not in this raid day")
+        denied_day = nights[0] if nights else None
     _deny(services, principal, day, claim_id, decision, denied_day)
 
 
@@ -312,3 +350,37 @@ async def reassign_claim(
     services: Services = Depends(get_services),  # noqa: B008
 ) -> ClaimOut:
     return await anyio.to_thread.run_sync(_decide, services, principal, day, claim_id, "reassign", None, body.member_id)
+
+
+# --- the global tier's decisions, for claims of every night and those with none ------------------
+
+
+@router.post("/api/admin/claims/{claim_id}/approve")
+async def approve_any_claim(
+    claim_id: int,
+    principal: Principal = Depends(require(Permission.APPROVE_CLAIMS)),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
+) -> ClaimOut:
+    return await anyio.to_thread.run_sync(_decide, services, principal, None, claim_id, "approve")
+
+
+@router.post("/api/admin/claims/{claim_id}/reject")
+async def reject_any_claim(
+    claim_id: int,
+    body: RejectIn,
+    principal: Principal = Depends(require(Permission.APPROVE_CLAIMS)),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
+) -> ClaimOut:
+    return await anyio.to_thread.run_sync(_decide, services, principal, None, claim_id, "reject", body.reason)
+
+
+@router.post("/api/admin/claims/{claim_id}/reassign")
+async def reassign_any_claim(
+    claim_id: int,
+    body: ReassignIn,
+    principal: Principal = Depends(require(Permission.APPROVE_CLAIMS)),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
+) -> ClaimOut:
+    return await anyio.to_thread.run_sync(
+        _decide, services, principal, None, claim_id, "reassign", None, body.member_id
+    )

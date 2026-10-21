@@ -58,6 +58,7 @@ export const HUB_MENU: readonly NavItem[] = [
 /** The officers' shared tools, under the Officers menu. Each page still shows an officer only their own nights. */
 export const OFFICER_MENU: readonly NavItem[] = [
   { href: '/officers', label: 'Officer console', hint: 'Claims, applications and awards' },
+  { href: '/officers/claims', label: 'Character claims', hint: 'Approve the characters members claim' },
   { href: '/officers/calendar', label: 'Calendar', hint: 'Who will miss your raid nights' },
   { href: '/officers/comp', label: 'Comp builder', hint: 'Plan groups and buffs' },
   { href: '/officers/recruitment', label: 'Recruitment', hint: 'Interview panels for each night' }
@@ -87,7 +88,7 @@ export function officerMenu(
     if (nights.length) {
       groups.push({
         label: nights.length === 1 ? 'Your raid night' : 'Your raid nights',
-        items: nights.map((n) => ({ href: `/officers/nights/${n.day}`, label: `${n.name} officers`, hint: 'Absences, tasks and interviews' }))
+        items: nights.map((n) => ({ href: `/officers/nights/${n.day}`, label: `${n.name} officers`, hint: 'Claims, absences, tasks and interviews' }))
       });
     }
   }
