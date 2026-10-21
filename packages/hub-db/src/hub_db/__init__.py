@@ -35,9 +35,11 @@ from hub_db.models import (
     Base,
     CharacterClaim,
     ClaimStatus,
+    MainSwapRequest,
     Member,
     MemberHomeLayout,
     NightHomePage,
+    main_claim,
 )
 from hub_db.officer_board import OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
@@ -72,6 +74,7 @@ __all__ = [
     "InterviewPanelist",
     "LogIndex",
     "LogRaid",
+    "MainSwapRequest",
     "Member",
     "MemberAbsence",
     "MemberAward",
@@ -91,4 +94,5 @@ __all__ = [
     "StoredWclCredentials",
     "WclCredential",
     "WclCredentialStatus",
+    "main_claim",
 ]

@@ -2,9 +2,10 @@
 
 The worker publishes the guild's last raid with every player's primary number against the guild median for their
 role (toads_worker.jobs.performance). A member sees one entry: their main character's. The main character is, in
-order: the approved character they chose to go by, any other character they hold an approved claim on, or the
-character named like their server nickname (the rule claims auto-approve by) unless another member claims it. Nobody
-is ever shown someone else's entry (REQ-HUB-PRIV-001).
+order: their main (the alt officers approved as main, else their first approved claim; toads_api.main_swaps), the
+approved character they chose to go by, any other character they hold an approved claim on, or the character named
+like their server nickname (the rule claims auto-approve by) unless another member claims it. Nobody is ever shown
+someone else's entry (REQ-HUB-PRIV-001).
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ class MyPerformance:
 def candidates(chars: MemberCharacters) -> list[tuple[str, MatchedBy]]:
     """The member's possible main characters, best first, without repeats."""
     found: list[tuple[str, MatchedBy]] = []
+    if chars.main:
+        chosen = chars.chosen is not None and fold(chars.chosen) == fold(chars.main)
+        found.append((chars.main, MatchedBy.CHOSEN if chosen else MatchedBy.CLAIM))
     if chars.chosen:
         found.append((chars.chosen, MatchedBy.CHOSEN))
     found += [(name, MatchedBy.CLAIM) for name in chars.approved]

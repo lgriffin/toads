@@ -12,6 +12,8 @@
   import AwardsCard from '$lib/components/AwardsCard.svelte';
   import BadgesCard from '$lib/components/BadgesCard.svelte';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
+  import MainSwap from '$lib/components/MainSwap.svelte';
+  import { hubMain } from '$lib/main-swap';
   import { myCharacterPage, type MyCharacterPage } from '$lib/characters';
   import MemberToads from '$lib/components/MemberToads.svelte';
   import SpecsCard from '$lib/components/SpecsCard.svelte';
@@ -27,6 +29,7 @@
   // A failed switch to another character: the shown page stays, with this message beside it.
   let switchError = $state('');
   let latest = 0;
+  const mains = hubMain();
 
   // The member's main character first; `pick` loads another of theirs, keeping the current page until it arrives.
   // Only the latest request lands, so quick switches never end on an earlier character.
@@ -110,7 +113,10 @@
   <h1>Your performance <MemberToads {...facts} size={40} /></h1>
   <p>Claim your characters and see how each raid went for you against the median for your role in that raid.</p>
   {#if raids.kind === 'ok'}
-    <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)} />
+    {@const shown = raids.value.characters}
+    <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)}>
+      {#snippet main(viewing)}<MainSwap backend={mains} {viewing} {shown} />{/snippet}
+    </CharacterCard>
     {#if switchError}<p class="err" role="alert">{switchError}</p>{/if}
   {:else}
     <section class="card" aria-labelledby="character-h">

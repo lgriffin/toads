@@ -267,7 +267,8 @@ class CharacterPagesIn(BaseModel):
 
 class MyCharacterPageOut(BaseModel):
     """`generated_at` is null until the worker has published; `page` is null when none of the member's characters
-    has raided with the guild. `characters` lists the member's characters that have a page, best first."""
+    has raided with the guild. `characters` lists the member's characters that have a page, best first, their main
+    leading; `main` names the main, the character Me opens on."""
 
     generated_at: str | None
     page: CharacterPageEntry | None
@@ -275,6 +276,7 @@ class MyCharacterPageOut(BaseModel):
     matched_by: str | None
     looked_for: list[str]
     characters: list[str]
+    main: str | None = None
 
 
 class WantedOut(BaseModel):
@@ -406,6 +408,7 @@ async def my_character_page(
         matched_by=mine.matched_by.value if mine.matched_by else None,
         looked_for=mine.looked_for,
         characters=mine.characters,
+        main=mine.main,
     )
 
 

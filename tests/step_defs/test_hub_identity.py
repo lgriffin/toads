@@ -479,6 +479,44 @@ def unplaced_empty(hub: Hub) -> None:
     assert hub.get("/api/admin/claims", hub.login(hub.user(("global", "officer")))).json() == []
 
 
+@given(parsers.parse('they hold an officer-approved claim on "{name}"'))
+def approved_claim(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    r = hub.post("/api/claims", ctx["sid"], {"character_id": _character(hub, name)})
+    officer = hub.login(hub.user(("wed", "officer")))
+    assert hub.post(f"/api/days/wed/claims/{r.json()['id']}/approve", officer).status_code == 200
+
+
+@when(parsers.parse('they ask to make "{name}" their main'))
+def ask_main(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    r = hub.post("/api/me/main", ctx["sid"], {"character_id": _character(hub, name)})
+    assert r.status_code == 201, r.text
+    ctx["swap"] = r.json()
+
+
+@then(parsers.parse('their main is still "{name}"'))
+@then(parsers.parse('their main is "{name}"'))
+def main_is(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    assert hub.get("/api/me/main", ctx["sid"]).json()["main"]["character_name"] == name
+
+
+@then(parsers.parse('the Wednesday officers\' claims panel lists the main swap to "{name}"'))
+def wed_lists_swap(hub: Hub, name: str) -> None:
+    officer = hub.login(hub.user(("wed", "officer")))
+    assert [s["character_name"] for s in hub.get("/api/days/wed/main-swaps", officer).json()] == [name]
+
+
+@then("the Sunday officers' claims panel lists no main swap")
+def sun_lists_no_swap(hub: Hub) -> None:
+    assert hub.get("/api/days/sun/main-swaps", hub.login(hub.user(("sun", "officer")))).json() == []
+
+
+@when("a Wednesday officer approves the main swap")
+def approve_swap(hub: Hub, ctx: dict[str, Any]) -> None:
+    officer = hub.login(hub.user(("wed", "officer")))
+    r = hub.post(f"/api/days/wed/main-swaps/{ctx['swap']['id']}/approve", officer)
+    assert r.status_code == 200, r.text
+
+
 @when("they unclaim it")
 def unclaim(hub: Hub, ctx: dict[str, Any]) -> None:
     assert hub.delete(f"/api/claims/{ctx['claim']['id']}", ctx["sid"]).status_code == 204

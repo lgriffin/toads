@@ -160,3 +160,17 @@ def trend_threshold(ctx: dict[str, Any], n: int) -> None:
 def building(ctx: dict[str, Any]) -> None:
     after = ctx["card"][ctx["card"].index("{#if showTrends(page)}") :]
     assert "Building your history." in after[: after.index("{/if}")]
+
+
+@then(parsers.parse('their raids open on their main "{main}" with "{other}" after it'))
+def opens_on_main(hub: Hub, ctx: dict[str, Any], main: str, other: str) -> None:
+    mine = hub.get("/api/me/character-page", ctx["sid"]).json()
+    assert (mine["main"], mine["characters"], mine["page"]["name"]) == (main, [main, other], main)
+
+
+@then("the raids card picks characters from a dropdown that names the main")
+def dropdown(ctx: dict[str, Any]) -> None:
+    card = (WEB / "components" / "CharacterCard.svelte").read_text(encoding="utf-8")
+    assert '<select id="character-pick"' in card
+    assert "characterLabel(c, mine.main" in card
+    assert "(main)" in (WEB / "main-swap.ts").read_text(encoding="utf-8")

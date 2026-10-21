@@ -10,6 +10,8 @@
   import { memberToads } from '$lib/toads';
   import CharacterCard from '$lib/components/CharacterCard.svelte';
   import { previewCharacterPage } from '$lib/mock/characters';
+  import MainSwap from '$lib/components/MainSwap.svelte';
+  import { previewMain } from './main-fake';
 
   let raids = $state(previewCharacterPage());
   const awards = previewAwardsOf(1);
@@ -22,7 +24,11 @@
 <h1>Your performance <MemberToads {...facts} size={40} /></h1>
 
 <div class="grid">
-  <div class="wide"><CharacterCard mine={raids} pick={(name) => (raids = previewCharacterPage(name))} /></div>
+  <div class="wide">
+    <CharacterCard mine={raids} pick={(name) => (raids = previewCharacterPage(name))}>
+      {#snippet main(viewing)}<MainSwap backend={previewMain} {viewing} shown={raids.characters} />{/snippet}
+    </CharacterCard>
+  </div>
 
   <div class="wide"><AwardsCard {awards} {toads} /></div>
 

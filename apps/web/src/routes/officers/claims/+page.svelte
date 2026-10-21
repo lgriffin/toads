@@ -21,9 +21,9 @@
   });
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
-  // A claim on two nights shows on both panels; deciding it on one takes it off the other.
-  let decided = $state<number[]>([]);
-  const ondecided = (id: number) => (decided = [...decided, id]);
+  // A claim or main swap on two nights shows on both panels; deciding it on one takes it off the other.
+  let decided = $state<string[]>([]);
+  const ondecided = (key: string) => (decided = [...decided, key]);
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
 
@@ -34,7 +34,8 @@
   <h1>Character claims</h1>
   <p class="lede muted">
     Members claim their characters on Me. A name that matches their Discord nickname is approved straight away; the rest
-    wait here for an officer of the member's raid night, which comes from their night Toad role in Discord.
+    wait here for an officer of the member's raid night, which comes from their night Toad role in Discord. So does a
+    member's ask to make one of their approved alts their main.
   </p>
 
   {#if !ready}

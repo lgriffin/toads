@@ -41,3 +41,15 @@ Feature: HUB CLAIM
     Then the Wednesday officers' claims panel lists the claim with the claimant's name
     And the Sunday officers' claims panel does not list it
     And the global officers' no-night list does not list it
+
+  @ears_event_driven @member @phase_2_3
+  Scenario: REQ-HUB-CLAIM-006 When a member asks to make one of their approved alts their main, the hub shall list the ask on the claims panel of each raid night they are on, and change their main only when one of those nights' officers approves it
+    Given a Wednesday raider signed in with server nickname "Hopscotch"
+    And they claim the character "Hopscotch"
+    And they hold an officer-approved claim on "Ribbit"
+    When they ask to make "Ribbit" their main
+    Then their main is still "Hopscotch"
+    And the Wednesday officers' claims panel lists the main swap to "Ribbit"
+    And the Sunday officers' claims panel lists no main swap
+    When a Wednesday officer approves the main swap
+    Then their main is "Ribbit"

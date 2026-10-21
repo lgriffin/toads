@@ -79,8 +79,10 @@ export interface MyCharacterPage {
   matched_by: 'chosen' | 'claim' | 'nickname' | null;
   /** The characters looked for, best first. */
   looked_for: string[];
-  /** The member's characters that have a page, best first. */
+  /** The member's characters that have a page, best first: their main leads. */
   characters: string[];
+  /** Their main character, whether or not it has a page; null before they hold an approved claim. Older hubs omit it. */
+  main?: string | null;
 }
 
 /** REQ-HUB-ME-004: below this many raids, Me says the history is building instead of drawing trend lines. */

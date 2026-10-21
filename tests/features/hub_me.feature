@@ -30,3 +30,12 @@ Feature: HUB ME
     When the worker publishes character pages for "Lilypad", "Ribbit" and "Bogwalker"
     Then they can switch between the raids of "Lilypad" and "Ribbit"
     And asking for "Bogwalker" shows "Lilypad" instead
+
+  @ears_state_driven @member @phase_2_3
+  Scenario: REQ-HUB-ME-006 While a member holds more than one approved character, the /me page shall open on their main and switch to any of their characters from one dropdown that names the main
+    Given a Wednesday raider signed in to the hub
+    And they hold an approved claim on "Ribbit"
+    And they hold an approved claim on "Lilypad"
+    When the worker publishes character pages for "Lilypad", "Ribbit" and "Bogwalker"
+    Then their raids open on their main "Ribbit" with "Lilypad" after it
+    And the raids card picks characters from a dropdown that names the main
