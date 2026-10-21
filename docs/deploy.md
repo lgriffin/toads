@@ -20,8 +20,8 @@ https://<your domain> ──> Caddy (ports 80/443, Let's Encrypt certificate) �
   already paid GoDaddy for a certificate, [step 9](#9-optional-use-a-certificate-bought-from-godaddy) uses it instead.
 - A deploy only happens after CI passes on main. If a database migration fails, the running site is left alone.
 - SELinux stays **enforcing**; the compose file labels its mounts for it.
-- Every night at 03:30 UTC the data is snapshotted, kept on the server for 14 nights and copied encrypted to Backblaze
-  B2 ([step 11](#11-nightly-backups)).
+- Every night at 03:30 UTC the data is snapshotted, kept on the server for 14 nights and copied encrypted to Google
+  Drive or Backblaze B2 ([step 11](#11-nightly-backups)).
 
 Never paste a password, token or private key into a chat, issue or commit. They go only on the server or in GitHub's
 secret settings.
@@ -270,9 +270,9 @@ sudo bash /opt/toads/scripts/backup-install.sh
 sudo grep RESTIC_PASSWORD /opt/toads/infra/.env.backup     # copy it into your password manager
 ```
 
-Snapshots now stay on the server (`/var/backups/toads`, 14 nights). To copy them off the server as well, create a
-Backblaze B2 bucket and key and put four values into `/opt/toads/infra/.env.backup`; the steps, and how to rewind or
-rebuild from a snapshot, are in [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore).
+Snapshots now stay on the server (`/var/backups/toads`, 14 nights). To copy them off the server as well, sign in to
+Google Drive once with rclone on your own computer (or create a Backblaze B2 bucket and key) and put the values into
+`/opt/toads/infra/.env.backup`; the steps, and how to rewind or rebuild from a snapshot, are in [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore).
 
 ## Troubleshooting
 

@@ -38,7 +38,8 @@ main() {
 	command -v restorecon >/dev/null && restorecon /etc/systemd/system/toads-backup.service /etc/systemd/system/toads-backup.timer
 	systemctl daemon-reload
 	systemctl enable --now toads-backup.timer
-	sudo -u "$APP_USER" docker pull -q "$(sed -n 's/^RESTIC_IMAGE=//p' "$APP/scripts/backup-lib.sh")" >/dev/null
+	sudo -u "$APP_USER" docker build -q -t "$(sed -n 's/^RESTIC_IMAGE=//p' "$APP/scripts/backup-lib.sh")" \
+		"$APP/infra/backup" >/dev/null
 
 	if [[ "$run" == true ]]; then
 		echo "Taking a first snapshot (journalctl -u toads-backup shows the details)..."

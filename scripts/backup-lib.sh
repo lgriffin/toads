@@ -2,7 +2,8 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034  # constants used by the scripts that source this file
 
-RESTIC_IMAGE=restic/restic:0.18.0
+# Built from infra/backup/Dockerfile (restic plus rclone); the tag names both pinned versions, so a bump rebuilds it.
+RESTIC_IMAGE=toads-restic:0.18.0-rclone1.71.1
 # A snapshot's name is its UTC time, plus a label for any snapshot the nightly timer did not take.
 SNAPSHOT_NAME='[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z(-[a-z-]+)?'
 NIGHTLY_NAME='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$'
@@ -36,15 +37,21 @@ restic() {
 	local dir mounts=() repository
 	dir="$(backup_dir)"
 	mkdir -p "$dir/.restic-cache"
+	touch "$dir/.restic-cache/rclone.conf"
 	repository="$(setting RESTIC_REPOSITORY)"
 	# A repository on a local path (a second disk, or the drill's stand-in for object storage) is mounted as itself.
 	if [[ "$repository" == /* ]]; then
 		mkdir -p "$repository"
 		mounts+=(-v "$repository:$repository:z")
 	fi
+	if ! docker image inspect "$RESTIC_IMAGE" >/dev/null 2>&1; then
+		docker build -q -t "$RESTIC_IMAGE" "$REPO/infra/backup" >/dev/null
+	fi
+	# rclone (for a Google Drive repository) reads its remote from RCLONE_CONFIG_* in the settings file and keeps
+	# refreshed sign-in tokens in the cache folder.
 	docker run --rm -i --user "$(id -u):$(id -g)" --env-file "$(backup_settings_file)" \
-		-e RESTIC_CACHE_DIR=/cache -v "$dir/.restic-cache:/cache:z" "${mounts[@]}" "${RESTIC_EXTRA_MOUNTS[@]}" \
-		"$RESTIC_IMAGE" "$@"
+		-e RESTIC_CACHE_DIR=/cache -e RCLONE_CONFIG=/cache/rclone.conf -v "$dir/.restic-cache:/cache:z" \
+		"${mounts[@]}" "${RESTIC_EXTRA_MOUNTS[@]}" "$RESTIC_IMAGE" "$@"
 }
 RESTIC_EXTRA_MOUNTS=()
 
