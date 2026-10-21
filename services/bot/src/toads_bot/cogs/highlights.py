@@ -124,7 +124,8 @@ class Highlights(commands.Cog):
         )
 
     async def start_stream(self, interaction: Any, link: str, title: str) -> None:
-        await interaction.response.defer(thinking=True)
+        # Deferred privately, so refusals stay with the member; only the announcement goes to the channel.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             response = await self.hub.start_stream(interaction.user.id, link, title)
         except httpx.HTTPError as e:
@@ -136,11 +137,19 @@ class Highlights(commands.Cog):
             return
         stream = response.json()
         about = f": {stream['title']}" if stream.get("title") else ""
-        await interaction.followup.send(
+        announcement = (
             f"{stream['streamer_name']} is live on Twitch{about}\nhttps://www.twitch.tv/{stream['channel']}\n"
-            f"Watch on {self.where()}.",
-            allowed_mentions=NO_PINGS,
+            f"Watch on {self.where()}."
         )
+        try:
+            await interaction.channel.send(announcement, allowed_mentions=NO_PINGS)
+        except (AttributeError, discord.HTTPException) as e:
+            log.warning("cannot announce a stream in channel %s: %s", getattr(interaction, "channel_id", None), e)
+            await interaction.followup.send(
+                f"Your stream is on {self.where()}, but I could not announce it in this channel.", ephemeral=True
+            )
+            return
+        await interaction.followup.send(f"Your stream is on {self.where()} and announced here.", ephemeral=True)
 
     async def end_stream(self, interaction: Any) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)

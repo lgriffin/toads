@@ -68,8 +68,10 @@ def parse_channel(link: str) -> str | None:
 class TwitchLive:
     """Which channels are live, from Twitch's Helix API with an app access token (client credentials).
 
-    Answers are cached for `ttl` seconds so a busy page asks Twitch at most once a minute. When Twitch cannot be asked,
-    `live` returns None and the page falls back to showing every stream that has not been ended or run out."""
+    Answers, failures included, are cached for `ttl` seconds so a busy page asks Twitch at most once a minute, even
+    while Twitch is down. Only one request asks at a time; the others get the last answer (or None) rather than wait.
+    When Twitch cannot be asked, `live` returns None and the page falls back to showing every stream that has not been
+    ended or run out."""
 
     def __init__(
         self,
@@ -84,10 +86,10 @@ class TwitchLive:
         self._secret = client_secret
         self._ttl = ttl
         self._clock = clock
-        self._http = httpx.Client(timeout=5.0, transport=transport)
+        self._http = httpx.Client(timeout=3.0, transport=transport)
         self._token: str | None = None
         self._token_expires = 0.0
-        self._cache: dict[frozenset[str], tuple[float, frozenset[str]]] = {}
+        self._cache: dict[frozenset[str], tuple[float, frozenset[str] | None]] = {}
         self._lock = threading.Lock()
 
     def _app_token(self) -> str:
@@ -118,14 +120,18 @@ class TwitchLive:
         wanted = frozenset(channels)
         if not wanted:
             return frozenset()
-        with self._lock:
-            hit = self._cache.get(wanted)
-            if hit is not None and self._clock() - hit[0] < self._ttl:
-                return hit[1]
+        hit = self._cache.get(wanted)
+        if hit is not None and self._clock() - hit[0] < self._ttl:
+            return hit[1]
+        if not self._lock.acquire(blocking=False):
+            return None if hit is None else hit[1]  # another request is asking Twitch right now
+        try:
             try:
-                answer = self._ask(wanted)
+                answer: frozenset[str] | None = self._ask(wanted)
             except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
                 log.warning("twitch_live_check_failed", error=str(exc))
-                return None
+                answer = None
             self._cache = {wanted: (self._clock(), answer)}
             return answer
+        finally:
+            self._lock.release()

@@ -220,8 +220,8 @@ async def _file(gallery: GalleryService, photo_id: int, thumbnail: bool) -> Resp
         data, media_type = await anyio.to_thread.run_sync(gallery.photo_file, photo_id, thumbnail)
     except GalleryError as exc:
         raise _refuse(exc) from None
-    # A photo's bytes never change once posted, and only members may fetch them.
-    headers = {"Cache-Control": "private, max-age=604800, immutable", "X-Content-Type-Options": "nosniff"}
+    # Members-only and removable: browsers must ask again each time, so a taken-down photo stops showing at once.
+    headers = {"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"}
     return Response(content=data, media_type=media_type, headers=headers)
 
 

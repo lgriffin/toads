@@ -29,6 +29,7 @@
   let picked = $state<Set<number>>(new Set());
   let archiveError = $state('');
   let clips = $state<Highlight[]>([]);
+  let clipsError = $state('');
   let queue = $state<Highlight[]>([]);
   let slide = $state(0);
   let selected = $state<Photo | null>(null);
@@ -66,7 +67,12 @@
   }
 
   async function loadClips() {
-    clips = await backend.clips().catch(() => []);
+    try {
+      clips = await backend.clips();
+      clipsError = '';
+    } catch (e) {
+      clipsError = galleryError(e);
+    }
   }
 
   onMount(() => {
@@ -86,14 +92,16 @@
     dialog?.close();
   }
 
-  async function act(work: () => Promise<unknown>, done: string) {
+  /** `after` updates the archive in place, so older pages a member has opened stay open. */
+  async function act(work: () => Promise<unknown>, done: string, after: () => void) {
     busy = true;
     actionError = '';
     try {
       await work();
       notice = done;
+      after();
       close();
-      await Promise.all([loadBoard(), loadArchive()]);
+      await loadBoard();
     } catch (e) {
       actionError = galleryError(e);
     } finally {
@@ -101,8 +109,14 @@
     }
   }
 
-  const makePick = (p: Photo) => act(() => backend.pickPhoto(p.id), `“${p.caption || 'That photo'}” is the photo of the week.`);
-  const takeDown = (p: Photo) => act(() => backend.removePhoto(p.id), 'The photo was taken down.');
+  const makePick = (p: Photo) =>
+    act(() => backend.pickPhoto(p.id), `“${p.caption || 'That photo'}” is the photo of the week.`, () => {
+      picked = new Set([...picked, p.id]);
+    });
+  const takeDown = (p: Photo) =>
+    act(() => backend.removePhoto(p.id), 'The photo was taken down.', () => {
+      archive = archive.filter((a) => a.id !== p.id);
+    });
 
   async function stopStream(id: number) {
     try {
@@ -236,6 +250,9 @@
         </ul>
       </div>
     {/if}
+    {#if clipsError}
+      <p class="err" role="alert">{clipsError} <button type="button" class="btn small" onclick={loadClips}>Try again</button></p>
+    {/if}
     <div class="grid">
       {#each clips as h (h.id)}
         <div class="card">
@@ -247,7 +264,9 @@
           />
         </div>
       {:else}
-        <p class="muted">No clips yet. Share one from Discord with <code>/clip</code>; a global officer publishes it here.</p>
+        {#if !clipsError}
+          <p class="muted">No clips yet. Share one from Discord with <code>/clip</code>; a global officer publishes it here.</p>
+        {/if}
       {/each}
     </div>
   </section>

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
+import discord
 import httpx
 from pydantic import SecretStr
 from toads_bot.cogs.highlights import Highlights, refusal
@@ -25,6 +26,8 @@ def run(coro: Any) -> Any:
 def interaction(user_id: int = 7) -> Any:
     return SimpleNamespace(
         user=SimpleNamespace(id=user_id),
+        channel=SimpleNamespace(send=AsyncMock()),
+        channel_id=99,
         response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
     )
@@ -84,11 +87,21 @@ def test_a_stream_is_announced_in_the_channel_without_pings() -> None:
     assert request.url.path == "/api/gallery/streams"
     assert request.headers["x-toads-acting-member"] == "55"
     assert json.loads(request.content) == {"link": "twitch.tv/hopscotch", "title": "Sunday Gruul"}
-    assert "ephemeral" not in i.response.defer.await_args.kwargs
-    answer = i.followup.send.call_args
-    assert "Hopscotch is live on Twitch: Sunday Gruul" in answer.args[0]
-    assert "https://www.twitch.tv/hopscotch" in answer.args[0]
-    assert answer.kwargs["allowed_mentions"].everyone is False
+    assert i.response.defer.await_args.kwargs["ephemeral"] is True
+    announced = i.channel.send.call_args
+    assert "Hopscotch is live on Twitch: Sunday Gruul" in announced.args[0]
+    assert "https://www.twitch.tv/hopscotch" in announced.args[0]
+    assert announced.kwargs["allowed_mentions"].everyone is False
+    assert i.followup.send.call_args.kwargs["ephemeral"] is True
+
+
+def test_a_stream_the_bot_cannot_announce_is_still_on_the_page() -> None:
+    i = interaction()
+    response = SimpleNamespace(status=403, reason="Forbidden")
+    i.channel.send.side_effect = discord.Forbidden(response, "Missing Permissions")  # type: ignore[arg-type]
+    run(Highlights(hub_answering(201, STREAM, [])).start_stream(i, "twitch.tv/hopscotch", ""))
+    assert "could not announce" in i.followup.send.call_args.args[0]
+    assert i.followup.send.call_args.kwargs["ephemeral"] is True
 
 
 def test_a_bad_stream_link_is_answered_privately() -> None:

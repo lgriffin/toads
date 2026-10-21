@@ -336,3 +336,20 @@ def test_twitch_is_asked_once_a_minute_with_one_token() -> None:
     fake.down = True
     now[0] += 61
     assert live.live(["hopscotch"]) is None
+    fake.down = False
+    asked = len(fake.asks)
+    assert live.live(["hopscotch"]) is None  # a failure is remembered for a minute too
+    assert len(fake.asks) == asked
+
+
+def test_a_request_never_waits_behind_another_asking_twitch() -> None:
+    fake, now = FakeTwitch(), [0.0]
+    live = TwitchLive("cid", "secret", clock=lambda: now[0], transport=httpx.MockTransport(fake))
+    assert live.live(["hopscotch"]) == {"hopscotch"}
+    now[0] += 61
+    live._lock.acquire()  # another board request is asking Twitch
+    try:
+        assert live.live(["hopscotch"]) == {"hopscotch"}  # the last answer, at once
+        assert live.live(["croak"]) is None
+    finally:
+        live._lock.release()
