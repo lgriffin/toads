@@ -320,7 +320,7 @@
   .link:hover { text-decoration: underline; }
   .status { font-weight: 600; }
   .status.approved { color: var(--accent); }
-  .status.denied { color: #f0a39c; }
+  .status.denied { color: var(--bad-text); }
   .status.pending { color: var(--warn); }
   .said { font-style: italic; max-width: 40ch; }
   .answering td { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
