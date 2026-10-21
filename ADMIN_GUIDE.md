@@ -689,7 +689,7 @@ The sign-in happens once, on your own computer, because the server has no browse
    Windows, or `brew install rclone` on a Mac.
 3. In a terminal on that computer, run:
    ```bash
-   rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ=="
+   rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ"
    ```
    (The quoted text asks for the `drive.file` permission.) A browser opens: sign in with the backup account and
    choose **Allow**. Back in the terminal, rclone prints a line starting `{"access_token":` between two arrow lines.
