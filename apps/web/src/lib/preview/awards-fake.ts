@@ -3,7 +3,7 @@
  * hub behind them. Changes last until the page reloads.
  */
 import type { MemberEntry } from '$lib/api';
-import { awardable, type AwardIn, type AwardOut, type AwardsBackend } from '$lib/awards';
+import { awardable, isWeek, type AwardIn, type AwardOut, type AwardsBackend } from '$lib/awards';
 import { ApiError } from '$lib/api';
 
 /** The preview's members; Hopscotch is the preview visitor. */
@@ -63,7 +63,7 @@ export const previewAwards: AwardsBackend = {
     if (!a) throw new ApiError(422, 'Unknown award');
     const period = body.period?.trim() || null;
     if (a.monthly && !period) throw new ApiError(422, 'Say which month this is for, as YYYY-MM');
-    if (a.weekly && !/^\d{4}-W\d{2}$/.test(period ?? '')) {
+    if (a.weekly && !isWeek(period ?? '')) {
       throw new ApiError(422, 'Say which raid week this is for, as YYYY-Www');
     }
     if (rows.some((r) => r.member_id === body.member_id && r.award_id === a.id && r.period === period)) {

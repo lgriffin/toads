@@ -70,6 +70,7 @@ def test_a_weekly_honour_is_held_once_per_raid_week() -> None:
     svc = _service()
     v = svc.give(1, "sunder-king", by=2, period="2026-W43", note="Five stacks before the rogues opened")
     assert (v.name, v.kind, v.period) == ("Sunder King", AwardKind.HONOUR, "2026-W43")
+    svc.give(1, "sunder-king", by=2, period="2026-W53")  # 2026 has 53 ISO weeks
     svc.give(1, "sunder-king", by=2, period="2026-W44")
     svc.give(2, "sunder-king", by=1, period="2026-W44")
     with pytest.raises(AwardError) as info:
@@ -77,7 +78,7 @@ def test_a_weekly_honour_is_held_once_per_raid_week() -> None:
     assert info.value.status == 409
 
 
-@pytest.mark.parametrize("period", [None, "", "2026-10", "2026-W00", "2026-W54", "2026W43", "2026-w43"])
+@pytest.mark.parametrize("period", [None, "", "2026-10", "2026-W00", "2026-W54", "2025-W53", "2026W43", "2026-w43"])
 def test_a_weekly_honour_needs_a_week(period: str | None) -> None:
     with pytest.raises(AwardError) as info:
         _service().give(1, "raider-of-the-week", by=2, period=period)

@@ -27,6 +27,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Weekly honours ("YYYY-Www") do not fit, or exist, before this revision.
+    op.execute(sa.text("DELETE FROM member_awards WHERE period LIKE '%-W%'"))
     with op.batch_alter_table("member_awards") as batch:
         batch.alter_column(
             "period",

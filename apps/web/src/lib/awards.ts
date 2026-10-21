@@ -128,6 +128,13 @@ function weekStart(period: string): Date | null {
   return monday;
 }
 
+/** Whether a period is an ISO week that exists, as the hub checks it: "2026-W53" is, "2025-W53" and "2026-W54" are not. */
+export function isWeek(period: string): boolean {
+  const monday = weekStart(period);
+  if (!monday || !/W(0[1-9]|[1-4]\d|5[0-3])$/.test(period)) return false;
+  return isoWeek(new Date(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate())) === period;
+}
+
 /** A date's ISO week, "2026-W43": what the awards desk gives a weekly honour for by default. */
 export function isoWeek(day: Date): string {
   const d = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()));

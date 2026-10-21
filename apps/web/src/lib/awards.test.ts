@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AWARDABLE, awardable, isoWeek, monthLabel, periodLabel, titlesOf } from './awards';
+import { AWARDABLE, awardable, isWeek, isoWeek, monthLabel, periodLabel, titlesOf } from './awards';
 import { MILESTONES } from './milestones';
 import { previewAwards, previewAwardsOf } from './preview/awards-fake';
 
@@ -39,6 +39,8 @@ describe('awards', () => {
     expect(isoWeek(new Date(2026, 9, 21))).toBe('2026-W43');
     expect(isoWeek(new Date(2027, 0, 3))).toBe('2026-W53');
     expect(isoWeek(new Date(2025, 11, 29))).toBe('2026-W01');
+    expect(['2026-W43', '2026-W53', '2020-W53'].every(isWeek)).toBe(true);
+    expect(['2025-W53', '2026-W54', '2026-W00', '2026-10', '2026W43'].some(isWeek)).toBe(false);
   });
 
   it('keeps the preview’s awards to the same rules as the hub', async () => {
@@ -47,6 +49,9 @@ describe('awards', () => {
       status: 422
     });
     await expect(previewAwards.give({ member_id: 2, award_id: 'pet-pull' })).rejects.toMatchObject({ status: 422 });
+    await expect(previewAwards.give({ member_id: 2, award_id: 'pet-pull', period: '2026-W54' })).rejects.toMatchObject({
+      status: 422
+    });
     const given = await previewAwards.give({ member_id: 2, award_id: 'chef' });
     await expect(previewAwards.give({ member_id: 2, award_id: 'chef' })).rejects.toMatchObject({ status: 409 });
     expect(previewAwardsOf(2).length).toBe(before + 1);
