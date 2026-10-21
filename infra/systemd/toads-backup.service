@@ -1,0 +1,15 @@
+# Nightly hub snapshot (ADMIN_GUIDE.md section 13). scripts/backup-install.sh installs it with toads-backup.timer.
+[Unit]
+Description=Toads hub backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=toads
+Group=toads
+ExecStart=/opt/toads/scripts/backup.sh nightly
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle

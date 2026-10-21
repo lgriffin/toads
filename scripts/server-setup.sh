@@ -40,6 +40,8 @@ main() {
 	clone_repo
 	write_env_files "$domain" "$email"
 	make_deploy_key "$domain"
+	step "Turning on the nightly backup (ADMIN_GUIDE.md section 13)"
+	bash "$APP/scripts/backup-install.sh" --no-run
 
 	step "Done"
 	echo "SELinux is $(getenforce). Next: fill in the Discord and Warcraft Logs values (docs/deploy.md, step 5), then"
