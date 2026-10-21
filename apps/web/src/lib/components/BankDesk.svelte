@@ -26,7 +26,9 @@
   let rows = $state<BankRequest[]>([]);
   let mine = $state<BankRequest[]>([]);
   let loaded = $state(false);
-  let loadError = $state('');
+  // Kept apart, so a failed officer list never hides the member's own requests or the ask form.
+  let deskError = $state('');
+  let mineError = $state('');
   let filter = $state<DeskFilter>('pending');
   let answering = $state<number | null>(null);
   let note = $state('');
@@ -41,21 +43,34 @@
   const waiting = $derived(pendingCount(rows));
   const counts = $derived(askedBefore(rows));
 
+  async function loadDesk() {
+    try {
+      const days = await backend.manageDays();
+      day = days[0] ?? null;
+      rows = day ? await backend.incoming(day) : [];
+      deskError = '';
+    } catch (e) {
+      deskError = bankDeskError(e);
+    }
+  }
+
+  async function loadMine() {
+    try {
+      mine = await backend.mine();
+      mineError = '';
+    } catch (e) {
+      mineError = bankDeskError(e);
+    }
+  }
+
+  /** Both lists; each keeps its own error, shown beside a retry. */
   async function refresh() {
-    const days = await backend.manageDays();
-    day = days[0] ?? null;
-    [rows, mine] = await Promise.all([day ? backend.incoming(day) : Promise.resolve([]), backend.mine()]);
+    await Promise.all([loadDesk(), loadMine()]);
   }
 
   async function load() {
-    try {
-      await refresh();
-      loadError = '';
-    } catch (e) {
-      loadError = bankDeskError(e);
-    } finally {
-      loaded = true;
-    }
+    await refresh();
+    loaded = true;
   }
   $effect(() => {
     load();
@@ -76,11 +91,11 @@
       message = bankDeskError(e);
       failed = true;
     }
+    await refresh();
     try {
-      await refresh();
       if (historyOf && day) historyOf = { ...historyOf, rows: await backend.history(day, historyOf.id) };
     } catch (e) {
-      message += ` The list could not be refreshed: ${bankDeskError(e)}`;
+      message += ` Their history could not be refreshed: ${bankDeskError(e)}`;
     }
     busy = false;
     return !failed;
@@ -139,12 +154,15 @@
     {#if day}Officers answer here; the Toad Bot DMs each member the answer and your message.{/if}
   </p>
 
-  {#if loadError}
-    <p class="err" role="alert">{loadError}</p>
-  {:else if !loaded}
+  {#if !loaded}
     <p class="muted" role="status">Loading…</p>
   {:else}
-    {#if day}
+    {#if deskError}
+      <p class="err retry" role="alert">
+        The request list did not load: {deskError}
+        <button type="button" class="btn small" onclick={loadDesk}>Try again</button>
+      </p>
+    {:else if day}
       <div class="filters" role="group" aria-label="Show">
         <button type="button" class="btn small" aria-pressed={filter === 'pending'} onclick={() => (filter = 'pending')}>
           Waiting ({waiting})
@@ -247,7 +265,12 @@
 
     <div class="own">
       <h3>Your requests</h3>
-      {#if mine.length}{@render list(mine)}{:else}<p class="muted">You have not asked the bank for anything yet.</p>{/if}
+      {#if mineError}
+        <p class="err retry" role="alert">
+          Your requests did not load: {mineError}
+          <button type="button" class="btn small" onclick={loadMine}>Try again</button>
+        </p>
+      {:else if mine.length}{@render list(mine)}{:else}<p class="muted">You have not asked the bank for anything yet.</p>{/if}
       <form class="ask" onsubmit={ask}>
         <div class="field grow">
           <label for="bank-desk-item">Item</label>
@@ -310,6 +333,7 @@
   .said-line > span { display: inline; }
   .ask { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: flex-end; }
   .ask .grow { flex: 1 1 14rem; }
+  .retry { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
   .ask input[type='number'] { width: 6rem; }
   /* On a phone each request is a small card, so Answer is never scrolled off the side. */
   @media (max-width: 40rem) {

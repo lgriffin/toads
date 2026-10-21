@@ -151,6 +151,8 @@ class Community(commands.Cog):
         self.post_to_channels = post_to_channels
         # Rooms opened whose ack the hub has not taken yet, by job id: a retry acks the same room, never opens another.
         self.opened_rooms: dict[int, int] = {}
+        # DMs sent whose ack the hub has not taken yet: a retry acks again, never DMs the member twice.
+        self.sent_dms: set[int] = set()
 
     async def cog_load(self) -> None:
         self.poll.start()
@@ -274,8 +276,11 @@ class Community(commands.Cog):
             await self.lock_interview_room(guild, payload)
             await self.hub.ack(job_id)
         elif kind == "send_dm":
-            await self.send_dm(payload)
+            if job_id not in self.sent_dms:
+                await self.send_dm(payload)
+                self.sent_dms.add(job_id)
             await self.hub.ack(job_id)
+            self.sent_dms.discard(job_id)
         elif kind in {"post_message", "edit_message"} and post is not None:
             if not self.post_to_channels:
                 return  # posting is behind a feature flag; the job waits until it is switched on

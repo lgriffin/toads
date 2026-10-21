@@ -519,3 +519,18 @@ def test_a_dm_discord_refuses_is_reported_to_the_hub_not_retried() -> None:
     c.bot.fetch_user = AsyncMock(return_value=member)  # type: ignore[method-assign]
     run(c.run_outbox(fake_guild()))
     hub.ack.assert_awaited_once_with(7, error="Discord refused: 403 boom")
+
+
+def test_a_dm_whose_ack_failed_is_acked_again_not_sent_again() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("send_dm", DM)]
+    hub.ack.side_effect = [httpx.ConnectError("hub down"), None]
+    c = cog(hub)
+    member = MagicMock()
+    member.send = AsyncMock()
+    c.bot.get_user = MagicMock(return_value=member)  # type: ignore[method-assign]
+    run(c.run_outbox(fake_guild()))
+    run(c.run_outbox(fake_guild()))
+    member.send.assert_awaited_once()
+    assert hub.ack.await_count == 2
+    assert c.sent_dms == set()
