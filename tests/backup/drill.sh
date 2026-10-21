@@ -26,6 +26,7 @@ names() { find "$TMP/backups" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | g
 step "laying out a server in $ROOT"
 mkdir -p "$ROOT/scripts" "$ROOT/infra/certs" "$ROOT/config" "$ROOT/services/api" "$ROOT/services/worker"
 cp "$SRC/scripts/backup.sh" "$SRC/scripts/backup-lib.sh" "$SRC/scripts/restore.sh" "$ROOT/scripts/"
+mkdir -p "$ROOT/infra/backup" && cp "$SRC/infra/backup/Dockerfile" "$ROOT/infra/backup/"
 cp "$HERE/compose.yml" "$ROOT/infra/docker-compose.prod.yml"
 echo "TOADS_DOMAIN=drill.invalid" >"$ROOT/infra/.env"
 printf '%s\n' "TOADS_DRILL_SETTING=night-one" "TOADS_DATABASE_URL=postgresql+psycopg://toads:drill-o'pw@postgres:5432/toads" \
@@ -110,6 +111,25 @@ expect_rows "ada,bo"
 [[ "$(sql "SELECT rolpassword IS NOT NULL FROM pg_authid WHERE rolname = 'toads'")" == t ]] ||
 	fail "the database password was not set from the restored TOADS_DATABASE_URL"
 [[ "$("${COMPOSE[@]}" exec -T caddy cat /data/acme.json)" == account ]] || fail "Caddy's certificates were not put back"
+
+step "an rclone destination, the way Google Drive is reached"
+# rclone's local backend stands in for Drive; the repository sits in the cache folder restic's container mounts.
+cat >>"$ROOT/infra/.env.backup" <<SETTINGS
+RESTIC_REPOSITORY=rclone:drill:/cache/rclone-repo
+RCLONE_CONFIG_DRILL_TYPE=local
+SETTINGS
+"$ROOT/scripts/backup.sh" nightly
+rclone_night="$(names | grep -E 'Z$' | tail -n 1)"
+[[ "$("$ROOT/scripts/restore.sh" list)" == *"rclone:drill"*"$rclone_night"* ]] || fail "list does not show the rclone repository"
+rm -rf "${TMP:?}/backups/$rclone_night"
+"$ROOT/scripts/restore.sh" "$rclone_night" --offsite --db-only --yes
+expect_rows "ada,bo"
+
+step "a deleted off-server repository fails the backup instead of starting an empty one"
+rm -rf "${TMP:?}/backups/.restic-cache/rclone-repo"
+if "$ROOT/scripts/backup.sh" nightly; then fail "a backup to a deleted repository succeeded"; fi
+rm "$TMP/backups/.restic-repository"  # what the guide says to do to start a fresh copy on purpose
+sleep 1
 
 step "retention"
 "$ROOT/scripts/backup.sh" nightly

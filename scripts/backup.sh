@@ -132,12 +132,21 @@ write_manifest() {
 # last TOADS_BACKUP_KEEP_DAYS days is kept (a manual one never pushes out that day's nightly), then one a week and
 # one a month.
 copy_offsite() {
-	local path="$1" name="$2"
+	local path="$1" name="$2" repository marker
+	repository="$(setting RESTIC_REPOSITORY)"
+	marker="$(backup_dir)/.restic-repository"
 	RESTIC_EXTRA_MOUNTS=(-v "$path:/snapshot:ro,z")
 	if ! restic cat config >/dev/null 2>&1; then
+		# Create the repository only the first time this server uses it. One that existed and is gone (its folder or
+		# bucket deleted) fails the backup, and so alerts, instead of quietly starting an empty one.
+		if [[ "$(cat "$marker" 2>/dev/null)" == "$repository" ]]; then
+			echo "backup: the off-server repository $repository is missing or unreadable; earlier copies may be gone" >&2
+			return 1
+		fi
 		echo "backup: creating the restic repository"
 		restic init
 	fi
+	echo "$repository" >"$marker"
 	restic backup --quiet --host toads --tag toads --tag "$name" /snapshot
 	RESTIC_EXTRA_MOUNTS=()
 	restic forget --quiet --host toads --tag toads --prune \

@@ -676,13 +676,56 @@ Settings are in `infra/.env.backup` (git-ignored; [infra/.env.backup.example](in
    ```bash
    sudo grep RESTIC_PASSWORD /opt/toads/infra/.env.backup
    ```
-3. Snapshots now stay on the server. To copy them off it too, set up Backblaze B2 (below).
+3. Snapshots now stay on the server. To copy them off it too, set up Google Drive or Backblaze B2 (below; one is
+   enough).
+
+### Off the server: Google Drive
+
+restic reaches Drive through rclone, which is built into the backup image. The snapshots are encrypted before they
+leave the server, so Drive only ever holds unreadable `data`, `index` and `snapshots` files. Each night adds a few MB to
+the account's storage (15 GB free, shared with Gmail).
+
+The sign-in happens once, on your own computer, because the server has no browser.
+
+1. Decide which Google account holds the backups. A separate account just for backups is safest: the server keeps a
+   sign-in token for it. The token only reaches files rclone itself created (the `drive.file` permission), never the
+   rest of the Drive.
+2. On your own computer, install rclone: from https://rclone.org/downloads/, or `winget install Rclone.Rclone` on
+   Windows, or `brew install rclone` on a Mac.
+3. In a terminal on that computer, run:
+   ```bash
+   rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ"
+   ```
+   (The quoted text asks for the `drive.file` permission.) A browser opens: sign in with the backup account and
+   choose **Allow**. Back in the terminal, rclone prints a line starting `{"access_token":` between two arrow lines.
+   That line is a password for the account: do not paste it into chat or email.
+4. On the server, edit the settings file:
+   ```bash
+   sudo -u toads nano /opt/toads/infra/.env.backup
+   ```
+   and set these lines, pasting the whole `{...}` line from step 3 after `TOKEN=`, with no quotes around it:
+   ```
+   RESTIC_REPOSITORY=rclone:gdrive:toads-backups
+   RCLONE_CONFIG_GDRIVE_TYPE=drive
+   RCLONE_CONFIG_GDRIVE_SCOPE=drive.file
+   RCLONE_CONFIG_GDRIVE_TOKEN={"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+   ```
+   (`RESTIC_PASSWORD` is already set.)
+5. Take a snapshot now to check it: `sudo systemctl start toads-backup`, then
+   `sudo -iu toads /opt/toads/scripts/restore.sh list` should show it under "Off the server". A `toads-backups` folder
+   appears in the account's My Drive. Leave it where it is and do not rename it.
+
+If that folder is deleted, or rclone is signed out under the Google account's **Security → Third-party
+connections**, the next night's backup fails (and alerts you, if `TOADS_BACKUP_ALERT_WEBHOOK` is set) rather than
+starting an empty copy. A deleted folder can be restored from Drive's trash for 30 days. For a lost sign-in, run
+step 3 again for a new token. To start a fresh copy on purpose, delete `/var/backups/toads/.restic-repository`.
 
 ### Off the server: Backblaze B2
 
-B2 is the default because it is cheap (the first 10 GB are free; the hub's snapshots are a few MB each), has an EU
-region, and speaks the S3 protocol restic uses. Any S3-compatible store works the same way (AWS S3, Cloudflare R2,
-Wasabi): only the `RESTIC_REPOSITORY` URL and the keys change.
+The other choice. It is also cheap (the first 10 GB are free), has an EU region and speaks the S3 protocol restic
+uses. Unlike Drive, B2 can be set to keep deleted backups for 30 days even if someone gets onto the server (step 3).
+Any S3-compatible store works the same way (AWS S3, Cloudflare R2, Wasabi): only the `RESTIC_REPOSITORY` URL and the
+keys change.
 
 1. Sign up at backblaze.com and open **B2 Cloud Storage**. Choose the **EU Central** region when asked.
 2. **Buckets → Create a Bucket**: a unique name such as `toads-backups-` plus a few random letters, **Private**,
@@ -729,7 +772,7 @@ sudo -iu toads /opt/toads/scripts/restore.sh 2026-10-19              # that day'
 It shows what it will put back and asks you to type `yes`. Then it:
 
 1. stops the API, worker, scheduler and bots (the site stays up; signed-in pages show errors for a minute or two);
-2. takes a `pre-restore` snapshot of how things are now, on the server only (a B2 outage cannot block a rewind);
+2. takes a `pre-restore` snapshot of how things are now, on the server only (a Drive or B2 outage cannot block a rewind);
 3. loads the snapshot into a new database and only then swaps it in, so a failed load leaves the hub as it was. The
    replaced database is kept as `toads_previous`;
 4. puts back `config/*.yaml` from that night;
@@ -739,7 +782,7 @@ It shows what it will put back and asks you to type `yes`. Then it:
 Options: `--db-only` leaves `config/` as it is now; `--with-env` also puts back the `.env` files, `infra/certs` and Caddy's
 certificates, sets the database password to the one in the restored `TOADS_DATABASE_URL` and restarts Caddy (only
 for a secret that was changed by mistake, or a rebuilt server: a rotated Discord or Warcraft Logs secret would go
-back to the old one); `--offsite` fetches the snapshot from B2 even if the server still has it; `--yes` skips the question.
+back to the old one); `--offsite` fetches the snapshot from off the server even if the server still has it; `--yes` skips the question.
 
 **Changed your mind?** `restore.sh undo` swaps `toads_previous` back in (run it again to swap again). It only covers
 the database and only the latest restore; to undo the config as well, restore the `pre-restore` snapshot it took.
@@ -750,7 +793,7 @@ wrote them is still in the list (section 12).
 ### The server is gone: rebuild from the off-server copy
 
 1. Set up a new server with [docs/deploy.md](docs/deploy.md) steps 1 to 3 (DNS, login, `server-setup.sh`).
-2. Put the B2 settings into `/opt/toads/infra/.env.backup` as above, and set `RESTIC_PASSWORD` to the value from your
+2. Put the Drive or B2 settings into `/opt/toads/infra/.env.backup` as above, and set `RESTIC_PASSWORD` to the value from your
    password manager.
 3. Restore the newest snapshot with its env files and certificates (`restore.sh` starts the database itself, sets
    the database password to the one the restored env files use, and puts back Caddy's Let's Encrypt certificates):

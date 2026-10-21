@@ -55,8 +55,12 @@ def nightly(backup: dict[str, Any]) -> None:
 
 @then("restic runs from a pinned image and the off-server settings stay out of git")
 def pinned_and_ignored(backup: dict[str, Any]) -> None:
+    dockerfile = (ROOT / "infra" / "backup" / "Dockerfile").read_text(encoding="utf-8")
+    bases = dict(re.findall(r"^FROM (restic/restic|rclone/rclone):(\S+)", dockerfile, re.M))
+    assert set(bases) == {"restic/restic", "rclone/rclone"}
+    assert all(re.fullmatch(r"\d+\.\d+\.\d+", version) for version in bases.values())
     image = re.search(r"^RESTIC_IMAGE=(\S+)$", backup["lib"], re.M)
-    assert image and re.fullmatch(r"restic/restic:\d+\.\d+\.\d+", image.group(1))
+    assert image and image.group(1) == f"toads-restic:{bases['restic/restic']}-rclone{bases['rclone/rclone']}"
     git = shutil.which("git")
     assert git
     ignored = subprocess.run([git, "check-ignore", "-q", "infra/.env.backup"], cwd=ROOT, check=False)  # noqa: S603 - fixed args
