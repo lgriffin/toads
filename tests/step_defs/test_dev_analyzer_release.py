@@ -71,10 +71,16 @@ def merge(workflow: dict[Any, Any]) -> None:
     assert "github.event.workflow_run.conclusion == 'success'" in job["if"]
     assert "github.event.workflow_run.event == 'pull_request'" in job["if"]
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in job["if"]
-    run = job["steps"][0]["run"]
-    assert '"pyproject.toml uv.lock"' in run
-    assert '--match-head-commit "$SHA"' in run
-    assert "${{" not in run
+    check, merge_step = job["steps"][-2:]
+    assert check["id"] == "check"
+    assert '"pyproject.toml uv.lock "' in check["run"]
+    assert 'python3 scripts/analyzer_release.py pin "$tag"' in check["run"]
+    assert "git diff --quiet HEAD -- pyproject.toml uv.lock" in check["run"]
+    assert merge_step["if"] == "steps.check.outputs.pin-only == 'true'"
+    assert '--match-head-commit "$SHA"' in merge_step["run"]
+    assert job["steps"][0]["with"]["persist-credentials"] is False
+    for step in job["steps"]:
+        assert "${{" not in step.get("run", "")
 
 
 def test_current_reads_the_shared_pin() -> None:
