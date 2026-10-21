@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import type { MemberEntry } from '$lib/api';
-  import { AWARDABLE, awardError, awardable, monthLabel, type AwardOut, type AwardsBackend } from '$lib/awards';
+  import { AWARDABLE, awardError, awardable, isoWeek, periodLabel, type AwardOut, type AwardsBackend } from '$lib/awards';
 
   // The global officers' awards desk: give a member an award, and see or take back the guild's recent ones. The API
   // checks the permission (manage_awards); this page only hides the desk from everyone else.
@@ -13,6 +13,7 @@
   let memberId = $state<number | ''>('');
   let awardId = $state('');
   let period = $state(new Date().toISOString().slice(0, 7));
+  let week = $state(isoWeek(new Date()));
   let note = $state('');
   let busy = $state(false);
   let message = $state('');
@@ -20,6 +21,7 @@
 
   const chosen = $derived(awardable(awardId));
   const GROUPS = [
+    { kind: 'honour', label: 'Weekly honours' },
     { kind: 'milestone', label: 'Milestones and history' },
     { kind: 'achievement', label: 'Achievements' },
     { kind: 'title', label: 'Titles' }
@@ -45,10 +47,10 @@
       const a = await backend.give({
         member_id: memberId,
         award_id: chosen.id,
-        ...(chosen.monthly ? { period } : {}),
+        ...(chosen.monthly ? { period } : chosen.weekly ? { period: week.trim() } : {}),
         ...(note.trim() ? { note: note.trim() } : {})
       });
-      message = `${a.member_name} now holds ${a.name}.`;
+      message = `${a.member_name} now holds ${a.name}${a.period ? `, ${periodLabel(a.period)}` : ''}.`;
       failed = false;
       note = '';
       wall = await backend.wall();
@@ -78,7 +80,9 @@
 
 <section class="card desk" aria-labelledby="awards-desk-h">
   <h2 id="awards-desk-h">Awards</h2>
-  <p class="muted">Give a member a milestone, an achievement or a title. Their toad shows on their Me page.</p>
+  <p class="muted">
+    Give a member a weekly honour, a milestone, an achievement or a title. Their toad shows on their Me page.
+  </p>
 
   {#if loadError}
     <p class="err" role="alert">{loadError}</p>
@@ -107,6 +111,11 @@
           <label for="award-month">Month</label>
           <input id="award-month" type="month" bind:value={period} required />
         </div>
+      {:else if chosen?.weekly}
+        <div class="field">
+          <label for="award-week">Raid week <span class="hint">(like 2026-W43)</span></label>
+          <input id="award-week" type="week" bind:value={week} pattern={'\\d{4}-W\\d{2}'} placeholder="2026-W43" required />
+        </div>
       {/if}
       <div class="field wide">
         <label for="award-note">Note <span class="hint">(optional, shown with the award)</span></label>
@@ -128,7 +137,7 @@
           {@const art = awardable(a.award_id)}
           <li>
             {#if art}<img src="{base}/logos/{art.file}.svg" alt="" width="40" height="35" loading="lazy" />{/if}
-            <span><strong>{a.member_name}</strong> · {a.name}{a.period ? `, ${monthLabel(a.period)}` : ''}</span>
+            <span><strong>{a.member_name}</strong> · {a.name}{a.period ? `, ${periodLabel(a.period)}` : ''}</span>
             <button type="button" class="btn" disabled={busy} onclick={() => takeBack(a)}>
               Take back<span class="sr-only"> {a.name} from {a.member_name}</span>
             </button>

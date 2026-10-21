@@ -3,7 +3,7 @@
  * hub behind them. Changes last until the page reloads.
  */
 import type { MemberEntry } from '$lib/api';
-import { awardable, type AwardIn, type AwardOut, type AwardsBackend } from '$lib/awards';
+import { awardable, isWeek, type AwardIn, type AwardOut, type AwardsBackend } from '$lib/awards';
 import { ApiError } from '$lib/api';
 
 /** The preview's members; Hopscotch is the preview visitor. */
@@ -16,6 +16,10 @@ export const PREVIEW_MEMBERS: MemberEntry[] = [
 ];
 
 const SEED: [number, string, string | null, string | null, string][] = [
+  [1, 'raider-of-the-week', '2026-W42', 'Never left the pad on Vashj.', '2026-10-19T21:00:00Z'],
+  [2, 'floor-inspector', '2026-W42', 'Eleven deaths, four of them before the pull.', '2026-10-19T21:00:00Z'],
+  [3, 'sunder-king', '2026-W42', null, '2026-10-19T21:00:00Z'],
+  [4, 'brew-break', '2026-W41', 'Earl Grey, on the Lurker pull.', '2026-10-12T21:00:00Z'],
   [1, 'raider-of-the-month', '2026-09', 'Top consumable uptime on every Vashj pull.', '2026-10-01T09:00:00Z'],
   [1, 'raids-50', null, null, '2026-09-28T21:30:00Z'],
   [1, 'veteran-tbc', null, null, '2026-09-20T12:00:00Z'],
@@ -59,6 +63,9 @@ export const previewAwards: AwardsBackend = {
     if (!a) throw new ApiError(422, 'Unknown award');
     const period = body.period?.trim() || null;
     if (a.monthly && !period) throw new ApiError(422, 'Say which month this is for, as YYYY-MM');
+    if (a.weekly && !isWeek(period ?? '')) {
+      throw new ApiError(422, 'Say which raid week this is for, as YYYY-Www');
+    }
     if (rows.some((r) => r.member_id === body.member_id && r.award_id === a.id && r.period === period)) {
       throw new ApiError(409, `They already hold ${a.name}${period ? ` for ${period}` : ''}`);
     }
@@ -69,7 +76,7 @@ export const previewAwards: AwardsBackend = {
       kind: a.kind,
       member_id: body.member_id,
       member_name: PREVIEW_MEMBERS.find((m) => m.member_id === body.member_id)?.display_name ?? '',
-      period: a.monthly ? period : null,
+      period: a.monthly || a.weekly ? period : null,
       note: body.note?.trim() || null,
       awarded_at: new Date().toISOString()
     };

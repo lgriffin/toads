@@ -6,13 +6,22 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from toads_api.awards.catalog import AWARDS, AwardKind
 from toads_api.awards.repository import AwardRecord, AwardRepository, DuplicateAwardError
 
 PERIOD = re.compile(r"(20\d\d)-(0[1-9]|1[0-2])")
+WEEK = re.compile(r"(20\d\d)-W(0[1-9]|[1-4]\d|5[0-3])")
 NOTE_LIMIT = 200
+
+
+def _is_week(period: str) -> bool:
+    """An ISO week that exists: "2026-W53" does, "2025-W53" does not (28 December is always in a year's last week)."""
+    m = WEEK.fullmatch(period)
+    if m is None:
+        return False
+    return int(m[2]) < 53 or date(int(m[1]), 12, 28).isocalendar().week == 53
 
 
 class AwardError(Exception):
@@ -34,7 +43,7 @@ class AwardView:
     kind: AwardKind
     member_id: int
     member_name: str
-    # "YYYY-MM" for a monthly award, None otherwise.
+    # "YYYY-MM" for a monthly award, "YYYY-Www" for a weekly honour, None otherwise.
     period: str | None
     note: str | None
     awarded_at: datetime
@@ -83,8 +92,11 @@ class AwardService:
         if award.monthly:
             if not PERIOD.fullmatch(period):
                 raise AwardError("Say which month this is for, as YYYY-MM", status=422)
+        elif award.weekly:
+            if not _is_week(period):
+                raise AwardError("Say which raid week this is for, as YYYY-Www", status=422)
         elif period:
-            raise AwardError(f"{award.name} is not given per month", status=422)
+            raise AwardError(f"{award.name} is not given per month or week", status=422)
         note = (note or "").strip() or None
         if note is not None and len(note) > NOTE_LIMIT:
             raise AwardError(f"Keep the note under {NOTE_LIMIT} characters", status=422)

@@ -8,7 +8,7 @@ import type { Tier } from './access';
 import type { Role } from './mock/data';
 import { roleBadge } from './role-badges';
 
-export type ToadKind = 'rank' | 'day' | 'class' | 'role';
+export type ToadKind = 'rank' | 'day' | 'class' | 'race' | 'role';
 
 export interface Toad {
   kind: ToadKind;
@@ -98,7 +98,13 @@ export function rankToad(tier: Tier, username?: string | null): Toad | null {
 export function roleBadgeToad(id: string): Toad | null {
   const b = roleBadge(id);
   if (!b) return null;
-  const kind: ToadKind = b.file.startsWith('days/') ? 'day' : b.file.startsWith('classes/') ? 'class' : 'role';
+  const kind: ToadKind = b.file.startsWith('days/')
+    ? 'day'
+    : b.file.startsWith('classes/')
+      ? 'class'
+      : b.file.startsWith('races/')
+        ? 'race'
+        : 'role';
   return { kind, id: b.file, label: b.name };
 }
 

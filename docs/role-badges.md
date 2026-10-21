@@ -1,7 +1,8 @@
 # Role badges
 
 Role badges are toads members earn from the Discord roles they hold: the Wednesday Toad, the Thursday Toad and the Sunday
-Toad for the raid nights, Tank, Healer and Damage, and a toad per class. A super admin ties each badge to one or more roles in the
+Toad for the raid nights, Tank, Healer and Damage, a toad per class, and a toad per Horde race (Orc, Troll, Tauren,
+Undead and the Skyborne Windshapers of WoW Forever). A super admin ties each badge to one or more roles in the
 Toads server; everyone holding the role wears the badge on the hub (their Me page and their hub home greeting), and loses it when the role is
 taken away in Discord (at their next role refresh).
 

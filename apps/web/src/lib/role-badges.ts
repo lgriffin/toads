@@ -1,6 +1,6 @@
 /**
  * Role badges (docs/role-badges.md): badge toads members earn from the Discord roles they hold, such as the Wednesday
- * Toad, the Thursday Toad, the Sunday Toad, each night's Officer, Tank and Healer. A super admin ties each badge to a server role on the admin page; the hub
+ * Toad, the Thursday Toad, the Sunday Toad, each night's Officer, Tank and Healer, a class or a Horde race. A super admin ties each badge to a server role on the admin page; the hub
  * checks the roles. services/api/tests/test_role_badges.py fails if the hub's catalogue and this list drift apart.
  */
 import { call, ApiError, type Fetch } from './api';
@@ -31,7 +31,12 @@ export const ROLE_BADGES: readonly RoleBadge[] = [
   { id: 'rogue', name: 'Rogue', file: 'classes/rogue' },
   { id: 'shaman', name: 'Shaman', file: 'classes/shaman' },
   { id: 'warlock', name: 'Warlock', file: 'classes/warlock' },
-  { id: 'warrior', name: 'Warrior', file: 'classes/warrior' }
+  { id: 'warrior', name: 'Warrior', file: 'classes/warrior' },
+  { id: 'orc', name: 'Orc', file: 'races/orc' },
+  { id: 'troll', name: 'Troll', file: 'races/troll' },
+  { id: 'tauren', name: 'Tauren', file: 'races/tauren' },
+  { id: 'undead', name: 'Undead', file: 'races/undead' },
+  { id: 'skyborne', name: 'Skyborne', file: 'races/skyborne' }
 ];
 
 /** How the admin page groups the catalogue. */
@@ -42,7 +47,8 @@ export const ROLE_BADGE_GROUPS: readonly {
   { label: 'Raid nights', ids: ROLE_BADGES.filter((b) => b.file.startsWith('days/')).map((b) => b.id) },
   { label: 'Raid night officers', ids: ROLE_BADGES.filter((b) => b.id.endsWith('-officer')).map((b) => b.id) },
   { label: 'Raid roles', ids: ['tank', 'healer', 'damage'] },
-  { label: 'Classes', ids: ROLE_BADGES.filter((b) => b.file.startsWith('classes/')).map((b) => b.id) }
+  { label: 'Classes', ids: ROLE_BADGES.filter((b) => b.file.startsWith('classes/')).map((b) => b.id) },
+  { label: 'Horde races', ids: ROLE_BADGES.filter((b) => b.file.startsWith('races/')).map((b) => b.id) }
 ];
 
 const BY_ID = new Map(ROLE_BADGES.map((b) => [b.id, b]));

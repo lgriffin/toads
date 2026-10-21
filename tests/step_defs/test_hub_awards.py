@@ -148,6 +148,29 @@ def no_month_refused(hub: Hub, people: dict[str, Any]) -> None:
     assert _give(hub, people, "officer", "raider-of-the-month").status_code == 422
 
 
+@when(parsers.parse('the global officer names the raider Sunder King for "{first}" and for "{second}"'))
+def officer_gives_weekly(hub: Hub, people: dict[str, Any], first: str, second: str) -> None:
+    for week in (first, second):
+        assert _give(hub, people, "officer", "sunder-king", week).status_code == 201
+
+
+@then("the raider holds Sunder King twice")
+def holds_weekly_twice(hub: Hub, people: dict[str, Any]) -> None:
+    mine = hub.get("/api/me/awards", _raider_sid(hub, people)).json()
+    held = [(a["kind"], a["period"]) for a in mine if a["award_id"] == "sunder-king"]
+    assert sorted(held) == [("honour", "2026-W43"), ("honour", "2026-W44")]
+
+
+@then(parsers.parse('naming them Sunder King again for "{week}" is refused as a duplicate'))
+def weekly_duplicate_refused(hub: Hub, people: dict[str, Any], week: str) -> None:
+    assert _give(hub, people, "officer", "sunder-king", week).status_code == 409
+
+
+@then("naming them Sunder King with no week is refused")
+def no_week_refused(hub: Hub, people: dict[str, Any]) -> None:
+    assert _give(hub, people, "officer", "sunder-king").status_code == 422
+
+
 @then("the raider holds no awards")
 def holds_none(hub: Hub, people: dict[str, Any]) -> None:
     assert hub.get("/api/me/awards", _raider_sid(hub, people)).json() == []

@@ -1,5 +1,5 @@
 /**
- * The milestone and achievement toads. Generated with the artwork: `file` is the toad under static/logos/ (add
+ * The milestone, achievement and weekly honour toads. Generated with the artwork: `file` is the toad under static/logos/ (add
  * `-badge` for the badge with its name). Awarding one to a member is the hub's job; this is the catalogue it draws on.
  */
 export type MilestoneCategory =
@@ -11,7 +11,9 @@ export type MilestoneCategory =
   | 'professions'
   | 'pvp'
   | 'raiding'
-  | 'pond';
+  | 'pond'
+  /** Raider of the Week and the weekly piss-takes; given per raid week (docs/awards.md). */
+  | 'honours';
 
 export interface Milestone {
   id: string;
@@ -62,5 +64,17 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'pond-builder', name: 'Pond Builder', blurb: 'Brought a friend to the pond.', category: 'pond', colour: '#5fc08a', file: 'badges/pond-builder' },
   { id: 'voice-regular', name: 'Voice Regular', blurb: 'Always on voice chat.', category: 'pond', colour: '#6a7bff', file: 'badges/voice-regular' },
   { id: 'hardcore', name: 'Hardcore', blurb: 'Survived hardcore.', category: 'levelling', colour: '#3a3f4a', file: 'badges/hardcore' },
-  { id: 'exalted', name: 'Exalted', blurb: 'Exalted with a faction.', category: 'levelling', colour: '#8e5cd9', file: 'badges/exalted' }
+  { id: 'exalted', name: 'Exalted', blurb: 'Exalted with a faction.', category: 'levelling', colour: '#8e5cd9', file: 'badges/exalted' },
+  { id: 'raider-of-the-week', name: 'Raider of the Week', blurb: 'Best toad on the pad this week. Crown on, foam finger up.', category: 'honours', colour: '#3fae6a', file: 'honours/raider-of-the-week' },
+  { id: 'sunder-king', name: 'Sunder King', blurb: 'Five stacks before the rogues had opened. Long may they reign.', category: 'honours', colour: '#a8382e', file: 'honours/sunder-king' },
+  { id: 'best-interrupt', name: 'Best Interrupt', blurb: 'Kicked the boss mid-sentence, every sentence. Rude, but correct.', category: 'honours', colour: '#d8b83a', file: 'honours/best-interrupt' },
+  { id: 'floor-inspector', name: 'Floor Inspector', blurb: 'Spent more of the raid lying down than standing. Very thorough inspection.', category: 'honours', colour: '#6a7896', file: 'honours/floor-inspector' },
+  { id: 'stood-in-fire', name: 'Stood in Fire', blurb: 'Found the fire. Stood in it. Called it a heal check.', category: 'honours', colour: '#e0581e', file: 'honours/stood-in-fire' },
+  { id: 'jumped-the-gun', name: 'Jumped the Gun', blurb: 'Pulled on three. Some of us were still buffing.', category: 'honours', colour: '#d8862a', file: 'honours/jumped-the-gun' },
+  { id: 'brew-break', name: 'Brew Break', blurb: 'Was making a cup of tea when the pull went. Hope it was a good one.', category: 'honours', colour: '#b07a4a', file: 'honours/brew-break' },
+  { id: 'repair-bill', name: 'Repair Bill', blurb: 'Spent more on repairs than they looted. The goblins thank you.', category: 'honours', colour: '#7d8894', file: 'honours/repair-bill' },
+  { id: 'pet-pull', name: 'Pet Pull', blurb: 'It was the pet. It is always the pet.', category: 'honours', colour: '#7ea84a', file: 'honours/pet-pull' },
+  { id: 'wrong-skull', name: 'Wrong Skull', blurb: 'Broke the sheep. Skull was the other one.', category: 'honours', colour: '#6a4fb8', file: 'honours/wrong-skull' },
+  { id: 'bone-dry', name: 'Bone Dry', blurb: 'Out of mana before the boss was out of health. Shaking the last potion.', category: 'honours', colour: '#2f6fd0', file: 'honours/bone-dry' },
+  { id: 'meter-gazer', name: 'Meter Gazer', blurb: 'Watched the damage meter more closely than the boss.', category: 'honours', colour: '#1f9aa0', file: 'honours/meter-gazer' }
 ];
