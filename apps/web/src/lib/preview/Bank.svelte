@@ -1,6 +1,8 @@
 <script lang="ts">
   import { useBankFetch } from '$lib/bank';
+  import BankDesk from '$lib/components/BankDesk.svelte';
   import BankLive from '$lib/components/BankLive.svelte';
+  import { previewBankDesk } from './bank-desk-fake';
   import { previewBankFetch } from './bank-fake';
   import { hasOfficerPowers } from './gate';
   import { previewSession } from './session.svelte';
@@ -25,6 +27,7 @@
 
 <!-- Switching views reloads the page as that view, as signing in again would. -->
 {#key previewSession.role}
+  <BankDesk backend={previewBankDesk(hasOfficerPowers(previewSession.role))} />
   <BankLive />
 {/key}
 

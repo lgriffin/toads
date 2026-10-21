@@ -543,6 +543,10 @@ class CommunityService:
                             "discord_user_id": job.payload["discord_user_id"],
                         },
                     )
+        elif job.kind is OutboxKind.SEND_DM and ack.error is not None:
+            # The member could not be DMed (they left, or turned off DMs from server members): kept on the job, where
+            # the bank desk shows it beside the answer (docs/bank-desk.md).
+            job.payload = {**job.payload, "error": ack.error}
         elif job.kind is OutboxKind.POST_MESSAGE and ack.message_id is not None:
             post = self.repo.get_post(int(str(job.payload["post_id"])))
             if post is not None:
