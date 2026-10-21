@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { dateTime } from '$lib/format';
   import {
     JOB_KIND_LABELS,
@@ -154,7 +155,7 @@
 <section class="card" aria-labelledby="refs-h">
   <h2 id="refs-h">References</h2>
   {#if overview.references.length}
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr>

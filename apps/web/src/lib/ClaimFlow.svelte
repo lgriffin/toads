@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusById, focusOnMount } from '$lib/focus';
   import { characterQuery, MIN_CHARACTER_QUERY, statusLabel, type CharacterMatch, type Claim } from '$lib/api';
 
   // Claim flow (REQ-HUB-CLAIM-001/003/004, REQ-HUB-PRIV-003). Who is claiming comes from the Discord sign-in; the
@@ -27,6 +28,20 @@
   let searched = $state('');
   let searchFailed = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** The claim whose Unclaim is waiting for a second press. */
+  let unclaiming = $state<Claim['id'] | null>(null);
+
+  function keep(c: Claim) {
+    unclaiming = null;
+    focusById(`unclaim-${c.id}`);
+  }
+
+  function unclaim(c: Claim) {
+    unclaiming = null;
+    onunclaim(c);
+    // The row may go, so keyboard focus moves to the table's heading rather than being lost.
+    focusById('claims-h');
+  }
 
   // A rejected claim can be made again, so only live claims hide the Claim button.
   const mine = $derived(new Set(claims.filter((c) => c.status !== 'rejected').map((c) => c.character_id)));
@@ -98,7 +113,7 @@
   </section>
 
   <section class="card">
-    <h2>Your claims</h2>
+    <h2 id="claims-h" tabindex="-1">Your claims</h2>
     {#if claims.length === 0}
       <p class="muted">No claims yet.</p>
     {:else}
@@ -110,7 +125,21 @@
               <td>{c.character_name}</td>
               <td>{c.raid_day_id ?? 'Guild'}</td>
               <td class={c.status === 'approved' ? 'ok' : c.status === 'rejected' ? 'bad' : 'warn'}>{statusLabel(c)}</td>
-              <td><button type="button" disabled={busy} onclick={() => onunclaim(c)}>Unclaim</button></td>
+              <td>
+                {#if unclaiming === c.id}
+                  <span class="confirm" role="group" aria-label="Confirm unclaiming {c.character_name}">
+                    <span class="muted small">{c.status === 'approved' ? 'Claiming it again may wait for an officer.' : 'Your claim is withdrawn.'}</span>
+                    <button type="button" class="danger" disabled={busy} onclick={() => unclaim(c)}>
+                      Unclaim {c.character_name}
+                    </button>
+                    <button type="button" use:focusOnMount disabled={busy} onclick={() => keep(c)}>Keep it</button>
+                  </span>
+                {:else}
+                  <button type="button" id="unclaim-{c.id}" disabled={busy} onclick={() => (unclaiming = c.id)}>
+                    Unclaim<span class="sr-only"> {c.character_name}</span>
+                  </button>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -133,4 +162,10 @@
     cursor: pointer;
   }
   button.claim { background: var(--accent); color: var(--on-accent); }
+  @media (pointer: coarse) {
+    button { min-height: 2.75rem; }
+  }
+  button.danger { border-color: var(--bad); color: var(--bad-text); background: none; }
+  .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .small { font-size: 0.85rem; }
 </style>

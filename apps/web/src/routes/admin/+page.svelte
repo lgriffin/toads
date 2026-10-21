@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { getSession, type Session } from '$lib/api';
@@ -72,7 +73,7 @@
   <section class="block card" aria-labelledby="jobs-h">
     <h2 id="jobs-h">Scheduled jobs</h2>
     <p class="muted">What the worker's scheduler refreshes, at its default intervals. Live run times are not shown yet.</p>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead><tr><th scope="col">Job</th><th scope="col">Refreshes</th><th scope="col">Every</th></tr></thead>
         <tbody>

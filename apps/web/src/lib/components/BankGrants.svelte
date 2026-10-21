@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { onMount } from 'svelte';
   import {
     bankError,
@@ -174,7 +175,7 @@
   {#if grants.length === 0}
     <p class="muted">No one else holds a bank grant.</p>
   {:else}
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr><th scope="col">Member</th><th scope="col">May</th><th scope="col">On</th><th scope="col">Granted</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
@@ -267,7 +268,7 @@
   {/if}
 
   {#if tokens.length}
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr><th scope="col">Token</th><th scope="col">Gives</th><th scope="col">Minted</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr>

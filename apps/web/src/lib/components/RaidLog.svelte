@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
+  import { base } from '$app/paths';
   import { compactNumber, durationLabel } from '$lib/reference';
   import {
     RAID_TABS,
@@ -61,7 +63,10 @@
     <section class="card">
       <h2>Encounters</h2>
       {@render encounterTable(view.page.encounters)}
-      <p class="muted small">Each raider's numbers are for this night's officers.</p>
+      <p class="muted small">
+        Each raider's numbers are for this night's officers. Yours, against the median for your role, are on
+        <a href="{base}/me">your Me page</a>.
+      </p>
     </section>
   {:else}
     {@const p = view.page}
@@ -76,7 +81,7 @@
 
     <section class="card" aria-labelledby="tab-h">
       <h2 id="tab-h">{label(tab)}</h2>
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         {#if tab === 'encounters'}
           {@render encounterTable(p.encounters)}
           {#each p.encounters as e (e.encounter_id)}

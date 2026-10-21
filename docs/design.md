@@ -47,3 +47,14 @@ to CI. Machine-local choices live in `.impeccable/config.local.json`, which is g
   CSP's `script-src 'self'` allows it); `$lib/display.ts` changes it afterwards. Keep their keys in step.
 - **Checks.** The e2e suite runs axe on every page in the dark theme, and again in the light theme with easier reading,
   plus on each open top bar menu in both themes.
+
+## Guardrails and touch
+
+- **Ask once more before anything that cannot be undone.** Deleting an absence, unclaiming a character, rejecting an
+  applicant or a claim: the first press shows what will happen and a way back (Keep it, or Cancel); only the second
+  acts. Follow the same inline pattern (no `confirm()` dialog) for new destructive buttons. REQ-HUB-FRONT-011.
+- **Touch targets.** On a coarse pointer every `.btn` is at least 44px tall (`routes/+layout.svelte`). Placeholders use
+  `--muted`, so hints stay readable in both themes. REQ-HUB-FRONT-012.
+- **Wide tables.** Put `use:scrollable` (`$lib/scrollable.ts`) on a `.scroll` box: it joins the tab order only while
+  its table overflows, so keyboard users can scroll it.
+

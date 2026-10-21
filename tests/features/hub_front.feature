@@ -73,3 +73,15 @@ Feature: HUB FRONT
     Then a reader picks Dark, Light or Match my device, and easier reading (bigger text, roomier lines, plain headings, underlined links)
     And the choice is applied by a script file before the first paint, within the site's script-src 'self' policy, and kept in local storage
     And both themes share one set of colour tokens, the dusk hero art stays dark, and the e2e suite runs axe on every page in the light theme with easier reading
+
+  @ears_unwanted_behavior @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-011 If a member or officer presses a button that deletes or withdraws something for good, then the hub shall ask once more, saying what happens, and offer a way back before it acts
+    Given the hub's delete and withdraw buttons
+    Then deleting an absence and unclaiming a character each wait for a second press beside a Keep it button
+    And rejecting an applicant or a claim waits for a confirming step that names who it is for
+
+  @ears_ubiquitous @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-012 The hub shall give every button a target at least 44px tall on touch screens, keep placeholder hints at the muted text colour, and tell a member in plain words when the Toad Bot could not DM them
+    Given the hub's shared styles
+    Then on a coarse pointer every button is at least 2.75rem tall, and placeholders use the muted colour
+    And a bank answer the Toad Bot could not DM tells the member it is only on the site, and tells officers when the member's DMs are closed
