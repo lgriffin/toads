@@ -44,6 +44,11 @@ restic() {
 		mkdir -p "$repository"
 		mounts+=(-v "$repository:$repository:z")
 	fi
+	local extra=()
+	if RCLONE_CONFIG_GDRIVE_TOKEN="$(drive_token)"; then
+		export RCLONE_CONFIG_GDRIVE_TOKEN
+		extra+=(-e RCLONE_CONFIG_GDRIVE_TOKEN)
+	fi
 	if ! docker image inspect "$RESTIC_IMAGE" >/dev/null 2>&1; then
 		docker build -q -t "$RESTIC_IMAGE" "$REPO/infra/backup" >/dev/null
 	fi
@@ -51,7 +56,25 @@ restic() {
 	# refreshed sign-in tokens in the cache folder.
 	docker run --rm -i --user "$(id -u):$(id -g)" --env-file "$(backup_settings_file)" \
 		-e RESTIC_CACHE_DIR=/cache -e RCLONE_CONFIG=/cache/rclone.conf -v "$dir/.restic-cache:/cache:z" \
-		"${mounts[@]}" "${RESTIC_EXTRA_MOUNTS[@]}" "$RESTIC_IMAGE" "$@"
+		"${extra[@]}" "${mounts[@]}" "${RESTIC_EXTRA_MOUNTS[@]}" "$RESTIC_IMAGE" "$@"
+}
+
+# `rclone authorize` run with options prints the Drive token wrapped as base64 JSON ({"token":"{...}"}, starting eyJ).
+# Prints the plain {"access_token":"..."} JSON when RCLONE_CONFIG_GDRIVE_TOKEN holds the wrapped form (even pasted
+# inside braces), so it can be passed by environment over the file's value; fails when there is nothing to unwrap.
+drive_token() {
+	local token
+	token="$(setting RCLONE_CONFIG_GDRIVE_TOKEN)"
+	[[ "$token" != *'"access_token":"'* && "$token" =~ eyJ[A-Za-z0-9_-]+ ]] || return 1
+	unwrap_rclone_token "${BASH_REMATCH[0]}"
+}
+
+# Unpadded URL-safe base64 of {"token":"<the token's JSON, quotes escaped>"} to the token's JSON.
+unwrap_rclone_token() {
+	local s="${1//-/+}"
+	s="${s//_//}"
+	while ((${#s} % 4)); do s+="="; done
+	base64 -d <<<"$s" | sed -E 's/^\{"token":"(.*)"\}$/\1/; s/\\"/"/g'
 }
 RESTIC_EXTRA_MOUNTS=()
 

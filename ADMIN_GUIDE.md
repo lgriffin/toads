@@ -697,20 +697,22 @@ The sign-in happens once, on your own computer, because the server has no browse
    rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ"
    ```
    (The quoted text asks for the `drive.file` permission.) A browser opens: sign in with the backup account and
-   choose **Allow**. Back in the terminal, rclone prints a line starting `{"access_token":` between two arrow lines.
-   That line is a password for the account: do not paste it into chat or email.
+   choose **Allow**. Back in the terminal, rclone prints one long line starting `eyJ` between two arrow lines
+   (`--->` and `<---End paste`). That line is the sign-in token, as good as a password for the account: do not paste
+   it into chat or email.
 4. On the server, edit the settings file:
    ```bash
    sudo -u toads nano /opt/toads/infra/.env.backup
    ```
-   and set these lines, pasting the whole `{...}` line from step 3 after `TOKEN=`, with no quotes around it:
+   and set these lines, pasting the whole `eyJ...` line from step 3 after `TOKEN=`, with no quotes or arrows:
    ```
    RESTIC_REPOSITORY=rclone:gdrive:toads-backups
    RCLONE_CONFIG_GDRIVE_TYPE=drive
    RCLONE_CONFIG_GDRIVE_SCOPE=drive.file
-   RCLONE_CONFIG_GDRIVE_TOKEN={"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+   RCLONE_CONFIG_GDRIVE_TOKEN=eyJ...
    ```
-   (`RESTIC_PASSWORD` is already set.)
+   (`RESTIC_PASSWORD` is already set. A plain `{"access_token":...}` token, from `rclone config` or an older rclone,
+   works there too.)
 5. Take a snapshot now to check it: `sudo systemctl start toads-backup`, then
    `sudo -iu toads /opt/toads/scripts/restore.sh list` should show it under "Off the server". A `toads-backups` folder
    appears in the account's My Drive. Leave it where it is and do not rename it.
