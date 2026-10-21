@@ -245,6 +245,8 @@
     color: var(--text);
     display: grid;
   }
+  /* At dusk the landing's cards are translucent over the bands, with a lighter rule, as before the light theme. */
+  :global(:root:not([data-theme='light'])) .pond { --surface: rgba(32, 30, 92, 0.72); --line: #4a4a9a; }
   .pond :global(a) { color: var(--teal); }
   .pond :global(a:hover) { color: var(--bronze-hi); }
   .pond :global(a:focus-visible),
