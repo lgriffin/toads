@@ -222,7 +222,7 @@
   }
   .links { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
   .notes { gap: 0.4rem; }
-  .notes li { padding: 0.45rem 0.6rem; border-radius: 6px; background: rgb(255 255 255 / 0.04); }
+  .notes li { padding: 0.45rem 0.6rem; border-radius: 6px; background: var(--bg); }
   .notes .by { font-size: 0.85rem; }
   .notes .body { white-space: pre-line; overflow-wrap: anywhere; }
   .note { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
