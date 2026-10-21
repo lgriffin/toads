@@ -50,7 +50,7 @@ One Postgres database holds both the hub's tables (hub-db, migrations `0001` to 
 RQ queues. Nothing in the code uses object storage yet (MinIO in the dev stack is a stand-in for later screenshot
 uploads).
 
-Only the worker imports the analyzer packages (`wcl-core`, `wcl-store`, `wcl-app`). They are pinned to one commit of
+Only the worker imports the analyzer packages (`wcl-core`, `wcl-store`, `wcl-app`). They are pinned to one release of
 lgriffin/warcraftlogs_project in the root `pyproject.toml`; see [Bumping the analyzer](#bumping-the-analyzer).
 
 ### What the repository ships for deployment
@@ -609,9 +609,14 @@ Migrations are numbered Alembic revisions; they run forwards only in normal oper
 
 Getting the analysis running on the server the first time: [docs/logs-analysis.md](docs/logs-analysis.md).
 
-The worker's analysis comes from lgriffin/warcraftlogs_project. To take a new analyzer version, change the `rev` of
-`wcl-core`, `wcl-store` and `wcl-app` in the root `pyproject.toml` together, run `uv lock`, open a PR, and run
-`toads-worker-migrate` on deploy (wcl-store may bring new tables).
+The worker's analysis comes from lgriffin/warcraftlogs_project, and the site takes only its **releases**, never its
+master. Publishing a release there (pushing a `vX.Y.Z` tag, which builds the installer and the GitHub release) is what
+ships analyzer changes to the site: each night the Analyzer release workflow opens a PR pinning `wcl-core`,
+`wcl-store` and `wcl-app` to the latest release, merges it once CI passes, and Deploy runs the analyzer's migrations
+(`analyser-migrate`) before restarting. Pre-releases and tags like `v4.6.0-rc1` are skipped, and it never moves to a
+release older than the current pin. Setup and running it by hand: [docs/deploy.md](docs/deploy.md#analyzer-releases).
+
+By hand: `python scripts/analyzer_release.py pin v4.5.0`, `uv lock`, open a PR.
 
 ## 12. Rotating secrets
 
