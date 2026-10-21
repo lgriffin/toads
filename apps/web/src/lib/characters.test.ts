@@ -11,7 +11,7 @@ import {
   type CharacterRaid,
   type Spread
 } from './characters';
-import { previewCharacterPage } from './mock/characters';
+import { previewCharacterPage, previewRaidLine } from './mock/characters';
 
 const raid = (over: Partial<CharacterRaid> = {}): CharacterRaid => ({
   report_id: 'abc',
@@ -91,15 +91,24 @@ describe('character pages', () => {
 });
 
 describe('a member\'s line on a raid log', () => {
-  it('finds the main in the raid, or another of their characters, or nobody', async () => {
-    const load = async (name: string | null) => previewCharacterPage(name);
-    expect(await myRaidLine('pondWed1014', load)).toMatchObject({ name: 'Hopscotch', raid: { rank: 2, of: 3 } });
-    expect(await myRaidLine('pondThu1015', load)).toMatchObject({ name: 'Lilypadd', raid: { role: 'healer' } });
-    expect(await myRaidLine('somebodyElses', load)).toBeNull();
+  it('asks the API for the member\'s own line on that raid', async () => {
+    const urls: string[] = [];
+    const line = { name: 'Lilypadd', raid: previewCharacterPage('Lilypadd').page!.recent[0] };
+    const f = (async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify({ line: url.includes('nobody') ? null : line }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+    expect(await myRaidLine('pondThu1015', f)).toMatchObject({ name: 'Lilypadd', raid: { role: 'healer' } });
+    expect(await myRaidLine('nobody here', f)).toBeNull();
+    expect(urls.map((u) => u.split('/api')[1])).toEqual(['/me/raid-line?report=pondThu1015', '/me/raid-line?report=nobody%20here']);
   });
 
-  it('says nothing before the pages are published', async () => {
-    const empty = { generated_at: null, page: null, matched_by: null, looked_for: [], characters: [] };
-    expect(await myRaidLine('pondWed1014', async () => empty)).toBeNull();
+  it('finds the preview member\'s main in the raid, or another of their characters, or nobody', async () => {
+    expect(await previewRaidLine('pondWed1014')).toMatchObject({ name: 'Hopscotch', raid: { rank: 2, of: 3 } });
+    expect(await previewRaidLine('pondThu1015')).toMatchObject({ name: 'Lilypadd', raid: { role: 'healer' } });
+    expect(await previewRaidLine('somebodyElses')).toBeNull();
   });
 });

@@ -47,5 +47,7 @@ describe('the hub home verdict', () => {
     expect(verdict(entry(114, 100))).toBe('beat the melee median by 14%');
     expect(verdict(entry(94, 100, 'healer'))).toBe("was 6% under the healers' median");
     expect(verdict(entry(100, 100))).toBe('matched the melee median');
+    expect(verdict(entry(5, 0, 'healer'))).toBe("beat the healers' median of 0");
+    expect(verdict(entry(0, 0))).toBe('matched the melee median');
   });
 });

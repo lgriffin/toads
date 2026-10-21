@@ -1,6 +1,6 @@
 <script lang="ts">
   import { scrollable } from '$lib/scrollable';
-  import { myRaidLine, placeLabel, ROLE_NAMES, vsMedian, type MyCharacterPage, type MyRaidLine } from '$lib/characters';
+  import { placeLabel, ROLE_NAMES, vsMedian, type MyRaidLine } from '$lib/characters';
   import { base } from '$app/paths';
   import { compactNumber, durationLabel } from '$lib/reference';
   import {
@@ -27,15 +27,15 @@
     backend: LogsBackend;
     report: string;
     day: string | null;
-    /** The signed-in member's character pages, for their own line on this raid; null leaves it out. */
-    mine?: ((name: string | null) => Promise<MyCharacterPage>) | null;
+    /** The signed-in member's own line on a raid (GET /api/me/raid-line); null leaves it out. */
+    mine?: ((report: string) => Promise<MyRaidLine | null>) | null;
   } = $props();
 
   let line = $state<MyRaidLine | null>(null);
   $effect(() => {
     if (!mine) return;
     // Best effort: without the member's pages the log still reads, just without their own line.
-    myRaidLine(report, mine).then(
+    mine(report).then(
       (l) => (line = l),
       () => (line = null)
     );

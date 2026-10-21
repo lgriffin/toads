@@ -560,5 +560,6 @@ def performance_sentence() -> None:
 @then("a raid's log page looks up the member's characters and shows them their own line for that raid")
 def raid_line() -> None:
     log = (WEB / "lib" / "components" / "RaidLog.svelte").read_text(encoding="utf-8")
-    assert "myRaidLine(report, mine)" in log and "You in this raid" in log
+    assert "mine(report).then(" in log and "You in this raid" in log
+    assert "/api/me/raid-line?report=" in (WEB / "lib" / "characters.ts").read_text(encoding="utf-8")
     assert "{mine}" in (WEB / "routes" / "logs" / "[id]" / "+page.svelte").read_text(encoding="utf-8")

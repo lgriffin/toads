@@ -145,27 +145,7 @@ export interface MyRaidLine {
   raid: CharacterRaid;
 }
 
-/** How many of a member's other characters the log page looks through after their main. */
-export const RAID_LINE_LOOKUPS = 3;
-
-/**
- * Find the member's character in the raid `report`: their main's page first, then up to RAID_LINE_LOOKUPS of their
- * other characters. Null when none of them was there, or the pages are not published yet.
- */
-export async function myRaidLine(
-  report: string,
-  load: (name: string | null) => Promise<MyCharacterPage>
-): Promise<MyRaidLine | null> {
-  const first = await load(null);
-  const found = (mine: MyCharacterPage) => {
-    const raid = mine.page?.recent.find((r) => r.report_id === report);
-    return raid && mine.page ? { name: mine.page.name, raid } : null;
-  };
-  const hit = found(first);
-  if (hit || !first.page) return hit;
-  for (const name of first.characters.filter((n) => n !== first.page?.name).slice(0, RAID_LINE_LOOKUPS)) {
-    const line = found(await load(name));
-    if (line) return line;
-  }
-  return null;
-}
+/** GET /api/me/raid-line: the member's own line on the raid `report`, from whichever of their characters' pages holds
+ * it (main first); null when none does. The API looks only at the member's own characters. */
+export const myRaidLine = (report: string, f: Fetch = fetch): Promise<MyRaidLine | null> =>
+  call<{ line: MyRaidLine | null }>(f, `/api/me/raid-line?report=${encodeURIComponent(report)}`).then((r) => r.line);

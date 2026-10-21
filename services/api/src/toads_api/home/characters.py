@@ -38,6 +38,13 @@ class MyCharacterPage:
     main: str | None = None
 
 
+@dataclass(frozen=True)
+class MyRaidLine:
+    # The member's character that was in the raid, and that raid's row from its page.
+    name: str
+    raid: dict[str, Any]
+
+
 class CharacterPageService:
     def __init__(self, repo: HomeRepository) -> None:
         self.repo = repo
@@ -77,3 +84,16 @@ class CharacterPageService:
         chosen = next((f for f in found if name is not None and fold(f[0]) == fold(name)), found[0])
         _, how, page = chosen
         return MyCharacterPage(page.generated_at, dict(page.page), how, looked_for, names, main)
+
+    def raid_line(self, member_id: int, report_id: str) -> MyRaidLine | None:
+        """The member's own line on one raid: the first of their characters (main first) whose page holds it. Only
+        the member's own characters are looked at, so a log never shows anyone else's numbers."""
+        chars = self.repo.member_characters(member_id)
+        for name, _ in candidates(chars) if chars is not None else []:
+            stored = self.repo.character_page(name)
+            if stored is None:
+                continue
+            raid = next((r for r in stored.page.get("recent", []) if r.get("report_id") == report_id), None)
+            if raid is not None:
+                return MyRaidLine(str(stored.page["name"]), dict(raid))
+        return None

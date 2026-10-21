@@ -39,8 +39,9 @@ A raid day's weekday comes from `weekdays` in `raid_sheets.yaml`, else the weekd
 
 Every member also sees their own line on a raid's page, "You in this raid": their character's number for the role they
 played against that raid's median for the role, and their place. It comes from their own character pages
-(`GET /api/me/character-page`, the main first, then up to three of their other characters), never from the raid's
-per-raider detail, so it shows nobody else's numbers (REQ-HUB-HOME-016).
+(`GET /api/me/raid-line?report=`, which looks through every one of their characters' pages on the server, the main
+first), never from the raid's per-raider detail, so it shows nobody else's numbers (REQ-HUB-HOME-016). Each page keeps
+a character's last 40 raids, so an older raid shows no line.
 
 ## Each night at a glance
 
