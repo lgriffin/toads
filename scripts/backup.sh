@@ -47,7 +47,9 @@ main() {
 	mv "$WORK" "$dir/$NAME"
 	echo "backup: kept on this server in $dir/$NAME ($(du -sh "$dir/$NAME" | cut -f1))"
 
-	if offsite_enabled; then
+	if [[ "${TOADS_BACKUP_LOCAL_ONLY:-}" == 1 ]]; then
+		echo "backup: kept on this server only (TOADS_BACKUP_LOCAL_ONLY)"
+	elif offsite_enabled; then
 		copy_offsite "$dir/$NAME" "$NAME"
 	else
 		echo "backup: no off-server copy: RESTIC_REPOSITORY is empty in infra/.env.backup (ADMIN_GUIDE.md section 13)" >&2

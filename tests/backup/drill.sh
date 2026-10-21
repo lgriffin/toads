@@ -27,8 +27,9 @@ step "laying out a server in $ROOT"
 mkdir -p "$ROOT/scripts" "$ROOT/infra/certs" "$ROOT/config" "$ROOT/services/api" "$ROOT/services/worker"
 cp "$SRC/scripts/backup.sh" "$SRC/scripts/backup-lib.sh" "$SRC/scripts/restore.sh" "$ROOT/scripts/"
 cp "$HERE/compose.yml" "$ROOT/infra/docker-compose.prod.yml"
-printf '%s\n' "TOADS_DOMAIN=drill.invalid" "TOADS_POSTGRES_PASSWORD=drill-o'pw" >"$ROOT/infra/.env"
-echo "TOADS_DRILL_SETTING=night-one" >"$ROOT/services/api/.env"
+echo "TOADS_DOMAIN=drill.invalid" >"$ROOT/infra/.env"
+printf '%s\n' "TOADS_DRILL_SETTING=night-one" "TOADS_DATABASE_URL=postgresql+psycopg://toads:drill-o'pw@postgres:5432/toads" \
+	>"$ROOT/services/api/.env"
 echo "tls /certs/fullchain.pem /certs/privkey.pem" >"$ROOT/infra/certs/tls.caddy"
 echo "night: one" >"$ROOT/config/raid_days.yaml"
 cat >"$ROOT/infra/.env.backup" <<SETTINGS
@@ -52,7 +53,7 @@ sleep 1
 step "night two"
 sql "INSERT INTO members VALUES ('bo')"
 echo "night: two" >"$ROOT/config/raid_days.yaml"
-echo "TOADS_DRILL_SETTING=night-two" >"$ROOT/services/api/.env"
+sed -i 's/night-one/night-two/' "$ROOT/services/api/.env"
 "$ROOT/scripts/backup.sh" nightly
 night2="$(names | tail -n 1)"
 [[ "$night1" != "$night2" ]] || fail "two nights share a name"
@@ -93,13 +94,22 @@ echo tampered >>"$TMP/backups/$night1/hub.dump"
 if "$ROOT/scripts/restore.sh" "$night1" --yes; then fail "a tampered snapshot was restored"; fi
 expect_rows "ada,bo"
 
+step "a snapshot whose migration fails is rolled back and the hub keeps serving"
+sql 'CREATE TABLE poison (x int)'
+"$ROOT/scripts/backup.sh" poisoned
+sql 'DROP TABLE poison'
+if "$ROOT/scripts/restore.sh" "$(names | grep -- '-poisoned$')" --db-only --yes; then fail "a failed migration was not reported"; fi
+expect_rows "ada,bo"
+[[ -n "$("${COMPOSE[@]}" ps -q --status running api)" ]] || fail "the API was not started again after the rollback"
+
 step "a rebuilt server: an empty database and no local snapshots, restored from the off-server copy"
 "${COMPOSE[@]}" down -v >/dev/null 2>&1
 rm -rf "${TMP:?}/backups"
 "$ROOT/scripts/restore.sh" "$night2" --offsite --with-env --yes
 expect_rows "ada,bo"
 [[ "$(sql "SELECT rolpassword IS NOT NULL FROM pg_authid WHERE rolname = 'toads'")" == t ]] ||
-	fail "the database password was not set from the restored infra/.env"
+	fail "the database password was not set from the restored TOADS_DATABASE_URL"
+[[ "$("${COMPOSE[@]}" exec -T caddy cat /data/acme.json)" == account ]] || fail "Caddy's certificates were not put back"
 
 step "retention"
 "$ROOT/scripts/backup.sh" nightly

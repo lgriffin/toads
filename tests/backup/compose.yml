@@ -18,7 +18,14 @@ services:
       test: ["CMD-SHELL", "pg_isready -U toads"]
       interval: 2s
 
-  migrate: { image: "alpine:3.20", command: ["true"] }
+  # Fails on a database holding a `poison` table, so the drill can see a failed migration roll a restore back.
+  migrate:
+    image: postgres:16
+    command:
+      - sh
+      - -c
+      - if psql -h postgres -U toads -d toads -tAc "SELECT to_regclass('poison')" | grep -q poison; then exit 1; fi
+    depends_on: { postgres: { condition: service_healthy } }
   analyser-migrate: { image: "alpine:3.20", command: ["true"] }
 
   api:

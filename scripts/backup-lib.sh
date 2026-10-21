@@ -50,7 +50,9 @@ RESTIC_EXTRA_MOUNTS=()
 
 # Snapshot names kept off the server, oldest first.
 offsite_names() {
-	restic snapshots --host toads --tag toads --json | grep -oE "\"${SNAPSHOT_NAME}\"" | tr -d '"' | sort -u
+	local json
+	json="$(restic snapshots --host toads --tag toads --json)"
+	grep -oE "\"${SNAPSHOT_NAME}\"" <<<"$json" | tr -d '"' | sort -u || true
 }
 
 # Snapshot names kept on this server, oldest first.

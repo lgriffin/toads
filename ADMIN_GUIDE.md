@@ -621,7 +621,7 @@ every process that reads it.
 | `TOADS_CREDENTIALS_KEYS` | Generate a key (`just credentials-key`) and put it **first**: `new,old`. Restart the API and worker. New writes use the new key and old rows still decrypt. A row is re-encrypted only when it is written again (a member saves their key, or the worker refreshes the reference login). Drop the old key only once you accept that members who have not re-saved must save their key again. |
 | Discord client secret or bot tokens | Reset in the Discord developer portal, update the env of the API and the bot that uses it, restart. |
 | Warcraft Logs client secret | Reset on warcraftlogs.com, update the worker and API env, restart. The reference login may need reconnecting. |
-| Database password | Change the role's password in Postgres first (`\password <user>` in `psql`; the secret files alone do not change it), then update `TOADS_DATABASE_URL` in the API and worker, restart. |
+| Database password | Change the role's password in Postgres first (`\password <user>` in `psql`; the secret files alone do not change it), then update `TOADS_DATABASE_URL` in the API and worker and `TOADS_POSTGRES_PASSWORD` in `infra/.env`, restart. |
 | Super admins or break-glass | Edit the env and restart the API (section 11). |
 | Officer tokens | Revoke unused tokens; they expire on their own after at most 30 days. |
 
@@ -723,17 +723,18 @@ sudo -iu toads /opt/toads/scripts/restore.sh 2026-10-19              # that day'
 
 It shows what it will put back and asks you to type `yes`. Then it:
 
-1. takes a `pre-restore` snapshot of how things are now;
-2. stops the API, worker, scheduler and bots (the site stays up; signed-in pages show errors for a minute or two);
+1. stops the API, worker, scheduler and bots (the site stays up; signed-in pages show errors for a minute or two);
+2. takes a `pre-restore` snapshot of how things are now, on the server only (a B2 outage cannot block a rewind);
 3. loads the snapshot into a new database and only then swaps it in, so a failed load leaves the hub as it was. The
    replaced database is kept as `toads_previous`;
 4. puts back `config/*.yaml` from that night;
 5. runs both migrations (a snapshot from before a migration is brought up to the running code) and starts everything,
-   waiting for the API to be healthy.
+   waiting for the API to be healthy. If that fails, it swaps the previous database back and starts the hub on it.
 
-Options: `--db-only` leaves `config/` as it is now; `--with-env` also puts back the `.env` files and `infra/certs`
-(only for a secret that was changed by mistake: a rotated Discord or Warcraft Logs secret would go back to the old
-one); `--offsite` fetches the snapshot from B2 even if the server still has it; `--yes` skips the question.
+Options: `--db-only` leaves `config/` as it is now; `--with-env` also puts back the `.env` files, `infra/certs` and Caddy's
+certificates, sets the database password to the one in the restored `TOADS_DATABASE_URL` and restarts Caddy (only
+for a secret that was changed by mistake, or a rebuilt server: a rotated Discord or Warcraft Logs secret would go
+back to the old one); `--offsite` fetches the snapshot from B2 even if the server still has it; `--yes` skips the question.
 
 **Changed your mind?** `restore.sh undo` swaps `toads_previous` back in (run it again to swap again). It only covers
 the database and only the latest restore; to undo the config as well, restore the `pre-restore` snapshot it took.
@@ -746,8 +747,8 @@ wrote them is still in the list (section 12).
 1. Set up a new server with [docs/deploy.md](docs/deploy.md) steps 1 to 3 (DNS, login, `server-setup.sh`).
 2. Put the B2 settings into `/opt/toads/infra/.env.backup` as above, and set `RESTIC_PASSWORD` to the value from your
    password manager.
-3. Restore the newest snapshot with its env files and certificates (`restore.sh` starts the database itself, and
-   sets the database password back to the one in the restored `infra/.env`):
+3. Restore the newest snapshot with its env files and certificates (`restore.sh` starts the database itself, sets
+   the database password to the one the restored env files use, and puts back Caddy's Let's Encrypt certificates):
    ```bash
    sudo -iu toads /opt/toads/scripts/restore.sh list
    sudo -iu toads /opt/toads/scripts/restore.sh <newest name> --offsite --with-env
@@ -759,7 +760,8 @@ wrote them is still in the list (section 12).
 
 CI's `backup` job runs [tests/backup/drill.sh](tests/backup/drill.sh) on every pull request: it takes two nights of
 snapshots against a real Postgres and restic repository, rewinds to the first, undoes it, rewinds to the second from
-the off-server copy alone with its env files, and checks that a tampered snapshot is refused with nothing changed.
+the off-server copy alone with its env files, checks that a tampered snapshot is refused with nothing changed, that
+a snapshot whose migration fails is rolled back, and rebuilds an empty server from the off-server copy.
 Run it yourself with `bash tests/backup/drill.sh` (needs Docker).
 
 ## 14. Troubleshooting
