@@ -33,3 +33,11 @@ Feature: HUB CLAIM
     Given a Wednesday raider signed in with server nickname "Hops"
     When they search for characters named "scotch"
     Then they are offered "Hopscotch" and "Höpscotch"
+
+  @ears_state_driven @raid_leader @phase_2_2
+  Scenario: REQ-HUB-CLAIM-005 While a claim waits for an officer, the hub shall list it on the claims panel of each raid night the claimant's Discord roles put them on, and on the global officers' list when they hold no night
+    Given a Wednesday raider signed in with server nickname "Hops"
+    And they claim the character "Hopscotch"
+    Then the Wednesday officers' claims panel lists the claim with the claimant's name
+    And the Sunday officers' claims panel does not list it
+    And the global officers' no-night list does not list it

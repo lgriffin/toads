@@ -15,7 +15,7 @@ from toads_api.characters import Character, SqlCharacters
 from toads_api.claims import names_match
 from toads_api.notify import OFFICERS_OUTBOX
 
-from conftest import Hub
+from conftest import ROLES, Hub
 
 
 def outbox(hub: Hub) -> list[dict[str, object]]:
@@ -206,14 +206,74 @@ def test_missing_claim_is_404(hub: Hub, pending: dict[str, object]) -> None:
     assert hub.post("/api/days/wed/claims/999/approve", pending["wed"]).status_code == 404
 
 
-def test_claims_without_a_day_go_to_global_officers(hub: Hub, pending: dict[str, object]) -> None:
+def test_claims_without_a_night_go_to_global_officers(hub: Hub, pending: dict[str, object]) -> None:
     lone = hub.login(hub.user(("global", "officer"), nick="Someone"))
     claim = hub.post("/api/claims", lone, {"character_id": 3}).json()
     assert claim["raid_day_id"] is None
-    assert [c["id"] for c in hub.get("/api/days/sun/claims", pending["global"]).json()] == [claim["id"]]
+    unplaced = hub.get("/api/admin/claims", pending["global"]).json()
+    assert [(c["id"], c["nights"]) for c in unplaced] == [(claim["id"], [])]
+    # A night's queue holds only that night's claims, even for the global tier.
+    assert claim["id"] not in [c["id"] for c in hub.get("/api/days/sun/claims", pending["global"]).json()]
+    assert claim["id"] not in [c["id"] for c in hub.get("/api/days/wed/claims", pending["wed"]).json()]
+    assert hub.get("/api/admin/claims", pending["wed"]).status_code == 403
+    assert hub.post(f"/api/days/wed/claims/{claim['id']}/approve", pending["wed"]).status_code == 403
+    assert hub.post(f"/api/admin/claims/{claim['id']}/approve", pending["wed"]).status_code == 403
+    assert hub.post(f"/api/admin/claims/{claim['id']}/approve", pending["global"]).status_code == 200
+    assert hub.get("/api/admin/claims", pending["global"]).json() == []
+
+
+def test_queue_names_the_claimant_and_their_nights(hub: Hub, pending: dict[str, object]) -> None:
+    (queued,) = hub.get("/api/days/wed/claims", pending["wed"]).json()
+    assert (queued["member_name"], queued["nights"], queued["character_name"]) == ("Hops", ["wed"], "Hopscotch")
+
+
+def test_a_claimant_on_two_nights_is_in_both_queues(hub: Hub, pending: dict[str, object]) -> None:
+    both = hub.login(hub.user(("wed", "raider"), ("sun", "raider"), nick="Twice"))
+    claim = hub.post("/api/claims", both, {"character_id": 3}).json()
+    for day in ("wed", "sun"):
+        assert claim["id"] in [c["id"] for c in hub.get(f"/api/days/{day}/claims", pending[day]).json()]
+    assert hub.post(f"/api/days/sun/claims/{claim['id']}/approve", pending["sun"]).status_code == 200
+    assert hub.get("/api/days/wed/claims", pending["wed"]).json()[0]["id"] != claim["id"]
+
+
+def test_a_claim_follows_the_claimants_night_role(hub: Hub, pending: dict[str, object]) -> None:
+    # Claimed as a Sunday trial; once Discord moves the member to Thursday's role and they sign in again, the claim is
+    # Thursday's officers' to decide, though it recorded Sunday.
+    user = hub.user(("sun", "trial"), nick="Late")
+    claim = hub.post("/api/claims", hub.login(user), {"character_id": 3}).json()
+    assert claim["raid_day_id"] == "sun"
+    user.roles = {ROLES[("thu", "raider")]}
+    hub.login(user)
+    assert [c["id"] for c in hub.get("/api/days/sun/claims", pending["sun"]).json()] == []
+    assert hub.post(f"/api/days/sun/claims/{claim['id']}/approve", pending["sun"]).status_code == 403
+    thu = hub.login(hub.user(("thu", "officer")))
+    assert [c["id"] for c in hub.get("/api/days/thu/claims", thu).json()] == [claim["id"]]
+
+
+def test_a_claimant_who_loses_every_night_role_goes_to_the_global_tier(hub: Hub, pending: dict[str, object]) -> None:
+    user = hub.user(("wed", "raider"), nick="Gone")
+    claim = hub.post("/api/claims", hub.login(user), {"character_id": 3}).json()
+    user.roles = set()
+    hub.login(user)
     assert claim["id"] not in [c["id"] for c in hub.get("/api/days/wed/claims", pending["wed"]).json()]
     assert hub.post(f"/api/days/wed/claims/{claim['id']}/approve", pending["wed"]).status_code == 403
-    assert hub.post(f"/api/days/sun/claims/{claim['id']}/approve", pending["global"]).status_code == 200
+    assert [c["id"] for c in hub.get("/api/admin/claims", pending["global"]).json()] == [claim["id"]]
+
+
+def test_a_night_removed_from_config_sends_its_claims_to_the_global_tier(
+    hub: Hub, pending: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    services = hub.app.state.services
+    kept = [d for d in services.raid_days.raid_days if d.id != "wed"]
+    monkeypatch.setattr(services.raid_days, "raid_days", kept)
+    assert [c["id"] for c in hub.get("/api/admin/claims", pending["global"]).json()] == [pending["claim"]["id"]]
+
+
+def test_global_officer_decides_any_nights_claim_from_admin(hub: Hub, pending: dict[str, object]) -> None:
+    cid = pending["claim"]["id"]
+    r = hub.post(f"/api/admin/claims/{cid}/reject", pending["global"], {"reason": "Not yours"})
+    assert r.json()["status"] == "rejected"
+    assert audit(hub)[-1] == ("claim.reject", "wed")
 
 
 def test_concurrent_claim_race_is_409(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -560,8 +560,12 @@ Bank page under the raid day. A stale button answers with the request's current 
 
 Members find their character by name on `/me/claim`; the hub knows who they are from their Discord sign-in. The
 names come from wcl-store's character list, which the worker fills as it analyses the guild's raids, so a character
-shows up after its first logged raid. Raid-day officers approve, reject or reassign claims under
-`/api/days/{day}/claims` (the Officers console).
+shows up after its first logged raid. A name matching the member's Discord nickname is approved at once; the rest
+wait on **Officers > Character claims** (`/officers/claims`) and in each night's own officer section. A claim waits for
+the officers of every raid night the claimant's Discord roles put them on now (their night Toad role, refreshed when
+they sign in), so moving a member to another night moves their pending claims with them. Global officers and super
+admins see every night's claims, plus a "Members on no raid night" list for claimants who hold no night role
+(`/api/admin/claims`). The API also takes a reassign (`/api/days/{day}/claims/{id}/reassign`).
 
 ### Refresh hub data by hand
 

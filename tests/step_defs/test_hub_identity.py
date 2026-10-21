@@ -97,6 +97,11 @@ def test_claim_004() -> None:
     pass
 
 
+@_bind("hub_claim.feature", 5)
+def test_claim_005() -> None:
+    pass
+
+
 @_bind("hub_priv.feature", 3)
 def test_priv_003() -> None:
     pass
@@ -455,6 +460,23 @@ def decision_audited(hub: Hub, day: str) -> None:
     action, raid_day = _audit(hub)[-1]
     assert action.startswith("claim.")
     assert raid_day == day
+
+
+@then("the Wednesday officers' claims panel lists the claim with the claimant's name")
+def wed_panel_lists(hub: Hub, ctx: dict[str, Any]) -> None:
+    officer = hub.login(hub.user(("wed", "officer")))
+    queued = [(c["id"], c["member_name"]) for c in hub.get("/api/days/wed/claims", officer).json()]
+    assert queued == [(ctx["claim"]["id"], "Hops")]
+
+
+@then("the Sunday officers' claims panel does not list it")
+def sun_panel_empty(hub: Hub) -> None:
+    assert hub.get("/api/days/sun/claims", hub.login(hub.user(("sun", "officer")))).json() == []
+
+
+@then("the global officers' no-night list does not list it")
+def unplaced_empty(hub: Hub) -> None:
+    assert hub.get("/api/admin/claims", hub.login(hub.user(("global", "officer")))).json() == []
 
 
 @when("they unclaim it")

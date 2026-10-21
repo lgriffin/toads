@@ -8,17 +8,20 @@
   import { dayName, hubAbsences, raidDaysOf } from '$lib/absences';
   import { hubPanels } from '$lib/interview-panels';
   import { hubBoard } from '$lib/officer-board';
+  import { hubClaims } from '$lib/officer-claims';
   import { dayToad } from '$lib/raid-page';
   import { previewAbsences, previewRaidSession } from '$lib/preview/absences-fake';
   import { previewBoard } from '$lib/preview/board-fake';
+  import { previewClaims } from '$lib/preview/claims-fake';
   import { previewPanels } from '$lib/preview/panels-fake';
   import { previewSession } from '$lib/preview/session.svelte';
+  import ClaimsQueue from '$lib/components/ClaimsQueue.svelte';
   import InterviewPanelCard from '$lib/components/InterviewPanelCard.svelte';
   import OfficerBoard from '$lib/components/OfficerBoard.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
   import TeamAbsences from '$lib/components/TeamAbsences.svelte';
 
-  // One raid night's own officer section: its team's absences, its task board and its interview panel. Only that
+  // One raid night's own officer section: its members' character claims, its team's absences, its task board and its interview panel. Only that
   // night's officers see it (global officers and super admins see every night); another night's officers get a
   // refusal and none of its content. The API checks every call against the night in the path. Keyed by night, so
   // moving to another night's section starts its panels afresh rather than showing the last night's.
@@ -35,6 +38,7 @@
   const absences = __PREVIEW__ ? previewAbsences : hubAbsences;
   const board = __PREVIEW__ ? previewBoard : hubBoard();
   const panels = __PREVIEW__ ? previewPanels() : hubPanels();
+  const claims = __PREVIEW__ ? previewClaims : hubClaims();
 </script>
 
 <svelte:head><title>{runs ? `${name} officers` : 'Officers'} · Toads</title></svelte:head>
@@ -52,12 +56,14 @@
     <PondHero
       title="{name} officers"
       line="Your night's officer section"
-      lede="Everything {name}'s officers run for their own team: who is away, the task board and the interview panel. Only {name}'s officers and super admins see it."
+      lede="Everything {name}'s officers run for their own team: character claims, who is away, the task board and the interview panel. Only {name}'s officers and super admins see it."
       toads={[dayToad(day, name)]}
     >
       <a class="medal" href="{base}/officers/comp?day={day}">Build {name}'s comp</a>
       <a class="ghost" href="{base}/officers/">Officer console</a>
     </PondHero>
+
+    <div class="band"><ClaimsQueue backend={claims} {day} title="Character claims" names={raidDays.names} /></div>
 
     <section class="band dusk" aria-labelledby="away-h">
       <div class="head">
