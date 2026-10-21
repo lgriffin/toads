@@ -18,9 +18,9 @@ toads-bot = { workspace = true }
 # The analyzer's packages from lgriffin/warcraftlogs_project, all three pinned to the same release (wcl-app and
 # wcl-store depend on wcl-core and wcl-store by name). The Analyzer release workflow moves all three to each new
 # release; by hand, run `python scripts/analyzer_release.py pin <tag>` and `uv lock` (docs/deploy.md).
-wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", rev = "2afb93998e905e57a7e3107300f91e2e27126be1" }
-wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", rev = "2afb93998e905e57a7e3107300f91e2e27126be1" }
-wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", rev = "2afb93998e905e57a7e3107300f91e2e27126be1" }
+wcl-core = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-core", tag = "v4.5.0" }
+wcl-store = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-store", tag = "v4.5.0" }
+wcl-app = { git = "https://github.com/lgriffin/warcraftlogs_project", subdirectory = "packages/wcl-app", tag = "v4.5.0" }
 
 [dependency-groups]
 dev = [
