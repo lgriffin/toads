@@ -24,7 +24,7 @@ def put(settings: Settings, path: str, body: dict[str, Any], hub: httpx.Client |
     token = service_token(settings)
     hub = hub or httpx.Client(base_url=settings.hub_api_url, timeout=30.0)
     r = hub.put(path, json=body, headers={"Authorization": f"Bearer {token}"})
-    r.raise_for_status()
+    _raise_for_status(r)
     answer: dict[str, Any] = r.json()
     return answer
 
@@ -34,9 +34,17 @@ def get(settings: Settings, path: str, hub: httpx.Client | None = None) -> dict[
     token = service_token(settings)
     hub = hub or httpx.Client(base_url=settings.hub_api_url, timeout=30.0)
     r = hub.get(path, headers={"Authorization": f"Bearer {token}"})
-    r.raise_for_status()
+    _raise_for_status(r)
     answer: dict[str, Any] = r.json()
     return answer
+
+
+def _raise_for_status(r: httpx.Response) -> None:
+    """`raise_for_status`, with the API's reason in the message, so a refused page says why in the worker's log."""
+    try:
+        r.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise httpx.HTTPStatusError(f"{exc}\nThe hub said: {r.text[:2000]}", request=exc.request, response=r) from None
 
 
 @contextmanager

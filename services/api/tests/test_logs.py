@@ -231,6 +231,14 @@ def test_the_stored_analysis_follows_the_worker_s_latest_build(hub: Hub) -> None
     assert hub.get("/api/logs/wedraid", sid).json()["full"]
 
 
+def test_a_report_that_logged_more_than_a_hundred_people_is_listed(hub: Hub) -> None:
+    # toads.gg's list was refused whole because two reports counted over 100 people, so no raid got its analysis.
+    big = {**_summary("bignight", WEDNESDAY), "size": 140}
+    index = {"version": 1, "generated_at": GENERATED, "raids": [big], "bosses": [], "hashes": {}}
+    r = hub.client.put("/api/worker/logs", headers=WORKER, json=index)
+    assert r.status_code == 200, r.text
+
+
 def test_a_member_lists_raids_and_opens_the_overview(hub: Hub) -> None:
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.get("/api/logs", sid).json() == {"generated_at": None, "raids": [], "bosses": [], "full_weekdays": []}

@@ -79,7 +79,8 @@ class SummaryIn(BaseModel, extra="allow"):
     zone: str = Field(max_length=100)
     raid_date: str = Field(max_length=19)
     weekday: int | None = Field(ge=0, le=6)
-    size: int = Field(ge=0, le=100)
+    # Everyone the report logged: a long night or a merged log can pass 100 (seen on toads.gg).
+    size: int = Field(ge=0, le=1000)
     url: str = Field(max_length=200)
 
 

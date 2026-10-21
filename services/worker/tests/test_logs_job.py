@@ -119,8 +119,10 @@ def test_a_newer_run_s_list_stops_this_one_quietly(sqlite_storage: Callable[[], 
 
 
 def test_other_refusals_fail_the_run(sqlite_storage: Callable[[], PerformanceDB]) -> None:
-    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(lambda _: httpx.Response(422)))
-    with pytest.raises(httpx.HTTPStatusError):
+    refusal = httpx.Response(422, json={"detail": "A raid is listed twice"})
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(lambda _: refusal))
+    # The hub's reason is in the error, so the scheduler's log says why the list was refused.
+    with pytest.raises(httpx.HTTPStatusError, match="A raid is listed twice"):
         logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)
 
 
