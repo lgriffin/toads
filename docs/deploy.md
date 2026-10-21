@@ -20,6 +20,8 @@ https://<your domain> ──> Caddy (ports 80/443, Let's Encrypt certificate) �
   already paid GoDaddy for a certificate, [step 9](#9-optional-use-a-certificate-bought-from-godaddy) uses it instead.
 - A deploy only happens after CI passes on main. If a database migration fails, the running site is left alone.
 - SELinux stays **enforcing**; the compose file labels its mounts for it.
+- Every night at 03:30 UTC the data is snapshotted, kept on the server for 14 nights and copied encrypted to Backblaze
+  B2 ([step 11](#11-nightly-backups)).
 
 Never paste a password, token or private key into a chat, issue or commit. They go only on the server or in GitHub's
 secret settings.
@@ -204,8 +206,9 @@ Test it: **Actions → Deploy → Run workflow** (leave the sha empty). The run'
 - **Logs**: `cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml logs -f api` (or `web`,
   `worker`, `caddy`).
 - **Change a setting**: edit the `.env` file, then run the deploy script by hand (step 6) to restart with it.
-- **Backups**: [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore). At minimum, a nightly
-  `docker compose -f infra/docker-compose.prod.yml exec -T postgres pg_dump -U toads toads` copied off the server.
+- **Backups**: nightly ([step 11](#11-nightly-backups)). Snapshot by hand before a risky change:
+  `sudo -iu toads /opt/toads/scripts/backup.sh`. Rewind to a night:
+  `sudo -iu toads /opt/toads/scripts/restore.sh <date>` ([admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore)).
 
 ### Analyzer releases
 
@@ -283,6 +286,20 @@ sudo dnf -y install dnf-automatic
 sudo sed -i 's/^upgrade_type.*/upgrade_type = security/; s/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
 sudo systemctl enable --now dnf-automatic.timer
 ```
+
+## 11. Nightly backups
+
+Once the site is up, turn on the nightly snapshot (a server set up after this was added already has the timer; run
+it anyway, it is safe twice and takes a first snapshot):
+
+```bash
+sudo bash /opt/toads/scripts/backup-install.sh
+sudo grep RESTIC_PASSWORD /opt/toads/infra/.env.backup     # copy it into your password manager
+```
+
+Snapshots now stay on the server (`/var/backups/toads`, 14 nights). To copy them off the server as well, create a
+Backblaze B2 bucket and key and put four values into `/opt/toads/infra/.env.backup`; the steps, and how to rewind or
+rebuild from a snapshot, are in [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore).
 
 ## Troubleshooting
 

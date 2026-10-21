@@ -64,7 +64,8 @@ Postgres password, domain and ACME email from `infra/.env`, serves the domain ov
 (Let's Encrypt, HSTS), and gives the bank bot its own `services/bot/.env.bank`. `scripts/server-setup.sh` prepares an
 AlmaLinux 10 server and generates the internal secrets; `scripts/deploy.sh` deploys one commit of main, running both
 migrations before any container is replaced; `.github/workflows/deploy.yml` runs it over SSH after CI passes on main
-(off until the `DEPLOY_ENABLED` variable is `true`). Images are built on the server; CI still publishes none. ToadsBank
+(off until the `DEPLOY_ENABLED` variable is `true`). `scripts/backup.sh` and `scripts/restore.sh`, run nightly by
+`infra/systemd/toads-backup.timer`, snapshot and rewind the hub's data (section 13). Images are built on the server; CI still publishes none. ToadsBank
 is deployed separately, next to the hub (its guide covers that).
 
 ## 2. Accounts and applications to create
@@ -625,7 +626,7 @@ every process that reads it.
 | `TOADS_CREDENTIALS_KEYS` | Generate a key (`just credentials-key`) and put it **first**: `new,old`. Restart the API and worker. New writes use the new key and old rows still decrypt. A row is re-encrypted only when it is written again (a member saves their key, or the worker refreshes the reference login). Drop the old key only once you accept that members who have not re-saved must save their key again. |
 | Discord client secret or bot tokens | Reset in the Discord developer portal, update the env of the API and the bot that uses it, restart. |
 | Warcraft Logs client secret | Reset on warcraftlogs.com, update the worker and API env, restart. The reference login may need reconnecting. |
-| Database password | Change the role's password in Postgres first (`\password <user>` in `psql`; the secret files alone do not change it), then update `TOADS_DATABASE_URL` in the API and worker, restart. |
+| Database password | Change the role's password in Postgres first (`\password <user>` in `psql`; the secret files alone do not change it), then update `TOADS_DATABASE_URL` in the API and worker and `TOADS_POSTGRES_PASSWORD` in `infra/.env`, restart. |
 | Super admins or break-glass | Edit the env and restart the API (section 11). |
 | Officer tokens | Revoke unused tokens; they expire on their own after at most 30 days. |
 
@@ -633,18 +634,140 @@ Sign-ins live in Redis: flushing Redis signs everyone out (and drops queued jobs
 
 ## 13. Backups and restore
 
-| What | Holds | Back up |
-| --- | --- | --- |
-| Hub Postgres | members, claims, settings, encrypted keys, reference login, community, layouts, grants, tokens, audit, sheets, and the analyzer's tables | yes: `pg_dump -Fc` daily (with `docker compose exec -T`, so no TTY corrupts the dump), keep several days, copy off the host |
-| ToadsBank Postgres | banks, snapshots, requests, deliveries, raid allocations | yes, see ToadsBank's guide |
-| `TOADS_CREDENTIALS_KEYS` and the other secrets | needed to read encrypted rows and run the stack | yes, in your secret store, never next to the database dump |
-| `config/*.yaml` | raid days, roles, channels, community copy, sheets | yes (they are git-ignored) |
-| Redis | sessions, queues, event dedup | no: losing it signs people out and drops queued jobs |
+Every night at 03:30 UTC the `toads-backup` timer takes a snapshot of the hub, keeps it on the server, and copies it
+off the server encrypted. `scripts/restore.sh` rewinds the hub to any snapshot that is kept.
 
-A restore without the matching `TOADS_CREDENTIALS_KEYS` brings everything back except members' saved keys and the
-reference login. Restore with the API, worker and scheduler stopped, using `pg_restore --clean --if-exists --no-owner`
-into the same database. After restoring the hub database, run `hub-db-migrate` and `toads-worker-migrate` before starting the
-API and worker.
+### What a snapshot holds
+
+| What | Holds | In the snapshot |
+| --- | --- | --- |
+| Hub Postgres | members, claims, settings, encrypted keys, reference login, community, layouts, grants, tokens, audit, sheets, and the analyzer's tables | `hub.dump` (`pg_dump -Fc`), read back with `pg_restore --list` on the night it is taken |
+| `config/*.yaml` | raid days, roles, channels, community copy, sheets | `files.tar.gz` |
+| `infra/.env`, `services/*/.env*` | every secret, `TOADS_CREDENTIALS_KEYS` included | `files.tar.gz` |
+| `infra/certs/` | a bought certificate, if any | `files.tar.gz` |
+| Caddy's `/data` | the Let's Encrypt account and certificates | `caddy_data.tar.gz` (only a rebuilt server needs it) |
+| Redis | sessions, queues, event dedup | no: losing it signs people out and drops queued jobs |
+| ToadsBank Postgres | banks, snapshots, requests, deliveries, raid allocations | no, see ToadsBank's guide |
+
+Each snapshot also has a `MANIFEST` (when, and the commit that was live) and `SHA256SUMS`, which a restore checks
+before it touches anything. Because the env files are inside, the snapshot folder is readable by the `toads` user
+only and the off-server copy is encrypted on the server before it leaves.
+
+Snapshots are named by their UTC time, such as `2026-10-21T033012Z`; ones the timer did not take carry a label, such
+as `2026-10-21T141500Z-manual` or `-pre-restore`.
+
+| Where | Kept |
+| --- | --- |
+| On the server, `/var/backups/toads` | the last 14 nightly snapshots (`TOADS_BACKUP_KEEP_LOCAL`); labelled ones for 30 days |
+| Off the server (restic) | every snapshot of the last 14 days, then one a week for 8 weeks and one a month for 12 months (`TOADS_BACKUP_KEEP_DAYS`, `_WEEKLY`, `_MONTHLY`) |
+
+Settings are in `infra/.env.backup` (git-ignored; [infra/.env.backup.example](infra/.env.backup.example) lists them).
+
+### Turn it on (once, on the server)
+
+1. After a deploy has brought `scripts/backup-install.sh` onto the server, run:
+   ```bash
+   sudo bash /opt/toads/scripts/backup-install.sh
+   ```
+   It writes `infra/.env.backup` with a generated `RESTIC_PASSWORD`, makes `/var/backups/toads`, starts the timer and
+   takes a first snapshot. A server set up with `server-setup.sh` from now on gets the timer already.
+2. Copy the password into your password manager (not into chat, email or the repository). Without it the off-server
+   copy cannot be read, and if the server is lost, this is the only copy:
+   ```bash
+   sudo grep RESTIC_PASSWORD /opt/toads/infra/.env.backup
+   ```
+3. Snapshots now stay on the server. To copy them off it too, set up Backblaze B2 (below).
+
+### Off the server: Backblaze B2
+
+B2 is the default because it is cheap (the first 10 GB are free; the hub's snapshots are a few MB each), has an EU
+region, and speaks the S3 protocol restic uses. Any S3-compatible store works the same way (AWS S3, Cloudflare R2,
+Wasabi): only the `RESTIC_REPOSITORY` URL and the keys change.
+
+1. Sign up at backblaze.com and open **B2 Cloud Storage**. Choose the **EU Central** region when asked.
+2. **Buckets → Create a Bucket**: a unique name such as `toads-backups-` plus a few random letters, **Private**,
+   encryption off (restic already encrypts), object lock off. Note the bucket's **Endpoint** shown on its card, such as
+   `s3.eu-central-003.backblazeb2.com`.
+3. Open the bucket's **Lifecycle Settings** and choose **Keep prior versions for this number of days: 30**. If someone
+   ever gets onto the server and deletes the backups, B2 still holds them for 30 days.
+4. **Application Keys → Add a New Application Key**: name `toads-backup`, access to that bucket only, **Read and
+   Write**. Copy the `keyID` and `applicationKey` straight into the server file below; B2 shows the key once.
+5. On the server, edit the file and fill in four lines:
+   ```bash
+   sudo -u toads nano /opt/toads/infra/.env.backup
+   ```
+   ```
+   RESTIC_REPOSITORY=s3:https://s3.eu-central-003.backblazeb2.com/toads-backups-xxxx
+   AWS_ACCESS_KEY_ID=<keyID>
+   AWS_SECRET_ACCESS_KEY=<applicationKey>
+   ```
+   (`RESTIC_PASSWORD` is already set.) Use your bucket's endpoint and name, with no quotes.
+6. Take a snapshot now to check it: `sudo systemctl start toads-backup`, then
+   `sudo -iu toads /opt/toads/scripts/restore.sh list` should show it under "Off the server".
+7. Optional: put a Discord webhook from a private officers' channel in `TOADS_BACKUP_ALERT_WEBHOOK` to hear about a
+   failed backup.
+
+### Check on it
+
+```bash
+systemctl list-timers toads-backup.timer             # when it last ran and runs next
+sudo journalctl -u toads-backup -n 30                # what the last run said
+sudo -iu toads /opt/toads/scripts/restore.sh list    # the snapshots here and off the server
+sudo -iu toads /opt/toads/scripts/backup.sh          # take one now (named ...-manual), e.g. before a risky change
+```
+
+### Rewind to a night
+
+Use this when data went wrong (a bad import, a mistaken bulk change, a bad migration). It replaces everything members
+did since that snapshot, so tell the officers first.
+
+```bash
+sudo -iu toads /opt/toads/scripts/restore.sh list
+sudo -iu toads /opt/toads/scripts/restore.sh 2026-10-19              # that day's newest snapshot, or a full name
+```
+
+It shows what it will put back and asks you to type `yes`. Then it:
+
+1. stops the API, worker, scheduler and bots (the site stays up; signed-in pages show errors for a minute or two);
+2. takes a `pre-restore` snapshot of how things are now, on the server only (a B2 outage cannot block a rewind);
+3. loads the snapshot into a new database and only then swaps it in, so a failed load leaves the hub as it was. The
+   replaced database is kept as `toads_previous`;
+4. puts back `config/*.yaml` from that night;
+5. runs both migrations (a snapshot from before a migration is brought up to the running code) and starts everything,
+   waiting for the API to be healthy. If that fails, it swaps the previous database back and starts the hub on it.
+
+Options: `--db-only` leaves `config/` as it is now; `--with-env` also puts back the `.env` files, `infra/certs` and Caddy's
+certificates, sets the database password to the one in the restored `TOADS_DATABASE_URL` and restarts Caddy (only
+for a secret that was changed by mistake, or a rebuilt server: a rotated Discord or Warcraft Logs secret would go
+back to the old one); `--offsite` fetches the snapshot from B2 even if the server still has it; `--yes` skips the question.
+
+**Changed your mind?** `restore.sh undo` swaps `toads_previous` back in (run it again to swap again). It only covers
+the database and only the latest restore; to undo the config as well, restore the `pre-restore` snapshot it took.
+
+`TOADS_CREDENTIALS_KEYS` is not rewound by default, so rows the snapshot holds still decrypt as long as the key that
+wrote them is still in the list (section 12).
+
+### The server is gone: rebuild from the off-server copy
+
+1. Set up a new server with [docs/deploy.md](docs/deploy.md) steps 1 to 3 (DNS, login, `server-setup.sh`).
+2. Put the B2 settings into `/opt/toads/infra/.env.backup` as above, and set `RESTIC_PASSWORD` to the value from your
+   password manager.
+3. Restore the newest snapshot with its env files and certificates (`restore.sh` starts the database itself, sets
+   the database password to the one the restored env files use, and puts back Caddy's Let's Encrypt certificates):
+   ```bash
+   sudo -iu toads /opt/toads/scripts/restore.sh list
+   sudo -iu toads /opt/toads/scripts/restore.sh <newest name> --offsite --with-env
+   ```
+4. Run the deploy script (docs/deploy.md step 6), then update `DEPLOY_HOST` and `DEPLOY_KNOWN_HOSTS` in GitHub (step 7)
+   for the new server.
+
+### How it is tested
+
+CI's `backup` job runs [tests/backup/drill.sh](tests/backup/drill.sh) on every pull request: it takes two nights of
+snapshots against a real Postgres and restic repository, rewinds to the first, undoes it, rewinds to the second from
+the off-server copy alone with its env files, checks that a tampered snapshot is refused with nothing changed, that
+a snapshot whose migration fails is rolled back, and rebuilds an empty server from the off-server copy.
+Run it yourself with `bash tests/backup/drill.sh` (needs Docker).
 
 ## 14. Troubleshooting
 

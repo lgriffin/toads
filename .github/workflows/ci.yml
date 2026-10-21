@@ -47,6 +47,20 @@ jobs:
       - run: uv sync --frozen
       - run: uv run pytest -q services/api/tests/test_community_sql.py services/api/tests/test_community.py -k sql
 
+  backup:
+    # The nightly backup and restore scripts against a real Postgres and restic (tests/backup/drill.sh).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: shellcheck -x scripts/backup.sh scripts/backup-lib.sh scripts/restore.sh scripts/backup-install.sh tests/backup/drill.sh
+      - run: uv run pytest -q -rs tests/step_defs/test_dev_backup.py
+        env:
+          TOADS_BACKUP_DRILL: "1"
+
   security:
     runs-on: ubuntu-latest
     permissions:

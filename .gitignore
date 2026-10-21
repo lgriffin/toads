@@ -25,3 +25,4 @@ infra/certs/*.crt
 infra/certs/*.caddy
 infra/certs/*.csr
 .impeccable/config.local.json
+!infra/.env.backup.example
