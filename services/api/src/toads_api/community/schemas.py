@@ -167,6 +167,53 @@ class ApplicationTransition(BaseModel):
     note: Note = ""
 
 
+class Decision(enum.StrEnum):
+    """An officer's call on an application from the Decisions panel (docs/recruitment.md)."""
+
+    ACCEPT = "accept"
+    REJECT = "reject"
+
+
+class ApplicationDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Decision
+
+
+class ApplicationNote(BaseModel):
+    """An officer's note on an application while it waits for a decision. Officers only: never on the applicant's
+    own routes. `author_name` None means the Toad Bot wrote it (what happened when it acted on a decision)."""
+
+    id: int
+    application_id: int
+    author_id: int | None = Field(default=None, exclude=True)
+    author_name: str | None
+    body: str
+    at: datetime
+
+
+class ApplicationNoteAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class DecisionCard(BaseModel):
+    """One application on a raid night's Decisions panel, with every officer note on it, oldest first."""
+
+    application: Application
+    notes: list[ApplicationNote]
+    decided_at: datetime | None = None
+
+
+class DecisionBoard(BaseModel):
+    """A raid night's Decisions panel: who is waiting on the officers, and what was decided lately."""
+
+    raid_day: DayId
+    waiting: list[DecisionCard]
+    decided: list[DecisionCard]
+
+
 class Priority(enum.StrEnum):
     HIGH = "high"
     MEDIUM = "medium"
@@ -337,6 +384,10 @@ class DiscordMessageIn(BaseModel):
 class OutboxKind(enum.StrEnum):
     CREATE_INTERVIEW_ROOM = "create_interview_room"
     LOCK_INTERVIEW_ROOM = "lock_interview_room"
+    # A rejected applicant's room is deleted, so the Interviews category only holds rooms still in use.
+    CLOSE_INTERVIEW_ROOM = "close_interview_room"
+    # An accepted applicant gets the night's raider roles and a welcome in their room.
+    WELCOME_RECRUIT = "welcome_recruit"
     POST_MESSAGE = "post_message"
     EDIT_MESSAGE = "edit_message"
     # DM one member (the bank desk's answer to their request, docs/bank-desk.md).

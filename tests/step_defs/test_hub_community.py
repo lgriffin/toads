@@ -182,6 +182,11 @@ def wed_declines(world: World) -> None:
     )
 
 
+@when("the applicant withdraws the application")
+def applicant_withdraws(world: World) -> None:
+    world.store.withdraw(PRINCIPALS["applicant"].member_id, world.app_id)
+
+
 def advance(world: World, days: int) -> None:
     world.now += timedelta(days=days)
 
@@ -336,11 +341,11 @@ def bot_locks(world: World) -> None:
     assert new[officers] == "kept"
 
 
-@then("accepting straight from applied is refused with 409")
-def accept_refused(world: World) -> None:
+@then("offering a trial straight from applied is refused with 409")
+def trial_refused(world: World) -> None:
     with pytest.raises(Conflict) as e:
         world.store.transition(
-            world.who("Wednesday officer").member_id, "wed", world.app_id, ApplicationStatus.ACCEPTED, ""
+            world.who("Wednesday officer").member_id, "wed", world.app_id, ApplicationStatus.TRIAL_OFFERED, ""
         )
     assert e.value.status_code == 409
 
@@ -349,9 +354,11 @@ def accept_refused(world: World) -> None:
 def pipeline_closed(world: World) -> None:
     allowed = {
         (ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEWING),
+        (ApplicationStatus.APPLIED, ApplicationStatus.ACCEPTED),
         (ApplicationStatus.APPLIED, ApplicationStatus.DECLINED),
         (ApplicationStatus.APPLIED, ApplicationStatus.WITHDRAWN),
         (ApplicationStatus.INTERVIEWING, ApplicationStatus.TRIAL_OFFERED),
+        (ApplicationStatus.INTERVIEWING, ApplicationStatus.ACCEPTED),
         (ApplicationStatus.INTERVIEWING, ApplicationStatus.DECLINED),
         (ApplicationStatus.INTERVIEWING, ApplicationStatus.WITHDRAWN),
         (ApplicationStatus.TRIAL_OFFERED, ApplicationStatus.ACCEPTED),
@@ -870,3 +877,160 @@ def global_officer_puts(world: World, username: str) -> None:
 @then("the audit log names the Sunday panel change")
 def panel_audited(world: World) -> None:
     assert [(a.action, a.raid_day) for a in world.store.repo.audit()] == [("recruitment.panel_add", "sun")]
+
+
+# ---------------------------------------------------------------- decisions panel
+
+
+@given("the demo guild with Wednesday raider role 41 and role 42 tied to the Wednesday Toad badge")
+def demo_guild_with_raider_roles(world: World) -> None:
+    from dataclasses import replace
+
+    world.store.raid_days = replace(
+        world.store.raid_days, raider_roles={"wed": (41,)}, badge_raider_roles=lambda: {"wed": {42}}
+    )
+
+
+@when(parsers.parse('the {who} notes "{body}"'))
+def officer_notes(world: World, who: str, body: str) -> None:
+    world.now += timedelta(minutes=1)
+    world.store.add_note(world.who(who).member_id, "wed", world.app_id, body)
+
+
+@then("the Wednesday Decisions panel lists the application with both notes, oldest first")
+def panel_with_notes(world: World) -> None:
+    r = world.client("Wednesday officer").get("/api/days/wed/admin/decisions")
+    assert r.status_code == 200
+    [card] = r.json()["waiting"]
+    assert card["application"]["id"] == world.app_id
+    assert [(n["author_name"], n["body"]) for n in card["notes"]] == [
+        ("Croakley", "Strong healer, logs look good"),
+        ("Ribbitz", "Free on Wednesdays"),
+    ]
+    assert [a.action for a in world.store.repo.audit()] == ["application.note", "application.note"]
+
+
+@then("the Sunday officer can neither see the application on the Sunday panel nor note it")
+def sunday_cannot(world: World) -> None:
+    sunday = world.client("Sunday officer")
+    assert sunday.get("/api/days/sun/admin/decisions").json()["waiting"] == []
+    assert sunday.get("/api/days/wed/admin/decisions").status_code == 403
+    note = {"body": "Sneaky"}
+    assert sunday.post(f"/api/days/sun/admin/applications/{world.app_id}/notes", json=note).status_code == 404
+    assert sunday.post(f"/api/days/wed/admin/applications/{world.app_id}/notes", json=note).status_code == 403
+
+
+@then("the applicant's own view of the application carries no notes")
+def applicant_sees_no_notes(world: World) -> None:
+    [mine] = world.client("applicant").get("/api/applications/mine").json()
+    assert "notes" not in mine
+    assert "Strong healer" not in str(mine)
+
+
+def _decide(world: World, decision: str) -> Any:
+    world.now += timedelta(minutes=5)
+    return world.client("Wednesday officer").post(
+        f"/api/days/wed/admin/applications/{world.app_id}/decision", json={"decision": decision}
+    )
+
+
+@when("the Wednesday officer rejects the application on the Decisions panel")
+def officer_rejects(world: World) -> None:
+    assert _decide(world, "reject").status_code == 200
+
+
+@when("the Wednesday officer accepts the application on the Decisions panel")
+def officer_accepts(world: World) -> None:
+    assert _decide(world, "accept").status_code == 200
+
+
+@then("the application is declined and listed as decided, not waiting")
+def declined_and_decided(world: World) -> None:
+    board = world.store.decisions("wed")
+    assert board.waiting == []
+    [card] = board.decided
+    assert card.application.status is ApplicationStatus.DECLINED
+    assert card.decided_at == world.now
+
+
+@then("the bot is asked to delete the interview room")
+def close_job(world: World) -> None:
+    [payload] = jobs(world, OutboxKind.CLOSE_INTERVIEW_ROOM)
+    assert payload["channel_id"] == 6001
+    assert jobs(world, OutboxKind.LOCK_INTERVIEW_ROOM) == []
+
+
+@then("the bot deletes the channel")
+def bot_deletes(world: World) -> None:
+    [payload] = jobs(world, OutboxKind.CLOSE_INTERVIEW_ROOM)
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.delete = AsyncMock()
+    guild = MagicMock()
+    guild.get_channel.return_value = channel
+    asyncio.run(_bot().close_interview_room(guild, dict(payload)))
+    channel.delete.assert_awaited_once()
+
+
+@then("a second decision on it is refused with 409")
+def decided_twice(world: World) -> None:
+    assert _decide(world, "accept").status_code == 409
+
+
+@then("the application is accepted for Wednesday")
+def accepted_for_wednesday(world: World) -> None:
+    app = world.store.repo.get_application(world.app_id)
+    assert app is not None
+    assert app.status is ApplicationStatus.ACCEPTED
+    assert app.events[-1].note == "Accepted for Wednesday"
+    assert [j.kind for j in world.store.pending_jobs()] == [
+        OutboxKind.LOCK_INTERVIEW_ROOM,
+        OutboxKind.WELCOME_RECRUIT,
+    ]
+
+
+@then("the bot is asked to give the applicant roles 41 and 42 and welcome them in the interview room")
+def welcome_job(world: World) -> None:
+    [payload] = jobs(world, OutboxKind.WELCOME_RECRUIT)
+    assert payload["discord_user_id"] == 10_005
+    assert payload["role_ids"] == [41, 42]
+    assert payload["channel_id"] == 6001
+    assert payload["night"] == "Wednesday"
+
+
+@then("the bot gives the roles and posts the welcome")
+def bot_welcomes(world: World) -> None:
+    [payload] = jobs(world, OutboxKind.WELCOME_RECRUIT)
+    member = MagicMock(id=10_005, mention="<@10005>")
+    member.add_roles = AsyncMock()
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.send = AsyncMock()
+    guild = MagicMock()
+    guild.get_member.return_value = member
+    guild.get_role.side_effect = lambda rid: discord.Object(id=rid)
+    guild.get_channel.return_value = channel
+    asyncio.run(_bot().welcome_recruit(guild, dict(payload)))
+    assert [r.id for r in member.add_roles.await_args.args] == [41, 42]
+    assert "Wednesday" in channel.send.await_args.args[0]
+
+
+@then("once the bot reports it, the Decisions panel notes that the Toad Bot gave the Wednesday raider role")
+def bot_note(world: World) -> None:
+    [job] = [j for j in world.store.pending_jobs() if j.kind is OutboxKind.WELCOME_RECRUIT]
+    world.store.ack(job.id, OutboxAck())
+    [card] = world.store.decisions("wed").decided
+    assert [(n.author_name, n.body) for n in card.notes] == [
+        (None, "Gave Mossbeard the Wednesday raider role in Discord.")
+    ]
+
+
+@then("the Decisions panel notes that no Discord role is set for Wednesday raiders")
+def no_role_note(world: World) -> None:
+    [card] = world.store.decisions("wed").decided
+    [note] = card.notes
+    assert note.author_name is None
+    assert note.body.startswith("No Discord role is set for Wednesday raiders, so give Mossbeard theirs by hand.")
+
+
+@then("the bot is not asked to give any role")
+def no_welcome_job(world: World) -> None:
+    assert jobs(world, OutboxKind.WELCOME_RECRUIT) == []

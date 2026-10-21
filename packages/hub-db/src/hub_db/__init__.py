@@ -7,6 +7,7 @@ from hub_db.bank_desk import BankItemRequest
 from hub_db.community import (
     Application,
     ApplicationEvent,
+    ApplicationNote,
     BotOutbox,
     CommunityId,
     CommunityPost,
@@ -53,6 +54,7 @@ __all__ = [
     "AnalyzerPerformancePage",
     "Application",
     "ApplicationEvent",
+    "ApplicationNote",
     "AuditEntry",
     "BankGrant",
     "BankGrantToken",

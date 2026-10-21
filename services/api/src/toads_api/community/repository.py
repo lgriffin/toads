@@ -10,6 +10,7 @@ from typing import Protocol
 
 from toads_api.community.schemas import (
     Application,
+    ApplicationNote,
     Highlight,
     Interviewer,
     OutboxJob,
@@ -53,6 +54,11 @@ class CommunityRepository(Protocol):
     def get_application(self, app_id: int) -> Application | None: ...
     def applications(self) -> list[Application]: ...
 
+    def save_note(self, note: ApplicationNote) -> None: ...
+    def notes(self, application_ids: list[int]) -> list[ApplicationNote]:
+        """Officers' notes on these applications, oldest first."""
+        ...
+
     def save_highlight(self, hl: Highlight) -> None: ...
     def get_highlight(self, hl_id: int) -> Highlight | None: ...
     def highlights(self) -> list[Highlight]: ...
@@ -94,6 +100,7 @@ class InMemoryCommunityRepository:
     _jobs: dict[int, OutboxJob] = field(default_factory=dict)
     _audit: list[AuditRecord] = field(default_factory=list)
     _panels: dict[str, list[Interviewer]] = field(default_factory=dict)
+    _notes: list[ApplicationNote] = field(default_factory=list)
     _ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
 
     def next_id(self) -> int:
@@ -122,6 +129,13 @@ class InMemoryCommunityRepository:
 
     def applications(self) -> list[Application]:
         return list(self._applications.values())
+
+    def save_note(self, note: ApplicationNote) -> None:
+        self._notes.append(note)
+
+    def notes(self, application_ids: list[int]) -> list[ApplicationNote]:
+        wanted = set(application_ids)
+        return [n for n in self._notes if n.application_id in wanted]
 
     def save_highlight(self, hl: Highlight) -> None:
         self._highlights[hl.id] = hl

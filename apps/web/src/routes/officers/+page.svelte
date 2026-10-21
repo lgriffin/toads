@@ -41,10 +41,10 @@
   <section class="card comp-link" aria-labelledby="recruit-link-h">
     <h2 id="recruit-link-h">Recruitment</h2>
     <p class="muted">
-      Pick who from the Toads Discord interviews each night's applicants. Someone applying for Sunday meets the Sunday
-      panel in their interview room.
+      Note, accept or reject each night's applicants, and pick who from the Toads Discord interviews them. Someone
+      applying for Sunday meets the Sunday panel in their interview room.
     </p>
-    <a class="btn primary" href="{base}/officers/recruitment">Set interview panels</a>
+    <a class="btn primary" href="{base}/officers/recruitment">Open recruitment</a>
   </section>
 {/snippet}
 
