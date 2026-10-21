@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { onMount, untrack } from 'svelte';
   import { ApiError } from '$lib/api';
   import {
@@ -141,7 +142,7 @@
   {#if queue.length === 0}
     <p class="muted">Nothing waiting for you.</p>
   {:else}
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr><th scope="col">Item</th><th scope="col">For</th><th scope="col">Status</th><th scope="col">Note</th><th scope="col"><span class="sr-only">Actions</span></th></tr>

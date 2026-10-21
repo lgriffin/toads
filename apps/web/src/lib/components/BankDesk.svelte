@@ -137,11 +137,11 @@
   }
 </script>
 
-{#snippet answerOf(r: BankRequest)}
+{#snippet answerOf(r: BankRequest, own = false)}
   <span class="status {r.status}">{STATUS_LABEL[r.status]}</span>
   {#if r.decided_by_name}<span class="muted small">by {r.decided_by_name}{r.decided_at ? `, ${shortDate(r.decided_at)}` : ''}</span>{/if}
   {#if r.officer_message}<span class="said">“{r.officer_message}”</span>{/if}
-  {#if r.notice}<span class="small" class:bad={r.notice === 'failed'} class:muted={r.notice !== 'failed'}>{noticeLabel(r)}</span>{/if}
+  {#if r.notice}<span class="small" class:bad={r.notice === 'failed'} class:muted={r.notice !== 'failed'}>{noticeLabel(r, own)}</span>{/if}
 {/snippet}
 
 <section class="card desk" aria-labelledby="bank-desk-h">
@@ -270,7 +270,7 @@
           Your requests did not load: {mineError}
           <button type="button" class="btn small" onclick={loadMine}>Try again</button>
         </p>
-      {:else if mine.length}{@render list(mine)}{:else}<p class="muted">You have not asked the bank for anything yet.</p>{/if}
+      {:else if mine.length}{@render list(mine, true)}{:else}<p class="muted">You have not asked the bank for anything yet.</p>{/if}
       <form class="ask" onsubmit={ask}>
         <div class="field grow">
           <label for="bank-desk-item">Item</label>
@@ -290,12 +290,12 @@
   {/if}
 </section>
 
-{#snippet list(items: BankRequest[])}
+{#snippet list(items: BankRequest[], own = false)}
   <ul class="asks">
     {#each items as r (r.id)}
       <li>
         <span><strong>{r.item}</strong> x{r.quantity} <span class="muted small">{shortDate(r.created_at)} · {sourceLabel(r.source)}</span></span>
-        <span class="said-line">{@render answerOf(r)}</span>
+        <span class="said-line">{@render answerOf(r, own)}</span>
       </li>
     {/each}
   </ul>

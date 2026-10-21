@@ -24,6 +24,8 @@
 
   let editing = $state(false);
   const shown = $derived(shownIds(layout));
+  const lead = $derived(shown[0] === 'my_performance' ? shown[0] : null);
+  const rest = $derived(lead ? shown.slice(1) : shown);
 
   async function close(action: () => Promise<string | null>): Promise<string | null> {
     const error = await action();
@@ -53,13 +55,20 @@
   />
 {/if}
 
+<!-- The member's own last raid leads when it is first; anything waiting on them (a spotlight to consent to) follows. -->
+{#if lead}
+  <div class="grid home lead">
+    <div class="slot wide" data-widget={lead}>{@render widget(lead)}</div>
+  </div>
+{/if}
+
 {@render top?.()}
 
 <div class="grid home">
-  {#each shown as id (id)}
+  {#each rest as id (id)}
     <div class="slot" class:wide={isWide(id)} data-widget={id}>{@render widget(id)}</div>
   {:else}
-    <p class="muted">Your home is empty. Choose Customise to add widgets.</p>
+    {#if !lead}<p class="muted">Your home is empty. Choose Customise to add widgets.</p>{/if}
   {/each}
 </div>
 
@@ -69,4 +78,5 @@
   .slot { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
   .slot > :global(*) { min-width: 0; }
   .slot.wide { grid-column: 1 / -1; }
+  .lead { margin-bottom: 1rem; }
 </style>

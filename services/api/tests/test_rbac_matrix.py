@@ -148,17 +148,26 @@ def matrix() -> list[Case]:
     return cases
 
 
+@pytest.fixture(scope="module")
+def matrix_hub() -> Iterator[Hub]:
+    """One hub for every matrix case. FastAPI builds each route's request handling on an app's first requests, which
+    costs far more than the case itself; the cases only read the status a guard returns, so they can share an app."""
+    h = Hub()
+    with h.client:
+        yield h
+
+
 @pytest.fixture
-def client_for(hub: Hub) -> Iterator[object]:
+def client_for(matrix_hub: Hub) -> Iterator[object]:
     def _for(p: Principal):
         async def _p() -> Principal:
             return p
 
-        hub.app.dependency_overrides[get_principal] = _p
-        return hub.client
+        matrix_hub.app.dependency_overrides[get_principal] = _p
+        return matrix_hub.client
 
     yield _for
-    hub.app.dependency_overrides.clear()
+    matrix_hub.app.dependency_overrides.clear()
 
 
 @pytest.mark.parametrize("case", matrix(), ids=str)
@@ -250,13 +259,15 @@ def test_matrix_matches_spec() -> None:
         assert not (ROLE_PERMISSIONS[role] & OFFICER_ONLY)
 
 
-@pytest.mark.parametrize(("own_day", "target_day", "permission"), list(itertools.product(DAYS, DAYS, OFFICER_ONLY)))
+@pytest.mark.parametrize(
+    ("own_day", "target_day", "permission"), list(itertools.product(DAYS, DAYS, sorted(OFFICER_ONLY)))
+)
 def test_day_officer_scoped_to_own_day(own_day: str, target_day: str, permission: Permission) -> None:
     officer = Principal(member_id=1, day_roles={own_day: HubRole.OFFICER})
     assert can(officer, permission, target_day) is (own_day == target_day)
 
 
-@pytest.mark.parametrize(("day", "permission"), list(itertools.product(DAYS, set(Permission) - SUPER_ONLY)))
+@pytest.mark.parametrize(("day", "permission"), list(itertools.product(DAYS, sorted(set(Permission) - SUPER_ONLY))))
 def test_global_officer_everywhere(day: str, permission: Permission) -> None:
     assert can(Principal(member_id=1, global_officer=True), permission, day)
 
@@ -286,7 +297,7 @@ def test_super_admin_is_a_global_officer_and_break_glass_a_super_admin() -> None
     assert glass.super_admin and glass.global_officer
 
 
-@pytest.mark.parametrize("permission", OFFICER_ONLY)
+@pytest.mark.parametrize("permission", sorted(OFFICER_ONLY))
 def test_day_officer_has_no_officer_powers_guild_wide(permission: Permission) -> None:
     assert not can(Principal(member_id=1, day_roles={"wed": HubRole.OFFICER}), permission, None)
 

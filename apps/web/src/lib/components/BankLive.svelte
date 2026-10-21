@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { onMount } from 'svelte';
   import { ApiError } from '$lib/api';
   import {
@@ -195,7 +196,7 @@
     {#if sources.length === 0}
       <p class="muted">No bank has been registered yet.</p>
     {:else}
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead>
             <tr><th scope="col">Bank</th><th scope="col">Freshness</th><th scope="col">Last captured</th><th scope="col">Realm</th></tr>
@@ -224,7 +225,7 @@
       <label for="bank-search">Search items</label>
       <input id="bank-search" type="search" bind:value={search} autocomplete="off" />
     </div>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <caption class="sr-only">Every item across the banks you can see, each bank counted once</caption>
         <thead>
@@ -308,7 +309,7 @@
     {#if mine.length === 0}
       <p class="muted">You have not asked the bank for anything yet.</p>
     {:else}
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead>
             <tr><th scope="col">Item</th><th scope="col">For</th><th scope="col">Bank</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
@@ -352,7 +353,7 @@
             </span>
           </summary>
           {#if tab.slots.length}
-            <div class="scroll">
+            <div class="scroll" use:scrollable>
               <table>
                 <thead><tr><th scope="col" class="num">Slot</th><th scope="col">Item</th><th scope="col" class="num">Count</th></tr></thead>
                 <tbody>

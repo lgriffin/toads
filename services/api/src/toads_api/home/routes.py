@@ -14,6 +14,7 @@ member may use them. Whether the caller sees officer widgets is decided here, fr
 - PUT    /api/worker/home-page/nights/{day}   the worker: a fresh build of one raid night's page
 - PUT    /api/worker/badges        the worker, with the service token: every raider's badges
 - GET    /api/me/character-page    the caller's own character page (?name= picks another of their characters)
+- GET    /api/me/raid-line         the caller's own line on one raid (?report=), from their character pages
 - GET    /api/worker/character-pages/wanted   the worker: the character names to build pages for
 - PUT    /api/worker/character-pages          the worker: every character page, replacing the last build
 """
@@ -410,6 +411,27 @@ async def my_character_page(
         characters=mine.characters,
         main=mine.main,
     )
+
+
+class MyRaidLineBody(BaseModel):
+    name: str
+    raid: CharacterRaidEntry
+
+
+class MyRaidLineOut(BaseModel):
+    """`line` is null when none of the member's characters' pages holds the raid (each page keeps its last 40)."""
+
+    line: MyRaidLineBody | None
+
+
+@router.get("/raid-line")
+async def my_raid_line(
+    principal: SignedIn, characters: CharacterPages, report: Annotated[str, Query(min_length=1, max_length=64)]
+) -> MyRaidLineOut:
+    line = await anyio.to_thread.run_sync(characters.raid_line, principal.member_id, report)
+    if line is None:
+        return MyRaidLineOut(line=None)
+    return MyRaidLineOut(line=MyRaidLineBody(name=line.name, raid=CharacterRaidEntry.model_validate(line.raid)))
 
 
 @guild.get("/next-raid")

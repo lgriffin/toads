@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { metricValue, rankLabel, rolePlural, signed, vsMedian } from './performance';
+import { metricValue, rankLabel, rolePlural, signed, verdict, vsMedian, type PerformanceEntry, type PerformanceRole } from './performance';
 
 describe('performance', () => {
   it('formats amounts compactly and percentages as they are', () => {
@@ -26,5 +26,28 @@ describe('performance', () => {
   it('names the role group', () => {
     expect(rolePlural('healer')).toBe('healers');
     expect(rolePlural('melee')).toBe('melee');
+  });
+});
+
+describe('the hub home verdict', () => {
+  const entry = (value: number, median: number, role: PerformanceRole = 'melee'): PerformanceEntry => ({
+    name: 'Hopscotch',
+    class: 'Rogue',
+    role,
+    metric: 'Damage',
+    unit: 'amount',
+    value,
+    median,
+    rank: 3,
+    of: 9,
+    recent: []
+  });
+
+  it('says in words how the raid went against the role median', () => {
+    expect(verdict(entry(114, 100))).toBe('beat the melee median by 14%');
+    expect(verdict(entry(94, 100, 'healer'))).toBe("was 6% under the healers' median");
+    expect(verdict(entry(100, 100))).toBe('matched the melee median');
+    expect(verdict(entry(5, 0, 'healer'))).toBe("beat the healers' median of 0");
+    expect(verdict(entry(0, 0))).toBe('matched the melee median');
   });
 });

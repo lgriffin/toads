@@ -50,6 +50,10 @@ def _analyzer(wid: str, title: str, description: str, *, audience: Audience = Au
 # The hub home's widgets, in default display order: the hub's own data. The analyzer's raid widgets used to sit here
 # too, with every raid night mixed together; they live under Logs now, one page per night (ANALYZER_WIDGETS).
 CATALOGUE: tuple[Widget, ...] = (
+    # Leads the home: the one number only the guild's own analysis can give a raider.
+    Widget(
+        "my_performance", "Your performance", "Your main character's last raid against the guild median for your role."
+    ),
     Widget("next_raid", "Next raid", "When the next raid starts and how many have signed up in Discord."),
     Widget(
         "officer_desk",
@@ -57,7 +61,6 @@ CATALOGUE: tuple[Widget, ...] = (
         "Applications, posts, highlights and spotlights waiting on officers.",
         Audience.OFFICER,
     ),
-    Widget("my_performance", "Your performance", "Your main character's last raid against the guild median."),
     Widget("raid_totals", "Raid totals", "Consumes, buffs and deaths per raid from the CBA and RPB sheets."),
     Widget("posts", "Guild posts", "News and posts from officers and Discord."),
     Widget("highlights", "Recent highlights", "The newest highlight reels."),

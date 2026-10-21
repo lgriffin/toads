@@ -26,7 +26,7 @@ down:
 
 # Lint, types, Python and web tests, requirements traceability
 test: lint
-    uv run pytest --cov=toads_api --cov=toads_worker --cov-report=term-missing
+    uv run pytest -n auto --cov=toads_api --cov=toads_worker --cov-report=term-missing
     cd apps/web && npm run check && npm test
     just reqs
 

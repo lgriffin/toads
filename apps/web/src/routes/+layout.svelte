@@ -300,6 +300,12 @@
   :global(.btn:hover) { border-color: var(--muted); }
   :global(.btn.primary), :global(main a.btn.primary) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
   :global(.btn.danger) { border-color: var(--bad); color: var(--bad-text); }
+  /* Thumb-sized buttons on touch screens (44px), without making every desktop button tall. */
+  @media (pointer: coarse) {
+    :global(.btn) { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; }
+  }
+  /* Placeholders carry hints, so they keep the muted text colour (4.5:1 or better in both themes). */
+  :global(::placeholder) { color: var(--muted); opacity: 1; }
   :global(.btn:disabled) { opacity: 0.55; cursor: not-allowed; }
   :global(.field) { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
   :global(.field label), :global(legend) { font-size: 0.9rem; }

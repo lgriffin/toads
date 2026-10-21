@@ -59,6 +59,7 @@ test('a Wednesday officer sees Wednesday raids in full and other nights as an ov
   const raids = page.getByRole('region', { name: 'Raids', exact: true });
   await raids.getByRole('link').first().click();
   await expect(page.getByText("Each raider's numbers are for this night's officers.")).toBeVisible();
+  await expect(page.getByRole('link', { name: 'your Me page' })).toHaveAttribute('href', /\/me$/);
   await expect(page.getByRole('group', { name: 'Analysis' })).toHaveCount(0);
   await page.goto('logs/');
   await expect(raids.getByText(/ of 6 raids, Wednesday\.$/)).toBeVisible();

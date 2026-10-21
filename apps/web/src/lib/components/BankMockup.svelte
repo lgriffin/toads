@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   // A mockup of the guild bank at work, for the officers' Forever launch notice: what it holds, requests arriving from
   // Discord and the site, the ledger of who got what and when, and the fairness view built from it. Sample data only;
   // the real bank page replaces it at launch.
@@ -71,7 +72,7 @@
 
   <section aria-labelledby="ledger-h">
     <h4 id="ledger-h">Ledger: who got what, and when</h4>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead><tr><th scope="col">When</th><th scope="col">Raider</th><th scope="col">Received</th><th scope="col">Banker</th></tr></thead>
         <tbody>

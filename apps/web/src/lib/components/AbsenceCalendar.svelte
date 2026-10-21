@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusById, focusOnMount } from '$lib/focus';
   import {
     NOTE_LIMIT,
     absenceError,
@@ -41,6 +42,8 @@
   let firstInput = $state<HTMLInputElement | null>(null);
   // The absence the form is changing; null while it adds a new one.
   let editing = $state<Absence | null>(null);
+  /** The absence whose Delete is waiting for a second press. */
+  let deleting = $state<Absence['id'] | null>(null);
 
   const teams = $derived(raidDays.teams.map((id) => ({ id, name: dayName(id, raidDays.names), weekday: weekdayOf(dayName(id, raidDays.names)) })));
   const weeks = $derived(monthGrid(shown.getFullYear(), shown.getMonth(), today, teams, mine));
@@ -124,9 +127,17 @@
     }
   }
 
+  function keep(a: Absence) {
+    deleting = null;
+    focusById(`absence-delete-${a.id}`);
+  }
+
   async function remove(a: Absence) {
+    deleting = null;
     try {
       await backend.cancel(a.id);
+      // The row goes, so keyboard focus moves to the list's heading rather than being lost.
+      focusById('mine-h');
       if (editing?.id === a.id) stopEditing();
       message = `Deleted your absence for ${rangeLabel(a)}.`;
       failed = false;
@@ -239,7 +250,7 @@
   </div>
 
   <section class="card" aria-labelledby="mine-h">
-    <h2 id="mine-h">Your upcoming absences</h2>
+    <h2 id="mine-h" tabindex="-1">Your upcoming absences</h2>
     {#if loadError}
       <p class="err" role="alert">{loadError}</p>
     {:else if !mine.length}
@@ -254,8 +265,16 @@
               {#if a.note}<span class="note">{a.note}</span>{/if}
             </div>
             <div class="row-actions">
-              <button class="btn" type="button" onclick={() => edit(a)} aria-label="Change your absence for {rangeLabel(a)}">Change</button>
-              <button class="btn danger" type="button" onclick={() => remove(a)} aria-label="Delete your absence for {rangeLabel(a)}">Delete</button>
+              {#if deleting === a.id}
+                <div class="confirm" role="group" aria-label="Confirm deleting your absence for {rangeLabel(a)}">
+                  <p class="muted">Your officers will expect you on {a.nights.length === 1 ? 'that night' : 'those nights'} again.</p>
+                  <button class="btn danger" type="button" disabled={busy} onclick={() => remove(a)}>Delete absence</button>
+                  <button class="btn" type="button" use:focusOnMount onclick={() => keep(a)}>Keep it</button>
+                </div>
+              {:else}
+                <button class="btn" type="button" onclick={() => edit(a)} aria-label="Change your absence for {rangeLabel(a)}">Change</button>
+                <button class="btn danger" type="button" id="absence-delete-{a.id}" onclick={() => (deleting = a.id)} aria-label="Delete your absence for {rangeLabel(a)}">Delete</button>
+              {/if}
             </div>
           </li>
         {/each}
@@ -272,7 +291,9 @@
   .empty { max-width: 40rem; }
   .month-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; }
   .month-head h2 { text-align: center; }
-  .month-head .btn { padding: 0.25rem 0.7rem; font-size: 1.2rem; line-height: 1; }
+  .month-head .btn { padding: 0.25rem 0.7rem; font-size: 1.2rem; line-height: 1; min-width: 2.75rem; min-height: 2.75rem; }
+  .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .confirm p { margin: 0; flex-basis: 100%; }
   .grid-month { table-layout: fixed; }
   .grid-month th { text-align: center; font-size: 0.8rem; padding: 0.3rem 0; }
   .grid-month td { padding: 2px; border: 0; text-align: center; vertical-align: top; }

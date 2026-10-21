@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { shortDate } from '$lib/format';
   import {
     change,
@@ -129,7 +130,7 @@
     {/if}
 
     <h3 id="{id}-recent">Recent raids</h3>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table aria-labelledby="{id}-recent">
         <thead>
           <tr>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { base } from '$app/paths';
   import { compactNumber, durationLabel } from '$lib/reference';
   import {
@@ -74,7 +75,7 @@
   <section class="card" aria-labelledby="raids-h">
     <h2 id="raids-h">Raids</h2>
     <p class="muted" aria-live="polite">{shown.length} of {rows.length} raids, {daysLabel}.</p>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr>
@@ -125,7 +126,7 @@
                 {#if b.partial}
                   <p class="muted small">Only the nights you run as an officer are counted below.</p>
                 {/if}
-                <div class="scroll">
+                <div class="scroll" use:scrollable>
                   <table>
                     <caption class="sr-only">{b.name}: each raider per kill</caption>
                     <thead>
