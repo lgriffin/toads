@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ApiError } from '$lib/api';
   import { STATUS_LABELS } from '$lib/recruitment';
   import {
     NOTE_LIMIT,
@@ -49,6 +50,8 @@
     } catch (e) {
       message = decisionError(e);
       failed = true;
+      // Another officer may have decided it first: show the board as it is now, keeping the reason above.
+      if (e instanceof ApiError && (e.status === 404 || e.status === 409)) await load();
     } finally {
       busy = false;
     }
@@ -61,7 +64,8 @@
     if (!body) return;
     act(async () => {
       await backend.note(day, id, body);
-      drafts[id] = '';
+      // Keep anything typed while the note was on its way.
+      if ((drafts[id] ?? '').trim() === body) drafts[id] = '';
     }, `Note added to ${card.application.character_name}.`);
   }
 

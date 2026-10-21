@@ -370,7 +370,8 @@ class Community(commands.Cog):
         except discord.NotFound:
             raise RoomError("They are no longer in the Discord server") from None
         night = str(payload.get("night") or "raid")
-        roles = [r for rid in payload.get("role_ids") or [] if (r := guild.get_role(int(rid))) is not None]
+        wanted = [int(rid) for rid in payload.get("role_ids") or []]
+        roles = [r for rid in wanted if (r := guild.get_role(rid)) is not None]
         if roles:
             try:
                 await member.add_roles(*roles, reason=f"Toads Hub: accepted for {night}")
@@ -379,15 +380,21 @@ class Community(commands.Cog):
                     f"The Toad Bot needs Manage Roles, and its own role above the {night} raider role in Server "
                     "Settings > Roles"
                 ) from None
-        elif payload.get("role_ids"):
-            raise RoomError(f"The {night} raider role is no longer in the Discord server")
         channel = guild.get_channel(int(payload["channel_id"])) if payload.get("channel_id") else None
+        welcomed = False
         if isinstance(channel, discord.TextChannel):
             try:
                 await channel.send(
                     f"Welcome to the pond, {member.mention}! The officers have accepted you for {night} raids.",
                     allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[member]),
                 )
+                welcomed = True
             except discord.HTTPException:
-                # The roles are what matter; a missing welcome is only worth a log line.
-                log.exception("gave the %s roles but could not post the welcome in #%s", night, channel.name)
+                log.exception("could not post the %s welcome in #%s", night, channel.name)
+        missing = len(wanted) - len(roles)
+        if missing == len(wanted) and wanted:
+            raise RoomError(f"The {night} raider role is no longer in the Discord server")
+        if missing:
+            raise RoomError(f"Gave the other roles, but {missing} {night} raider role(s) are no longer in the server")
+        if not roles and not welcomed:
+            raise RoomError("Their interview room is gone, so there was nowhere to post the welcome")

@@ -751,6 +751,19 @@ def test_rejecting_declines_and_deletes_the_room(as_: Any, store: CommunityServi
     assert as_("applicant").post("/api/applications", json=APPLICATION).status_code == 409
 
 
+def test_a_room_the_bot_cannot_delete_is_locked_instead(as_: Any, store: CommunityService) -> None:
+    app_id = _apply(as_, store)
+    as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})
+    [close] = store.pending_jobs()
+    as_(None).post(
+        f"/api/bot/outbox/{close.id}/ack", json={"error": "Discord refused: 403 Missing Access"}, headers=BOT
+    )
+    [lock] = store.pending_jobs()
+    assert (lock.kind.value, lock.payload["channel_id"]) == ("lock_interview_room", 6001)
+    [card] = as_("Wednesday officer").get("/api/days/wed/admin/decisions").json()["decided"]
+    assert card["notes"][0]["body"].startswith("Could not delete the interview room, so it was locked instead")
+
+
 def test_decided_applications_leave_the_panel_after_two_weeks(as_: Any, store: CommunityService, clock: Clock) -> None:
     app_id = _apply(as_, store, room=False)
     as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})

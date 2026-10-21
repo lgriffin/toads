@@ -443,15 +443,34 @@ def test_an_accepted_applicant_gets_the_nights_roles_and_a_welcome_without_pingi
     guild = fake_guild(channel)
     guild.get_member.return_value.add_roles = AsyncMock()
     hub = AsyncMock()
-    hub.outbox.return_value = [job("welcome_recruit", WELCOME_JOB)]
+    hub.outbox.return_value = [job("welcome_recruit", {**WELCOME_JOB, "role_ids": [12]})]
     run(cog(hub).run_outbox(guild))
     roles = guild.get_member.return_value.add_roles.await_args.args
-    assert [r.id for r in roles] == [12]  # 404 is not in the server any more
+    assert [r.id for r in roles] == [12]
     text = channel.send.await_args.args[0]
     assert text.startswith("Welcome to the pond, <@10005>!")
     mentions = channel.send.await_args.kwargs["allowed_mentions"]
     assert (mentions.everyone, mentions.roles) == (False, False)
     hub.ack.assert_awaited_once_with(7)
+
+
+def test_a_deleted_raider_role_is_reported_after_giving_the_rest() -> None:
+    guild = fake_guild(None)
+    guild.get_member.return_value.add_roles = AsyncMock()
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", WELCOME_JOB)]
+    run(cog(hub).run_outbox(guild))
+    assert [r.id for r in guild.get_member.return_value.add_roles.await_args.args] == [12]
+    hub.ack.assert_awaited_once_with(
+        7, error="Gave the other roles, but 1 Wednesday raider role(s) are no longer in the server"
+    )
+
+
+def test_a_welcome_with_no_roles_and_no_room_is_not_reported_as_done() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", {**WELCOME_JOB, "role_ids": []})]
+    run(cog(hub).run_outbox(fake_guild(None)))
+    hub.ack.assert_awaited_once_with(7, error="Their interview room is gone, so there was nowhere to post the welcome")
 
 
 def test_a_role_above_the_bot_is_reported_to_the_hub() -> None:

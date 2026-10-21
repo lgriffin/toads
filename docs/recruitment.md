@@ -56,6 +56,8 @@ The card also lists what was decided in the last 14 days, with what the Toad Bot
 | `No Discord role is set for <night> raiders, so give <name> theirs by hand.` | Neither `raider_roles` nor a Toad badge tie is set for the night |
 | `Could not welcome <name> for <night>: The Toad Bot needs Manage Roles, and its own role above the <night> raider role ...` | Move the bot's role up in Server Settings > Roles (ADMIN_GUIDE "Discord permissions for interview rooms"), then give the role by hand |
 | `Could not welcome <name> for <night>: They are no longer in the Discord server` | They left before the decision |
+| `Could not welcome <name> for <night>: Gave the other roles, but 1 <night> raider role(s) are no longer in the server` | A configured or badge-tied role was deleted in Discord; fix the config or the tie on the Admin page |
+| `Could not delete the interview room, so it was locked instead: ...` | The bot lacks Manage Channels there; the applicant can read but not post, and an officer can delete the room by hand |
 
 The bot does not invite anyone to the guild in game: that stays with the officers.
 

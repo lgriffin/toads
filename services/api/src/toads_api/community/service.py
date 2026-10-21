@@ -650,6 +650,12 @@ class CommunityService:
                     self._close_room(app, int(str(job.payload["discord_user_id"])))
         elif job.kind is OutboxKind.WELCOME_RECRUIT:
             self._note_welcome(job, ack.error)
+        elif job.kind is OutboxKind.CLOSE_INTERVIEW_ROOM and ack.error is not None:
+            # The room could not be deleted: lock it instead, so the applicant cannot keep posting, and tell officers.
+            app = self.repo.get_application(int(str(job.payload["application_id"])))
+            if app is not None:
+                self._note(app, None, f"Could not delete the interview room, so it was locked instead: {ack.error}")
+                self._enqueue(OutboxKind.LOCK_INTERVIEW_ROOM, dict(job.payload))
         elif job.kind is OutboxKind.POST_MESSAGE and ack.message_id is not None:
             post = self.repo.get_post(int(str(job.payload["post_id"])))
             if post is not None:
