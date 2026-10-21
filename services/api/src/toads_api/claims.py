@@ -11,6 +11,7 @@ night go to the global tier's /api/admin/claims, which also decides any night's 
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Literal, NoReturn
 
@@ -190,13 +191,20 @@ class QueuedClaimOut(ClaimOut):
     nights: list[str]
 
 
-def claim_nights(claim: CharacterClaim, member: Member | None) -> list[str]:
+def claim_nights(claim: CharacterClaim, member: Member | None, configured: Collection[str]) -> list[str]:
     """The raid nights whose officers decide a claim: the nights the claimant's Discord roles put them on now (their
-    night Toad role, refreshed at every sign-in), else the day recorded when they claimed. Empty means only global
-    officers and super admins decide it."""
-    if member is not None and member.raid_days:
-        return list(member.raid_days)
-    return [claim.raid_day_id] if claim.raid_day_id is not None else []
+    night Toad role, refreshed at every sign-in), else, for a member row that has never recorded its nights, the day
+    recorded when they claimed. Only nights still in config count. Empty means only global officers and super admins
+    decide it."""
+    if member is not None and member.raid_days is not None:
+        nights = list(member.raid_days)
+    else:
+        nights = [claim.raid_day_id] if claim.raid_day_id is not None else []
+    return [n for n in nights if n in configured]
+
+
+def _configured(services: Services) -> frozenset[str]:
+    return frozenset(d.id for d in services.raid_days.raid_days)
 
 
 def _queued(claim: CharacterClaim, member: Member | None, nights: list[str]) -> QueuedClaimOut:
@@ -214,7 +222,8 @@ def _pending(services: Services) -> list[tuple[CharacterClaim, Member | None, li
             .where(CharacterClaim.status == ClaimStatus.PENDING)
             .order_by(CharacterClaim.created_at, CharacterClaim.id)
         ).all()
-        return [(claim, member, claim_nights(claim, member)) for claim, member in rows]
+        configured = _configured(services)
+        return [(claim, member, claim_nights(claim, member, configured)) for claim, member in rows]
 
 
 def _queue(services: Services, day: str) -> list[QueuedClaimOut]:
@@ -272,10 +281,11 @@ def _decide(
     """Decide a claim through a night's path (`day`), or through the global tier's /api/admin path (`day` None), which
     reaches every claim."""
     with services.db.begin() as db:
-        claim = db.get(CharacterClaim, claim_id)
+        # Locked, so two officers deciding at once (the claim is on several nights' panels) get one success and a 409.
+        claim = db.scalar(select(CharacterClaim).where(CharacterClaim.id == claim_id).with_for_update())
         if claim is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such claim")
-        nights = claim_nights(claim, db.get(Member, claim.member_id))
+        nights = claim_nights(claim, db.get(Member, claim.member_id), _configured(services))
         # Claims without a night (the claimant holds no night role) belong to the global tier.
         if day is None or day in nights:
             return _apply(db, principal, claim, decision, reason, new_member_id)

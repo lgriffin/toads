@@ -21,6 +21,9 @@
   });
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
+  // A claim on two nights shows on both panels; deciding it on one takes it off the other.
+  let decided = $state<number[]>([]);
+  const ondecided = (id: number) => (decided = [...decided, id]);
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
 
@@ -43,10 +46,10 @@
   {:else}
     <div class="nights">
       {#each raidDays.officerDays as day (day)}
-        <ClaimsQueue {backend} {day} title="{dayName(day, raidDays.names)} claims" names={raidDays.names} />
+        <ClaimsQueue {backend} {day} title="{dayName(day, raidDays.names)} claims" names={raidDays.names} {decided} {ondecided} />
       {/each}
       {#if globalTier}
-        <ClaimsQueue {backend} day={null} title="Members on no raid night" names={raidDays.names} />
+        <ClaimsQueue {backend} day={null} title="Members on no raid night" names={raidDays.names} {decided} {ondecided} />
       {/if}
     </div>
   {/if}

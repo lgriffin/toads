@@ -250,6 +250,25 @@ def test_a_claim_follows_the_claimants_night_role(hub: Hub, pending: dict[str, o
     assert [c["id"] for c in hub.get("/api/days/thu/claims", thu).json()] == [claim["id"]]
 
 
+def test_a_claimant_who_loses_every_night_role_goes_to_the_global_tier(hub: Hub, pending: dict[str, object]) -> None:
+    user = hub.user(("wed", "raider"), nick="Gone")
+    claim = hub.post("/api/claims", hub.login(user), {"character_id": 3}).json()
+    user.roles = set()
+    hub.login(user)
+    assert claim["id"] not in [c["id"] for c in hub.get("/api/days/wed/claims", pending["wed"]).json()]
+    assert hub.post(f"/api/days/wed/claims/{claim['id']}/approve", pending["wed"]).status_code == 403
+    assert [c["id"] for c in hub.get("/api/admin/claims", pending["global"]).json()] == [claim["id"]]
+
+
+def test_a_night_removed_from_config_sends_its_claims_to_the_global_tier(
+    hub: Hub, pending: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    services = hub.app.state.services
+    kept = [d for d in services.raid_days.raid_days if d.id != "wed"]
+    monkeypatch.setattr(services.raid_days, "raid_days", kept)
+    assert [c["id"] for c in hub.get("/api/admin/claims", pending["global"]).json()] == [pending["claim"]["id"]]
+
+
 def test_global_officer_decides_any_nights_claim_from_admin(hub: Hub, pending: dict[str, object]) -> None:
     cid = pending["claim"]["id"]
     r = hub.post(f"/api/admin/claims/{cid}/reject", pending["global"], {"reason": "Not yours"})

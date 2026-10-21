@@ -32,3 +32,13 @@ test('a night\'s officer section holds its claims', async ({ page }) => {
   await page.goto('officers/nights/thu/');
   await expect(page.getByRole('region', { name: 'Character claims' }).getByText('Bramblewick', { exact: true })).toBeVisible();
 });
+
+test('a claim decided on one night\'s panel leaves the other night\'s too', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/claims/');
+  const sun = page.getByRole('region', { name: 'Sunday claims' });
+  await expect(sun.getByText('Lilypadd', { exact: true })).toBeVisible();
+  await page.getByRole('region', { name: 'Wednesday claims' }).getByRole('button', { name: 'Approve Lily’s claim on Lilypadd' }).click();
+  await expect(sun.getByText('Lilypadd', { exact: true })).toHaveCount(0);
+  await expect(sun.getByText('Pondweed', { exact: true })).toBeVisible();
+});

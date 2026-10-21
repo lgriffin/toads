@@ -6,15 +6,27 @@
   // One raid night's pending character claims, or (day null) the claims of members on no night, which only global
   // officers and super admins decide. Approve in one press; reject asks for the reason the member will read on Me. The
   // API checks that the viewer runs this night; this card only shows itself to them.
+  // `decided` holds the claims decided anywhere on the page, so a claim on two nights leaves both panels at once;
+  // `ondecided` reports this panel's decisions to it.
   let {
     backend,
     day,
     title,
-    names = {}
-  }: { backend: ClaimsBackend; day: string | null; title: string; names?: Record<string, string> } = $props();
+    names = {},
+    decided = [],
+    ondecided
+  }: {
+    backend: ClaimsBackend;
+    day: string | null;
+    title: string;
+    names?: Record<string, string>;
+    decided?: readonly number[];
+    ondecided?: (id: number) => void;
+  } = $props();
 
   const key = $derived(day ?? 'none');
-  let claims = $state<QueuedClaim[] | null>(null);
+  let loaded = $state<QueuedClaim[] | null>(null);
+  const claims = $derived(loaded && loaded.filter((c) => !decided.includes(c.id)));
   let loadError = $state('');
   let busy = $state(false);
   let message = $state('');
@@ -22,23 +34,29 @@
   let rejecting = $state<number | null>(null);
   let reason = $state('');
 
-  function load() {
-    backend
-      .queue(day)
-      .then((c) => {
-        claims = c;
-        loadError = '';
-      })
-      .catch((e) => (loadError = claimsError(e)));
+  // Only the newest load may set the list, so a slow reply never brings back a claim decided after it was asked for.
+  let latest = 0;
+  async function load() {
+    const ask = ++latest;
+    try {
+      const c = await backend.queue(day);
+      if (ask === latest) [loaded, loadError] = [c, ''];
+    } catch (e) {
+      if (ask === latest) loadError = claimsError(e);
+    }
   }
 
-  $effect(load);
+  $effect(() => {
+    load();
+  });
 
   async function decide(c: QueuedClaim, action: () => Promise<unknown>, done: string) {
     busy = true;
     try {
       await action();
-      claims = (claims ?? []).filter((x) => x.id !== c.id);
+      latest++;
+      loaded = (loaded ?? []).filter((x) => x.id !== c.id);
+      ondecided?.(c.id);
       message = done;
       failed = false;
       rejecting = null;
@@ -46,7 +64,7 @@
     } catch (e) {
       message = claimsError(e);
       failed = true;
-      load();
+      await load();
     } finally {
       busy = false;
     }
