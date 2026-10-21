@@ -365,7 +365,7 @@ Rules worth knowing:
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,
-  Healer, Damage or a class). Everyone holding the role wears the badge beside their name. Start by tying the Wednesday, Thursday and
+  Healer, Damage or a class). Everyone holding the role wears the badge on their Me page and in their hub home greeting. Start by tying the Wednesday, Thursday and
   Sunday raider roles.
   A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
   (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the
@@ -399,7 +399,7 @@ Rules worth knowing:
   cannot; the grant routes still check `MANAGE_GRANTS`. Every member can see what their tier allows on `/toolkit`.
 - **The launch hold** (until the World of Warcraft: Forever launch on 4 November 2026). A raider who signs in sees one
   coming-soon page (guild bank management, logs analysis, raid assistance) on every member page except Raid and
-  Me, and the Members nav shows only Hub, Raid and Me, so raiders can report absences now (their Me shows only their
+  Me, and the top bar's Hub menu shows only Hub home and Raid, beside Me, so raiders can report absences now (their Me shows only their
   absences until launch). Officers see every member page as it is being built (the hub fills in from the historic TBC raids
   the worker synced), except Bank, which shows what is coming with the Forever launch and a mockup until the bank has
   data. Super admins see exactly what officers see, plus the Admin console. The hold is in the web app

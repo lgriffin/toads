@@ -392,11 +392,11 @@
   .events { margin: 0.4rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 0.2rem; }
   summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
-  .room { background: #1f3a4a; color: #9fd3f0; }
-  .edited { background: #3b3320; color: var(--warn); }
-  .status-applied { background: #3b3320; color: var(--warn); }
-  .status-accepted, .consent-granted { background: #24402c; color: var(--accent); }
-  .status-declined, .consent-declined { background: #402624; color: #f0a39c; }
+  .room { background: var(--info-bg); color: var(--info-text); }
+  .edited { background: var(--warn-bg); color: var(--warn); }
+  .status-applied { background: var(--warn-bg); color: var(--warn); }
+  .status-accepted, .consent-granted { background: var(--ok-bg); color: var(--accent); }
+  .status-declined, .consent-declined { background: var(--bad-bg); color: var(--bad-text); }
   form { display: grid; gap: 0.9rem; max-width: 40rem; }
   .row { display: flex; flex-wrap: wrap; gap: 1rem; }
   .check { display: inline-flex; gap: 0.4rem; align-items: center; }

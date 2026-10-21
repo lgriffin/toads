@@ -177,7 +177,7 @@
   }
   h2 { margin: 0 0 0.35rem; }
   .nowrap { white-space: nowrap; }
-  .full { background: var(--bronze); color: var(--ink); }
+  .full { background: var(--bronze); color: var(--on-bronze); }
   .bosses { list-style: none; margin: 0.5rem 0 0; padding: 0; }
   .bosses li { border-top: 1px solid var(--line); }
   summary {

@@ -118,12 +118,16 @@ def rbac_drift_test() -> None:
     assert "puts each permission in the tier that first holds it" in test
 
 
-@then("it is in the public nav, the top bar's tier chip opens it and the old toolkit address redirects to it")
+@then(
+    "it is in the public nav and the Hub menu, the account menu's What you can do link opens it and the old toolkit "
+    "address redirects to it"
+)
 def discoverable() -> None:
     assert "{ href: '/features', label: 'Hub features' }" in _read("lib/nav.ts")
     layout = _read("routes/+layout.svelte")
-    assert 'href="{base}/features/"' in layout
+    assert '<li><a href="{base}/features/"><span class="name">What you can do</span>' in layout
     assert "TIER_LABEL[tier]" in layout
+    assert "{ label: 'About the guild', items: [...PUBLIC_NAV] }" in _read("lib/nav.ts")
     assert "goto(`${base}/features/`, { replaceState: true })" in _read("routes/toolkit/+page.svelte")
 
 
@@ -179,13 +183,17 @@ def launch() -> str:
     return _read("lib/launch.ts")
 
 
-@then("a raider's members nav is the hub, Raid and Me links and every other member page shows the coming-soon page")
+@then(
+    "a raider's top bar is the Hub menu with only Hub home and Raid, and Me, and every other member page shows the "
+    "coming-soon page"
+)
 def raider_coming_soon(launch: str) -> None:
     assert "export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;" in launch
     for title in ("Guild bank management", "Logs analysis", "Raid assistance"):
         assert f"title: '{title}'" in launch
     layout = _read("routes/+layout.svelte")
     assert "heldNav(memberNav(officer, tier === 'admin'), tier)" in layout
+    assert "let hubGroups = $derived(hubMenu(members));" in layout
     assert "{:else if hold === 'coming-soon'}\n    <ComingSoon {...me} />" in layout
     assert "const OPEN_TO_MEMBERS = ['/raid'];" in launch
     assert "const OPEN_TO_MEMBERS_EXACT = ['/me'];" in launch
@@ -371,3 +379,114 @@ def icon_files() -> None:
     assert (static / "favicon.svg").read_bytes() == (static / "logos" / "01-the-regular.svg").read_bytes()
     assert (static / "favicon.ico").read_bytes()[:4] == b"\x00\x00\x01\x00"
     assert (static / "apple-touch-icon.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-009 The top bar shall show a signed-in member only a Hub menu (Raid, Logs and the other member "
+    "pages, then the public pages), Me and their name, give officers and super admins one Officers menu with only the "
+    "raid nights they run and the Admin console for super admins, and show no toads beside the name",
+)
+def test_top_bar() -> None:
+    pass
+
+
+@given("the top bar", target_fixture="top_bar")
+def top_bar() -> dict[str, str]:
+    return {
+        "layout": _read("routes/+layout.svelte"),
+        "nav": _read("lib/nav.ts"),
+        "menu": _read("lib/components/NavMenu.svelte"),
+    }
+
+
+@then("a signed-in member sees the Hub menu, Me and an account menu with their name, and visitors keep the public nav")
+def top_bar_member(top_bar: dict[str, str]) -> None:
+    layout = top_bar["layout"]
+    assert '<NavMenu id="menu-hub" label="Hub"' in layout
+    assert '<a class="top" href="{base}/me/"' in layout
+    assert '<NavMenu id="menu-account" label={displayName} prefix="Account:" align="end"' in layout
+    assert '<nav aria-label="Guild" class="guild">' in layout
+    assert "{ href: '/logs', label: 'Logs'" in top_bar["nav"] and "{ href: '/raid', label: 'Raid'" in top_bar["nav"]
+
+
+@then(
+    "the Officers menu lists the officer tools, only the raid nights the viewer runs, and the Admin console for super "
+    "admins only"
+)
+def top_bar_officers(top_bar: dict[str, str]) -> None:
+    assert "raidDays.officerDays.map((day) => ({ day, name: dayName(day, raidDays.names) }))" in top_bar["layout"]
+    assert "lists only the raid nights an officer runs" in _read("lib/nav.test.ts")
+    assert "adds the Admin console for super admins only" in _read("lib/nav.test.ts")
+
+
+@then("the top bar shows no toads; the member's toads greet them on the hub home and stand on their Me page")
+def top_bar_no_toads(top_bar: dict[str, str]) -> None:
+    assert "MemberToads" not in top_bar["layout"]
+    assert "<ToadGreeting {...me} />" in top_bar["layout"]
+    assert "the top bar shows a member by name only" in (WEB.parent / "e2e" / "admin.spec.ts").read_text(
+        encoding="utf-8"
+    )
+
+
+@then(
+    "each menu opens and closes from the keyboard, closes on Escape and on a click outside, and names what each link "
+    "holds in one plain line"
+)
+def top_bar_menus(top_bar: dict[str, str]) -> None:
+    menu = top_bar["menu"]
+    assert "aria-expanded={open}" in menu and "aria-controls={id}" in menu
+    assert "e.key === 'Escape'" in menu and "onpointerdown={onWindowPointerDown}" in menu
+    assert '{#if item.hint}<span class="hint">{item.hint}</span>{/if}' in top_bar["layout"]
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-010 When a reader picks a dark or light theme, or easier reading, in the display settings, the hub "
+    "shall apply it to every page before the first paint and remember it in that browser, and every page shall stay "
+    "axe-clean in both themes",
+)
+def test_display_settings() -> None:
+    pass
+
+
+@given("the display settings", target_fixture="display")
+def display() -> dict[str, str]:
+    return {
+        "lib": _read("lib/display.ts"),
+        "early": (WEB.parent / "static" / "display.js").read_text(encoding="utf-8"),
+        "theme": _read("lib/theme.css"),
+    }
+
+
+@then(
+    "a reader picks Dark, Light or Match my device, and easier reading (bigger text, roomier lines, plain headings, "
+    "underlined links)"
+)
+def display_choices(display: dict[str, str]) -> None:
+    for label in ("Dark", "Light", "Match my device"):
+        assert f"label: '{label}'" in display["lib"]
+    assert ":root[data-reading='easy']" in display["theme"]
+    assert "Easier reading" in _read("lib/components/DisplaySettings.svelte")
+
+
+@then(
+    "the choice is applied by a script file before the first paint, within the site's script-src 'self' policy, and "
+    "kept in local storage"
+)
+def display_early(display: dict[str, str]) -> None:
+    assert '<script src="%sveltekit.assets%/display.js"></script>' in _read("app.html")
+    assert "localStorage.getItem('toads-theme')" in display["early"]
+    assert "'script-src': ['self']" in (WEB.parent / "svelte.config.js").read_text(encoding="utf-8")
+
+
+@then(
+    "both themes share one set of colour tokens, the dusk hero art stays dark, and the e2e suite runs axe on every "
+    "page in the light theme with easier reading"
+)
+def display_themes(display: dict[str, str]) -> None:
+    assert ":root[data-theme='light']" in display["theme"] and ".always-dusk" in display["theme"]
+    assert 'class="hero band always-dusk"' in _read("lib/Landing.svelte")
+    assert "in the light theme with easier reading" in (WEB.parent / "e2e" / "pages.spec.ts").read_text(
+        encoding="utf-8"
+    )

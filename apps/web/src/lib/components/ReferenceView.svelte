@@ -324,7 +324,7 @@
   .jobs li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
   .jobs .msg { flex-basis: 100%; font-size: 0.9rem; }
   code { font-size: 0.85rem; overflow-wrap: anywhere; }
-  .status-queued, .status-running { background: #3b3320; color: var(--warn); }
-  .status-done { background: #24402c; color: var(--accent); }
-  .status-failed { background: #402624; color: #f0a39c; }
+  .status-queued, .status-running { background: var(--warn-bg); color: var(--warn); }
+  .status-done { background: var(--ok-bg); color: var(--accent); }
+  .status-failed { background: var(--bad-bg); color: var(--bad-text); }
 </style>

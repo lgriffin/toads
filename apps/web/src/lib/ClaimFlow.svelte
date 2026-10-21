@@ -132,5 +132,5 @@
     padding: 0.4rem 0.8rem;
     cursor: pointer;
   }
-  button.claim { background: var(--accent); color: #0f1411; }
+  button.claim { background: var(--accent); color: var(--on-accent); }
 </style>

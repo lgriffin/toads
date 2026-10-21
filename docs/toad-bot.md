@@ -48,7 +48,7 @@ site. Anyone else gets "Only that night's officers can import its sign-ups." The
 
 On **Me**, "Your specs" shows the imported class and primary spec with a note that an officer filled them in from the
 Raid-Helper sign-up. They can change them or press **Confirm my specs**; either makes the specs their own, and no later
-import touches them. Their class badge and Tank, Healer or Damage badge show beside their name from the moment of the
+import touches them. Their class badge and Tank, Healer or Damage badge show on their Me page from the moment of the
 import, including for members who have never signed in. The night's badge (Sunday Toad and so on) still comes only from
 their Discord role.
 

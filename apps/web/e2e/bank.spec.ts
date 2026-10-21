@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from './auth';
+import { openAccountMenu } from './nav';
 
 // The preview's bank is the real bank page answered from sample data in the browser (src/lib/preview/bank-fake.ts).
 
@@ -38,7 +39,7 @@ test('a token the super admin mints gives the raider bank upkeep', async ({ page
   const token = (await admin.locator('.token code').textContent())?.trim() ?? '';
   expect(token).toMatch(/^demo-/);
 
-  await page.getByRole('button', { name: 'Switch to raider view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
   await expect(page.getByRole('heading', { name: 'Bank upkeep: requests and imports' })).toHaveCount(0);
   await page.getByLabel('Token', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Redeem' }).click();

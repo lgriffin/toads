@@ -13,7 +13,7 @@
   } from '$lib/role-badges';
 
   // The super admins' badge desk: tie a badge toad to a Discord server role, and every member holding that role wears
-  // it beside their name. The API checks the permission (manage_role_badges); this page only shows the desk.
+  // it on their Me page. The API checks the permission (manage_role_badges); this page only shows the desk.
   let { backend }: { backend: RoleBadgesBackend } = $props();
 
   let data = $state<RoleBadgesAdmin | null>(null);
@@ -79,8 +79,8 @@
 <section class="card desk" aria-labelledby="role-badges-h">
   <h2 id="role-badges-h">Badges from Discord roles</h2>
   <p class="muted lede">
-    Pick a role from the Toads server and the badge it earns. Everyone holding that role wears the badge beside their
-    name on the hub, and loses it when the role is taken away in Discord.
+    Pick a role from the Toads server and the badge it earns. Everyone holding that role wears the badge on their Me
+    page, and loses it when the role is taken away in Discord.
   </p>
 
   {#if loadError}

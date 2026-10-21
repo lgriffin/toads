@@ -222,12 +222,12 @@
     padding: 0.35rem 0.85rem;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: rgb(18 15 51 / 0.45);
+    background: color-mix(in srgb, var(--ink) 45%, transparent);
     color: var(--cream);
     cursor: pointer;
   }
-  .tabs button[aria-pressed='true'] { background: var(--bronze); border-color: var(--bronze); color: var(--ink); font-weight: 700; }
-  .tabs button:hover:not([aria-pressed='true']) { background: rgb(63 214 200 / 0.18); }
+  .tabs button[aria-pressed='true'] { background: var(--bronze); border-color: var(--bronze); color: var(--on-bronze); font-weight: 700; }
+  .tabs button:hover:not([aria-pressed='true']) { background: color-mix(in srgb, var(--teal) 18%, transparent); }
   .tabs button:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
   details { margin-top: 0.5rem; }
   summary { cursor: pointer; padding: 0.4rem 0; }
