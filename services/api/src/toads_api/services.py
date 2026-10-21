@@ -191,6 +191,10 @@ class Services:
                 badge_officer_roles=lambda: self.role_badges.night_officer_roles(
                     (d.id, d.name) for d in self.raid_days.raid_days
                 ),
+                raider_roles={d.id: tuple(d.raider_roles) for d in self.raid_days.raid_days},
+                badge_raider_roles=lambda: self.role_badges.night_roles(
+                    (d.id, d.name) for d in self.raid_days.raid_days
+                ),
             ),
         )
 

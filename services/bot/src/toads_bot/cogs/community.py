@@ -1,7 +1,8 @@
 """Discord side of the community layer: interview rooms, two-way officer posts.
 
 Inbound: messages in the mirrored channels go to the hub, where they wait for an officer. Edits and deletions follow.
-Outbound: the bot works through the hub's outbox (open or lock an interview room, post or edit an officer post).
+Outbound: the bot works through the hub's outbox (open, lock or delete an interview room, give an accepted applicant
+their raid night's roles, post or edit an officer post).
 Nothing the bot posts can ping anyone: every send uses AllowedMentions.none().
 """
 
@@ -23,7 +24,18 @@ log = logging.getLogger(__name__)
 
 NO_PINGS = discord.AllowedMentions.none()
 EMBED_COLOUR = discord.Colour(0x5FBF6A)
-HUB_KINDS = frozenset({"create_interview_room", "lock_interview_room", "post_message", "edit_message"})
+HUB_KINDS = frozenset(
+    {
+        "create_interview_room",
+        "lock_interview_room",
+        "close_interview_room",
+        "welcome_recruit",
+        "post_message",
+        "edit_message",
+    }
+)
+# Jobs the bot reports giving up on, so the hub can say why instead of waiting.
+REPORTED_KINDS = frozenset({"create_interview_room", "close_interview_room", "welcome_recruit"})
 
 
 class RoomError(Exception):
@@ -251,7 +263,7 @@ class Community(commands.Cog):
     async def _give_up(self, job: dict[str, Any], reason: str) -> None:
         """A room that is not coming is reported to the hub, which shows why; other jobs are logged and retried."""
         log.error("outbox job %s (%s) failed: %s", job["id"], job["kind"], reason)
-        if job["kind"] != "create_interview_room":
+        if job["kind"] not in REPORTED_KINDS:
             return
         try:
             await self.hub.ack(int(job["id"]), error=reason[:300])
@@ -267,6 +279,12 @@ class Community(commands.Cog):
             del self.opened_rooms[job_id]
         elif kind == "lock_interview_room":
             await self.lock_interview_room(guild, payload)
+            await self.hub.ack(job_id)
+        elif kind == "close_interview_room":
+            await self.close_interview_room(guild, payload)
+            await self.hub.ack(job_id)
+        elif kind == "welcome_recruit":
+            await self.welcome_recruit(guild, payload)
             await self.hub.ack(job_id)
         elif kind in {"post_message", "edit_message"} and post is not None:
             if not self.post_to_channels:
@@ -334,3 +352,42 @@ class Community(commands.Cog):
         for target in [t for t in overwrites if t.id == uid]:
             overwrites[target] = discord.PermissionOverwrite(view_channel=True, send_messages=False)
         await channel.edit(overwrites=overwrites, reason="Toads Hub application closed")
+
+    async def close_interview_room(self, guild: discord.Guild, payload: dict[str, Any]) -> None:
+        """A rejected applicant's room is deleted; the hub keeps the application, its history and the notes."""
+        channel = guild.get_channel(int(payload["channel_id"]))
+        if not isinstance(channel, discord.TextChannel):
+            return  # already gone
+        await channel.delete(reason=f"Toads Hub application {payload['application_id']} rejected")
+
+    async def welcome_recruit(self, guild: discord.Guild, payload: dict[str, Any]) -> None:
+        """An accepted applicant gets their raid night's roles, and a welcome in their interview room if they have
+        one. Discord only lets the bot give roles below its own highest role."""
+        try:
+            member = guild.get_member(int(payload["discord_user_id"])) or await guild.fetch_member(
+                int(payload["discord_user_id"])
+            )
+        except discord.NotFound:
+            raise RoomError("They are no longer in the Discord server") from None
+        night = str(payload.get("night") or "raid")
+        roles = [r for rid in payload.get("role_ids") or [] if (r := guild.get_role(int(rid))) is not None]
+        if roles:
+            try:
+                await member.add_roles(*roles, reason=f"Toads Hub: accepted for {night}")
+            except discord.Forbidden:
+                raise RoomError(
+                    f"The Toad Bot needs Manage Roles, and its own role above the {night} raider role in Server "
+                    "Settings > Roles"
+                ) from None
+        elif payload.get("role_ids"):
+            raise RoomError(f"The {night} raider role is no longer in the Discord server")
+        channel = guild.get_channel(int(payload["channel_id"])) if payload.get("channel_id") else None
+        if isinstance(channel, discord.TextChannel):
+            try:
+                await channel.send(
+                    f"Welcome to the pond, {member.mention}! The officers have accepted you for {night} raids.",
+                    allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=[member]),
+                )
+            except discord.HTTPException:
+                # The roles are what matter; a missing welcome is only worth a log line.
+                log.exception("gave the %s roles but could not post the welcome in #%s", night, channel.name)

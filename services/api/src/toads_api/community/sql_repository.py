@@ -19,6 +19,7 @@ from toads_api.community.repository import AuditRecord, MemberCard, Payload
 from toads_api.community.schemas import (
     Application,
     ApplicationEvent,
+    ApplicationNote,
     ApplicationStatus,
     ClipProvider,
     Highlight,
@@ -244,6 +245,39 @@ class SqlCommunityRepository:
 
     def applications(self) -> list[Application]:
         return self._applications_where()
+
+    def save_note(self, note: ApplicationNote) -> None:
+        with self.db.begin() as db:
+            db.add(
+                hub_db.ApplicationNote(
+                    id=note.id,
+                    application_id=note.application_id,
+                    author_member_id=note.author_id,
+                    body=note.body,
+                    at=note.at,
+                )
+            )
+
+    def notes(self, application_ids: list[int]) -> list[ApplicationNote]:
+        query = (
+            select(hub_db.ApplicationNote)
+            .where(hub_db.ApplicationNote.application_id.in_(application_ids))
+            .order_by(hub_db.ApplicationNote.at, hub_db.ApplicationNote.id)
+        )
+        with self.db() as db:
+            rows = db.scalars(query).all()
+            names = _names(db, [r.author_member_id for r in rows], self.shown_names)
+            return [
+                ApplicationNote(
+                    id=r.id,
+                    application_id=r.application_id,
+                    author_id=r.author_member_id,
+                    author_name=None if r.author_member_id is None else _name(names, r.author_member_id),
+                    body=r.body,
+                    at=_utc(r.at),
+                )
+                for r in rows
+            ]
 
     # ------------------------------------------------------------- highlights
 

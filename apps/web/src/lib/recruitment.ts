@@ -12,8 +12,8 @@ export const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
 ];
 
 export const TRANSITIONS: Readonly<Record<ApplicationStatus, readonly ApplicationStatus[]>> = {
-  applied: ['interviewing', 'declined', 'withdrawn'],
-  interviewing: ['trial_offered', 'declined', 'withdrawn'],
+  applied: ['interviewing', 'accepted', 'declined', 'withdrawn'],
+  interviewing: ['trial_offered', 'accepted', 'declined', 'withdrawn'],
   trial_offered: ['accepted', 'declined', 'withdrawn'],
   accepted: [],
   declined: [],

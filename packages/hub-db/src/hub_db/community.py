@@ -86,6 +86,19 @@ class ApplicationEvent(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class ApplicationNote(Base):
+    """An officer's note on an application before the decision, or the Toad Bot's word on acting on it
+    (author_member_id None). Officers only; never shown to the applicant."""
+
+    __tablename__ = "application_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id"), index=True)
+    author_member_id: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    body: Mapped[str] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class RecruitmentNeed(Base):
     __tablename__ = "recruitment_needs"
 

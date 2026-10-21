@@ -56,6 +56,22 @@ test('an officer puts someone from the Discord on their night’s interview pane
   await expect(page.getByRole('region', { name: 'Sunday interview panel' })).toHaveCount(0);
 });
 
+test('officers note a night’s applicant, then accept them on the Decisions panel', async ({ page }) => {
+  await page.goto('officers/recruitment/');
+  const wed = page.getByRole('region', { name: 'Wednesday decisions' });
+  await expect(wed.getByText('Knows the Vashj fight well.')).toBeVisible();
+  await wed.getByLabel('Note on Mossbeard').fill('Happy to take them.');
+  await wed.getByRole('button', { name: 'Add note' }).first().click();
+  await expect(wed.getByText('Happy to take them.')).toBeVisible();
+  await wed.getByRole('button', { name: 'Accept Mossbeard' }).click();
+  await expect(wed.getByText(/the Toad Bot gives them the Wednesday raider role/)).toBeVisible();
+  await wed.getByRole('button', { name: 'Accept Mossbeard' }).click();
+  await expect(wed.getByRole('status')).toContainText('Mossbeard is accepted for Wednesday.');
+  await expect(wed.getByRole('heading', { name: 'Mossbeard' })).toHaveCount(0);
+  await wed.getByText(/Decided in the last two weeks/).click();
+  await expect(wed.getByText('Toad Bot: Gave Mossbeard the Wednesday raider role in Discord.')).toBeVisible();
+});
+
 test('an officer moves an application from applied to interviewing', async ({ page }) => {
   await page.goto('officers/');
   const card = page.getByTestId('application-app-1');

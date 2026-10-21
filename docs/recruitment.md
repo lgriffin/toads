@@ -1,4 +1,4 @@
-# Recruitment: raid nights and interview panels
+# Recruitment: raid nights, interview panels and decisions
 
 Applicants pick the night they want to raid (Wednesday, Thursday or Sunday) on the `/recruit` page. The choices
 are the raid days in `config/raid_days.yaml`, so a new night shows up once it is configured, with no code change. Each night's
@@ -29,6 +29,35 @@ The other night's officers cannot see or change it (403). Global officers and su
   name when they were added.
 - Every change is on the audit log: `recruitment.panel_add` and `recruitment.panel_remove`, with the raid day.
 - A change applies to the next application. Rooms that are already open keep the people they were opened with.
+
+## Decisions
+
+Above the panels, **Officers > Recruitment** has a Decisions card for each night the officer runs: every application
+for that night (or for any night) still waiting on a decision, oldest first, with the answers, a link into the
+interview room and the logs.
+
+- **Notes.** Any of the night's officers (and global officers and super admins) can add a note while the applicant
+  waits, up to 1000 characters. Notes are for officers only: the applicant never sees them. Once an application is
+  decided, notes are closed. They live in `application_notes` (migration 0029) and are audited as `application.note`.
+- **Reject** declines the application and the Toad Bot deletes the interview room. The application, its history and
+  the notes stay in the hub. The applicant sees "declined" on the recruit page and can apply again after 30 days.
+- **Accept** accepts the application for that night (straight from Applied or Interviewing; a trial raid is optional),
+  locks the room as before, and the Toad Bot gives the applicant the night's raider roles in Discord and posts a
+  welcome in their room. The roles are the night's `raider_roles` in `config/raid_days.yaml` plus any role a super
+  admin tied to the night's Toad badge on the Admin page (for example the Wednesday Toad role).
+- Both ask for a confirmation that says what will happen, and both are audited (`application.declined`,
+  `application.accepted`). A second decision on the same application is refused (409).
+
+The card also lists what was decided in the last 14 days, with what the Toad Bot reported:
+
+| Note from the Toad Bot | Meaning |
+| --- | --- |
+| `Gave <name> the <night> raider role in Discord.` | Done |
+| `No Discord role is set for <night> raiders, so give <name> theirs by hand.` | Neither `raider_roles` nor a Toad badge tie is set for the night |
+| `Could not welcome <name> for <night>: The Toad Bot needs Manage Roles, and its own role above the <night> raider role ...` | Move the bot's role up in Server Settings > Roles (ADMIN_GUIDE "Discord permissions for interview rooms"), then give the role by hand |
+| `Could not welcome <name> for <night>: They are no longer in the Discord server` | They left before the decision |
+
+The bot does not invite anyone to the guild in game: that stays with the officers.
 
 ## When a room does not open
 
@@ -72,6 +101,12 @@ cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml l
 - `POST /api/days/{day}/admin/interview-panel` with `{discord_user_id}`: add someone (201 with the panel; 409 if they
   are already on it or it is full; 422 if they are not in the server; 503 if Discord does not answer).
 - `DELETE /api/days/{day}/admin/interview-panel/{discord_user_id}`: take someone off (404 if they are not on it).
+
+- `GET /api/days/{day}/admin/decisions`: `{raid_day, waiting, decided}`, each a list of `{application, notes,
+  decided_at}`; `notes` are `{id, application_id, author_name, body, at}`, with `author_name` null for the Toad Bot.
+- `POST /api/days/{day}/admin/applications/{app_id}/notes` with `{body}`: add a note (201; 409 once decided).
+- `POST /api/days/{day}/admin/applications/{app_id}/decision` with `{decision: "accept" | "reject"}`: decide (409 if
+  already decided or withdrawn; 404 if the application is not for this night).
 
 Panels live in the hub database's `interview_panelists` table (migration 0021). The member search uses Discord's
 `GET /guilds/{id}/members/search` with the bot token, which needs the Toad Bot's **Server Members** intent, already on

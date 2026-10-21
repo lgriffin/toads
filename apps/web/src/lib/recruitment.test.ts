@@ -3,9 +3,11 @@ import { APPLICATION_STATUSES, canTransition, isFinal, nextActions, type Applica
 
 const ALLOWED = new Set([
   'applied>interviewing',
+  'applied>accepted',
   'applied>declined',
   'applied>withdrawn',
   'interviewing>trial_offered',
+  'interviewing>accepted',
   'interviewing>declined',
   'interviewing>withdrawn',
   'trial_offered>accepted',

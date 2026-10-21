@@ -30,9 +30,13 @@ from toads_api.community.deps import (
 from toads_api.community.schemas import (
     Application,
     ApplicationCreate,
+    ApplicationDecision,
+    ApplicationNote,
+    ApplicationNoteAdd,
     ApplicationTransition,
     ConsentDecision,
     CurationDecision,
+    DecisionBoard,
     DeskSummary,
     DiscordMessageIn,
     Highlight,
@@ -293,6 +297,36 @@ async def remove_interviewer(
     request: Request, discord_user_id: DiscordId, svc: CommunityService = S, p: Principal = _panel
 ) -> InterviewPanel:
     return svc.remove_interviewer(p.member_id, str(scope_of(request)), discord_user_id)
+
+
+# ------------------------------------------ one raid night's Decisions panel (docs/recruitment.md)
+
+
+@day_admin.get("/decisions")
+async def decisions(
+    request: Request, svc: CommunityService = S, services: Services = _hub, _: Principal = _panel
+) -> DecisionBoard:
+    """Applicants waiting on this night's officers, and what was decided lately, with the officers' notes. Officers
+    get the same link into each interview room that the applicant has."""
+    board = svc.decisions(str(scope_of(request)))
+    guild_id = services.settings.discord_guild_id
+    for card in [*board.waiting, *board.decided]:
+        card.application = with_room_url(card.application, guild_id)
+    return board
+
+
+@day_admin.post("/applications/{app_id}/notes", status_code=status.HTTP_201_CREATED)
+async def add_note(
+    request: Request, app_id: int, body: ApplicationNoteAdd, svc: CommunityService = S, p: Principal = _panel
+) -> ApplicationNote:
+    return svc.add_note(p.member_id, str(scope_of(request)), app_id, body.body)
+
+
+@day_admin.post("/applications/{app_id}/decision")
+async def decide(
+    request: Request, app_id: int, body: ApplicationDecision, svc: CommunityService = S, p: Principal = _panel
+) -> Application:
+    return svc.decide(p.member_id, str(scope_of(request)), app_id, body.decision)
 
 
 _highlights = Depends(require(Permission.MANAGE_HIGHLIGHTS))

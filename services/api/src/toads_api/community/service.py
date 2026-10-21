@@ -20,8 +20,12 @@ from toads_api.community.schemas import (
     Application,
     ApplicationCreate,
     ApplicationEvent,
+    ApplicationNote,
     ApplicationStatus,
     CurationAction,
+    Decision,
+    DecisionBoard,
+    DecisionCard,
     DeskSummary,
     DiscordMessageIn,
     Highlight,
@@ -81,6 +85,10 @@ class RaidDayDirectory:
     day_names: dict[str, str] = field(default_factory=dict)
     # The roles a super admin tied to each night's Officer badge, read when a room is requested since ties change live.
     badge_officer_roles: Callable[[], Mapping[str, Collection[int]]] = lambda: {}
+    # The roles that make someone a night's raider: the config's raider_roles, and the roles a super admin tied to the
+    # night's Toad badge (read live too). Accepting an applicant gives them these.
+    raider_roles: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    badge_raider_roles: Callable[[], Mapping[str, Collection[int]]] = lambda: {}
 
     def officer_role_ids(self, days: list[str]) -> list[int]:
         """Roles that may see an interview room: the global tier plus the officers of the days applied for, from the
@@ -91,6 +99,10 @@ class RaidDayDirectory:
                 if not days or day in days:
                     ids.update(roles)
         return sorted(ids)
+
+    def raider_role_ids(self, day: str) -> list[int]:
+        """The Discord roles an applicant accepted for this night is given."""
+        return sorted({*self.raider_roles.get(day, ()), *self.badge_raider_roles().get(day, ())})
 
 
 @dataclass(frozen=True)
@@ -395,14 +407,17 @@ class CommunityService:
         app.status = to
         self.repo.save_application(app)
         if to in recruitment.FINAL and app.interview_channel_id is not None:
-            self._enqueue(
-                OutboxKind.LOCK_INTERVIEW_ROOM,
-                {
-                    "application_id": app.id,
-                    "channel_id": app.interview_channel_id,
-                    "discord_user_id": self._discord_id(app),
-                },
-            )
+            self._close_room(app, self._discord_id(app))
+
+    def _close_room(self, app: Application, discord_user_id: int) -> None:
+        """A closed application's room: a declined applicant's is deleted, so nothing lingers in the Interviews
+        category; any other is locked, so the applicant can read it and the officers keep the transcript."""
+        self._enqueue(
+            OutboxKind.CLOSE_INTERVIEW_ROOM
+            if app.status is ApplicationStatus.DECLINED
+            else OutboxKind.LOCK_INTERVIEW_ROOM,
+            {"application_id": app.id, "channel_id": app.interview_channel_id, "discord_user_id": discord_user_id},
+        )
 
     def _discord_id(self, app: Application) -> int:
         card = self.repo.member(app.member_id)
@@ -507,6 +522,103 @@ class CommunityService:
         self._audit(actor_id, "recruitment.panel_remove", f"discord_user:{discord_user_id}", scope)
         return self.interview_panel(scope)
 
+    # ----------------------------------------------------------------- decisions
+
+    def decisions(self, scope: str) -> DecisionBoard:
+        """A raid night's Decisions panel: open applications for the night (or for any night), oldest first, and what
+        was decided over the last few days, newest first, each with the officers' notes."""
+        day = self._night(scope)
+        apps = self.applications_for(day)
+        cutoff = self.clock() - timedelta(days=recruitment.DECIDED_WINDOW_DAYS)
+        waiting = [a for a in apps if a.status in recruitment.OPEN]
+        decided = sorted(
+            (a for a in apps if a.status in recruitment.FINAL and a.events[-1].at > cutoff),
+            key=lambda a: a.events[-1].at,
+            reverse=True,
+        )
+        notes: dict[int, list[ApplicationNote]] = {}
+        for note in self.repo.notes([a.id for a in [*waiting, *decided]]):
+            notes.setdefault(note.application_id, []).append(note)
+        return DecisionBoard(
+            raid_day=day,
+            waiting=[DecisionCard(application=a, notes=notes.get(a.id, [])) for a in waiting],
+            decided=[
+                DecisionCard(application=a, notes=notes.get(a.id, []), decided_at=a.events[-1].at) for a in decided
+            ],
+        )
+
+    def _note(self, app: Application, author_id: int | None, body: str) -> ApplicationNote:
+        note = ApplicationNote(
+            id=self.repo.next_id(),
+            application_id=app.id,
+            author_id=author_id,
+            author_name=None if author_id is None else self.name_of(author_id),
+            body=body,
+            at=self.clock(),
+        )
+        self.repo.save_note(note)
+        return note
+
+    def add_note(self, actor_id: int, scope: str, app_id: int, body: str) -> ApplicationNote:
+        """Any officer of the night may note an application while it waits; a decided one is closed to notes."""
+        app = self._application_in_scope(app_id, self._night(scope))
+        if app.status not in recruitment.OPEN:
+            raise Conflict("This application has been decided; notes are closed")
+        note = self._note(app, actor_id, body)
+        self._audit(actor_id, "application.note", f"application:{app.id}", scope)
+        return note
+
+    def decide(self, actor_id: int, scope: str, app_id: int, decision: Decision) -> Application:
+        """Reject: the application is declined and its interview room deleted. Accept: it is accepted for this night,
+        its room locked, and the Toad Bot gives the applicant the night's raider roles and welcomes them."""
+        day = self._night(scope)
+        app = self._application_in_scope(app_id, day)
+        if app.status not in recruitment.OPEN:
+            raise Conflict(f"This application is already {app.status.value}")
+        night = self.raid_days.day_names.get(day, day)
+        if decision is Decision.REJECT:
+            self._move(app, ApplicationStatus.DECLINED, actor_id, "")
+        else:
+            self._move(app, ApplicationStatus.ACCEPTED, actor_id, f"Accepted for {night}")
+            self._welcome(app, day, night)
+        self._audit(actor_id, f"application.{app.status.value}", f"application:{app.id}", scope)
+        return app
+
+    def _welcome(self, app: Application, day: str, night: str) -> None:
+        roles = self.raid_days.raider_role_ids(day)
+        if not roles:
+            self._note(
+                app,
+                None,
+                f"No Discord role is set for {night} raiders, so give {app.character_name} theirs by hand. A super "
+                f"admin can tie one to the {night} Toad badge on the Admin page.",
+            )
+        if roles or app.interview_channel_id is not None:
+            self._enqueue(
+                OutboxKind.WELCOME_RECRUIT,
+                {
+                    "application_id": app.id,
+                    "discord_user_id": self._discord_id(app),
+                    "character_name": app.character_name,
+                    "night": night,
+                    "role_ids": roles,
+                    "channel_id": app.interview_channel_id,
+                },
+            )
+
+    def _note_welcome(self, job: OutboxJob, error: str | None) -> None:
+        """The Toad Bot's word on an accepted applicant, as a note officers see on the Decisions panel."""
+        app = self.repo.get_application(int(str(job.payload["application_id"])))
+        if app is None:
+            return
+        night = job.payload.get("night")
+        if error is not None:
+            self._note(app, None, f"Could not welcome {app.character_name} for {night}: {error}")
+        elif job.payload.get("role_ids"):
+            self._note(app, None, f"Gave {app.character_name} the {night} raider role in Discord.")
+        else:
+            self._note(app, None, f"Welcomed {app.character_name} in their interview room.")
+
     # ------------------------------------------------------------------ outbox
 
     def pending_jobs(self) -> list[OutboxJob]:
@@ -534,15 +646,10 @@ class CommunityService:
                 app.interview_room_error = None
                 self.repo.save_application(app)
                 if app.status in recruitment.FINAL:
-                    # Closed while the bot was still building the room: lock it now, as _move would have.
-                    self._enqueue(
-                        OutboxKind.LOCK_INTERVIEW_ROOM,
-                        {
-                            "application_id": app.id,
-                            "channel_id": app.interview_channel_id,
-                            "discord_user_id": job.payload["discord_user_id"],
-                        },
-                    )
+                    # Closed while the bot was still building the room: close it now, as _move would have.
+                    self._close_room(app, int(str(job.payload["discord_user_id"])))
+        elif job.kind is OutboxKind.WELCOME_RECRUIT:
+            self._note_welcome(job, ack.error)
         elif job.kind is OutboxKind.POST_MESSAGE and ack.message_id is not None:
             post = self.repo.get_post(int(str(job.payload["post_id"])))
             if post is not None:

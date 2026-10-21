@@ -6,6 +6,7 @@ from hub_db.bank import EVERY_DAY, BankGrant, BankGrantToken
 from hub_db.community import (
     Application,
     ApplicationEvent,
+    ApplicationNote,
     BotOutbox,
     CommunityId,
     CommunityPost,
@@ -52,6 +53,7 @@ __all__ = [
     "AnalyzerPerformancePage",
     "Application",
     "ApplicationEvent",
+    "ApplicationNote",
     "AuditEntry",
     "BankGrant",
     "BankGrantToken",

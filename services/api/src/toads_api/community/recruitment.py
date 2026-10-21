@@ -8,8 +8,9 @@ from urllib.parse import urlsplit
 from toads_api.community.schemas import ApplicationStatus as S
 
 TRANSITIONS: dict[S, frozenset[S]] = {
-    S.APPLIED: frozenset({S.INTERVIEWING, S.DECLINED, S.WITHDRAWN}),
-    S.INTERVIEWING: frozenset({S.TRIAL_OFFERED, S.DECLINED, S.WITHDRAWN}),
+    # Officers may accept straight from the Decisions panel; a trial raid is an optional step before it.
+    S.APPLIED: frozenset({S.INTERVIEWING, S.ACCEPTED, S.DECLINED, S.WITHDRAWN}),
+    S.INTERVIEWING: frozenset({S.TRIAL_OFFERED, S.ACCEPTED, S.DECLINED, S.WITHDRAWN}),
     S.TRIAL_OFFERED: frozenset({S.ACCEPTED, S.DECLINED, S.WITHDRAWN}),
     S.ACCEPTED: frozenset(),
     S.DECLINED: frozenset(),
@@ -28,6 +29,9 @@ REAPPLY_COOLDOWN_DAYS = 30
 MIN_DISCORD_ACCOUNT_AGE_DAYS = 7
 APPLICATION_LIMIT = 3
 APPLICATION_WINDOW_DAYS = 7
+
+# The Decisions panel shows what was decided over this many days, so officers see the Toad Bot's word on it.
+DECIDED_WINDOW_DAYS = 14
 
 # A raid night's interview panel (docs/recruitment.md): enough for every officer, small enough to fit one room.
 PANEL_LIMIT = 10
