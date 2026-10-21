@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { dateTime } from '$lib/format';
   import {
     COMPARISON_VERSION,
@@ -27,7 +28,7 @@
 {/snippet}
 
 {#snippet metrics(title: string, rows: Metric[])}
-  <div class="scroll">
+  <div class="scroll" use:scrollable>
     <table>
       <caption>{title}</caption>
       <thead>
@@ -74,7 +75,7 @@
 
     <h3>Classes</h3>
     {#if c.classes.length}
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead>
             <tr>
@@ -105,7 +106,7 @@
 
     <h3>Encounters</h3>
     {#if c.encounters.length}
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead>
             <tr>
@@ -137,7 +138,7 @@
 
     <h3>Consumables</h3>
     {#if c.consumables.length}
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead>
             <tr>

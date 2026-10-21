@@ -176,8 +176,8 @@
     margin: 0;
     max-width: 62ch;
     padding: 0.6rem 0.8rem;
-    border-left: 3px solid var(--accent);
-    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 6px;
     background: color-mix(in srgb, var(--accent) 10%, var(--bg));
   }
   form { display: grid; gap: 1rem; }

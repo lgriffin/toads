@@ -27,6 +27,8 @@
   let searched = $state('');
   let searchFailed = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** The claim whose Unclaim is waiting for a second press. */
+  let unclaiming = $state<Claim['id'] | null>(null);
 
   // A rejected claim can be made again, so only live claims hide the Claim button.
   const mine = $derived(new Set(claims.filter((c) => c.status !== 'rejected').map((c) => c.character_id)));
@@ -110,7 +112,21 @@
               <td>{c.character_name}</td>
               <td>{c.raid_day_id ?? 'Guild'}</td>
               <td class={c.status === 'approved' ? 'ok' : c.status === 'rejected' ? 'bad' : 'warn'}>{statusLabel(c)}</td>
-              <td><button type="button" disabled={busy} onclick={() => onunclaim(c)}>Unclaim</button></td>
+              <td>
+                {#if unclaiming === c.id}
+                  <span class="confirm" role="group" aria-label="Confirm unclaiming {c.character_name}">
+                    <span class="muted small">{c.status === 'approved' ? 'Claiming it again may wait for an officer.' : 'Your claim is withdrawn.'}</span>
+                    <button type="button" class="danger" disabled={busy} onclick={() => ((unclaiming = null), onunclaim(c))}>
+                      Unclaim {c.character_name}
+                    </button>
+                    <button type="button" disabled={busy} onclick={() => (unclaiming = null)}>Keep it</button>
+                  </span>
+                {:else}
+                  <button type="button" disabled={busy} onclick={() => (unclaiming = c.id)}>
+                    Unclaim<span class="sr-only"> {c.character_name}</span>
+                  </button>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -133,4 +149,7 @@
     cursor: pointer;
   }
   button.claim { background: var(--accent); color: var(--on-accent); }
+  button.danger { border-color: var(--bad); color: var(--bad-text); background: none; }
+  .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .small { font-size: 0.85rem; }
 </style>

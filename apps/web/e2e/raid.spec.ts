@@ -80,7 +80,12 @@ test('a raider adds a raid night they will miss on Me, changes it and deletes it
   await absences.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status').filter({ hasText: /^Changed\./ })).toBeVisible();
   const changed = mine.getByRole('listitem').filter({ hasText: 'Dentist, moved to the evening' });
+  // Delete asks once more, and Keep it backs out.
   await changed.getByRole('button', { name: /^Delete/ }).click();
+  await changed.getByRole('button', { name: 'Keep it' }).click();
+  await expect(changed).toBeVisible();
+  await changed.getByRole('button', { name: /^Delete/ }).click();
+  await changed.getByRole('button', { name: 'Delete absence' }).click();
   await expect(mine.getByText('Dentist')).toHaveCount(0);
 });
 

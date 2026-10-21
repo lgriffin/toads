@@ -490,3 +490,70 @@ def display_themes(display: dict[str, str]) -> None:
     assert "in the light theme with easier reading" in (WEB.parent / "e2e" / "pages.spec.ts").read_text(
         encoding="utf-8"
     )
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-011 If a member or officer presses a button that deletes or withdraws something for good, then the "
+    "hub shall ask once more, saying what happens, and offer a way back before it acts",
+)
+def test_destructive_actions_confirm() -> None:
+    pass
+
+
+@given("the hub's delete and withdraw buttons", target_fixture="destructive")
+def destructive() -> dict[str, str]:
+    return {
+        "absences": _read("lib/components/AbsenceCalendar.svelte"),
+        "claims": _read("lib/ClaimFlow.svelte"),
+        "decisions": _read("lib/components/DecisionsCard.svelte"),
+        "queue": _read("lib/components/ClaimsQueue.svelte"),
+    }
+
+
+@then("deleting an absence and unclaiming a character each wait for a second press beside a Keep it button")
+def second_press(destructive: dict[str, str]) -> None:
+    absences = destructive["absences"]
+    assert "onclick={() => (deleting = a.id)}" in absences and "Delete absence" in absences
+    claims = destructive["claims"]
+    assert "onclick={() => (unclaiming = c.id)}" in claims and "Unclaim {c.character_name}" in claims
+    assert "Keep it" in absences and "Keep it" in claims
+
+
+@then("rejecting an applicant or a claim waits for a confirming step that names who it is for")
+def confirming_step(destructive: dict[str, str]) -> None:
+    assert "consequence(decision, app, night)" in destructive["decisions"]
+    assert "Reject ${app.character_name}" in destructive["decisions"]
+    assert "rejecting = rejecting === k ? null : k" in destructive["queue"]
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-012 The hub shall give every button a target at least 44px tall on touch screens, keep placeholder "
+    "hints at the muted text colour, and tell a member in plain words when the Toad Bot could not DM them",
+)
+def test_touch_and_hints() -> None:
+    pass
+
+
+@given("the hub's shared styles", target_fixture="shared_styles")
+def shared_styles() -> str:
+    return _read("routes/+layout.svelte")
+
+
+@then("on a coarse pointer every button is at least 2.75rem tall, and placeholders use the muted colour")
+def touch_targets(shared_styles: str) -> None:
+    coarse = shared_styles[shared_styles.index("@media (pointer: coarse)") :].split("}\n  }", 1)[0]
+    assert "min-height: 2.75rem" in coarse
+    assert ":global(::placeholder) { color: var(--muted); opacity: 1; }" in shared_styles
+
+
+@then(
+    "a bank answer the Toad Bot could not DM tells the member it is only on the site, and tells officers when the "
+    "member's DMs are closed"
+)
+def dm_failure_words(shared_styles: str) -> None:
+    desk = _read("lib/bank-desk.ts")
+    assert "We could not DM you on Discord, so the answer is only here" in desk
+    assert "their Discord DMs are closed, so tell them in game" in desk
+    assert "{@render list(mine, true)}" in _read("lib/components/BankDesk.svelte")

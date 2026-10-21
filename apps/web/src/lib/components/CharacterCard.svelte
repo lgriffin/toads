@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollable } from '$lib/scrollable';
   import { base } from '$app/paths';
   import type { Snippet } from 'svelte';
   import { characterLabel } from '$lib/main-swap';
@@ -76,7 +77,7 @@
     {/if}
 
     <h3>Raid by raid</h3>
-    <div class="scroll">
+    <div class="scroll" use:scrollable>
       <table>
         <thead>
           <tr>
@@ -113,7 +114,7 @@
 
     {#if spreads(page.metrics).length}
       <h3>Across your raids</h3>
-      <div class="scroll">
+      <div class="scroll" use:scrollable>
         <table>
           <thead><tr><th scope="col">Number</th><th scope="col" class="num">Lowest</th><th scope="col" class="num">Average</th><th scope="col" class="num">Highest</th></tr></thead>
           <tbody>
