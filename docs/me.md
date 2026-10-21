@@ -25,7 +25,8 @@ anyone else's name shows their own main character; nobody sees another member's 
 
 Me opens on the member's main, and the dropdown labels it "(main)". The main is the first character an officer
 approved for them (their oldest approved claim) until an officer approves a swap (`members.main_character_id`,
-migration 0031, which starts it at the character a member already chose to go by). Unclaiming the main, or an officer
+migration 0031, which starts it at the character Me opened on before: the one a member chose to go by, else their
+approved claims' first name alphabetically). Unclaiming the main, or an officer
 reassigning it, falls back to the oldest approved claim left. "Your performance" and badges follow the main too.
 
 Looking at an approved alt, the member can press **Make <alt> my main**; alts with no guild raids, which the dropdown

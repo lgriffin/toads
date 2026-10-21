@@ -16,7 +16,7 @@
     try {
       mine = await backend.mine();
     } catch {
-      mine = null;
+      // Keep what is shown: a reload after a failed action must not hide that action's message.
     }
   }
   $effect(() => {
@@ -87,9 +87,9 @@
         {/each}
       </p>
     {/if}
-    {#if message}<p class={failed ? 'err' : 'ok'} role="status">{message}</p>{/if}
   </div>
 {/if}
+{#if message}<p class={failed ? 'err' : 'ok'} role="status">{message}</p>{/if}
 
 <style>
   .main-swap { display: grid; gap: 0.4rem; margin-bottom: 0.75rem; }

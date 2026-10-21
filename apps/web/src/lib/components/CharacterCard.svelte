@@ -36,7 +36,11 @@
     {#if mine.characters.length > 1 && pick}
       <div class="chars">
         <label for="character-pick">Character</label>
-        <select id="character-pick" value={page.name} onchange={(e) => pick?.(e.currentTarget.value)}>
+        <select id="character-pick" value={page.name} onchange={(e) => {
+            pick?.(e.currentTarget.value);
+            // The dropdown follows the page shown, so a switch that fails leaves both on the old character.
+            e.currentTarget.value = page.name;
+          }}>
           {#each mine.characters as c (c)}
             <option value={c}>{characterLabel(c, mine.main ?? null)}</option>
           {/each}

@@ -23,6 +23,13 @@ def upgrade() -> None:
         "UPDATE members SET main_character_id = name_character_id "
         "WHERE name_source = 'character' AND name_character_id IS NOT NULL"
     )
+    # Everyone else keeps the character Me opened on before: their approved claims' first name alphabetically.
+    op.execute(
+        "UPDATE members SET main_character_id = ("
+        "SELECT c.character_id FROM character_claims c WHERE c.member_id = members.id AND c.status = 'approved' "
+        "ORDER BY lower(c.character_name), c.id LIMIT 1"
+        ") WHERE main_character_id IS NULL"
+    )
     op.create_table(
         "main_swap_requests",
         sa.Column("id", sa.Integer(), primary_key=True),

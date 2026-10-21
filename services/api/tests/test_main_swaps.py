@@ -176,3 +176,15 @@ def test_me_opens_on_the_main_and_lists_it_first(hub: Hub, two: dict[str, str]) 
     hub.post(f"/api/days/wed/main-swaps/{swap['id']}/approve", two["wed"])
     mine = hub.get("/api/me/character-page", two["member"]).json()
     assert (mine["main"], mine["characters"], mine["page"]["name"]) == ("Ribbit", ["Ribbit", "Hopscotch"], "Ribbit")
+
+
+def test_withdrawing_a_new_ask_does_not_bring_back_an_old_rejection(hub: Hub, two: dict[str, str]) -> None:
+    member = two["member"]
+    croak = hub.post("/api/claims", member, {"character_id": 3}).json()
+    hub.post(f"/api/days/wed/claims/{croak['id']}/approve", two["wed"])
+    swap = hub.post("/api/me/main", member, {"character_id": 2}).json()
+    hub.post(f"/api/days/wed/main-swaps/{swap['id']}/reject", two["wed"], {"reason": "We need the healer"})
+    hub.post("/api/me/main", member, {"character_id": 3})
+    assert hub.delete("/api/me/main/request", member).status_code == 204
+    assert hub.get("/api/me/main", member).json()["request"] is None
+    assert ("main.reject", "wed") in audit(hub)

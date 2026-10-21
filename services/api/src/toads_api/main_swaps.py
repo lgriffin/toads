@@ -24,7 +24,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException, status
 from hub_db import CharacterClaim, ClaimStatus, MainSwapRequest, Member, main_claim
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from toads_api import audit
@@ -86,6 +86,17 @@ def _latest(db: Session, member_id: int) -> MainSwapRequest | None:
     )
 
 
+def _pending_of(db: Session, member_id: int) -> MainSwapRequest | None:
+    """The member's pending ask, locked as an officer's decision locks it, so an ask or a withdrawal never edits or
+    deletes a row an officer decided meanwhile: the row is re-read under the lock and no longer matches once decided."""
+    return db.scalar(
+        select(MainSwapRequest)
+        .where(MainSwapRequest.member_id == member_id, MainSwapRequest.status == ClaimStatus.PENDING)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
 def _ref(claim: CharacterClaim) -> CharacterRef:
     return CharacterRef(character_id=claim.character_id, character_name=claim.character_name)
 
@@ -129,11 +140,13 @@ def _ask(services: Services, principal: Principal, character_id: int) -> SwapOut
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Choose one of your approved characters")
         if main_claim(member.main_character_id, approved) is wanted:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="That character is already your main")
-        swap = db.scalar(
-            select(MainSwapRequest).where(
-                MainSwapRequest.member_id == member.id, MainSwapRequest.status == ClaimStatus.PENDING
+        # A new ask makes earlier rejections old news; the audit log keeps them.
+        db.execute(
+            delete(MainSwapRequest).where(
+                MainSwapRequest.member_id == member.id, MainSwapRequest.status == ClaimStatus.REJECTED
             )
         )
+        swap = _pending_of(db, member.id)
         if swap is None:
             swap = MainSwapRequest(member_id=member.id)
             db.add(swap)
@@ -169,11 +182,7 @@ async def ask_for_main(
 
 def _withdraw(services: Services, principal: Principal) -> None:
     with services.db.begin() as db:
-        swap = db.scalar(
-            select(MainSwapRequest).where(
-                MainSwapRequest.member_id == principal.member_id, MainSwapRequest.status == ClaimStatus.PENDING
-            )
-        )
+        swap = _pending_of(db, principal.member_id)
         if swap is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No main swap is waiting")
         audit.record(
