@@ -2,11 +2,23 @@
 # @pending scenarios have no steps yet; add steps and drop @pending when the requirement is implemented.
 Feature: DEV CI
 
-  @ears_event_driven @maintainer @phase_2_0 @pending
+  @ears_event_driven @maintainer @phase_2_0
   Scenario: REQ-DEV-CI-001 When a PR is opened, CI shall run lint, types, unit, BDD, contract, security and dependency audits and block merge on any failure
+    Given the CI workflow
+    Then it runs on every pull request and on pushes to main
+    And every check that needs no network or services runs locally as scripts/dev.py check
+    And each CI job runs exactly its scripts/dev.py tasks
+    And the ci-success job needs every other job and is the only job that can be skipped
+    And ci-success fails when any job it needs failed, was cancelled or was skipped
 
-  @ears_unwanted_behavior @maintainer @phase_2_0 @pending
+  @ears_unwanted_behavior @maintainer @phase_2_0
   Scenario: REQ-DEV-CI-002 If a requirement ID in this document has no scenario, or a scenario has no ID or persona tag, then the reqs job shall fail
+    Given a feature file
+    Then a scenario without a REQ id fails the reqs check
+    And a scenario without exactly one EARS tag fails the reqs check
+    And a scenario without a persona tag fails the reqs check
+    And a duplicated REQ id fails the reqs check
+    And CI runs the reqs check
 
   @ears_ubiquitous @maintainer @phase_1_3 @phase_2_0 @pending
   Scenario: REQ-DEV-CI-003 Coverage shall not fall below 70 for wcl-core/wcl-store and 80 for services/api and services/worker

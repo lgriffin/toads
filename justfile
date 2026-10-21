@@ -24,17 +24,23 @@ credentials-key:
 down:
     docker compose -f infra/docker-compose.yml down
 
+# Every CI check that needs no network, Docker or database, fastest first (scripts/dev.py check)
+check:
+    uv run python scripts/dev.py check
+
 # Lint, types, Python and web tests, requirements traceability
-test: lint
-    uv run pytest -n auto --cov=toads_api --cov=toads_worker --cov-report=term-missing
-    cd apps/web && npm run check && npm test
-    just reqs
+test: check
+
+# Ruff fixes and formatting
+fix:
+    uv run python scripts/dev.py fix
+
+# Any scripts/dev.py tasks, in order, e.g. `just dev types test`
+dev *tasks:
+    uv run python scripts/dev.py {{tasks}}
 
 lint:
-    uv run ruff format --check .
-    uv run ruff check .
-    uv run mypy packages/hub-db/src services/api/src services/worker/src services/bot/src
-    uv run lint-imports
+    uv run python scripts/dev.py format lint imports types
 
 # Regenerate docs/requirements.md from tests/features and fail on missing IDs or persona tags
 reqs:
