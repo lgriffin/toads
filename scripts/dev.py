@@ -5,7 +5,8 @@
     uv run python scripts/dev.py <task>...  # any tasks below, in order; -k keeps going after a failure
 
 CI, the justfile and a local run all call these tasks, so each command is written once. `tests/step_defs/
-test_dev_ci.py` parses `.github/workflows/ci.yml` and fails if a job stops running its tasks. Stdlib only.
+test_dev_gates.py` parses `.github/workflows/ci.yml` and fails if a job stops running its tasks: a new CI job goes in
+its `JOB_TASKS` or `OUTSIDE_DEV`. Stdlib only.
 """
 
 from __future__ import annotations

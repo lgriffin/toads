@@ -71,9 +71,29 @@ def _task_calls(text: str) -> set[str]:
     return {task for line in re.findall(r"scripts/dev\.py ([a-z0-9 -]+)", text) for task in line.split()}
 
 
+# The one shape a step that runs tasks may take: the whole `run:` is the call, so no `|| true`, `#` or `;` can hide it.
+TASK_STEP = re.compile(r"(?:uv run python|python3) (?:\.\./\.\./)?scripts/dev\.py(?: [a-z0-9-]+)+")
+
+
 def _tasks_run_by(job: dict[str, Any]) -> set[str]:
     """The scripts/dev.py tasks a job's steps run (only `run:` commands, not comments or names)."""
     return {task for step in job.get("steps", []) for task in _task_calls(str(step.get("run", "")))}
+
+
+def _task_step_problems(job: dict[str, Any]) -> list[str]:
+    """Why a step that names scripts/dev.py might not run its tasks or fail its job when they fail."""
+    problems = []
+    for step in job.get("steps", []):
+        run = str(step.get("run", ""))
+        if "scripts/dev.py" not in run:
+            continue
+        if not TASK_STEP.fullmatch(run.strip()):
+            problems.append(f"not a plain task call: {run.strip()!r}")
+        if "if" in step:
+            problems.append(f"can be skipped: {run.strip()!r}")
+        if step.get("continue-on-error"):
+            problems.append(f"cannot fail its job: {run.strip()!r}")
+    return problems
 
 
 @given("the CI workflow", target_fixture="workflow")
@@ -105,6 +125,7 @@ def check_covers_ci(workflow: dict[Any, Any]) -> None:
 def each_job_runs_its_tasks(workflow: dict[Any, Any]) -> None:
     run = {name: _tasks_run_by(job) for name, job in workflow["jobs"].items()}
     assert {name: tasks for name, tasks in run.items() if tasks} == JOB_TASKS
+    assert [problem for job in workflow["jobs"].values() for problem in _task_step_problems(job)] == []
     assert {name for name, tasks in run.items() if not tasks} == set(OUTSIDE_DEV)
 
 
@@ -216,3 +237,25 @@ def test_the_parser_reads_run_steps_only() -> None:
         "      - name: python scripts/dev.py types\n"
     )
     assert _tasks_run_by(data["jobs"]["release-check"]) == {"lint"}
+
+
+@pytest.mark.parametrize(
+    ("step", "problem"),
+    [
+        ("run: python3 scripts/dev.py lint || true", "not a plain task call"),
+        ("run: '# python3 scripts/dev.py lint'", "not a plain task call"),
+        ("run: python3 scripts/dev.py lint; exit 0", "not a plain task call"),
+        ("run: python3 scripts/dev.py lint\n        if: false", "can be skipped"),
+        ("run: python3 scripts/dev.py lint\n        continue-on-error: true", "cannot fail its job"),
+    ],
+)
+def test_a_task_step_that_could_hide_its_result_is_refused(step: str, problem: str) -> None:
+    job = yaml.safe_load(f"steps:\n      - {step}\n")
+    assert any(found.startswith(problem) for found in _task_step_problems(job))
+
+
+def test_plain_task_steps_pass() -> None:
+    job = yaml.safe_load(
+        "steps:\n  - run: uv run python scripts/dev.py format lint\n  - run: python3 ../../scripts/dev.py e2e\n"
+    )
+    assert _task_step_problems(job) == []
