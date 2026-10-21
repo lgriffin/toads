@@ -228,3 +228,43 @@ def desk_in_notice(notice: str) -> None:
     )
     # The Forever preview itself is unchanged: Gail and the mockup stay (test_hub_front.py).
     assert "{#if preview.mockup === 'bank'}<BankCounter /><BankMockup />{/if}" in notice
+
+
+@given("the Bank page", target_fixture="bank_page")
+def bank_page() -> dict[str, str]:
+    files = {
+        "page": "routes/bank/+page.svelte",
+        "live": "lib/components/BankLive.svelte",
+        "mine": "lib/bank-mine.ts",
+        "redeem": "lib/components/BankRedeem.svelte",
+        "desk": "lib/components/BankDesk.svelte",
+    }
+    return {key: (WEB / path).read_text(encoding="utf-8") for key, path in files.items()}
+
+
+@then("it asks with one form that sends a stocked item to the bank's stock and anything else to the request desk")
+def one_ask_form(bank_page: dict[str, str]) -> None:
+    live = bank_page["live"]
+    assert live.count("<form") == 1 and "Ask the bank" in live
+    assert "let chosen = $derived(stockedItem(inventory.items, itemText));" in live
+    assert "askDesk(typed, quantity)" in live and "send({ sourceId, itemId: chosen.itemId" in live
+
+
+@then("it lists the member's requests from both in one list, newest first")
+def one_request_list(bank_page: dict[str, str]) -> None:
+    assert "myRequestRows(mine, deskMine," in bank_page["live"]
+    assert ".sort((a, b) => b.at - a.at)" in bank_page["mine"]
+    assert bank_page["live"].count('<h2 id="mine-h">Your requests</h2>') == 1
+
+
+@then("the request desk on it shows only officers' answering, not a second ask form or list")
+def desk_answers_only(bank_page: dict[str, str]) -> None:
+    assert "<BankDesk backend={desk} own={false} />" in bank_page["page"]
+    assert "<BankLive {desk} />" in bank_page["page"]
+    assert '{#if own}\n    <div class="own">' in bank_page["desk"]
+
+
+@then("the officer token waits behind a disclosure")
+def token_behind_disclosure(bank_page: dict[str, str]) -> None:
+    redeem = bank_page["redeem"]
+    assert '<details class="card redeem">' in redeem and "Have an officer token?" in redeem

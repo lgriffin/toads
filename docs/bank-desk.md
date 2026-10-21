@@ -50,8 +50,17 @@ desk shows each answer's DM as on its way, sent, or failed with that reason.
 
 ## On the site
 
-`BankDesk.svelte` is on the Bank page: officers see the waiting requests (oldest first) or every request, answer each
-with an optional message, and open any member's history; everyone sees their own requests and can ask. While the launch
+`BankDesk.svelte` is on the Bank page for officers: they see the waiting requests (oldest first) or every request,
+answer each with an optional message, and open any member's history.
+
+Members ask once and read once (REQ-HUB-BDESK-008). The Bank page's **Ask the bank** form (`BankLive.svelte`) sends an
+item the bank's stock list holds to ToadsBank, which sets it aside at once (it asks who it is for, and which bank when
+more than one holds it), and anything else to this desk for an officer to answer. **Your requests** lists both, newest
+first, in plain words: when they asked, what, the answer and the officer's message, and whether the Toad Bot's DM
+reached them; stock requests still held can be cancelled there. The merge is `$lib/bank-mine.ts`. When the bank's stock
+is not on the hub yet, or does not load, the form still asks the desk. Redeeming an officer token sits behind a "Have an
+officer token?" disclosure at the foot of the page, since few members ever hold one. On the held page for officers, the
+desk keeps its own ask form and list (`own`, true by default). While the launch
 hold keeps the Bank page's Forever preview (`apps/web/src/lib/launch.ts`), the officers' held page still shows the desk
 above the preview, so requests can be worked before launch. The static preview answers it from
 `src/lib/preview/bank-desk-fake.ts`.

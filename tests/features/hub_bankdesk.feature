@@ -64,3 +64,11 @@ Feature: HUB BDESK
   Scenario: REQ-HUB-BDESK-007 While the launch hold keeps the Bank page's Forever preview, the officers' held Bank page shall still show the request desk, so officers can work requests before launch
     Given the officers' held Bank page
     Then it shows the request desk above the Forever preview
+
+  @ears_ubiquitous @raid_leader @phase_2_7
+  Scenario: REQ-HUB-BDESK-008 The Bank page shall give a member one form to ask the bank and one list of their requests, sending a stocked item to the bank's stock and anything else to the request desk, with the officer token behind a disclosure
+    Given the Bank page
+    Then it asks with one form that sends a stocked item to the bank's stock and anything else to the request desk
+    And it lists the member's requests from both in one list, newest first
+    And the request desk on it shows only officers' answering, not a second ask form or list
+    And the officer token waits behind a disclosure

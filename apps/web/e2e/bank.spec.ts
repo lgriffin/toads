@@ -14,13 +14,15 @@ test('a raider requests an item, then cancels it', async ({ page }) => {
   await expect(page.getByText('Officer reserve')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /who else runs the bank/ })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Request Super Mana Potion' }).click();
-  await page.getByLabel('Quantity').fill('5');
+  await page.getByRole('button', { name: 'Ask for Super Mana Potion' }).click();
+  await expect(page.getByLabel('Item', { exact: true })).toHaveValue('Super Mana Potion');
+  await expect(page.getByText(/The bank holds this: \d+ free to ask for/)).toBeVisible();
+  await page.getByLabel('How many').fill('5');
   await page.getByLabel('For character').fill('Hopscotch');
-  await page.getByRole('button', { name: 'Request', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask the bank' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Request for 5 × Super Mana Potion: reserved.' })).toBeVisible();
 
-  const mine = page.getByRole('region', { name: 'My requests' });
+  const mine = page.getByRole('region', { name: 'Your requests' });
   await mine.getByRole('button', { name: 'Cancel request for Super Mana Potion' }).click();
   await expect(mine.getByRole('row', { name: /5 × Super Mana Potion/ })).toContainText('Cancelled');
 });
@@ -41,6 +43,7 @@ test('a token the super admin mints gives the raider bank upkeep', async ({ page
 
   await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
   await expect(page.getByRole('heading', { name: 'Bank upkeep: requests and imports' })).toHaveCount(0);
+  await page.getByText('Have an officer token?').click();
   await page.getByLabel('Token', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Redeem' }).click();
   await expect(page.getByText(/Token redeemed\. You may now import bank snapshots on every bank/)).toBeVisible();
@@ -55,15 +58,15 @@ test('an officer approves and delivers a request, then a new capture accounts fo
   await expect(row).toContainText('Approved');
 
   const stock = page.getByRole('region', { name: 'Inventory' }).getByRole('row', { name: /Super Mana Potion/ });
-  await expect(stock.getByRole('cell')).toHaveText(['60', '0', '0', '10', '50', /Request/]);
+  await expect(stock.getByRole('cell')).toHaveText(['60', '0', '0', '10', '50', /Ask/]);
   await row.getByRole('button', { name: 'Record delivery of Super Mana Potion' }).click();
-  await expect(stock.getByRole('cell')).toHaveText(['60', '10', '0', '0', '50', /Request/]);
+  await expect(stock.getByRole('cell')).toHaveText(['60', '10', '0', '0', '50', /Ask/]);
 
   await page.getByLabel('Export parts').fill('TOADSBANK/1 demo export');
   await page.getByRole('button', { name: 'Add parts' }).click();
   await page.getByRole('button', { name: 'Accept snapshot' }).click();
   await expect(page.getByText(/Snapshot accepted\. Tabs updated: 1, 2, 3\./)).toBeVisible();
-  await expect(stock.getByRole('cell')).toHaveText(['50', '0', '0', '0', '50', /Request/]);
+  await expect(stock.getByRole('cell')).toHaveText(['50', '0', '0', '0', '50', /Ask/]);
 });
 
 // The hub's own request desk (docs/bank-desk.md), answered from src/lib/preview/bank-desk-fake.ts.
@@ -85,14 +88,22 @@ test('an officer answers a /bankrequest with a message and opens the member’s 
   await expect(desk.getByRole('heading', { name: 'Ribbit’s requests' })).toBeVisible();
 });
 
-test('a raider sees only their own bank requests and can ask', async ({ page }) => {
+test('a raider asks for anything with the one form and reads every request in one list', async ({ page }) => {
   await signIn(page, 'member');
   await page.goto('bank/');
-  const desk = page.getByRole('region', { name: 'Bank requests' });
-  await expect(desk.getByRole('button', { name: /Answer/ })).toHaveCount(0);
-  await expect(desk.getByText('We are short this week')).toBeVisible();
-  await desk.getByLabel('Item').fill('Primal Fire');
-  await desk.getByLabel('How many').fill('3');
-  await desk.getByRole('button', { name: 'Ask the bank' }).click();
-  await expect(desk.getByText('Asked for Primal Fire x3.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Bank requests' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Request an item' })).toHaveCount(0);
+  const mine = page.getByRole('region', { name: 'Your requests' });
+  // A /bankrequest an officer already answered sits in the same list as stock requests.
+  await expect(mine.getByText('We are short this week')).toBeVisible();
+
+  const ask = page.getByRole('region', { name: 'Ask the bank' });
+  await ask.getByLabel('Item').fill('Primal Fire');
+  await expect(ask.getByText(/Not in the bank's stock list/)).toBeVisible();
+  await expect(ask.getByLabel('For character')).toHaveCount(0);
+  await ask.getByLabel('How many').fill('3');
+  await ask.getByRole('button', { name: 'Ask the bank' }).click();
+  await expect(page.getByText('Asked for Primal Fire x3. An officer will answer, and the Toad Bot will DM you.')).toBeVisible();
+  await expect(mine.getByRole('row', { name: /3 × Primal Fire/ })).toContainText('Waiting');
+  await expect(page.getByLabel('Token', { exact: true })).toBeHidden();
 });
