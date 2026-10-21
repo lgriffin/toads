@@ -53,6 +53,6 @@ A card id from another night's board answers 404 under this night's path. 422 fo
 lane, or an assignee who has never signed in.
 
 The rules live in `toads_api.officer_board.service` over a repository protocol; cards are in hub-db's
-`officer_board_cards` table (migration 0019) and the links in `night_links` (migration 0032). The web component is `apps/web/src/lib/components/OfficerBoard.svelte`
+`officer_board_cards` table (migration 0019) and the links in `night_links` (migration 0033). The web component is `apps/web/src/lib/components/OfficerBoard.svelte`
 (logic in `$lib/officer-board.ts`; the preview answers from `$lib/preview/board-fake.ts`). The Tonight band is
 `NightTonight.svelte` (`$lib/tonight.ts`, `$lib/night-links.ts`; preview `$lib/preview/links-fake.ts`).
