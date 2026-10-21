@@ -153,6 +153,24 @@ source_modules = ["toads_api.community.service"]
 forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
+name = "Profession routes reach storage only through the service"
+type = "forbidden"
+source_modules = ["toads_api.professions.routes"]
+forbidden_modules = ["hub_db", "sqlalchemy", "toads_api.professions.sql"]
+# Direct imports only: the shared guards (rbac.deps -> audit, services) reach the database for the audit log.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Profession rules hold no RBAC, web framework or storage code"
+type = "forbidden"
+source_modules = [
+  "toads_api.professions.service",
+  "toads_api.professions.repository",
+  "toads_api.professions.catalog",
+]
+forbidden_modules = ["toads_api.rbac", "fastapi", "starlette", "hub_db", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
 name = "Award routes reach storage only through the service"
 type = "forbidden"
 source_modules = ["toads_api.awards.routes"]

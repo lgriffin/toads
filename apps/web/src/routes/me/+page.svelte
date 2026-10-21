@@ -17,6 +17,8 @@
   import { myCharacterPage, type MyCharacterPage } from '$lib/characters';
   import MemberToads from '$lib/components/MemberToads.svelte';
   import SpecsCard from '$lib/components/SpecsCard.svelte';
+  import ProfessionsCard from '$lib/components/ProfessionsCard.svelte';
+  import { previewMyProfessions } from '$lib/preview/professions-fake';
   import { getMe } from '$lib/me-context';
   import Me from '$lib/preview/Me.svelte';
   import { memberToads } from '$lib/toads';
@@ -107,6 +109,7 @@
 {:else if __PREVIEW__}
   <Me />
   <SpecsCard />
+  <ProfessionsCard preview={previewMyProfessions} />
   {@render absenceSection()}
   <p><a href="{base}/me/claim">Claim a character</a> · <a href="{base}/me/settings">Your settings</a></p>
 {:else}
@@ -129,6 +132,7 @@
     </section>
   {/if}
   <SpecsCard />
+  <ProfessionsCard />
   {@render absenceSection()}
   {#if badges.kind === 'ok'}
     <BadgesCard mine={badges.value} />

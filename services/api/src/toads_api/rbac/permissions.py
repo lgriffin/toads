@@ -54,6 +54,9 @@ class Permission(enum.StrEnum):
     # Super admins only (docs/admin.md "Officer grants"): make one Discord member an officer of a raid day, or a global
     # officer, on top of their Discord roles. Nothing grants super admin: that is configuration alone.
     MANAGE_OFFICER_GRANTS = "manage_officer_grants"
+    # Members' professions and the guild's crafters (docs/professions.md): a night's officers see their night's
+    # professions and name its members guild crafters; the global tier sees and names across the guild.
+    MANAGE_CRAFTERS = "manage_crafters"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.

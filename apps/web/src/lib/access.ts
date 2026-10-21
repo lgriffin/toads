@@ -86,6 +86,7 @@ export const APPS: readonly App[] = [
           { text: 'Build and lock in raid comps from your night’s roster', permission: 'build_comps' },
           { text: 'Your raid night’s absences in one place', permission: 'view_absences' },
           { text: 'Your raid night’s task board: assign tasks and set due dates', permission: 'manage_officer_board' },
+          { text: 'See your raid night’s professions and name the guild’s crafters', permission: 'manage_crafters' },
           { text: 'Give members their award toads (global officers)', permission: 'manage_awards' }
         ]
       }
