@@ -57,7 +57,11 @@ def test_lost_claim_falls_back_to_discord_name() -> None:
 @pytest.mark.security
 @pytest.mark.parametrize(
     ("client_id", "client_secret"),
-    [("short", "long-enough-secret"), ("has spaces in it", "long-enough-secret"), (str(uuid.uuid4()), "tiny")],
+    [
+        ("short", "long-enough-secret"),
+        ("has spaces in it", "long-enough-secret"),
+        ("0b6f3f2e-6a0c-4f1e-9d3a-2c4b5e6f7a8b", "tiny"),
+    ],
 )
 def test_malformed_keys_are_refused(client_id: str, client_secret: str) -> None:
     with pytest.raises(AccountError) as info:
