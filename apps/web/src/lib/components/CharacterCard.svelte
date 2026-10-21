@@ -49,8 +49,7 @@
     {/if}
     {@render main?.(page.name)}
     <p class="muted sub">
-      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}
-        since {page.first_raid.slice(0, 10)}{/if}. {rolesLabel(page.role_counts)}
+      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}{` since ${page.first_raid.slice(0, 10)}`}{/if}. {rolesLabel(page.role_counts)}
     </p>
 
     {#if showTrends(page)}

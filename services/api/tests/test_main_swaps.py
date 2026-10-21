@@ -188,3 +188,11 @@ def test_withdrawing_a_new_ask_does_not_bring_back_an_old_rejection(hub: Hub, tw
     assert hub.delete("/api/me/main/request", member).status_code == 204
     assert hub.get("/api/me/main", member).json()["request"] is None
     assert ("main.reject", "wed") in audit(hub)
+
+
+def test_the_name_a_member_goes_by_does_not_change_their_main(hub: Hub, two: dict[str, str]) -> None:
+    member_id = hub.get("/api/session", two["member"]).json()["member_id"]
+    with hub.db.begin() as db:
+        member = db.get(Member, member_id)
+        member.name_source, member.name_character_id = "character", 2
+    assert hub.get("/api/me/main", two["member"]).json()["main"]["character_name"] == "Hopscotch"

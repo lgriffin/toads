@@ -18,18 +18,8 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("members") as batch:
         batch.add_column(sa.Column("main_character_id", sa.Integer(), nullable=True))
-    # A member who chose to go by one of their characters raided as it: keep that one first on Me.
-    op.execute(
-        "UPDATE members SET main_character_id = name_character_id "
-        "WHERE name_source = 'character' AND name_character_id IS NOT NULL"
-    )
-    # Everyone else keeps the character Me opened on before: their approved claims' first name alphabetically.
-    op.execute(
-        "UPDATE members SET main_character_id = ("
-        "SELECT c.character_id FROM character_claims c WHERE c.member_id = members.id AND c.status = 'approved' "
-        "ORDER BY lower(c.character_name), c.id LIMIT 1"
-        ") WHERE main_character_id IS NULL"
-    )
+    # Left empty: every member's main starts as their first approved character (hub_db.main_claim), whatever name
+    # they go by, until an officer approves a swap.
     op.create_table(
         "main_swap_requests",
         sa.Column("id", sa.Integer(), primary_key=True),
