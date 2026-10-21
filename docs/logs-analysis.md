@@ -162,6 +162,7 @@ show a job that broke, with the reason.
 | A report listed under `failed` every run | Warcraft Logs has no fights in it (an empty or trash-only log). It is retried each run and does not hold back older reports: the next one takes its place in the batch. |
 | The sync imports nothing, `remaining` is 0, but raids are missing | They are not on the guild's Warcraft Logs page (logged as personal reports). Import each with `toads-worker analyse <URL>`. |
 | `/logs` widgets still empty after a sync | The publish jobs have not run since; run them by hand (step 5) or wait up to 30 minutes. If they fail, the worker's `TOADS_HUB_SERVICE_TOKEN` does not match the API's. |
+| A raid's page says "This raid has not been analysed yet" though it was | The hub has the raid in its list but not its breakdown. Run `toads-worker publish-logs` by hand (step 5): `unreadable` counts raids the analyzer could not read back from the database, and a run that ends in an error names the raids the hub refused (`logs.page_refused` / `logs.page_failed` in the scheduler's log give the reason). One refused raid no longer holds back the others. |
 | `429` errors or `sync.rate_limited` in the worker's log | Something else spent the guild key's points (officer imports, a second deployment on the same client). Raise `TOADS_SYNC_RESERVE_PERCENT`. |
 | Still about ten reports an hour | The env file still says `TOADS_SYNC_BATCH=10`; set it to `0` (step 3). |
 | `sync.rate_limit_unreadable` in the log | Warcraft Logs did not answer the rate-limit query; that run falls back to ten reports. |

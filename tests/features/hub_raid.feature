@@ -42,3 +42,11 @@ Feature: HUB RAID
     Given the analyzer's widgets link a raid by its report id
     Then the link opens the raid's page under Logs
     And a night officer's link carries their raid night
+
+  @ears_unwanted_behavior @member @phase_2_7
+  Scenario: REQ-HUB-RAID-007 If the hub refuses one raid's analysis, the worker shall still send every other raid's analysis, then fail the run naming the refused raid
+    Given the worker holds the analyses of "wedSSC" and "thuTK"
+    And the hub refuses the analysis of "wedSSC"
+    When the worker publishes the Logs page
+    Then the run fails naming "wedSSC"
+    And a Wednesday raider opening "thuTK" sees its analysis
