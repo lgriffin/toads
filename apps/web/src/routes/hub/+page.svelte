@@ -210,7 +210,7 @@
           <PerformanceCard mine={perf.value} />
         {:else}
           <section class="card" aria-labelledby="perf-h">
-            <h2 id="perf-h">Your performance</h2>
+            <h2 id="perf-h">Your last raid</h2>
             {@render status(perf)}
           </section>
         {/if}

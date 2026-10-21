@@ -37,6 +37,12 @@ A raid day's weekday comes from `weekdays` in `raid_sheets.yaml`, else the weekd
 `raid_days.yaml`. A raid on another weekday (an alt run on a Thursday, say) is in full for global officers only.
 `GET /api/logs` tells the page, per raid, whether the caller sees it in full and under which raid day to read it.
 
+Every member also sees their own line on a raid's page, "You in this raid": their character's number for the role they
+played against that raid's median for the role, and their place. It comes from their own character pages
+(`GET /api/me/raid-line?report=`, which looks through every one of their characters' pages on the server, the main
+first), never from the raid's per-raider detail, so it shows nobody else's numbers (REQ-HUB-HOME-016). Each page keeps
+a character's last 40 raids, so an older raid shows no line.
+
 ## Each night at a glance
 
 The analyzer's raid widgets (guild at a glance, last raid, recent raids, raid activity, weekly healing, healers week on

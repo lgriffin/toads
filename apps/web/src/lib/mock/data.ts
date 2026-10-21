@@ -55,7 +55,7 @@ export interface Receipt {
 export const nextRaid: NextRaid = {
   zone: 'Serpentshrine Cavern',
   raidDay: 'Sunday',
-  start: '2026-09-27T18:30:00Z',
+  start: '2026-10-18T18:30:00Z',
   signups: { Tank: 3, Healer: 6, Melee: 7, Ranged: 8 },
   needed: { Tank: 3, Healer: 7, Melee: 7, Ranged: 8 }
 };

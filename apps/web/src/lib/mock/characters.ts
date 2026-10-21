@@ -5,7 +5,7 @@
  */
 
 import type { ChartPayload } from '../charts';
-import type { CharacterPage, CharacterRaid, MyCharacterPage, Role, Spread } from '../characters';
+import type { CharacterPage, CharacterRaid, MyCharacterPage, MyRaidLine, Role, Spread } from '../characters';
 
 const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : String(n);
@@ -88,7 +88,7 @@ function page(name: string, player_class: string, role: Role, metric: string, re
 
 // The preview's sample raids (preview/logs-fake.ts), so each row opens a raid page the preview holds.
 const hopscotchRaids = raids('melee', 'Damage', [
-  ['pondWed1014', 'Serpentshrine Cavern', '2026-10-14', 2, 9_180_000, 8_060_000, 3, 9],
+  ['pondWed1014', 'Serpentshrine Cavern', '2026-10-14', 2, 9_180_000, 8_060_000, 2, 3],
   ['pondSun1011', 'Tempest Keep', '2026-10-11', 6, 8_520_000, 7_640_000, 2, 8],
   ['pondWed1007', 'Serpentshrine Cavern', '2026-10-07', 2, 7_910_000, 7_710_000, 5, 9],
   ['pondSun1004', 'Serpentshrine Cavern', '2026-10-04', 6, 7_430_000, 7_100_000, 3, 8],
@@ -143,4 +143,13 @@ export function previewCharacterPage(name: string | null = null): MyCharacterPag
     characters: Object.keys(PAGES),
     main: 'Hopscotch'
   };
+}
+
+/** GET /api/me/raid-line as the preview's member sees it: the first of their characters in the raid. */
+export async function previewRaidLine(report: string): Promise<MyRaidLine | null> {
+  for (const page of Object.values(PAGES)) {
+    const raid = page.recent.find((r) => r.report_id === report);
+    if (raid) return { name: page.name, raid };
+  }
+  return null;
 }

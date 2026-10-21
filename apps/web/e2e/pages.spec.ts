@@ -172,7 +172,9 @@ test('the hub shows the latest raid totals from the sheets', async ({ page }) =>
 test('a member customises their hub home', async ({ page }) => {
   await page.goto('hub/');
   const widgets = page.locator('[data-widget]');
-  await expect(widgets.first()).toHaveAttribute('data-widget', 'next_raid');
+  // The home leads with the member's own last raid against their role's median.
+  await expect(widgets.first()).toHaveAttribute('data-widget', 'my_performance');
+  await expect(page.getByRole('heading', { level: 2, name: /Hopscotch beat the melee median by 14%/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recruiting' })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Customise' }).click();
@@ -191,7 +193,7 @@ test('a member customises their hub home', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Customise' }).click();
   await panel.getByRole('button', { name: 'Reset to default' }).click();
-  await expect(widgets.first()).toHaveAttribute('data-widget', 'next_raid');
+  await expect(widgets.first()).toHaveAttribute('data-widget', 'my_performance');
 });
 
 test('Logs draws the analyzer widgets from their shared payloads', async ({ page }) => {
