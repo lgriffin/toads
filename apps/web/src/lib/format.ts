@@ -13,6 +13,11 @@ export function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
+/** "14 Oct". */
+export function dayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
 export function dateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
     weekday: 'long',

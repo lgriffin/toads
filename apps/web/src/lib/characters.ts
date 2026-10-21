@@ -138,3 +138,14 @@ export function spreadValue(spread: Spread, value: number): string {
   }
   return Math.round(value).toLocaleString('en-GB');
 }
+
+/** A member's own line on a raid's log page: which of their characters was in it, and how that raid went. */
+export interface MyRaidLine {
+  name: string;
+  raid: CharacterRaid;
+}
+
+/** GET /api/me/raid-line: the member's own line on the raid `report`, from whichever of their characters' pages holds
+ * it (main first); null when none does. The API looks only at the member's own characters. */
+export const myRaidLine = (report: string, f: Fetch = fetch): Promise<MyRaidLine | null> =>
+  call<{ line: MyRaidLine | null }>(f, `/api/me/raid-line?report=${encodeURIComponent(report)}`).then((r) => r.line);

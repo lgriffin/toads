@@ -1,4 +1,4 @@
-"""The hub home: REQ-HUB-HOME-001 to 013. Thin steps over the `hub` fixture (root conftest.py)."""
+"""The hub home: REQ-HUB-HOME-001 to 016. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from toads_api.home.service import Audience, catalogue_for
 from conftest import GUILD_ID, HUB, Hub
 
 FEATURES = Path(__file__).resolve().parents[1] / "features"
+WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
 CHOSEN = ["recruiting", "raid_totals"]
 WORKER = {"Authorization": "Bearer test-service-token"}  # conftest.make_settings
 SERVER_TIME = ZoneInfo("Europe/Paris")  # RaidDaysConfig's default timezone
@@ -529,3 +530,36 @@ def no_analyzer_widgets(hub: Hub, ctx: dict[str, Any]) -> None:
 def flasks_refused(hub: Hub, ctx: dict[str, Any]) -> None:
     r = hub.client.put("/api/me/home", headers=hub.as_(ctx["sid"]), json={"shown": ["flasks"]})
     assert r.status_code == 422
+
+
+@_bind(16)
+def test_home_016() -> None:
+    pass
+
+
+@given("the hub home's default widgets", target_fixture="defaults")
+def defaults() -> list[str]:
+    return [w.id for w in catalogue_for(Audience.MEMBER) if w.default_shown]
+
+
+@then("Your performance comes first and spans the home, ahead of the next raid")
+def performance_first(defaults: list[str]) -> None:
+    assert defaults[:2] == ["my_performance", "next_raid"]
+    home = (WEB / "lib" / "home.ts").read_text(encoding="utf-8")
+    entry = home[home.index("hub('my_performance'") :].split("}),", 1)[0]
+    assert "wide: true" in entry
+
+
+@then("the card leads with a sentence saying how the raid went against the median for the member's role")
+def performance_sentence() -> None:
+    card = (WEB / "lib" / "components" / "PerformanceCard.svelte").read_text(encoding="utf-8")
+    assert "{verdict(entry)}" in card and '<h2 id="perf-h">' in card
+    assert "export function verdict(" in (WEB / "lib" / "performance.ts").read_text(encoding="utf-8")
+
+
+@then("a raid's log page looks up the member's characters and shows them their own line for that raid")
+def raid_line() -> None:
+    log = (WEB / "lib" / "components" / "RaidLog.svelte").read_text(encoding="utf-8")
+    assert "mine(report).then(" in log and "You in this raid" in log
+    assert "/api/me/raid-line?report=" in (WEB / "lib" / "characters.ts").read_text(encoding="utf-8")
+    assert "{mine}" in (WEB / "routes" / "logs" / "[id]" / "+page.svelte").read_text(encoding="utf-8")

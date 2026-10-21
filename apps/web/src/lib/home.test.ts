@@ -24,12 +24,13 @@ describe('home catalogue', () => {
 
   it('shows the defaults and hides the extras', () => {
     const shown = shownIds(defaultLayout(false));
-    expect(shown).toEqual(['next_raid', 'my_performance', 'raid_totals', 'posts', 'highlights']);
+    expect(shown).toEqual(['my_performance', 'next_raid', 'raid_totals', 'posts', 'highlights']);
     expect(defaultLayout(false).customised).toBe(false);
   });
 
   it('marks raid totals and the weekly healing charts as wide', () => {
     expect(isWide('raid_totals')).toBe(true);
+    expect(isWide('my_performance')).toBe(true);
     expect(isWide('healing_weekly')).toBe(true);
     expect(isWide('posts')).toBe(false);
   });
@@ -39,8 +40,8 @@ describe('editing a layout', () => {
   const widgets = defaultLayout(false).widgets;
 
   it('moves a widget up and down, and not past either end', () => {
-    expect(move(widgets, 'my_performance', -1).map((w) => w.id).slice(0, 2)).toEqual(['my_performance', 'next_raid']);
-    expect(move(widgets, 'next_raid', -1)).toEqual(widgets);
+    expect(move(widgets, 'next_raid', -1).map((w) => w.id).slice(0, 2)).toEqual(['next_raid', 'my_performance']);
+    expect(move(widgets, 'my_performance', -1)).toEqual(widgets);
     expect(move(widgets, 'recruiting', 1)).toEqual(widgets);
   });
 

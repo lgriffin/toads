@@ -107,6 +107,23 @@ def test_a_member_sees_their_main_characters_page_and_can_pick_another() -> None
     assert picked.page is not None and (picked.page["name"], picked.matched_by) == ("Lilypad", MatchedBy.CLAIM)
 
 
+def test_a_raid_line_comes_from_any_of_the_members_own_characters() -> None:
+    alts = [f"Alt{i}" for i in range(5)]
+    chars = MemberCharacters("Hopscotch", None, alts, frozenset())
+    later = {**_page("Alt4"), "recent": [{**_page("Alt4")["recent"][0], "report_id": "pondSun1011"}]}
+    svc = _service(chars, [_page("Alt0"), later, _page("Bogwalker")])
+    line = svc.raid_line(1, "pondSun1011")
+    assert line is not None and (line.name, line.raid["rank"]) == ("Alt4", 2)
+    main = svc.raid_line(1, "pondWed1014")
+    assert main is not None and main.name == "Alt0"
+    assert svc.raid_line(1, "somebodyElses") is None
+    # Bogwalker was in pondWed1014 too, but is not this member's.
+    assert (
+        _service(MemberCharacters("Croak", None, [], frozenset()), [_page("Bogwalker")]).raid_line(1, "pondWed1014")
+        is None
+    )
+
+
 def test_asking_for_someone_elses_character_shows_your_own() -> None:
     chars = MemberCharacters("Hopscotch", None, ["Lilypad"], frozenset())
     mine = _service(chars, [_page("Lilypad"), _page("Bogwalker")]).mine(1, "Bogwalker")
@@ -177,6 +194,10 @@ def test_character_page_routes(hub: Hub) -> None:
     assert (mine["matched_by"], mine["characters"]) == ("nickname", ["Lilypad"])
     assert mine["page"]["recent"][0]["median"] == 1_000_000
     assert mine["page"]["charts"][0]["id"] == "character_healer"
+    line = hub.get("/api/me/raid-line?report=pondWed1014", sid).json()["line"]
+    assert (line["name"], line["raid"]["rank"]) == ("Lilypad", 2)
+    assert hub.get("/api/me/raid-line?report=elsewhere", sid).json() == {"line": None}
+    assert hub.get("/api/me/raid-line?report=", sid).status_code == 422
 
 
 def test_an_older_build_never_replaces_a_newer_one(hub: Hub) -> None:
