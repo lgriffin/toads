@@ -1,0 +1,99 @@
+name: Analyzer release
+
+# Takes each new release of lgriffin/warcraftlogs_project (docs/deploy.md, "Analyzer releases"). Nightly, it opens a PR
+# pinning wcl-core, wcl-store and wcl-app to the latest release; once CI passes on that PR it merges it, and Deploy
+# ships it. Commits on the analyzer's master never reach the site until they are released. Off until the repository
+# variable ANALYZER_RELEASES_ENABLED is "true". It pushes and merges with the ANALYZER_BUMP_TOKEN secret, because a PR
+# or merge made with the default token would start neither CI nor Deploy.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: ["analyzer/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analyzer-release-${{ github.event_name == 'workflow_run' && 'merge' || 'bump' }}
+  cancel-in-progress: false
+
+env:
+  ANALYZER: lgriffin/warcraftlogs_project
+
+jobs:
+  bump:
+    if: vars.ANALYZER_RELEASES_ENABLED == 'true' && github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.ANALYZER_BUMP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ANALYZER_BUMP_TOKEN }}
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+      - name: Open a PR for a newer release
+        run: |
+          set -euo pipefail
+          latest="$(gh api "repos/$ANALYZER/releases/latest" --jq .tag_name)"
+          if [[ ! "$latest" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::warning::The latest analyzer release $latest is not a plain vX.Y.Z tag; not taking it."
+            exit 0
+          fi
+          pinned="$(python3 scripts/analyzer_release.py current)"
+          if [ "$latest" = "$pinned" ]; then
+            echo "Already on the latest analyzer release, $latest."
+            exit 0
+          fi
+          # Never step back: the release must hold everything the current pin has.
+          status="$(gh api "repos/$ANALYZER/compare/$pinned...$latest" --jq .status)"
+          if [ "$status" != ahead ] && [ "$status" != identical ]; then
+            echo "::warning::Analyzer release $latest is $status of the current pin $pinned; not taking it."
+            exit 0
+          fi
+          branch="analyzer/$latest"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "A PR for $latest is already open ($branch)."
+            exit 0
+          fi
+          python3 scripts/analyzer_release.py pin "$latest"
+          uv lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "Take analyzer release $latest"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "Take analyzer release $latest" --body \
+            "Pins wcl-core, wcl-store and wcl-app to [$latest](https://github.com/$ANALYZER/releases/tag/$latest) (was \`$pinned\`). Merged by the Analyzer release workflow once CI passes; Deploy then runs the analyzer's migrations and ships it."
+
+  merge:
+    if: >-
+      vars.ANALYZER_RELEASES_ENABLED == 'true' &&
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'analyzer/v') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.ANALYZER_BUMP_TOKEN }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Merge the release PR
+        run: |
+          set -euo pipefail
+          # Only a pin change merges itself; anything else pushed to the branch waits for a person.
+          files="$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json files --jq '[.files[].path] | sort | join(" ")')"
+          if [ "$files" != "pyproject.toml uv.lock" ]; then
+            echo "::warning::$BRANCH changes more than the pin ($files); leaving it for review."
+            exit 0
+          fi
+          gh pr merge "$BRANCH" --repo "$GITHUB_REPOSITORY" --merge --delete-branch --match-head-commit "$SHA"

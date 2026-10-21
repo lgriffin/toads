@@ -39,3 +39,10 @@ Feature: DEV CI
     And it deploys only a successful push build while DEPLOY_ENABLED is true
     And it sends only the commit sha over SSH with a pinned host key
     And the deploy script accepts only a commit on main and takes a lock
+
+  @ears_event_driven @maintainer @phase_2_0
+  Scenario: REQ-DEV-CI-008 When lgriffin/warcraftlogs_project publishes a newer release, the analyzer release workflow shall open a PR pinning wcl-core, wcl-store and wcl-app to that release and merge it once CI passes on it
+    Given the analyzer release workflow
+    Then it looks for a release nightly, or by hand, while ANALYZER_RELEASES_ENABLED is true
+    And it pins all three analyzer packages to the latest plain release and never steps back
+    And it merges only a green analyzer PR that changes nothing but the pin

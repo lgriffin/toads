@@ -207,6 +207,33 @@ Test it: **Actions → Deploy → Run workflow** (leave the sha empty). The run'
 - **Backups**: [admin guide section 13](../ADMIN_GUIDE.md#13-backups-and-restore). At minimum, a nightly
   `docker compose -f infra/docker-compose.prod.yml exec -T postgres pg_dump -U toads toads` copied off the server.
 
+### Analyzer releases
+
+The site runs a **release** of the analyzer (lgriffin/warcraftlogs_project), never its master, so experimental work
+there stays off toads.gg. The **Analyzer release** workflow (`.github/workflows/analyzer-release.yml`) runs nightly at
+03:17 UTC: when the analyzer's latest release is newer than the pin in `pyproject.toml`, it opens a PR named "Take
+analyzer release vX.Y.Z" that changes only `pyproject.toml` and `uv.lock`. When CI passes on that PR, the same workflow
+merges it, and Deploy ships it as usual (with the analyzer's migrations). A red PR stays open for you; so does one with
+anything else pushed to it.
+
+It skips pre-releases and any tag that is not plain `vX.Y.Z`, and it never moves to a release that lacks commits the
+current pin has. To ship analyzer changes, publish a release there (push a `vX.Y.Z` tag); to hold one back, mark it as
+a pre-release.
+
+Setup, once:
+
+1. Make a fine-grained token: GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+   Generate new token**. Resource owner `lgriffin`, **Only select repositories** → `lgriffin/toads`, repository
+   permissions **Contents: Read and write** and **Pull requests: Read and write**. Pick an expiry and diarise it: when
+   the token expires the workflow fails until you replace it.
+2. In this repository: **Settings → Secrets and variables → Actions → Secrets → New repository secret**:
+   `ANALYZER_BUMP_TOKEN` = the token. (The workflow needs its own token because PRs and merges made with GitHub's
+   default token start neither CI nor Deploy.)
+3. **Variables → New repository variable**: `ANALYZER_RELEASES_ENABLED` = `true`. Until this exists the workflow skips
+   itself; set it to `false` to pause.
+
+Test it: **Actions → Analyzer release → Run workflow**. If the pin is already the latest release, the log says so.
+
 ## 9. Optional: use a certificate bought from GoDaddy
 
 Skip this unless you have already paid for one: Let's Encrypt is free and renews itself, while a GoDaddy certificate
