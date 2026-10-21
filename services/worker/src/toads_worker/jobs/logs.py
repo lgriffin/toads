@@ -31,6 +31,9 @@ log = structlog.get_logger(__name__)
 
 # The hub API's MAX_RAIDS: every stored guild raid.
 MAX_RAIDS = 1000
+# Uploads the hub failed to answer in a row (timeouts, refused connections) before the run gives up on the rest, so a
+# stalled hub costs the scheduler a few request timeouts rather than one per raid it asked for.
+MAX_UNANSWERED = 3
 
 
 @dataclass(frozen=True)
@@ -109,8 +112,6 @@ def publish_logs(
     by_id = {p.summary.report_id: p for p in built.pages}
     # Raids listed without an analysis to send: their pages say "not analysed" until the analyzer can read them back.
     unreadable = len(built.summaries) - len(built.pages)
-    sent = 0
-    failed: list[str] = []
     with hub_api.client(settings, hub) as client:
         try:
             answer = hub_api.put(settings, "/api/worker/logs", build_index(built), client)
@@ -119,29 +120,53 @@ def publish_logs(
                 raise
             log.info("logs.superseded")
             return {"raids": len(built.summaries), "sent": 0, "unreadable": unreadable}
-        for report_id in answer.get("missing", []):
-            page = by_id.get(report_id)
-            if page is None:
-                continue
-            try:
-                body = {"page": page_body(page), "hash": page_hash(page)}
-                hub_api.put(settings, f"/api/worker/logs/{report_id}", body, client)
-            except httpx.HTTPStatusError as exc:
-                if _superseded(exc):
-                    log.info("logs.page_superseded", report=report_id)
-                    continue
-                log.error("logs.page_refused", report=report_id, status=exc.response.status_code, detail=_detail(exc))
-                failed.append(report_id)
-                continue
-            except (httpx.HTTPError, ValueError) as exc:  # a timeout or an unencodable page: the next raid still goes
-                log.error("logs.page_failed", report=report_id, error=repr(exc))
-                failed.append(report_id)
-                continue
-            sent += 1
-    log.info("logs.published", raids=len(built.summaries), sent=sent, failed=len(failed), unreadable=unreadable)
+        sent, failed, left = _send_pages(settings, client, answer.get("missing", []), by_id)
+    log.info(
+        "logs.published", raids=len(built.summaries), sent=sent, failed=len(failed), left=left, unreadable=unreadable
+    )
     if failed:
-        raise RuntimeError(f"The hub did not take the analysis of {len(failed)} raid(s): {', '.join(failed[:10])}")
+        message = f"The hub did not take the analysis of {len(failed)} raid(s): {', '.join(failed)}"
+        if left:
+            message += f"; it stopped answering, so {left} more wait for the next run"
+        raise RuntimeError(message)
     return {"raids": len(built.summaries), "sent": sent, "unreadable": unreadable}
+
+
+def _send_pages(
+    settings: Settings, client: httpx.Client, missing: list[str], by_id: dict[str, RaidPage]
+) -> tuple[int, list[str], int]:
+    """Send each analysis the hub asked for. Returns how many it took, the raids it refused or never answered for, and
+    how many were left unsent after MAX_UNANSWERED unanswered uploads in a row."""
+    sent, unanswered = 0, 0
+    failed: list[str] = []
+    wanted = [r for r in missing if r in by_id]
+    for i, report_id in enumerate(wanted):
+        if unanswered >= MAX_UNANSWERED:
+            return sent, failed, len(wanted) - i
+        page = by_id[report_id]
+        try:
+            body = {"page": page_body(page), "hash": page_hash(page)}
+            hub_api.put(settings, f"/api/worker/logs/{report_id}", body, client)
+        except httpx.HTTPStatusError as exc:
+            unanswered = 0
+            if _superseded(exc):
+                log.info("logs.page_superseded", report=report_id)
+                continue
+            log.error("logs.page_refused", report=report_id, status=exc.response.status_code, detail=_detail(exc))
+            failed.append(report_id)
+            continue
+        except httpx.TransportError as exc:  # a timeout or a dropped connection: the next raid still goes
+            unanswered += 1
+            log.error("logs.page_failed", report=report_id, error=repr(exc))
+            failed.append(report_id)
+            continue
+        except ValueError as exc:  # a page strict JSON cannot carry
+            log.error("logs.page_failed", report=report_id, error=repr(exc))
+            failed.append(report_id)
+            continue
+        unanswered = 0
+        sent += 1
+    return sent, failed, 0
 
 
 def _detail(exc: httpx.HTTPStatusError) -> str:

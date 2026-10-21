@@ -148,6 +148,22 @@ def test_a_refused_raid_does_not_hold_back_the_next(
     assert len(pages) == 2
 
 
+def test_a_hub_that_stops_answering_ends_the_run_early(sqlite_storage: Callable[[], PerformanceDB]) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/worker/logs":
+            return httpx.Response(200, json={"raids": 1, "missing": [CODE] * 5})
+        pages.append(request.url.path)
+        raise httpx.ReadTimeout("slow")
+
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    with pytest.raises(RuntimeError, match="so 2 more wait for the next run"):
+        logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)
+    assert len(pages) == logs.MAX_UNANSWERED
+
+
 def test_a_page_with_a_nan_is_sent_as_null() -> None:
     assert logs.plain({"a": [1.5, float("nan")], "b": (float("inf"), "x"), "c": {"d": -float("inf")}}) == {
         "a": [1.5, None],
