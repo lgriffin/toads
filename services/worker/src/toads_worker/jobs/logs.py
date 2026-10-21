@@ -4,6 +4,7 @@ Built with wcl-app's RaidPageService (guides/raid_pages.md in lgriffin/warcraftl
 it never calls Warcraft Logs. Every raid's page is built each run for the boss history; the list, the history and a hash
 of each page go first, and the API answers with the raids whose analysis it does not hold in that build yet, which are
 then sent one at a time. A raid that cannot be read back stays listed, so the hub keeps the analysis it already has.
+One raid the hub refuses never holds back the others: the run sends every other analysis, then fails naming it.
 `toads-worker schedule` runs it every TOADS_HUB_REFRESH_MINUTES, or run `toads-worker publish-logs`.
 """
 
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,10 +41,28 @@ class Built:
     pages: list[RaidPage]
 
 
+def plain(value: Any) -> Any:
+    """`value` as strict JSON can carry it: a NaN or infinite number (an empty fight's ratio) becomes null, since the
+    hub's client refuses to encode one at all."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {k: plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain(v) for v in value]
+    return value
+
+
+def page_body(page: RaidPage) -> dict[str, Any]:
+    """The page as the hub receives it."""
+    body: dict[str, Any] = plain(page.to_dict())
+    return body
+
+
 def page_hash(page: RaidPage) -> str:
     """The page's sha256, so the hub can tell a rebuilt analysis (an analyzer fix, a re-imported report) from the one
     it holds."""
-    return hashlib.sha256(json.dumps(page.to_dict(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(page_body(page), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def build_pages(storage: StorageFactory) -> Built:
@@ -64,8 +84,8 @@ def build_index(built: Built, *, now: Callable[[], datetime] = datetime.now) -> 
     return {
         "version": RAID_PAGE_VERSION,
         "generated_at": now().strftime("%Y-%m-%d %H:%M:%S"),
-        "raids": [s.to_dict() for s in built.summaries],
-        "bosses": [b.to_dict() for b in boss_history(built.pages)],
+        "raids": [plain(s.to_dict()) for s in built.summaries],
+        "bosses": [plain(b.to_dict()) for b in boss_history(built.pages)],
         "hashes": {p.summary.report_id: page_hash(p) for p in built.pages},
     }
 
@@ -81,12 +101,16 @@ def publish_logs(
     storage: StorageFactory | None = None,
     hub: httpx.Client | None = None,
 ) -> dict[str, Any]:
-    """Send the list, then every analysis the API asks for. Returns how many raids it listed and sent."""
+    """Send the list, then every analysis the API asks for. Returns how many raids it listed, sent and could not read
+    back; raises after the last one when the hub refused any, so the scheduler logs the run as failed."""
     settings = settings or Settings()
     hub_api.service_token(settings)
     built = build_pages(storage or store.storage(settings))
     by_id = {p.summary.report_id: p for p in built.pages}
+    # Raids listed without an analysis to send: their pages say "not analysed" until the analyzer can read them back.
+    unreadable = len(built.summaries) - len(built.pages)
     sent = 0
+    failed: list[str] = []
     with hub_api.client(settings, hub) as client:
         try:
             answer = hub_api.put(settings, "/api/worker/logs", build_index(built), client)
@@ -94,20 +118,32 @@ def publish_logs(
             if not _superseded(exc):
                 raise
             log.info("logs.superseded")
-            return {"raids": len(built.summaries), "sent": 0}
+            return {"raids": len(built.summaries), "sent": 0, "unreadable": unreadable}
         for report_id in answer.get("missing", []):
             page = by_id.get(report_id)
             if page is None:
                 continue
             try:
-                hub_api.put(
-                    settings, f"/api/worker/logs/{report_id}", {"page": page.to_dict(), "hash": page_hash(page)}, client
-                )
+                body = {"page": page_body(page), "hash": page_hash(page)}
+                hub_api.put(settings, f"/api/worker/logs/{report_id}", body, client)
             except httpx.HTTPStatusError as exc:
-                if not _superseded(exc):
-                    raise
-                log.info("logs.page_superseded", report=report_id)
+                if _superseded(exc):
+                    log.info("logs.page_superseded", report=report_id)
+                    continue
+                log.error("logs.page_refused", report=report_id, status=exc.response.status_code, detail=_detail(exc))
+                failed.append(report_id)
+                continue
+            except (httpx.HTTPError, ValueError) as exc:  # a timeout or an unencodable page: the next raid still goes
+                log.error("logs.page_failed", report=report_id, error=repr(exc))
+                failed.append(report_id)
                 continue
             sent += 1
-    log.info("logs.published", raids=len(built.summaries), sent=sent)
-    return {"raids": len(built.summaries), "sent": sent}
+    log.info("logs.published", raids=len(built.summaries), sent=sent, failed=len(failed), unreadable=unreadable)
+    if failed:
+        raise RuntimeError(f"The hub did not take the analysis of {len(failed)} raid(s): {', '.join(failed[:10])}")
+    return {"raids": len(built.summaries), "sent": sent, "unreadable": unreadable}
+
+
+def _detail(exc: httpx.HTTPStatusError) -> str:
+    """The API's reason, cut short for the log."""
+    return exc.response.text[:300]

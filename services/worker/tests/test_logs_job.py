@@ -81,7 +81,7 @@ def test_publish_sends_the_list_then_each_missing_raid(sqlite_storage: Callable[
         return httpx.Response(200, json={"report_id": CODE})
 
     hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
-    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub) == {"raids": 1, "sent": 1}
+    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub) == {"raids": 1, "sent": 1, "unreadable": 0}
     auth = "Bearer test-service-token"
     assert seen == [("PUT", "/api/worker/logs", auth), ("PUT", f"/api/worker/logs/{CODE}", auth)]
     assert bodies[f"/api/worker/logs/{CODE}"]["page"]["summary"]["report_id"] == CODE
@@ -97,6 +97,10 @@ def test_an_unreadable_raid_stays_listed_without_a_page(
     # The hub keeps the analysis it already holds instead of dropping the raid.
     assert [r["report_id"] for r in index["raids"]] == [CODE]
     assert index["hashes"] == {}
+    # The run counts it, so a by-hand run shows why its page says "not analysed".
+    answer = httpx.Response(200, json={"raids": 1, "missing": []})
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(lambda _: answer))
+    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)["unreadable"] == 1
 
 
 @pytest.mark.parametrize("refused", ["list", "page"])
@@ -111,13 +115,45 @@ def test_a_newer_run_s_list_stops_this_one_quietly(sqlite_storage: Callable[[], 
         return httpx.Response(409, json={"detail": "A newer list wants another build of this raid"})
 
     hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
-    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub) == {"raids": 1, "sent": 0}
+    assert logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub) == {"raids": 1, "sent": 0, "unreadable": 0}
 
 
 def test_other_refusals_fail_the_run(sqlite_storage: Callable[[], PerformanceDB]) -> None:
     hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(lambda _: httpx.Response(422)))
     with pytest.raises(httpx.HTTPStatusError):
         logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)
+
+
+@pytest.mark.parametrize("failure", [httpx.Response(500), httpx.ReadTimeout("slow")])
+def test_a_refused_raid_does_not_hold_back_the_next(
+    sqlite_storage: Callable[[], PerformanceDB], failure: httpx.Response | Exception
+) -> None:
+    analyse.analyse_report(CODE, client=fake_wcl_client(), storage=sqlite_storage)
+    pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/worker/logs":
+            # The same raid twice stands in for two raids: the first upload fails, the second must still go.
+            return httpx.Response(200, json={"raids": 1, "missing": [CODE, CODE]})
+        pages.append(request.url.path)
+        if len(pages) == 1:
+            if isinstance(failure, Exception):
+                raise failure
+            return failure
+        return httpx.Response(200, json={"report_id": CODE})
+
+    hub = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    with pytest.raises(RuntimeError, match=f"1 raid\\(s\\): {CODE}"):
+        logs.publish_logs(_settings(), storage=sqlite_storage, hub=hub)
+    assert len(pages) == 2
+
+
+def test_a_page_with_a_nan_is_sent_as_null() -> None:
+    assert logs.plain({"a": [1.5, float("nan")], "b": (float("inf"), "x"), "c": {"d": -float("inf")}}) == {
+        "a": [1.5, None],
+        "b": [None, "x"],
+        "c": {"d": None},
+    }
 
 
 def test_a_run_without_a_client_opens_and_closes_one(
@@ -134,7 +170,7 @@ def test_a_run_without_a_client_opens_and_closes_one(
         return c
 
     monkeypatch.setattr(logs.httpx, "Client", client)
-    assert logs.publish_logs(_settings(), storage=sqlite_storage) == {"raids": 0, "sent": 0}
+    assert logs.publish_logs(_settings(), storage=sqlite_storage) == {"raids": 0, "sent": 0, "unreadable": 0}
     assert len(opened) == 1 and opened[0].is_closed
 
 

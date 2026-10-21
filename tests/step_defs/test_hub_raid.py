@@ -9,8 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
+from pydantic import SecretStr
 from pytest_bdd import given, parsers, scenarios, then, when
+from toads_worker.jobs import logs as worker_logs
+from toads_worker.settings import Settings as WorkerSettings
 
 from conftest import Hub
 
@@ -208,3 +212,66 @@ def carries_night() -> None:
     # Each raid opens under the night the raid list gives it (on every tab), else the shown night for its officers.
     assert "viewer?.officer_days?.includes(night)" in page and "raidDayOf(rows, officerDay)" in page
     assert "{dayOf}" in page
+
+
+class _Page:
+    """The part of wcl_app's RaidPage the Logs job sends."""
+
+    def __init__(self, report: str, weekday: int) -> None:
+        self.summary = type("Summary", (), {"report_id": report, "to_dict": lambda _: _summary(report, weekday)})()
+        self._page = _page(report, weekday)
+
+    def to_dict(self) -> dict[str, Any]:
+        return self._page
+
+
+@given(parsers.parse('the worker holds the analyses of "{wed}" and "{thu}"'), target_fixture="run")
+def worker_holds(monkeypatch: pytest.MonkeyPatch, wed: str, thu: str) -> dict[str, Any]:
+    pages = [_Page(wed, WEEKDAYS["Wednesday"]), _Page(thu, WEEKDAYS["Thursday"])]
+    built = worker_logs.Built([p.summary for p in pages], pages)  # type: ignore[arg-type]
+    monkeypatch.setattr(worker_logs, "build_pages", lambda _storage: built)
+    monkeypatch.setattr(worker_logs, "boss_history", lambda _pages: [])
+    return {"refused": None}
+
+
+@given(parsers.parse('the hub refuses the analysis of "{report}"'))
+def hub_refuses(run: dict[str, Any], report: str) -> None:
+    run["refused"] = f"/api/worker/logs/{report}"
+
+
+@when("the worker publishes the Logs page")
+def worker_publishes(hub: Hub, run: dict[str, Any]) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == run["refused"]:
+            return httpx.Response(500, text="Internal Server Error")
+        headers = {**WORKER, "content-type": "application/json"}
+        r = hub.client.request(request.method, request.url.path, content=request.content, headers=headers)
+        return httpx.Response(r.status_code, content=r.content)
+
+    settings = WorkerSettings(
+        database_url=SecretStr("postgresql+psycopg://u:p@localhost/db"),
+        redis_url="redis://localhost",
+        wcl_client_id="id",
+        wcl_client_secret=SecretStr("replace-me"),
+        wcl_guild_id=1,
+        credentials_keys=SecretStr("replace-me"),
+        hub_api_url="http://hub.test",
+        hub_service_token=SecretStr("test-service-token"),
+    )
+    client = httpx.Client(base_url="http://hub.test", transport=httpx.MockTransport(handler))
+    with pytest.raises(RuntimeError) as info:
+        worker_logs.publish_logs(settings, storage=lambda: None, hub=client)  # type: ignore[arg-type,return-value]
+    run["error"] = str(info.value)
+
+
+@then(parsers.parse('the run fails naming "{report}"'))
+def run_fails(run: dict[str, Any], report: str) -> None:
+    assert run["error"].endswith(f": {report}")
+
+
+@then(parsers.parse('a Wednesday raider opening "{report}" sees its analysis'))
+def raider_sees(hub: Hub, report: str) -> None:
+    sid = hub.login(hub.user(("wed", "raider")))
+    r = hub.get(f"/api/logs/{report}", sid)
+    assert r.status_code == 200, r.text
+    assert r.json()["page"]["summary"]["report_id"] == report
