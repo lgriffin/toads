@@ -35,6 +35,15 @@ Feature: HUB AWARD
     And giving it again for "2026-10" is refused as a duplicate
     And giving it with no month is refused
 
+  @ears_state_driven @raid_leader @phase_2_7
+  Scenario: REQ-HUB-AWARD-013 While an award is a weekly honour, such as Raider of the Week or Sunder King, the hub shall require the raid week it is for and let a member hold it once per week
+    Given a raider who goes by the nickname "Hopscotch"
+    And a global officer
+    When the global officer names the raider Sunder King for "2026-W43" and for "2026-W44"
+    Then the raider holds Sunder King twice
+    And naming them Sunder King again for "2026-W44" is refused as a duplicate
+    And naming them Sunder King with no week is refused
+
   @ears_event_driven @raid_leader @phase_2_7
   Scenario: REQ-HUB-AWARD-005 When a global officer takes an award back, the hub shall remove it from the member and record that on the audit log
     Given a raider who goes by the nickname "Hopscotch"

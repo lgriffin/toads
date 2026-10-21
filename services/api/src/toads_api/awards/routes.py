@@ -52,8 +52,8 @@ class AwardOut(BaseModel):
 class AwardIn(BaseModel):
     member_id: int = Field(gt=0)
     award_id: str = Field(min_length=1, max_length=48)
-    # "YYYY-MM": required for a monthly award (Raider of the Month), refused for the rest.
-    period: str | None = Field(default=None, max_length=7)
+    # "YYYY-MM" for a monthly award (Raider of the Month), "YYYY-Www" for a weekly honour; refused for the rest.
+    period: str | None = Field(default=None, max_length=8)
     note: str | None = Field(default=None, max_length=NOTE_LIMIT)
 
 

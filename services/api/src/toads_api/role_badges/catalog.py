@@ -15,6 +15,8 @@ class RoleBadge:
 
 
 _CLASSES = ("druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior")
+# The races the guild can play on the Horde side in WoW Forever, Skyborne (Windshapers) included.
+_RACES = ("orc", "troll", "tauren", "undead", "skyborne")
 
 ROLE_BADGES: dict[str, RoleBadge] = {
     b.id: b
@@ -33,6 +35,8 @@ ROLE_BADGES: dict[str, RoleBadge] = {
         RoleBadge("damage", "Damage", "roles/damage"),
         # Servers often give a role per class.
         *(RoleBadge(c, c.title(), f"classes/{c}") for c in _CLASSES),
+        # And per race.
+        *(RoleBadge(r, r.title(), f"races/{r}") for r in _RACES),
     ]
 }
 

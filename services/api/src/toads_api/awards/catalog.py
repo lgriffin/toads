@@ -15,6 +15,8 @@ class AwardKind(enum.StrEnum):
     ACHIEVEMENT = "achievement"
     # A job a member does for the guild; shown with their rank toad.
     TITLE = "title"
+    # Raider of the Week and the weekly piss-takes (Sunder King, Floor Inspector, ...), given after each raid week.
+    HONOUR = "honour"
 
 
 @dataclass(frozen=True)
@@ -22,8 +24,10 @@ class Award:
     id: str
     name: str
     kind: AwardKind
-    # Given for a month ("YYYY-MM") and so held once per month; every other award is held once.
+    # Given for a month ("YYYY-MM") and so held once per month.
     monthly: bool = False
+    # Given for an ISO week ("YYYY-Www") and so held once per week. Every other award is held once.
+    weekly: bool = False
 
 
 def _kind(kind: AwardKind, *pairs: tuple[str, str]) -> list[Award]:
@@ -31,6 +35,11 @@ def _kind(kind: AwardKind, *pairs: tuple[str, str]) -> list[Award]:
 
 
 _MILESTONE, _ACHIEVEMENT, _TITLE = AwardKind.MILESTONE, AwardKind.ACHIEVEMENT, AwardKind.TITLE
+
+
+def _honours(*pairs: tuple[str, str]) -> list[Award]:
+    return [Award(award_id, name, AwardKind.HONOUR, weekly=True) for award_id, name in pairs]
+
 
 AWARDS: dict[str, Award] = {
     a.id: a
@@ -80,5 +89,19 @@ AWARDS: dict[str, Award] = {
             ("exalted", "Exalted"),
         ),
         *_kind(_TITLE, ("banker", "Banker"), ("developer", "Developer"), ("discord-admin", "Discord Admin")),
+        *_honours(
+            ("raider-of-the-week", "Raider of the Week"),
+            ("sunder-king", "Sunder King"),
+            ("best-interrupt", "Best Interrupt"),
+            ("floor-inspector", "Floor Inspector"),
+            ("stood-in-fire", "Stood in Fire"),
+            ("jumped-the-gun", "Jumped the Gun"),
+            ("brew-break", "Brew Break"),
+            ("repair-bill", "Repair Bill"),
+            ("pet-pull", "Pet Pull"),
+            ("wrong-skull", "Wrong Skull"),
+            ("bone-dry", "Bone Dry"),
+            ("meter-gazer", "Meter Gazer"),
+        ),
     ]
 }
