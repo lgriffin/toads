@@ -406,6 +406,105 @@ def test_locks_a_closed_interview_room() -> None:
     hub.ack.assert_awaited_once_with(7)
 
 
+def test_deletes_a_rejected_applicants_room_and_acks_it() -> None:
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.delete = AsyncMock()
+    hub = AsyncMock()
+    hub.outbox.return_value = [
+        job("close_interview_room", {"application_id": 3, "channel_id": 6001, "discord_user_id": APPLICANT})
+    ]
+    run(cog(hub).run_outbox(fake_guild(channel)))
+    channel.delete.assert_awaited_once()
+    hub.ack.assert_awaited_once_with(7)
+
+
+def test_a_room_already_gone_is_still_acked_as_closed() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [
+        job("close_interview_room", {"application_id": 3, "channel_id": 6001, "discord_user_id": APPLICANT})
+    ]
+    run(cog(hub).run_outbox(fake_guild(None)))
+    hub.ack.assert_awaited_once_with(7)
+
+
+WELCOME_JOB = {
+    "application_id": 3,
+    "discord_user_id": APPLICANT,
+    "character_name": "Mossbeard",
+    "night": "Wednesday",
+    "role_ids": [12, 404],
+    "channel_id": 6001,
+}
+
+
+def test_an_accepted_applicant_gets_the_nights_roles_and_a_welcome_without_pinging_anyone_else() -> None:
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.send = AsyncMock()
+    guild = fake_guild(channel)
+    guild.get_member.return_value.add_roles = AsyncMock()
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", {**WELCOME_JOB, "role_ids": [12]})]
+    run(cog(hub).run_outbox(guild))
+    roles = guild.get_member.return_value.add_roles.await_args.args
+    assert [r.id for r in roles] == [12]
+    text = channel.send.await_args.args[0]
+    assert text.startswith("Welcome to the pond, <@10005>!")
+    mentions = channel.send.await_args.kwargs["allowed_mentions"]
+    assert (mentions.everyone, mentions.roles) == (False, False)
+    hub.ack.assert_awaited_once_with(7)
+
+
+def test_a_deleted_raider_role_is_reported_after_giving_the_rest() -> None:
+    guild = fake_guild(None)
+    guild.get_member.return_value.add_roles = AsyncMock()
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", WELCOME_JOB)]
+    run(cog(hub).run_outbox(guild))
+    assert [r.id for r in guild.get_member.return_value.add_roles.await_args.args] == [12]
+    hub.ack.assert_awaited_once_with(
+        7, error="Gave the other roles, but 1 Wednesday raider role(s) are no longer in the server"
+    )
+
+
+def test_a_welcome_with_no_roles_and_no_room_is_not_reported_as_done() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", {**WELCOME_JOB, "role_ids": []})]
+    run(cog(hub).run_outbox(fake_guild(None)))
+    hub.ack.assert_awaited_once_with(7, error="Their interview room is gone, so there was nowhere to post the welcome")
+
+
+def test_a_role_above_the_bot_is_reported_to_the_hub() -> None:
+    guild = fake_guild(None)
+    guild.get_member.return_value.add_roles = AsyncMock(
+        side_effect=discord.Forbidden(MagicMock(status=403, reason="Forbidden"), "Missing Permissions")
+    )
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", WELCOME_JOB)]
+    run(cog(hub).run_outbox(guild))
+    error = hub.ack.await_args.kwargs["error"]
+    assert error.startswith("The Toad Bot needs Manage Roles, and its own role above the Wednesday raider role")
+
+
+def test_an_accepted_applicant_who_left_is_reported_to_the_hub() -> None:
+    guild = fake_guild(None)
+    guild.get_member.return_value = None
+    guild.fetch_member = AsyncMock(side_effect=discord.NotFound(MagicMock(status=404, reason="Not Found"), "gone"))
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", WELCOME_JOB)]
+    run(cog(hub).run_outbox(guild))
+    hub.ack.assert_awaited_once_with(7, error="They are no longer in the Discord server")
+
+
+def test_a_welcome_whose_roles_were_all_deleted_is_reported() -> None:
+    guild = fake_guild(None)
+    guild.get_member.return_value.add_roles = AsyncMock()
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("welcome_recruit", {**WELCOME_JOB, "role_ids": [404]})]
+    run(cog(hub).run_outbox(guild))
+    guild.get_member.return_value.add_roles.assert_not_awaited()
+    hub.ack.assert_awaited_once_with(7, error="The Wednesday raider role is no longer in the Discord server")
+
+
 POST = {"title": "Patch day", "body": "No raid @everyone", "author_name": "Ribbitz"}
 
 

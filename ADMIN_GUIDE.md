@@ -104,12 +104,15 @@ Discord application details:
 | --- | --- |
 | View Channels, Send Messages, Read Message History | Read mirrored channels, post the room's welcome |
 | Embed Links | The applicant's answers are an embed in the room's first message |
-| Manage Channels | Create `#interview-<character>` under the interview category |
-| Manage Roles (shown as Manage Permissions on a channel) | Hide each room from everyone and let in only the applicant and the interviewers, then lock it when the application closes |
+| Manage Channels | Create `#interview-<character>` under the interview category, and delete it when officers reject the applicant |
+| Manage Roles (shown as Manage Permissions on a channel) | Hide each room from everyone and let in only the applicant and the interviewers, then lock it when the application closes; give an accepted applicant their raid night's raider role |
 
-You can grant Manage Channels and Manage Permissions on the interview category alone instead of server-wide. If rooms
-also let in officer roles (no `interviewers` set), the bot's own role must sit above those roles in Server Settings >
-Roles. Privileged intents in the developer portal: **Server Members** (find the interviewers by username, and list each
+You can grant Manage Channels and Manage Permissions on the interview category alone instead of server-wide, but
+accepting an applicant on the Decisions panel needs **Manage Roles server-wide**, and the bot's own role must sit
+**above each night's raider role** (the Wednesday Toad role and the like) in Server Settings > Roles: Discord only
+lets a bot give roles below its own. If rooms also let in officer roles (no `interviewers` set), the bot's role must
+sit above those too. When the bot cannot give the role, the Decisions panel says so in a note and an officer gives it
+by hand. Privileged intents in the developer portal: **Server Members** (find the interviewers by username, and list each
 raid night's role holders for the comp builder) and **Message Content** (mirrored channels).
 
 The Toad Bot also takes members' guild bank requests (`/bankrequest <item> <quantity>`, [docs/bank-desk.md](docs/bank-desk.md))

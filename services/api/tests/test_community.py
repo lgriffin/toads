@@ -117,6 +117,10 @@ ROUTES: list[tuple[str, str, Permission]] = (
         ("POST", "/api/days/{day}/admin/interview-panel", Permission.MANAGE_RECRUITMENT),
         ("DELETE", "/api/days/{day}/admin/interview-panel/{discord_user_id}", Permission.MANAGE_RECRUITMENT),
         ("GET", "/api/days/{day}/admin/discord-members", Permission.MANAGE_RECRUITMENT),
+        # So is its Decisions panel: notes and decisions are made on the night's own routes.
+        ("GET", "/api/days/{day}/admin/decisions", Permission.MANAGE_RECRUITMENT),
+        ("POST", "/api/days/{day}/admin/applications/{app_id}/notes", Permission.MANAGE_RECRUITMENT),
+        ("POST", "/api/days/{day}/admin/applications/{app_id}/decision", Permission.MANAGE_RECRUITMENT),
     ]
 )
 PUBLIC = {("GET", "/api/public/story"), ("GET", "/api/public/recruitment"), ("GET", "/api/public/raid-nights")}
@@ -399,7 +403,7 @@ def test_application_to_interview_room(as_: Any, store: CommunityService) -> Non
 def test_illegal_transitions_are_refused(as_: Any) -> None:
     app_id = as_("applicant").post("/api/applications", json=APPLICATION).json()["id"]
     officer = as_("global officer")
-    r = officer.post(f"/api/admin/applications/{app_id}/transition", json={"to": "accepted"})
+    r = officer.post(f"/api/admin/applications/{app_id}/transition", json={"to": "trial_offered"})
     assert r.status_code == 409
     assert officer.post(f"/api/admin/applications/{app_id}/transition", json={"to": "withdrawn"}).status_code == 403
     officer.post(f"/api/admin/applications/{app_id}/transition", json={"to": "declined", "note": "Full on healers"})
@@ -685,6 +689,151 @@ def test_recruitment_needs_are_global_only(as_: Any) -> None:
     assert as_(None).get("/api/public/recruitment").json()[0]["spec"] == "Feral"
     bad = [{**needs[0], "raid_days": ["fri"]}]
     assert as_("global officer").put("/api/admin/recruitment/needs", json=bad).status_code == 422
+
+
+# --------------------------------------------------------- decisions panel
+
+
+def _apply(as_: Any, store: CommunityService, *, room: bool = True) -> int:
+    app_id: int = as_("applicant").post("/api/applications", json=APPLICATION).json()["id"]
+    if room:
+        as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/interview-room")
+        [job] = store.pending_jobs()
+        as_(None).post(f"/api/bot/outbox/{job.id}/ack", json={"channel_id": 6001}, headers=BOT)
+    return app_id
+
+
+def test_officers_note_an_application_and_see_it_on_their_nights_panel(
+    as_: Any, store: CommunityService, clock: Clock
+) -> None:
+    app_id = _apply(as_, store)
+    officer = as_("Wednesday officer")
+    r = officer.post(f"/api/days/wed/admin/applications/{app_id}/notes", json={"body": "  Great logs  "})
+    assert r.status_code == 201, r.text
+    assert r.json()["author_name"] == "Croakley"
+    assert r.json()["body"] == "Great logs"
+    clock.now += timedelta(minutes=3)
+    as_("global officer").post(f"/api/days/sun/admin/applications/{app_id}/notes", json={"body": "x"})  # not Sunday's
+    as_("global officer").post(f"/api/days/wed/admin/applications/{app_id}/notes", json={"body": "Free Wednesdays"})
+    board = officer.get("/api/days/wed/admin/decisions").json()
+    assert board["raid_day"] == "wed"
+    assert board["decided"] == []
+    [card] = board["waiting"]
+    assert card["application"]["interview_room_url"] == "https://discord.com/channels/77/6001"
+    assert [n["body"] for n in card["notes"]] == ["Great logs", "Free Wednesdays"]
+    assert "author_id" not in card["notes"][0]
+    assert as_("global officer").get("/api/days/fri/admin/decisions").status_code == 404
+
+
+@pytest.mark.parametrize("body", [{"body": ""}, {"body": "   "}, {"body": "x" * 1001}, {"body": "ok", "pin": True}])
+def test_bad_notes_are_refused(as_: Any, store: CommunityService, body: dict[str, Any]) -> None:
+    app_id = _apply(as_, store, room=False)
+    r = as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/notes", json=body)
+    assert r.status_code == 422
+
+
+def test_rejecting_declines_and_deletes_the_room(as_: Any, store: CommunityService, clock: Clock) -> None:
+    app_id = _apply(as_, store)
+    officer = as_("Wednesday officer")
+    clock.now += timedelta(hours=1)
+    r = officer.post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "declined"
+    [job] = store.pending_jobs()
+    assert (job.kind.value, job.payload["channel_id"]) == ("close_interview_room", 6001)
+    board = officer.get("/api/days/wed/admin/decisions").json()
+    assert board["waiting"] == []
+    assert board["decided"][0]["decided_at"] == "2026-09-26T19:00:00Z"
+    note = officer.post(f"/api/days/wed/admin/applications/{app_id}/notes", json={"body": "late"})
+    assert note.status_code == 409
+    assert [a.action for a in store.repo.audit()][-1] == "application.declined"
+    # The applicant can apply again after the cooldown, as with any decline.
+    assert as_("applicant").post("/api/applications", json=APPLICATION).status_code == 409
+
+
+def test_a_room_the_bot_cannot_delete_is_locked_instead(as_: Any, store: CommunityService) -> None:
+    app_id = _apply(as_, store)
+    as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})
+    [close] = store.pending_jobs()
+    as_(None).post(
+        f"/api/bot/outbox/{close.id}/ack", json={"error": "Discord refused: 403 Missing Access"}, headers=BOT
+    )
+    [lock] = store.pending_jobs()
+    assert (lock.kind.value, lock.payload["channel_id"]) == ("lock_interview_room", 6001)
+    [card] = as_("Wednesday officer").get("/api/days/wed/admin/decisions").json()["decided"]
+    assert card["notes"][0]["body"].startswith("Could not delete the interview room, so it was locked instead")
+
+
+def test_a_room_built_after_accepting_still_gets_the_welcome(as_: Any, store: CommunityService) -> None:
+    from dataclasses import replace
+
+    store.raid_days = replace(store.raid_days, raider_roles={"wed": (41,)})
+    app_id = _apply(as_, store, room=False)
+    as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/interview-room")
+    [room] = store.pending_jobs()
+    r = as_("Wednesday officer").post(
+        f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "accept"}
+    )
+    assert r.status_code == 200
+    as_(None).post(f"/api/bot/outbox/{room.id}/ack", json={"channel_id": 6001}, headers=BOT)
+    kinds = [(j.kind.value, j.payload.get("role_ids"), j.payload.get("channel_id")) for j in store.pending_jobs()]
+    assert kinds == [
+        ("welcome_recruit", [41], None),
+        ("lock_interview_room", None, 6001),
+        ("welcome_recruit", [], 6001),
+    ]
+
+
+def test_decided_applications_leave_the_panel_after_two_weeks(as_: Any, store: CommunityService, clock: Clock) -> None:
+    app_id = _apply(as_, store, room=False)
+    as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})
+    clock.now += timedelta(days=14)
+    assert as_("Wednesday officer").get("/api/days/wed/admin/decisions").json()["decided"] == []
+
+
+def test_accepting_gives_the_nights_raider_roles(as_: Any, store: CommunityService) -> None:
+    from dataclasses import replace
+
+    store.raid_days = replace(store.raid_days, raider_roles={"wed": (41,), "sun": (51,)})
+    app_id = _apply(as_, store)
+    r = as_("global officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "accept"})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "accepted"
+    lock, welcome = store.pending_jobs()
+    assert lock.kind.value == "lock_interview_room"
+    assert welcome.kind.value == "welcome_recruit"
+    assert welcome.payload["role_ids"] == [41]
+    r = as_(None).post(f"/api/bot/outbox/{welcome.id}/ack", json={"error": "Missing Permissions"}, headers=BOT)
+    assert r.status_code == 200
+    [card] = as_("Wednesday officer").get("/api/days/wed/admin/decisions").json()["decided"]
+    assert [(n["author_name"], n["body"]) for n in card["notes"]] == [
+        (None, "Could not welcome Mossbeard for Wednesday: Missing Permissions")
+    ]
+
+
+def test_accepting_without_a_room_or_a_role_leaves_a_note(as_: Any, store: CommunityService) -> None:
+    app_id = _apply(as_, store, room=False)
+    r = as_("Wednesday officer").post(
+        f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "accept"}
+    )
+    assert r.json()["status"] == "accepted"
+    assert store.pending_jobs() == []
+    [card] = as_("Wednesday officer").get("/api/days/wed/admin/decisions").json()["decided"]
+    assert "give Mossbeard theirs by hand" in card["notes"][0]["body"]
+
+
+def test_decisions_are_refused_outside_the_night_and_after_withdrawing(as_: Any, store: CommunityService) -> None:
+    app_id = _apply(as_, store, room=False)
+    sunday = as_("Sunday officer")
+    r = sunday.post(f"/api/days/sun/admin/applications/{app_id}/decision", json={"decision": "reject"})
+    assert r.status_code == 404
+    r = as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "maybe"})
+    assert r.status_code == 422
+    as_("applicant").post(f"/api/applications/{app_id}/withdraw")
+    r = as_("Wednesday officer").post(
+        f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "accept"}
+    )
+    assert r.status_code == 409
 
 
 # ------------------------------------------------------- interview panels

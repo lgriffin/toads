@@ -18,11 +18,11 @@ Feature: HUB RECRUIT
     And the bot creates a channel hidden from everyone else
 
   @ears_event_driven @raid_leader @phase_2_4
-  Scenario: REQ-HUB-RECRUIT-003 When an application with an interview room is accepted, declined or withdrawn, the bot shall lock the room so the applicant can read but not post and the officers keep the transcript
+  Scenario: REQ-HUB-RECRUIT-003 When an application with an interview room is accepted or withdrawn, the bot shall lock the room so the applicant can read but not post and the officers keep the transcript
     Given the demo guild
     And the applicant has applied for Wednesday
     And the Wednesday officer has opened an interview room
-    When the Wednesday officer declines the application
+    When the applicant withdraws the application
     Then the bot is asked to lock the interview room
     And the bot leaves the applicant able to read but not post
 
@@ -30,7 +30,7 @@ Feature: HUB RECRUIT
   Scenario: REQ-HUB-RECRUIT-004 If an officer requests a status change the application pipeline does not allow, then the hub shall refuse it with 409
     Given the demo guild
     And the applicant has applied for Wednesday
-    Then accepting straight from applied is refused with 409
+    Then offering a trial straight from applied is refused with 409
     And every pair of statuses outside the pipeline is refused
 
   @ears_unwanted_behavior @member @phase_2_4
@@ -130,3 +130,43 @@ Feature: HUB RECRUIT
     Then the applicant's application has no room link
     When the bot reports the room it opened
     Then the applicant's application links to that room in the Toads Discord
+
+  @ears_ubiquitous @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-018 A raid night's Decisions panel shall list the applications for that night waiting on a decision, with every officer's notes on them, and only that night's officers, the global tier and super admins shall see it or add notes
+    Given the demo guild
+    And the applicant has applied for Wednesday
+    When the Wednesday officer notes "Strong healer, logs look good"
+    And the global officer notes "Free on Wednesdays"
+    Then the Wednesday Decisions panel lists the application with both notes, oldest first
+    And the Sunday officer can neither see the application on the Sunday panel nor note it
+    And the applicant's own view of the application carries no notes
+
+  @ears_event_driven @raid_leader @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-019 When an officer rejects an application on the Decisions panel, the hub shall decline it, take it off the waiting list and have the bot delete its interview room
+    Given the demo guild
+    And the applicant has applied for Wednesday
+    And the Wednesday officer has opened an interview room
+    When the Wednesday officer rejects the application on the Decisions panel
+    Then the application is declined and listed as decided, not waiting
+    And the bot is asked to delete the interview room
+    And the bot deletes the channel
+    And a second decision on it is refused with 409
+
+  @ears_event_driven @raid_leader @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-020 When an officer accepts an application on the Decisions panel, the hub shall accept it for that night and the bot shall give the applicant the night's raider roles and welcome them in their room, and the panel shall show what the bot did
+    Given the demo guild with Wednesday raider role 41 and role 42 tied to the Wednesday Toad badge
+    And the applicant has applied for Wednesday
+    And the Wednesday officer has opened an interview room
+    When the Wednesday officer accepts the application on the Decisions panel
+    Then the application is accepted for Wednesday
+    And the bot is asked to give the applicant roles 41 and 42 and welcome them in the interview room
+    And the bot gives the roles and posts the welcome
+    And once the bot reports it, the Decisions panel notes that the Toad Bot gave the Wednesday raider role
+
+  @ears_unwanted_behavior @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-021 If an application is accepted for a night with no Discord raider role set, or the bot cannot give the role, then the hub shall say so in a note on the Decisions panel, so an officer gives it by hand
+    Given the demo guild
+    And the applicant has applied for Wednesday
+    When the Wednesday officer accepts the application on the Decisions panel
+    Then the Decisions panel notes that no Discord role is set for Wednesday raiders
+    And the bot is not asked to give any role
