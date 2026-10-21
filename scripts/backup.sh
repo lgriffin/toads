@@ -58,7 +58,7 @@ main() {
 }
 
 # On failure: drop the half-written snapshot and say so where someone will see it.
-# shellcheck disable=SC2329  # called by the EXIT trap
+# shellcheck disable=SC2317,SC2329  # called by the EXIT trap
 finish() {
 	local status=$?
 	[[ $status -eq 0 ]] && return 0
