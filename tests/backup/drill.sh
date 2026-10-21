@@ -124,6 +124,11 @@ rclone_night="$(names | grep -E 'Z$' | tail -n 1)"
 rm -rf "${TMP:?}/backups/$rclone_night"
 "$ROOT/scripts/restore.sh" "$rclone_night" --offsite --db-only --yes
 expect_rows "ada,bo"
+
+step "a deleted off-server repository fails the backup instead of starting an empty one"
+rm -rf "${TMP:?}/backups/.restic-cache/rclone-repo"
+if "$ROOT/scripts/backup.sh" nightly; then fail "a backup to a deleted repository succeeded"; fi
+rm "$TMP/backups/.restic-repository"  # what the guide says to do to start a fresh copy on purpose
 sleep 1
 
 step "retention"

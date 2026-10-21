@@ -710,9 +710,10 @@ The sign-in happens once, on your own computer, because the server has no browse
    `sudo -iu toads /opt/toads/scripts/restore.sh list` should show it under "Off the server". A `toads-backups` folder
    appears in the account's My Drive. Leave it where it is and do not rename it.
 
-If you delete that folder, or sign rclone out under the Google account's **Security → Third-party connections**, the
-off-server copy stops. The next night's backup fails and alerts you, if `TOADS_BACKUP_ALERT_WEBHOOK` is set. Run
-step 3 again for a new token. Deleted backups stay in Drive's trash for 30 days.
+If that folder is deleted, or rclone is signed out under the Google account's **Security → Third-party
+connections**, the next night's backup fails (and alerts you, if `TOADS_BACKUP_ALERT_WEBHOOK` is set) rather than
+starting an empty copy. A deleted folder can be restored from Drive's trash for 30 days. For a lost sign-in, run
+step 3 again for a new token. To start a fresh copy on purpose, delete `/var/backups/toads/.restic-repository`.
 
 ### Off the server: Backblaze B2
 
