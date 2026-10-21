@@ -390,6 +390,8 @@ class OutboxKind(enum.StrEnum):
     WELCOME_RECRUIT = "welcome_recruit"
     POST_MESSAGE = "post_message"
     EDIT_MESSAGE = "edit_message"
+    # DM one member (the bank desk's answer to their request, docs/bank-desk.md).
+    SEND_DM = "send_dm"
 
 
 class OutboxJob(BaseModel):

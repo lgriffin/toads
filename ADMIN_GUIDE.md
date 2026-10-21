@@ -115,6 +115,10 @@ sit above those too. When the bot cannot give the role, the Decisions panel says
 by hand. Privileged intents in the developer portal: **Server Members** (find the interviewers by username, and list each
 raid night's role holders for the comp builder) and **Message Content** (mirrored channels).
 
+The Toad Bot also takes members' guild bank requests (`/bankrequest <item> <quantity>`, [docs/bank-desk.md](docs/bank-desk.md))
+and DMs each member the officers' answer. That needs no extra permission, but a member who has turned off "Direct
+Messages" from server members will not get the DM: the Bank page's request desk shows it as failed, with Discord's reason.
+
 The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
 member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.
 

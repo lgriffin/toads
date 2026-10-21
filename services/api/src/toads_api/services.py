@@ -22,6 +22,8 @@ from toads_api.awards.service import AwardService
 from toads_api.awards.sql import SqlAwardRepository
 from toads_api.bank.client import BankClient
 from toads_api.bank.events import BankEvents
+from toads_api.bank_desk.service import BankDeskService
+from toads_api.bank_desk.sql import SqlBankDeskRepository
 from toads_api.bank_grants.service import BankGrantService
 from toads_api.bank_grants.sql import SqlBankGrantRepository
 from toads_api.bots.bridge import BotBridge, InMemoryBridgeStore
@@ -97,6 +99,8 @@ class Services:
     bank_grants: BankGrantService = field(init=False)
     # Officer powers a super admin gave a member on top of their Discord roles (docs/admin.md "Officer grants").
     officer_grants: OfficerGrantService = field(init=False)
+    # Item requests members send from Discord or the site, and officers' answers (docs/bank-desk.md).
+    bank_desk: BankDeskService = field(init=False)
 
     def principal_for(
         self,
@@ -147,6 +151,9 @@ class Services:
         )
         self.officer_grants = OfficerGrantService(
             SqlOfficerGrantRepository(self.db), (d.id for d in self.raid_days.raid_days)
+        )
+        self.bank_desk = BankDeskService(
+            SqlBankDeskRepository(self.db), clock=lambda: datetime.fromtimestamp(self.clock(), UTC)
         )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))

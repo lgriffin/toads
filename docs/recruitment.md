@@ -38,7 +38,7 @@ interview room and the logs.
 
 - **Notes.** Any of the night's officers (and global officers and super admins) can add a note while the applicant
   waits, up to 1000 characters. Notes are for officers only: the applicant never sees them. Once an application is
-  decided, notes are closed. They live in `application_notes` (migration 0029) and are audited as `application.note`.
+  decided, notes are closed. They live in `application_notes` (migration 0030) and are audited as `application.note`.
 - **Reject** declines the application and the Toad Bot deletes the interview room. The application, its history and
   the notes stay in the hub. The applicant sees "declined" on the recruit page and can apply again after 30 days.
 - **Accept** accepts the application for that night (straight from Applied or Interviewing; a trial raid is optional),
