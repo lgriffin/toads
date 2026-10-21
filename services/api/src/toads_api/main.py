@@ -23,6 +23,7 @@ from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
 from toads_api.comps.routes import include_comps
 from toads_api.discord_api import DiscordAuthError, DiscordError, MismatchedDiscordApplicationError
+from toads_api.gallery.routes import include_gallery
 from toads_api.home.routes import include_home
 from toads_api.logs.routes import include_logs
 from toads_api.officer_board.routes import include_officer_board
@@ -153,6 +154,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     include_raid_sheets(app)
     include_officer_board(app)
     include_bank_desk(app)
+    include_gallery(app)
     include_officer_grants(app)
     return app
 

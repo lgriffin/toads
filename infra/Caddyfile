@@ -7,7 +7,7 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		# Only where the response has none: the web app sends its own, with a nonce (apps/web/svelte.config.js).
-		?Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://streamable.com; frame-ancestors 'none'"
+		?Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-src https://www.youtube-nocookie.com https://clips.twitch.tv https://player.twitch.tv https://streamable.com; frame-ancestors 'none'"
 		-Server
 	}
 	# Tighten img-src to the R2 domain and turn on HSTS in the prod override.

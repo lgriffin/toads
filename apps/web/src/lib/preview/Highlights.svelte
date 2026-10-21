@@ -1,37 +1,29 @@
 <script lang="ts">
-  import { PROVIDER_LABELS } from '$lib/clips';
-  import { ANONYMOUS, visibleHighlights, visibleSpotlights } from '$lib/community';
-  import ClipPlayer from '$lib/components/ClipPlayer.svelte';
+  import { visibleSpotlights } from '$lib/community';
+  import HighlightsPage from '$lib/components/HighlightsPage.svelte';
   import SpotlightCard from '$lib/components/SpotlightCard.svelte';
-  import { shortDate } from '$lib/format';
+  import { previewGallery } from './gallery-fake';
+  import { previewSession } from './session.svelte';
   import { community } from './state.svelte';
 
-  const reels = $derived(visibleHighlights(community.highlights, ANONYMOUS));
   const spots = $derived(visibleSpotlights(community.spotlights));
 </script>
 
-<h1>Highlights</h1>
-<p class="muted">
-  Clips from our raids and the people behind them. Videos load from their provider only when you press play.
+<p class="demo" role="note">
+  {#if previewSession.role === 'admin'}
+    Demo: as a super admin (a global officer) you pick the photo of the week, take photos and streams down and review
+    clips. Open a photo to try it.
+  {:else}
+    Demo: these photos and the stream stand in for what raiders post with the Toad Bot. You can take down your own
+    (Hopscotch’s) photos; switch to the super admin view to pick the photo of the week.
+  {/if}
+  Nothing leaves this browser.
 </p>
 
-<section aria-labelledby="reels-h">
-  <h2 id="reels-h">Highlight reels</h2>
-  <div class="reels">
-    {#each reels as h (h.id)}
-      <div class="card">
-        <ClipPlayer
-          provider={h.provider}
-          clipId={h.clipId}
-          title={h.title}
-          meta="{h.boss ? `${h.boss} · ` : ''}{shortDate(h.createdAt)} · by {h.submittedBy} · {PROVIDER_LABELS[h.provider]}"
-        />
-      </div>
-    {:else}
-      <p class="muted">No reels yet.</p>
-    {/each}
-  </div>
-</section>
+<!-- Switching views reloads the page as that view, as signing in again would. -->
+{#key previewSession.role}
+  <HighlightsPage backend={previewGallery(previewSession.role === 'admin')} />
+{/key}
 
 <section aria-labelledby="spots-h">
   <h2 id="spots-h">Member spotlights</h2>
@@ -45,6 +37,7 @@
 </section>
 
 <style>
-  section { margin-top: 1.5rem; }
-  .reels { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+  .demo { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.5rem; }
+  section { margin-top: 1.75rem; }
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
 </style>

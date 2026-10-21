@@ -1,9 +1,10 @@
 """The bot's only door into the hub: the Hub API's /api/bot routes, authenticated with the service token, and the
-Raid-Helper import and bank desk request, which it calls as the member who used `/raidhelper import` or
-`/bankrequest`."""
+Raid-Helper import, bank desk request and Highlights posts, which it calls as the member who used `/raidhelper import`,
+`/bankrequest`, `/highlight`, `/stream` or `/clip`."""
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from typing import Any
 from urllib.parse import quote
@@ -81,5 +82,37 @@ class HubClient:
         return await self._http.post(
             "/api/bank-desk/requests",
             json={"item": item, "quantity": quantity},
+            headers={"X-Toads-Acting-Member": str(discord_user_id)},
+        )
+
+    async def post_photo(self, discord_user_id: int, image: bytes, caption: str) -> httpx.Response:
+        """Post a photo to the Highlights page, acting as the member who used `/highlight`: the hub reads their roles
+        from Discord, so only raiders can post. Returned as is, refusals included."""
+        return await self._http.post(
+            "/api/gallery/photos",
+            json={"caption": caption, "image_base64": base64.b64encode(image).decode("ascii")},
+            headers={"X-Toads-Acting-Member": str(discord_user_id)},
+            timeout=30.0,
+        )
+
+    async def start_stream(self, discord_user_id: int, link: str, title: str) -> httpx.Response:
+        """Put the member's Twitch channel on the Highlights page (`/stream start`). Returned as is."""
+        return await self._http.post(
+            "/api/gallery/streams",
+            json={"link": link, "title": title},
+            headers={"X-Toads-Acting-Member": str(discord_user_id)},
+        )
+
+    async def end_stream(self, discord_user_id: int) -> httpx.Response:
+        """Take the member's stream off the Highlights page (`/stream end`). Returned as is."""
+        return await self._http.post(
+            "/api/gallery/streams/end", headers={"X-Toads-Acting-Member": str(discord_user_id)}
+        )
+
+    async def share_clip(self, discord_user_id: int, url: str, title: str) -> httpx.Response:
+        """Hand the hub a clip link for the officers to review (`/clip`). Returned as is."""
+        return await self._http.post(
+            "/api/highlights",
+            json={"url": url, "title": title},
             headers={"X-Toads-Acting-Member": str(discord_user_id)},
         )

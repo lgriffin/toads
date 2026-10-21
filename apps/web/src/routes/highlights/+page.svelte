@@ -1,4 +1,6 @@
 <script lang="ts">
+  import HighlightsPage from '$lib/components/HighlightsPage.svelte';
+  import { hubGallery } from '$lib/gallery';
   import Highlights from '$lib/preview/Highlights.svelte';
 </script>
 
@@ -7,6 +9,5 @@
 {#if __PREVIEW__}
   <Highlights />
 {:else}
-  <h1>Highlights</h1>
-  <p>Highlight reels and member spotlights appear here once officers publish them.</p>
+  <HighlightsPage backend={hubGallery()} />
 {/if}
