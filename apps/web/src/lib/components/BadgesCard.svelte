@@ -23,7 +23,7 @@
           <div class="text">
             <div class="head">
               <strong>{b.name}</strong>
-              {#if b.tier > 0}<span class="tier" style="color: {qualityTextColour(b.quality)}">{b.tier_name}</span>{/if}
+              {#if b.tier > 0}<span class="tier" style="--qt: {qualityTextColour(b.quality)}">{b.tier_name}</span>{/if}
             </div>
             <span class="muted small">{b.description} · {b.display}</span>
             {#if b.next_at !== null}
@@ -55,7 +55,7 @@
   .list li { display: flex; gap: 0.75rem; align-items: flex-start; min-width: 0; }
   .text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1; }
   .head { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
-  .tier { font-size: 0.8rem; }
+  .tier { font-size: 0.8rem; color: color-mix(in srgb, var(--qt, var(--muted)) var(--quality-mix), var(--cream)); }
   .small { font-size: 0.8rem; }
   .bar { display: block; height: 0.35rem; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 0.2rem; }
   .bar span { display: block; height: 100%; background: var(--accent); }

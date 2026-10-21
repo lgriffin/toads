@@ -31,8 +31,8 @@
   .post:first-of-type { border-top: 0; padding-top: 0; }
   .title { font-size: 1rem; margin: 0 0 0.35rem; }
   .badges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.4rem; }
-  .pin { background: var(--accent); color: #0f1411; }
-  .day { background: #3b3320; color: var(--warn); }
+  .pin { background: var(--accent); color: var(--on-accent); }
+  .day { background: var(--warn-bg); color: var(--warn); }
   .body { white-space: pre-line; overflow-wrap: anywhere; margin: 0 0 0.35rem; }
   .small { font-size: 0.8rem; margin: 0; }
 </style>

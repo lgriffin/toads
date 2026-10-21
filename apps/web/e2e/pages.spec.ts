@@ -1,7 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { ROUTES } from './routes';
 import { signIn } from './auth';
+import { openAccountMenu, openHubMenu, openOfficersMenu } from './nav';
 
 // Member pages open after the preview's pretend sign-in; most tests explore as an officer.
 test.beforeEach(({ page }) => signIn(page, 'officer'));
@@ -39,17 +40,99 @@ for (const route of ROUTES) {
       .map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
     expect(bad).toEqual([]);
   });
+
+  test(`${name} has no serious or critical axe violations in the light theme with easier reading`, async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('toads-theme', 'light');
+      localStorage.setItem('toads-reading', 'easy');
+    });
+    await page.goto(route);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const results = await new AxeBuilder({ page }).analyze();
+    const bad = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
+    expect(bad).toEqual([]);
+  });
 }
 
-test('the nav splits public and member pages', async ({ page }) => {
+for (const theme of ['dark', 'light']) {
+  test(`the open top bar menus have no serious or critical axe violations (${theme})`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('toads-theme', t), theme);
+    await signIn(page, 'admin');
+    await page.goto('hub/');
+    for (const open of [openHubMenu, openOfficersMenu, openAccountMenu]) {
+      await open(page);
+      const results = await new AxeBuilder({ page }).include('header').analyze();
+      const bad = results.violations
+        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+        .map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
+      expect(bad).toEqual([]);
+      await page.keyboard.press('Escape');
+    }
+  });
+}
+
+test('a signed-in officer has Hub, Me and one Officers menu in the top bar', async ({ page }) => {
+  await page.goto('');
+  await expect(page.getByRole('navigation', { name: 'Guild' })).toHaveCount(0);
+  const main = page.getByRole('navigation', { name: 'Main' });
+  await expect(main.getByRole('button')).toHaveText(['Hub', 'Officers']);
+  await expect(main.getByRole('link')).toHaveText(['Me']);
+
+  const hub = await openHubMenu(page);
+  await expect(main.getByRole('button', { name: 'Hub' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(hub.getByRole('link')).toHaveText([
+    /^Hub home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/, 'Home', 'How we raid', 'Hub features', 'Story', 'Recruit'
+  ]);
+  await page.keyboard.press('Escape');
+  await expect(hub).toBeHidden();
+  await expect(main.getByRole('button', { name: 'Hub' })).toBeFocused();
+
+  await (await openHubMenu(page)).getByRole('link', { name: /^Logs/ }).click();
+  await expect(page).toHaveURL(/\/toads\/logs\/$/);
+  await expect(page.locator('#menu-hub')).toBeHidden();
+  await expect((await openHubMenu(page)).getByRole('link', { name: /^Logs/ })).toHaveAttribute('aria-current', 'page');
+
+  // The Wednesday raid leader sees the officer tools and Wednesday's section, never another night's or the Admin console.
+  const officers = await openOfficersMenu(page);
+  await expect(officers.getByRole('link', { name: /^Wednesday officers/ })).toBeVisible();
+  await expect(officers.getByRole('link', { name: /^Sunday officers/ })).toHaveCount(0);
+  await expect(officers.getByRole('link', { name: /^Admin console/ })).toHaveCount(0);
+});
+
+const signOut = (page: Page) => page.addInitScript(() => localStorage.removeItem('toads-preview-role'));
+
+test('a visitor keeps the public nav', async ({ page }) => {
+  await signOut(page);
   await page.goto('');
   const guild = page.getByRole('navigation', { name: 'Guild' });
   await expect(guild.getByRole('link')).toHaveText(['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']);
-  const members = page.getByRole('navigation', { name: 'Members' });
-  await expect(members.getByRole('link')).toHaveText(['Hub', 'Raid', 'Logs', 'Highlights', 'Bank', 'Me', 'Officers']);
-  await members.getByRole('link', { name: 'Hub' }).click();
-  await expect(page).toHaveURL(/\/toads\/hub\/$/);
-  await expect(members.getByRole('link', { name: 'Hub' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
+});
+
+test('the display settings switch to the light theme and easier reading, and remember them', async ({ page }) => {
+  await page.goto('hub/');
+  const root = page.locator('html');
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  const account = await openAccountMenu(page);
+  await account.getByRole('radio', { name: 'Light' }).check();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await account.getByRole('checkbox', { name: /Easier reading/ }).check();
+  await expect(root).toHaveAttribute('data-reading', 'easy');
+  await page.reload();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await expect(root).toHaveAttribute('data-reading', 'easy');
+});
+
+test('a visitor picks a theme from the Display menu', async ({ page }) => {
+  await signOut(page);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('');
+  await page.getByRole('banner').getByRole('button', { name: 'Display' }).click();
+  await page.getByRole('radio', { name: 'Match my device' }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
 test('the landing page says who we are and what we stand for', async ({ page }) => {

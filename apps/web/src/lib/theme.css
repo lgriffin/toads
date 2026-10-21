@@ -1,0 +1,82 @@
+/* The hub's colour tokens and reading settings, for every page. Two themes share one set of names:
+   - dark, the pond at dusk (the guild's look and the default): twilight ink and violet, a teal accent, bronze and cream;
+   - light, the pond by day: warm paper, deep ink text, a deeper teal and bronze so text keeps WCAG AA contrast.
+   static/display.js sets data-theme on <html> before the first paint; src/lib/display.ts changes it later.
+   The palette names keep their jobs in both themes: --ink is the page, --dusk the alternate band, --cream strong text,
+   --bronze-hi headings, --teal links and the accent, --bronze fills and rules. Text on a filled chip or button uses
+   --on-bronze or --on-accent, never --ink, because --ink turns pale by day. Status chips use the *-bg tokens. */
+
+:root,
+.always-dusk {
+  --ink: #120f33;
+  --dusk: #1b1a4d;
+  --teal: #3fd6c8;
+  --bronze: #d9a85a;
+  --bronze-hi: #f4dc9c;
+  --cream: #f7ecd2;
+  --bg: var(--ink);
+  --surface: #1d1c52;
+  --text: var(--cream);
+  --muted: #c4c0ea;
+  --accent: var(--teal);
+  --line: #3d3d86;
+  --warn: #e0b04f;
+  --bad: #e06a5f;
+  --bad-text: #f0a39c;
+  --on-accent: #0d0b28;
+  --on-bronze: #120f33;
+  --warn-bg: #3b3320;
+  --ok-bg: #24402c;
+  --bad-bg: #402624;
+  --info-bg: #1f3a4a;
+  --info-text: #9fd3f0;
+  --header-bg: #0d0b28;
+  --menu-bg: #17164a;
+  --nav-text: var(--muted);
+  --nav-hover: rgb(63 214 200 / 0.12);
+  --shadow: rgb(5 3 30 / 0.55);
+  /* How much of a game colour (class, item quality) text keeps; the rest is --cream, so it reads on either page. */
+  --class-mix: 70%;
+  --quality-mix: 100%;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --ink: #f6f1e5;
+  --dusk: #ebe6f3;
+  --teal: #0a6476;
+  --bronze: #c58f45;
+  --bronze-hi: #75460f;
+  --cream: #1c1942;
+  --surface: #fffcf5;
+  --muted: #4b4774;
+  --line: #d3cbe2;
+  --warn: #855400;
+  --bad: #b3261e;
+  --bad-text: #9c2a20;
+  --on-accent: #ffffff;
+  --on-bronze: #1c1942;
+  --warn-bg: #f6e6bf;
+  --ok-bg: #d6eee8;
+  --bad-bg: #f8dcd8;
+  --info-bg: #dbeaf3;
+  --info-text: #1b5675;
+  --header-bg: #fffcf5;
+  --menu-bg: #fffdf8;
+  --nav-hover: rgb(10 100 118 / 0.08);
+  --shadow: rgb(40 30 70 / 0.18);
+  --class-mix: 25%;
+  --quality-mix: 45%;
+  color-scheme: light;
+}
+
+/* Easier reading, picked in the display settings: bigger text, roomier lines and words, one plain typeface with no
+   capitals-only or widely spaced lettering, and underlined links so they never rely on colour alone. */
+:root[data-reading='easy'] { font-size: 112.5%; }
+:root[data-reading='easy'] body { line-height: 1.7; word-spacing: 0.08em; }
+:root[data-reading='easy'] body * {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+:root[data-reading='easy'] main a:not(.btn, .medal, .ghost) { text-decoration: underline; text-underline-offset: 0.2em; }

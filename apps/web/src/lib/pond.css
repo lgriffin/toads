@@ -16,7 +16,7 @@
 .pond-page input:focus-visible,
 .pond-page select:focus-visible,
 .pond-page textarea:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 3px; }
-.pond-page ::selection { background: var(--bronze); color: var(--ink); }
+.pond-page ::selection { background: var(--bronze); color: var(--on-bronze); }
 
 /* Each band paints edge to edge behind the centred column, without a horizontal scrollbar. */
 .pond-page .band {
@@ -42,7 +42,7 @@
 .pond-page .head p { margin: 0; max-width: 62ch; color: var(--muted); }
 
 /* Cards on the pond: a dusk panel with a hairline, never a coloured side stripe. */
-.pond-page .card { background: rgb(32 30 92 / 0.72); border-color: var(--line); border-radius: 10px; }
+.pond-page .card { background: color-mix(in srgb, var(--surface) 72%, transparent); border-color: var(--line); border-radius: 10px; }
 
 .pond-page .medal,
 .pond-page .ghost {
@@ -68,9 +68,9 @@
 .pond-page button.medal:hover:not(:disabled) { color: #2a1706; transform: translateY(-2px); }
 .pond-page button.medal:disabled { opacity: 0.55; cursor: not-allowed; }
 .pond-page a.ghost,
-.pond-page button.ghost { color: var(--cream); border: 1px solid var(--bronze); background: rgb(18 15 51 / 0.45); cursor: pointer; }
+.pond-page button.ghost { color: var(--cream); border: 1px solid var(--bronze); background: color-mix(in srgb, var(--ink) 45%, transparent); cursor: pointer; }
 .pond-page a.ghost:hover,
-.pond-page button.ghost:hover { background: rgb(63 214 200 / 0.18); color: var(--cream); }
+.pond-page button.ghost:hover { background: color-mix(in srgb, var(--teal) 18%, transparent); color: var(--cream); }
 .pond-page .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 
 @media (prefers-reduced-motion: reduce) {

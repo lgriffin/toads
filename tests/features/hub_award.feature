@@ -107,7 +107,7 @@ Feature: HUB AWARD
     Then the member runs no raid night
 
   @ears_ubiquitous @member @phase_2_7
-  Scenario: REQ-HUB-AWARD-010 A member's own page shall show the toads the header shows beside their name, rank, member toad and role badges included, as badges ahead of their awards
+  Scenario: REQ-HUB-AWARD-010 A member's own page shall show every toad they wear, rank, member toad and role badges included, the same toads that greet them on the hub home, as badges ahead of their awards
     Given the member's own page
-    Then its heading wears the same toads as the header
+    Then its heading wears the same toads as the hub home's greeting
     And its "Your toads" card shows each of those toads as a badge ahead of the awards

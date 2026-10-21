@@ -345,7 +345,7 @@
   .empty { margin: 0; }
   .lanes { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); align-items: start; }
   .lane {
-    background: rgb(13 11 40 / 0.6);
+    background: color-mix(in srgb, var(--ink) 60%, transparent);
     border-radius: 10px;
     padding: 0.8rem;
     display: grid;

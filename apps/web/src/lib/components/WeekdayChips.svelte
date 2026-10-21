@@ -29,14 +29,14 @@
     padding: 0.35rem 0.9rem;
     border: 1px solid var(--bronze);
     border-radius: 999px;
-    background: rgb(18 15 51 / 0.45);
+    background: color-mix(in srgb, var(--ink) 45%, transparent);
     color: var(--cream);
     cursor: pointer;
   }
   abbr { text-decoration: none; }
   .n { font-family: 'Alegreya Sans', system-ui, sans-serif; font-size: 0.85rem; color: var(--muted); }
-  button[aria-pressed='true'] { background: var(--bronze); color: var(--ink); font-weight: 700; }
-  button[aria-pressed='true'] .n { color: var(--ink); }
-  button:hover:not([aria-pressed='true']) { background: rgb(63 214 200 / 0.18); }
+  button[aria-pressed='true'] { background: var(--bronze); color: var(--on-bronze); font-weight: 700; }
+  button[aria-pressed='true'] .n { color: var(--on-bronze); }
+  button:hover:not([aria-pressed='true']) { background: color-mix(in srgb, var(--teal) 18%, transparent); }
   button:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
 </style>
