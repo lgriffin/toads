@@ -606,6 +606,18 @@ class CommunityService:
                 },
             )
 
+    def _welcome_in_late_room(self, app: Application) -> None:
+        """Accepted before the bot had built the room: the roles went out with the decision, the welcome follows."""
+        sent = [
+            j
+            for j in self.repo.jobs()
+            if j.kind is OutboxKind.WELCOME_RECRUIT and j.payload.get("application_id") == app.id
+        ]
+        if sent and not any(j.payload.get("channel_id") for j in sent):
+            self._enqueue(
+                OutboxKind.WELCOME_RECRUIT, {**sent[0].payload, "role_ids": [], "channel_id": app.interview_channel_id}
+            )
+
     def _note_welcome(self, job: OutboxJob, error: str | None) -> None:
         """The Toad Bot's word on an accepted applicant, as a note officers see on the Decisions panel."""
         app = self.repo.get_application(int(str(job.payload["application_id"])))
@@ -648,6 +660,8 @@ class CommunityService:
                 if app.status in recruitment.FINAL:
                     # Closed while the bot was still building the room: close it now, as _move would have.
                     self._close_room(app, int(str(job.payload["discord_user_id"])))
+                if app.status is ApplicationStatus.ACCEPTED:
+                    self._welcome_in_late_room(app)
         elif job.kind is OutboxKind.WELCOME_RECRUIT:
             self._note_welcome(job, ack.error)
         elif job.kind is OutboxKind.CLOSE_INTERVIEW_ROOM and ack.error is not None:

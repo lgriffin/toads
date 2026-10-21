@@ -764,6 +764,26 @@ def test_a_room_the_bot_cannot_delete_is_locked_instead(as_: Any, store: Communi
     assert card["notes"][0]["body"].startswith("Could not delete the interview room, so it was locked instead")
 
 
+def test_a_room_built_after_accepting_still_gets_the_welcome(as_: Any, store: CommunityService) -> None:
+    from dataclasses import replace
+
+    store.raid_days = replace(store.raid_days, raider_roles={"wed": (41,)})
+    app_id = _apply(as_, store, room=False)
+    as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/interview-room")
+    [room] = store.pending_jobs()
+    r = as_("Wednesday officer").post(
+        f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "accept"}
+    )
+    assert r.status_code == 200
+    as_(None).post(f"/api/bot/outbox/{room.id}/ack", json={"channel_id": 6001}, headers=BOT)
+    kinds = [(j.kind.value, j.payload.get("role_ids"), j.payload.get("channel_id")) for j in store.pending_jobs()]
+    assert kinds == [
+        ("welcome_recruit", [41], None),
+        ("lock_interview_room", None, 6001),
+        ("welcome_recruit", [], 6001),
+    ]
+
+
 def test_decided_applications_leave_the_panel_after_two_weeks(as_: Any, store: CommunityService, clock: Clock) -> None:
     app_id = _apply(as_, store, room=False)
     as_("Wednesday officer").post(f"/api/days/wed/admin/applications/{app_id}/decision", json={"decision": "reject"})
