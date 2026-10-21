@@ -13,7 +13,7 @@ Sample-data versions of the hub pages, rendered only in the static preview build
   which also gives Hopscotch's own badges on `Me`. The `flasks` table (off by default; place it with Customise) follows wcl_app.home's `flasks` widget. `Officers` is the officer view.
 - The preview opens signed out on the landing page. Its "Log in with Discord" goes to a pretend sign-in at `/login`
   (preview only; the real site answers 404 there) where the visitor picks the raider, the officer or the super admin view.
-  `session.svelte.ts` keeps the choice in localStorage; the top bar switches views and logs out, and the layout uses
+  `session.svelte.ts` keeps the choice in localStorage; the top bar's account menu switches views and logs out, and the layout uses
   `gate.ts` to ask signed-out visitors to sign in on member pages and to keep raiders out of the officer console.
 - Data comes from `$lib/mock/data.ts` and `$lib/mock/community.ts`. The preview visitor is Hopscotch, who raids both
   nights: the raider view has no officer powers, the officer view is Wednesday's raid leader, and the super admin view

@@ -40,7 +40,7 @@
 </script>
 
 <div class="pond">
-  <section class="hero band" aria-labelledby="landing-h">
+  <section class="hero band always-dusk" aria-labelledby="landing-h">
     <div class="backdrop" aria-hidden="true">
       <PondScene />
       {#if mounted && !artFailed}
@@ -235,22 +235,10 @@
 </div>
 
 <style>
-  /* The pond's own palette, taken from the WoW Forever key art: twilight violet, a teal medallion, bronze and cream.
-     The shared tokens are re-pointed inside this wrapper so the cards and charts below inherit it. */
+  /* The pond's palette (WoW Forever key art: twilight violet, a teal medallion, bronze and cream) is the hub's own
+     theme, so the bands follow the reader's light or dark choice. The hero stays at dusk (.always-dusk): its text sits
+     on the night-time key art. */
   .pond {
-    --ink: #120f33;
-    --dusk: #1b1a4d;
-    --teal: #3fd6c8;
-    --teal-deep: #0b6a80;
-    --bronze: #d9a85a;
-    --bronze-hi: #f4dc9c;
-    --cream: #f7ecd2;
-    --bg: var(--ink);
-    --surface: rgba(32, 30, 92, 0.72);
-    --line: #4a4a9a;
-    --text: var(--cream);
-    --muted: #c4c0ea;
-    --accent: var(--teal);
     font-family: 'Alegreya Sans', system-ui, sans-serif;
     font-size: 1.1rem;
     line-height: 1.5;
@@ -261,7 +249,7 @@
   .pond :global(a:hover) { color: var(--bronze-hi); }
   .pond :global(a:focus-visible),
   .pond :global(button:focus-visible) { outline: 2px solid var(--bronze-hi); outline-offset: 3px; }
-  .pond ::selection { background: var(--bronze); color: var(--ink); }
+  .pond ::selection { background: var(--bronze); color: var(--on-bronze); }
 
   /* Each band paints edge to edge behind the centred column, without a horizontal scrollbar. */
   .band {
@@ -331,8 +319,8 @@
   }
   .pond a.medal { background: linear-gradient(#f4dc9c, #c58f45); color: #2a1706; border: 1px solid #7a4f23; box-shadow: 0 3px 10px rgb(5 3 30 / 0.5), inset 0 1px 0 #fff3c4; }
   .pond a.medal:hover { color: #2a1706; transform: translateY(-2px); }
-  .pond a.ghost { color: var(--cream); border: 1px solid var(--bronze); background: rgb(18 15 51 / 0.45); }
-  .pond a.ghost:hover { background: rgb(63 214 200 / 0.18); color: var(--cream); }
+  .pond a.ghost { color: var(--cream); border: 1px solid var(--bronze); background: color-mix(in srgb, var(--ink) 45%, transparent); }
+  .pond a.ghost:hover { background: color-mix(in srgb, var(--teal) 18%, transparent); color: var(--cream); }
 
   /* Two homes */
   .homes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
@@ -356,7 +344,7 @@
   }
   .rules h3 { font-size: 1.3rem; color: var(--bronze-hi); }
 
-  .opens { margin: 0; max-width: 62ch; padding: 0.8rem 1.1rem; border: 1px solid var(--bronze); border-radius: 10px; background: rgb(217 168 90 / 0.1); color: var(--cream); }
+  .opens { margin: 0; max-width: 62ch; padding: 0.8rem 1.1rem; border: 1px solid var(--bronze); border-radius: 10px; background: color-mix(in srgb, var(--bronze) 10%, transparent); color: var(--cream); }
   .apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
   .apps li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem; display: grid; gap: 0.3rem; align-content: start; }
   .cta:last-child { justify-content: flex-start; }
@@ -385,7 +373,7 @@
   .classes { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0; }
   .classes li { display: grid; grid-template-columns: 3rem 1fr; grid-template-areas: 'i n' 'i s'; column-gap: 0.7rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--line); }
   .classes img { grid-area: i; width: 3rem; height: auto; }
-  .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) 70%, white); border-bottom: 2px solid var(--c); justify-self: start; line-height: 1.2; }
+  .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) var(--class-mix), var(--cream)); border-bottom: 2px solid var(--c); justify-self: start; line-height: 1.2; }
   .specs { grid-area: s; color: var(--muted); font-size: 0.95rem; }
   .cta.left { justify-content: flex-start; }
   .apply-how { max-width: 60ch; margin: 1.5rem 0 0; color: var(--muted); }

@@ -23,7 +23,7 @@
     width: 2.2rem;
     height: 2.2rem;
     border-radius: 50%;
-    background: #24402c;
+    background: var(--ok-bg);
     color: var(--accent);
     font-weight: 700;
   }

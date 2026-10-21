@@ -34,13 +34,13 @@
     font-family: 'Cinzel', Georgia, serif;
     letter-spacing: 0.06em;
     padding: 0.45rem 1.1rem;
-    background: rgb(18 15 51 / 0.45);
+    background: color-mix(in srgb, var(--ink) 45%, transparent);
     color: var(--cream);
     border: 0;
     cursor: pointer;
   }
   button + button { border-left: 1px solid var(--bronze); }
-  button[aria-pressed='true'] { background: var(--bronze); color: var(--ink); font-weight: 700; }
-  button:hover:not([aria-pressed='true']) { background: rgb(63 214 200 / 0.18); }
+  button[aria-pressed='true'] { background: var(--bronze); color: var(--on-bronze); font-weight: 700; }
+  button:hover:not([aria-pressed='true']) { background: color-mix(in srgb, var(--teal) 18%, transparent); }
   button:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: -3px; }
 </style>

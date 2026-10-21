@@ -36,7 +36,7 @@
   <h1 id="login-h">Log in with Discord</h1>
   <p>
     This is a demo, so there is no real Discord sign-in. Pick a view to explore as Hopscotch, one of our raiders.
-    You can switch views or log out from the top bar at any time.
+    You can switch views or log out from the menu under your name in the top bar at any time.
   </p>
   {#if previewSession.role}
     <p class="muted">You are signed in with the {VIEW[previewSession.role]} view. Picking again switches views.</p>
