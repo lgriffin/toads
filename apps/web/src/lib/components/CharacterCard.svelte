@@ -1,5 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import type { Snippet } from 'svelte';
+  import { characterLabel } from '$lib/main-swap';
   import {
     placeLabel,
     rolesLabel,
@@ -15,9 +17,11 @@
 
   // The member's own raids, as the analyzer's character profile shows them (GET /api/me/character-page): each raid's
   // headline number against the median for the same role in that raid (REQ-HUB-ME-002), a chart per role once there
-  // are enough raids (REQ-HUB-ME-004), personal bests and the character's lineage. `pick` switches to another of the
-  // member's characters.
-  let { mine, pick }: { mine: MyCharacterPage; pick?: (name: string) => void } = $props();
+  // are enough raids (REQ-HUB-ME-004), personal bests and the character's lineage. It opens on the member's main;
+  // `pick` switches to another of their characters from one dropdown (REQ-HUB-ME-006), and `main` (the main swap)
+  // sits under it.
+  let { mine, pick, main }: { mine: MyCharacterPage; pick?: (name: string) => void; main?: Snippet<[string]> } =
+    $props();
 
   const page = $derived(mine.page);
   // The preview prerenders pages with trailing slashes.
@@ -30,15 +34,22 @@
   <h2 id="character-h">Your raids</h2>
   {#if page}
     {#if mine.characters.length > 1 && pick}
-      <div class="chars" role="group" aria-label="Your characters">
-        {#each mine.characters as c (c)}
-          <button type="button" aria-pressed={c === page.name} onclick={() => pick?.(c)}>{c}</button>
-        {/each}
+      <div class="chars">
+        <label for="character-pick">Character</label>
+        <select id="character-pick" value={page.name} onchange={(e) => {
+            pick?.(e.currentTarget.value);
+            // The dropdown follows the page shown, so a switch that fails leaves both on the old character.
+            e.currentTarget.value = page.name;
+          }}>
+          {#each mine.characters as c (c)}
+            <option value={c}>{characterLabel(c, mine.main ?? null)}</option>
+          {/each}
+        </select>
       </div>
     {/if}
+    {@render main?.(page.name)}
     <p class="muted sub">
-      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}
-        since {page.first_raid.slice(0, 10)}{/if}. {rolesLabel(page.role_counts)}
+      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}{` since ${page.first_raid.slice(0, 10)}`}{/if}. {rolesLabel(page.role_counts)}
     </p>
 
     {#if showTrends(page)}
@@ -150,6 +161,7 @@
     <p class="muted">Claim your characters to see your raids here.</p>
   {/if}
   {#if !page}
+    {@render main?.('')}
     <a href="{base}/me/claim{slash}">Claim your characters</a>
   {/if}
 </section>
@@ -158,17 +170,16 @@
   .sub { margin-top: -0.25rem; }
   h3 { margin: 1rem 0 0.4rem; font-size: 1rem; }
   .small { font-size: 0.8rem; }
-  .chars { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
-  .chars button {
+  .chars { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .chars select {
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 0.35rem 0.7rem;
     font: inherit;
-    cursor: pointer;
+    min-width: min(100%, 14rem);
   }
-  .chars button[aria-pressed='true'] { border-color: var(--accent); }
   .bests { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
   .bests li { display: flex; flex-direction: column; }
   .scroll { overflow-x: auto; }

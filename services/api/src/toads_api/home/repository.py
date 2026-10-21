@@ -73,6 +73,9 @@ class MemberCharacters:
     claimed_by_others: frozenset[str]
     # Another member goes by the same server nickname, so the nickname alone cannot say whose character it is.
     nickname_shared: bool = False
+    # Their main: the approved character officers made their main, else their first approved claim
+    # (hub_db.main_claim). Me opens on it.
+    main: str | None = None
 
 
 class HomeRepository(Protocol):

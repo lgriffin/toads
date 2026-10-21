@@ -8,6 +8,7 @@ migration in `hub_db/migrations/versions/`; `test_migrations.py` fails when the 
 from __future__ import annotations
 
 import enum
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import JSON, BigInteger, DateTime, Enum, ForeignKey, String, UniqueConstraint
@@ -40,6 +41,9 @@ class Member(Base):
     # honoured only while the member holds an approved claim on it).
     name_source: Mapped[str] = mapped_column(String(16), default="discord", server_default="discord")
     name_character_id: Mapped[int | None] = mapped_column()
+    # The character the member raids as: an officer-approved choice among their approved claims (main_claim). Null,
+    # or a character they no longer hold, means their first approved claim.
+    main_character_id: Mapped[int | None] = mapped_column()
     # The raid days the member's Discord roles put them on (trial, raider or officer), refreshed at every sign-in
     # and role refresh. Never a source of permissions: the officers' comp builder reads it for a raid day's pool.
     # Null until the member signs in again after it was added.
@@ -172,6 +176,37 @@ class CharacterClaim(Base):
     character_name: Mapped[str] = mapped_column(String(64))
     # The raid day whose officers decide this claim; NULL means only global officers can.
     raid_day_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    status: Mapped[ClaimStatus] = mapped_column(
+        Enum(ClaimStatus, native_enum=False, values_callable=lambda e: [m.value for m in e], length=16),
+        default=ClaimStatus.PENDING,
+    )
+    reason: Mapped[str | None] = mapped_column(String(200))
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("members.id"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+def main_claim(main_character_id: int | None, approved: Sequence[CharacterClaim]) -> CharacterClaim | None:
+    """A member's main among their approved claims: the one officers approved as main while they still hold it, else
+    the first they were given (the oldest claim)."""
+    chosen = next((c for c in approved if c.character_id == main_character_id), None)
+    return chosen or min(approved, key=lambda c: c.id, default=None)
+
+
+class MainSwapRequest(Base):
+    """A member asking to make one of their approved alts their main (docs/me.md). It waits for an officer of their
+    raid nights, as a claim does; approving it sets members.main_character_id. One pending request per member: a new
+    ask replaces the pending one."""
+
+    __tablename__ = "main_swap_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), index=True)
+    character_id: Mapped[int] = mapped_column()
+    # The character's name when asked, so the officers' panel reads without a join.
+    character_name: Mapped[str] = mapped_column(String(64))
+    # The member's home raid day when asked, for members whose row has not recorded its nights.
+    raid_day_id: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[ClaimStatus] = mapped_column(
         Enum(ClaimStatus, native_enum=False, values_callable=lambda e: [m.value for m in e], length=16),
         default=ClaimStatus.PENDING,

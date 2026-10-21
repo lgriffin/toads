@@ -233,15 +233,29 @@ test('raid leaders see the roster\'s badges on Logs and members their own on Me'
 test('Me shows a member their own raids against the role median, and switches character', async ({ page }) => {
   await page.goto('me/');
   const raids = page.getByRole('region', { name: 'Your raids' });
-  await expect(raids.getByText(/^Hopscotch, Rogue: 5 guild raids/)).toBeVisible();
+  await expect(raids.getByText(/^Hopscotch, Rogue: 5 guild raids since \d{4}-/)).toBeVisible();
   await expect(raids.getByRole('img', { name: /^Damage as melee/ })).toBeVisible();
   await expect(raids.getByRole('columnheader', { name: 'Role median' })).toBeVisible();
-  await raids.getByRole('button', { name: 'Lilypadd' }).click();
+  const pick = raids.getByLabel('Character');
+  await expect(pick.locator('option:checked')).toHaveText('Hopscotch (main)');
+  await pick.selectOption('Lilypadd');
   await expect(raids.getByText(/^Building your history/)).toBeVisible();
   await expect(raids.getByRole('img', { name: /^Healing as healer/ })).toHaveCount(0);
   // Each raid opens its page under Logs.
   await raids.getByRole('link', { name: 'Tempest Keep' }).first().click();
   await expect(page).toHaveURL(/\/toads\/logs\/pondThu1015\/$/);
+});
+
+test('a member asks an officer to make the alt they are looking at their main', async ({ page }) => {
+  await page.goto('me/');
+  const raids = page.getByRole('region', { name: 'Your raids' });
+  await expect(raids.getByRole('button', { name: /Make .* my main$/ }).first()).toBeVisible();
+  await expect(raids.getByRole('button', { name: 'Make Lilypadd my main' })).toHaveCount(0);
+  await raids.getByLabel('Character').selectOption('Lilypadd');
+  await raids.getByRole('button', { name: 'Make Lilypadd my main' }).click();
+  await expect(raids).toContainText('Waiting for an officer to make Lilypadd your main instead of Hopscotch.');
+  await raids.getByRole('button', { name: 'Withdraw' }).click();
+  await expect(raids.getByRole('status').filter({ hasText: 'Withdrew' })).toHaveText('Withdrew your main swap.');
 });
 
 test('the tab shows the toad icon, and every icon file loads under the base path', async ({ page, request }) => {

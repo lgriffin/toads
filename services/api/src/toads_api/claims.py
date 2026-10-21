@@ -196,14 +196,20 @@ def claim_nights(claim: CharacterClaim, member: Member | None, configured: Colle
     night Toad role, refreshed at every sign-in), else, for a member row that has never recorded its nights, the day
     recorded when they claimed. Only nights still in config count. Empty means only global officers and super admins
     decide it."""
+    return member_nights(member, claim.raid_day_id, configured)
+
+
+def member_nights(member: Member | None, recorded_day: str | None, configured: Collection[str]) -> list[str]:
+    """The raid nights whose officers decide a member's request (a claim, or a main swap): their nights now, else the
+    day recorded when they asked. Only nights still in config count."""
     if member is not None and member.raid_days is not None:
         nights = list(member.raid_days)
     else:
-        nights = [claim.raid_day_id] if claim.raid_day_id is not None else []
+        nights = [recorded_day] if recorded_day is not None else []
     return [n for n in nights if n in configured]
 
 
-def _configured(services: Services) -> frozenset[str]:
+def configured_nights(services: Services) -> frozenset[str]:
     return frozenset(d.id for d in services.raid_days.raid_days)
 
 
@@ -222,7 +228,7 @@ def _pending(services: Services) -> list[tuple[CharacterClaim, Member | None, li
             .where(CharacterClaim.status == ClaimStatus.PENDING)
             .order_by(CharacterClaim.created_at, CharacterClaim.id)
         ).all()
-        configured = _configured(services)
+        configured = configured_nights(services)
         return [(claim, member, claim_nights(claim, member, configured)) for claim, member in rows]
 
 
@@ -285,7 +291,7 @@ def _decide(
         claim = db.scalar(select(CharacterClaim).where(CharacterClaim.id == claim_id).with_for_update())
         if claim is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such claim")
-        nights = claim_nights(claim, db.get(Member, claim.member_id), _configured(services))
+        nights = claim_nights(claim, db.get(Member, claim.member_id), configured_nights(services))
         # Claims without a night (the claimant holds no night role) belong to the global tier.
         if day is None or day in nights:
             return _apply(db, principal, claim, decision, reason, new_member_id)

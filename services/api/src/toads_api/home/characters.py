@@ -32,8 +32,10 @@ class MyCharacterPage:
     matched_by: MatchedBy | None
     # The character names looked for, in order of preference.
     looked_for: list[str]
-    # The member's characters that have a page, best first, so Me can switch between them.
+    # The member's characters that have a page, best first (their main leads), so Me can switch between them.
     characters: list[str]
+    # Their main character's name, whether or not it has a page; None before they hold an approved claim.
+    main: str | None = None
 
 
 class CharacterPageService:
@@ -66,11 +68,12 @@ class CharacterPageService:
         """The member's page for `name` when it is one of theirs, else their main character's."""
         chars = self.repo.member_characters(member_id)
         wanted = candidates(chars) if chars is not None else []
+        main = chars.main if chars is not None else None
         looked_for = [n for n, _ in wanted]
         found = [(n, how, page) for n, how in wanted if (page := self.repo.character_page(n)) is not None]
         if not found:
-            return MyCharacterPage(self.repo.character_pages_generated_at(), None, None, looked_for, [])
+            return MyCharacterPage(self.repo.character_pages_generated_at(), None, None, looked_for, [], main)
         names = [str(page.page["name"]) for _, _, page in found]
         chosen = next((f for f in found if name is not None and fold(f[0]) == fold(name)), found[0])
         _, how, page = chosen
-        return MyCharacterPage(page.generated_at, dict(page.page), how, looked_for, names)
+        return MyCharacterPage(page.generated_at, dict(page.page), how, looked_for, names, main)

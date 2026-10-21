@@ -16,6 +16,7 @@ from hub_db import (
     Member,
     MemberHomeLayout,
     NightHomePage,
+    main_claim,
 )
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -179,6 +180,7 @@ class SqlHomeRepository:
                 return None
             claims = db.scalars(select(CharacterClaim).where(CharacterClaim.status != ClaimStatus.REJECTED)).all()
             approved = [c for c in claims if c.member_id == member_id and c.status is ClaimStatus.APPROVED]
+            main = main_claim(member.main_character_id, approved)
             chosen = next(
                 (
                     c.character_name
@@ -196,6 +198,7 @@ class SqlHomeRepository:
                     fold(name) == fold(member.display_name)
                     for name in db.scalars(select(Member.display_name).where(Member.id != member_id))
                 ),
+                main=main.character_name if main else None,
             )
 
     def character_names(self) -> list[str]:

@@ -42,3 +42,15 @@ test('a claim decided on one night\'s panel leaves the other night\'s too', asyn
   await expect(sun.getByText('Lilypadd', { exact: true })).toHaveCount(0);
   await expect(sun.getByText('Pondweed', { exact: true })).toBeVisible();
 });
+
+test('a member\'s main swap waits on their night\'s panel with their claims', async ({ page }) => {
+  await signIn(page, 'admin');
+  await page.goto('officers/nights/thu/');
+  const panel = page.getByRole('region', { name: 'Character claims' });
+  await expect(panel).toContainText('Mossy asks to raid as Mossfire instead of Mossback');
+  await panel.getByRole('button', { name: 'Reject Mossy’s main swap to Mossfire' }).click();
+  await panel.getByLabel('Why? Mossy reads this on Me').fill('We need the healer');
+  await panel.getByRole('button', { name: 'Reject main swap' }).click();
+  await expect(panel.getByRole('status')).toHaveText('Kept Mossy’s main; Mossfire stays an alt.');
+  await expect(panel.getByText('Bramblewick', { exact: true })).toBeVisible();
+});

@@ -16,10 +16,30 @@ re-implemented in the hub: the worker builds the pages from wcl-store and the AP
 - Across their raids: the lowest, average and highest of each number (overheal %, mitigation %, casts, consumables,
   and the share of raids with a flask or elixir pair), their most cast spells and their consumables.
 
-A member with more than one character with guild raids switches between them (REQ-HUB-ME-005). The characters are the
-ones "Your performance" picks: the character they chose, then approved claims, then their server nickname when nobody
-else claims or shares it. Asking for anyone else's name shows their own main character; nobody sees another member's
-page.
+A member with more than one character with guild raids switches between them from one dropdown (REQ-HUB-ME-005,
+REQ-HUB-ME-006). The characters are the ones "Your performance" picks: their main, then the character they chose to go
+by, then their other approved claims, then their server nickname when nobody else claims or shares it. Asking for
+anyone else's name shows their own main character; nobody sees another member's page.
+
+## Main character
+
+Me opens on the member's main, and the dropdown labels it "(main)". The main is the first character an officer
+approved for them (their oldest approved claim) until an officer approves a swap (`members.main_character_id`,
+migration 0031). The name a member chooses to go by in settings does not change it. Unclaiming the main, or an officer
+reassigning it, falls back to the oldest approved claim left. "Your performance" and badges follow the main too.
+
+Looking at an approved alt, the member can press **Make <alt> my main**; alts with no guild raids, which the dropdown
+cannot show, get the same button under it. The ask (`main_swap_requests`) waits for an officer of the member's raid
+nights on the same panels as claims (REQ-HUB-CLAIM-006), and the member can withdraw it while it waits. A new ask
+replaces the pending one. A rejection's reason shows on Me until the member asks again or the alt leaves them.
+
+- `GET /api/me/main`: the main, the other approved characters, and the latest ask.
+- `POST /api/me/main` `{character_id}`: ask; 422 unless it is one of their approved characters, 409 if it is the
+  main already. `#officers` gets a `main_swap_pending` event.
+- `DELETE /api/me/main/request`: withdraw the pending ask.
+- Officers: `GET /api/days/{day}/main-swaps`, `POST /api/days/{day}/main-swaps/{id}/approve|reject` (reject takes a
+  reason), and for the global tier `/api/admin/main-swaps` (members on no night) plus approve/reject on any night's.
+  Approving an alt the member no longer holds answers 409.
 
 ## How it is built
 

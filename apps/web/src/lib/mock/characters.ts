@@ -140,6 +140,7 @@ export function previewCharacterPage(name: string | null = null): MyCharacterPag
     page: PAGES[name ?? ''] ?? hopscotch,
     matched_by: 'chosen',
     looked_for: ['Hopscotch', 'Lilypadd'],
-    characters: Object.keys(PAGES)
+    characters: Object.keys(PAGES),
+    main: 'Hopscotch'
   };
 }

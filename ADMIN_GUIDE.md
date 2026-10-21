@@ -568,6 +568,11 @@ they sign in), so moving a member to another night moves their pending claims wi
 admins see every night's claims, plus a "Members on no raid night" list for claimants who hold no night role
 (`/api/admin/claims`). The API also takes a reassign (`/api/days/{day}/claims/{id}/reassign`).
 
+The same panels hold **main swaps**, tagged "Main swap": a member asking to raid as one of their approved alts
+instead of their main (the first character they were approved for, until a swap). Approve makes the alt their main on
+Me, "Your performance" and badges; reject asks for the reason the member reads on Me. Main swaps follow the member's
+nights exactly as claims do (`/api/days/{day}/main-swaps`, `/api/admin/main-swaps`); see `docs/me.md`.
+
 ### Refresh hub data by hand
 
 The scheduler does this every 30 minutes, and imports new guild reports every 15 minutes, as many as the guild key's
