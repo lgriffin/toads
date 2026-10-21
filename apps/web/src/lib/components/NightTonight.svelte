@@ -1,6 +1,7 @@
 <script lang="ts">
   import { absenceError, nightLabel, type AbsencesBackend } from '$lib/absences';
   import type { CompBackend } from '$lib/comp';
+  import { ApiError } from '$lib/api';
   import {
     LINK_LABEL_LIMIT,
     LINK_URL_LIMIT,
@@ -32,7 +33,13 @@
   let message = $state('');
   let failed = $state(false);
 
-  const ROLE_PLURAL = { tank: 'tank', healer: 'healer', melee: 'melee', ranged: 'ranged' } as const;
+  const ROLE_WORD = {
+    tank: ['tank', 'tanks'],
+    healer: ['healer', 'healers'],
+    melee: ['melee', 'melee'],
+    ranged: ['ranged', 'ranged']
+  } as const;
+  const roleWord = (role: keyof typeof ROLE_WORD, count: number) => ROLE_WORD[role][count === 1 ? 0 : 1];
 
   $effect(() => {
     const d = day;
@@ -41,11 +48,17 @@
       ([team, pool]) => (next = tonight(team, pool)),
       (e) => ((awayError = absenceError(e)), (next = null))
     );
+    loadLinks(d);
+  });
+
+  // Pinning waits for the list, so a slow first load can never land over a link just pinned.
+  function loadLinks(d: string) {
+    [pinned, linkError] = [null, ''];
     links.links(d).then(
       (l) => (pinned = l),
       (e) => (linkError = linksError(e))
     );
-  });
+  }
 
   async function pin(event: SubmitEvent) {
     event.preventDefault();
@@ -74,12 +87,17 @@
       pinned = (pinned ?? []).filter((x) => x.id !== link.id);
       [message, failed] = [`Unpinned “${link.label}”.`, false];
     } catch (e) {
-      [message, failed] = [linksError(e), true];
+      // Another officer already took it off: it is gone either way.
+      if (e instanceof ApiError && e.status === 404) {
+        pinned = (pinned ?? []).filter((x) => x.id !== link.id);
+        [message, failed] = [`“${link.label}” was already unpinned.`, false];
+      } else {
+        [message, failed] = [linksError(e), true];
+      }
     } finally {
       busy = false;
     }
   }
-
 </script>
 
 <section class="band tonight" aria-labelledby="tonight-h">
@@ -89,7 +107,8 @@
       <p>
         {#if next.away.length}
           {next.away.length}{next.roster ? ` of ${next.roster}` : ''} away{#if next.short.length}, so short
-            {next.short.map((s) => `${s.count} ${ROLE_PLURAL[s.role]}`).join(', ')}{/if}.
+            {next.short.map((s) => `${s.count} ${roleWord(s.role, s.count)}`).join(', ')}{/if}{#if next.unknown}
+            ({next.unknown} with no known role){/if}.
         {:else}
           Everyone on the roster is expected.
         {/if}
@@ -115,7 +134,7 @@
           {#each next.away as a, i (i)}
             <li>
               <strong>{a.name}</strong>
-              {#if a.spec}<span class="spec">{a.spec}</span>{:else}<span class="muted small">no specs set</span>{/if}
+              {#if a.spec}<span class="spec">{a.spec}</span>{:else if a.onRoster}<span class="muted small">no specs set</span>{/if}
               {#if a.note}<span class="note">{a.note}</span>{/if}
             </li>
           {/each}
@@ -126,7 +145,10 @@
     <div class="card" aria-labelledby="tonight-links-h" role="group">
       <h3 id="tonight-links-h">Strategy and roles</h3>
       {#if linkError}
-        <p class="err" role="alert">{linkError}</p>
+        <p class="err retry" role="alert">
+          {linkError}
+          <button type="button" class="btn small" onclick={() => loadLinks(day)}>Try again</button>
+        </p>
       {:else if pinned === null}
         <p class="muted" role="status">Loading…</p>
       {:else if !pinned.length}
@@ -162,7 +184,9 @@
             bind:value={url}
           />
         </div>
-        <button class="btn primary" type="submit" disabled={busy || !label.trim() || !url.trim()}>Pin link</button>
+        <button class="btn primary" type="submit" disabled={busy || pinned === null || !label.trim() || !url.trim()}>
+          Pin link
+        </button>
       </form>
       {#if message}<p class={failed ? 'err' : 'ok'} role="status">{message}</p>{/if}
     </div>
@@ -187,5 +211,6 @@
   .field label { color: var(--muted); font-size: 0.9rem; }
   input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem; font: inherit; }
   .small { font-size: 0.85rem; }
+  .retry { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
   .links .btn { padding: 0.3rem 0.65rem; font-size: 0.85rem; }
 </style>

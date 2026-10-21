@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from hub_db import NightLink as NightLinkRow
 from hub_db import OfficerBoardCard
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api import audit
@@ -122,17 +123,33 @@ class SqlBoardRepository:
         with self._db() as db:
             return [_link(r) for r in db.scalars(query)]
 
-    def add_link(self, raid_day: str, label: str, url: str, by: int) -> NightLink:
-        last = select(func.max(NightLinkRow.position)).where(NightLinkRow.raid_day_id == raid_day)
-        with self._db.begin() as db:
-            top = db.scalar(last)
-            row = NightLinkRow(
-                raid_day_id=raid_day, position=0 if top is None else top + 1, label=label, url=url, created_by=by
-            )
-            db.add(row)
-            db.flush()
-            audit.record(db, actor=by, action="board.link_add", target=f"night_link:{row.id}", raid_day=raid_day)
-            return _link(row)
+    def add_link(self, raid_day: str, label: str, url: str, by: int, limit: int) -> NightLink | None:
+        # Two officers pinning at once read the same count and last place; (raid_day_id, position) is unique, so only
+        # one insert lands and the other counts again, which keeps the night within its limit without a lock.
+        day = NightLinkRow.raid_day_id == raid_day
+        for attempt in range(3):
+            try:
+                with self._db.begin() as db:
+                    if (db.scalar(select(func.count()).where(day)) or 0) >= limit:
+                        return None
+                    top = db.scalar(select(func.max(NightLinkRow.position)).where(day))
+                    row = NightLinkRow(
+                        raid_day_id=raid_day,
+                        position=0 if top is None else top + 1,
+                        label=label,
+                        url=url,
+                        created_by=by,
+                    )
+                    db.add(row)
+                    db.flush()
+                    audit.record(
+                        db, actor=by, action="board.link_add", target=f"night_link:{row.id}", raid_day=raid_day
+                    )
+                    return _link(row)
+            except IntegrityError:
+                if attempt == 2:
+                    raise
+        return None
 
     def remove_link(self, raid_day: str, link_id: int, by: int) -> bool:
         with self._db.begin() as db:

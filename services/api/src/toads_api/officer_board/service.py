@@ -22,6 +22,18 @@ LINK_LABEL_LIMIT = 80
 LINK_URL_LIMIT = 500
 
 
+def _https_link(url: str) -> bool:
+    """An https link to a named host, with no spaces and a well-formed port, so browsers open what the hub stored."""
+    if any(c.isspace() for c in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        host, _ = parts.hostname, parts.port
+    except ValueError:
+        return False
+    return parts.scheme == "https" and bool(host) and "." in (host or "") and not (host or "").startswith(".")
+
+
 class BoardError(Exception):
     """A request the rules refuse. `status` is the HTTP code the adapter should answer with."""
 
@@ -159,12 +171,12 @@ class OfficerBoardService:
         if not label or len(label) > LINK_LABEL_LIMIT:
             raise BoardError(f"Give the link a name of up to {LINK_LABEL_LIMIT} characters", status=422)
         url = url.strip()
-        parts = urlsplit(url)
-        if len(url) > LINK_URL_LIMIT or parts.scheme != "https" or not parts.hostname or "." not in parts.hostname:
+        if len(url) > LINK_URL_LIMIT or not _https_link(url):
             raise BoardError("Paste a full https:// link, such as a Google Drive share link", status=422)
-        if len(self.repo.links(raid_day)) >= LINK_LIMIT:
+        link = self.repo.add_link(raid_day, label, url, by, LINK_LIMIT)
+        if link is None:
             raise BoardError(f"A night holds {LINK_LIMIT} links; take one off first", status=409)
-        return self.repo.add_link(raid_day, label, url, by)
+        return link
 
     def remove_link(self, raid_day: str, link_id: int, by: int) -> None:
         if not self.repo.remove_link(raid_day, link_id, by):

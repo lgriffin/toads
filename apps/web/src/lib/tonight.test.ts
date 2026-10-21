@@ -34,11 +34,18 @@ describe('tonight', () => {
       date: '2026-10-21',
       roster: 3,
       away: [
-        { name: 'Lilypadd', note: 'Working late.', spec: 'Restoration Shaman', role: 'healer' },
-        { name: 'Ribbit', note: null, spec: '', role: null }
+        { name: 'Lilypadd', note: 'Working late.', spec: 'Restoration Shaman', role: 'healer', onRoster: true },
+        { name: 'Ribbit', note: null, spec: '', role: null, onRoster: true }
       ],
-      short: [{ role: 'healer', count: 1 }]
+      short: [{ role: 'healer', count: 1 }],
+      unknown: 1
     });
+  });
+
+  it('never says someone off the roster has no specs set', () => {
+    const t = tonight({ raid_day: 'wed', nights: [{ date: '2026-10-21', absent: [absence(50, 'Bogwort')] }], absences: [] }, []);
+    expect(t?.away[0]).toMatchObject({ spec: '', role: null, onRoster: false });
+    expect(t).toMatchObject({ roster: 0, short: [], unknown: 1 });
   });
 
   it('has nothing to say with no nights ahead', () => {
@@ -52,6 +59,8 @@ describe('night links', () => {
     expect(linkProblem('Roles', 'drive.google.com/x')).toMatch(/https/);
     expect(linkProblem('Roles', 'http://drive.google.com/x')).toMatch(/https/);
     expect(linkProblem('Roles', 'javascript:alert(1)')).toMatch(/https/);
+    expect(linkProblem('Roles', 'https://[abc')).toMatch(/https/);
+    expect(linkProblem('Roles', 'https://example.com:abc/x')).toMatch(/https/);
     expect(linkProblem('Roles', 'https://drive.google.com/x')).toBeNull();
   });
 

@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("created_by", sa.Integer(), sa.ForeignKey("members.id", ondelete="SET NULL"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_night_links_day", "night_links", ["raid_day_id", "position"])
+    op.create_index("ix_night_links_day", "night_links", ["raid_day_id", "position"], unique=True)
 
 
 def downgrade() -> None:

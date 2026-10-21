@@ -39,7 +39,8 @@ class NightLink(Base):
     """A link a raid day's officers pin to their night: the strategy doc, the role sheet, the Drive folder."""
 
     __tablename__ = "night_links"
-    __table_args__ = (Index("ix_night_links_day", "raid_day_id", "position"),)
+    # Unique, so two officers pinning at once can never share a place (or slip past the night's limit together).
+    __table_args__ = (Index("ix_night_links_day", "raid_day_id", "position", unique=True),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     raid_day_id: Mapped[str] = mapped_column(String(32))

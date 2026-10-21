@@ -8,9 +8,11 @@ import { specLabel, specOf, type PoolEntry, type Role } from './comp';
 export interface AwayRaider {
   name: string;
   note: string | null;
-  /** "Restoration Shaman"; "" until they set their specs on Me. */
+  /** "Restoration Shaman"; "" until they set their specs on Me, or when they are not on the roster. */
   spec: string;
   role: Role | null;
+  /** Whether the night's roster lists them, so "no specs set" is only said of someone it lists. */
+  onRoster: boolean;
 }
 
 export interface Tonight {
@@ -20,6 +22,8 @@ export interface Tonight {
   roster: number;
   /** Away players by role, roles with nobody away left out. */
   short: { role: Role; count: number }[];
+  /** Away players whose role is not known (no spec set, or not on the roster), so `short` leaves them out. */
+  unknown: number;
 }
 
 const ROLE_ORDER: Role[] = ['tank', 'healer', 'melee', 'ranged'];
@@ -35,11 +39,12 @@ export function tonight(team: TeamAbsences, pool: readonly PoolEntry[]): Tonight
       name: a.member_name || 'A member',
       note: a.note,
       spec: specLabel(p?.primary),
-      role: specOf(p?.primary)?.role ?? null
+      role: specOf(p?.primary)?.role ?? null,
+      onRoster: !!p
     };
   });
   const short = ROLE_ORDER.map((role) => ({ role, count: away.filter((a) => a.role === role).length })).filter(
     (r) => r.count > 0
   );
-  return { date: next.date, away, roster: pool.length, short };
+  return { date: next.date, away, roster: pool.length, short, unknown: away.filter((a) => a.role === null).length };
 }

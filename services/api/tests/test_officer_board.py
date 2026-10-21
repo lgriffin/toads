@@ -202,6 +202,9 @@ def test_links_are_tidied_checked_and_kept_per_night() -> None:
         ("Roles", "https://localhost/x"),
         ("Roles", "drive.google.com/x"),
         ("Roles", "https://" + "a" * 500 + ".com"),
+        ("Roles", "https://[abc"),
+        ("Roles", "https://example.com:abc/x"),
+        ("Roles", "https://drive.google.com/a b"),
     ]:
         with pytest.raises(BoardError) as info:
             svc.add_link("wed", label=label, url=url, by=1)
