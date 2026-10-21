@@ -224,6 +224,13 @@ def community_client(
     return TestClient(h.app, raise_server_exceptions=raise_server_exceptions)
 
 
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:
+    """`-n auto` runs serially against TOADS_TEST_DATABASE_URL: every SQL test rebuilds that one database's schema."""
+    import os
+
+    return 0 if os.environ.get("TOADS_TEST_DATABASE_URL") else None
+
+
 def sql_community_repository() -> object:
     """A SqlCommunityRepository on a fresh database that knows the demo guild's members.
 
