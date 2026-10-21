@@ -20,7 +20,10 @@
   import ProfessionsCard from '$lib/components/ProfessionsCard.svelte';
   import { previewMyProfessions } from '$lib/preview/professions-fake';
   import { getMe } from '$lib/me-context';
-  import Me from '$lib/preview/Me.svelte';
+  import { previewAwardsOf } from '$lib/preview/awards-fake';
+  import { previewMain } from '$lib/preview/main-fake';
+  import { previewBadges } from '$lib/mock/badges';
+  import { previewCharacterPage } from '$lib/mock/characters';
   import { memberToads } from '$lib/toads';
 
   type Loaded = { kind: 'loading' } | { kind: 'ok'; value: MyBadges } | { kind: 'error'; message: string };
@@ -31,13 +34,17 @@
   // A failed switch to another character: the shown page stays, with this message beside it.
   let switchError = $state('');
   let latest = 0;
-  const mains = hubMain();
+  const mains = __PREVIEW__ ? previewMain : hubMain();
 
   // The member's main character first; `pick` loads another of theirs, keeping the current page until it arrives.
   // Only the latest request lands, so quick switches never end on an earlier character.
   async function loadRaids(name: string | null = null) {
     const request = ++latest;
     switchError = '';
+    if (__PREVIEW__) {
+      raids = { kind: 'ok', value: previewCharacterPage(name) };
+      return;
+    }
     try {
       const value = await myCharacterPage(name);
       if (request === latest) raids = { kind: 'ok', value };
@@ -67,7 +74,13 @@
 
   // Every failure lands in the page as a message; nothing here throws to the error page.
   onMount(async () => {
-    if (__PREVIEW__) return;
+    if (__PREVIEW__) {
+      // The preview is this same page, answered from sample data in the browser.
+      awards = previewAwardsOf(1);
+      badges = { kind: 'ok', value: previewBadges };
+      void loadRaids();
+      return;
+    }
     getSession()
       .then((s) => (session = s))
       .catch(() => (session = null));
@@ -106,51 +119,68 @@
   <h1>Me</h1>
   <p>Your numbers, badges and characters arrive with the hub at launch. Until then, keep your officers posted here.</p>
   {@render absenceSection()}
-{:else if __PREVIEW__}
-  <Me />
-  <SpecsCard />
-  <ProfessionsCard preview={previewMyProfessions} />
-  {@render absenceSection()}
-  <p><a href="{base}/me/claim">Claim a character</a> · <a href="{base}/me/settings">Your settings</a></p>
 {:else}
-  <h1>Your performance <MemberToads {...facts} size={40} /></h1>
-  <p>Claim your characters and see how each raid went for you against the median for your role in that raid.</p>
-  {#if raids.kind === 'ok'}
-    {@const shown = raids.value.characters}
-    <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)}>
-      {#snippet main(viewing)}<MainSwap backend={mains} {viewing} {shown} />{/snippet}
-    </CharacterCard>
-    {#if switchError}<p class="err" role="alert">{switchError}</p>{/if}
-  {:else}
-    <section class="card" aria-labelledby="character-h">
-      <h2 id="character-h">Your raids</h2>
-      {#if raids.kind === 'loading'}
-        <p class="muted" role="status">Loading…</p>
-      {:else}
-        <p class="err" role="alert">{raids.message}</p>
-      {/if}
-    </section>
-  {/if}
-  <SpecsCard />
-  <ProfessionsCard />
+  <h1>Me <MemberToads {...facts} size={40} /></h1>
+  <!-- Four parts, in the order a raider reaches for them: how the last raids went, the nights they will miss, the specs and
+       professions officers plan around, and the badges and toads they have earned. -->
+  <nav class="jump" aria-label="On this page">
+    <a href="#raids">Your raids</a>
+    <a href="#absences">Absences</a>
+    <a href="#specs">Characters, specs and professions</a>
+    <a href="#badges">Badges and toads</a>
+  </nav>
+
+  <div class="part" id="raids">
+    {#if raids.kind === 'ok'}
+      {@const shown = raids.value.characters}
+      <CharacterCard mine={raids.value} pick={(name) => loadRaids(name)}>
+        {#snippet main(viewing)}<MainSwap backend={mains} {viewing} {shown} />{/snippet}
+      </CharacterCard>
+      {#if switchError}<p class="err" role="alert">{switchError}</p>{/if}
+    {:else}
+      <section class="card" aria-labelledby="character-h">
+        <h2 id="character-h">Your raids</h2>
+        {#if raids.kind === 'loading'}
+          <p class="muted" role="status">Loading…</p>
+        {:else}
+          <p class="err" role="alert">{raids.message}</p>
+        {/if}
+      </section>
+    {/if}
+  </div>
+
   {@render absenceSection()}
-  {#if badges.kind === 'ok'}
-    <BadgesCard mine={badges.value} />
-  {:else}
-    <section class="card" aria-labelledby="badges-h">
-      <h2 id="badges-h">Your badges</h2>
-      {#if badges.kind === 'loading'}
-        <p class="muted" role="status">Loading…</p>
-      {:else}
-        <p class="err" role="alert">{badges.message}</p>
-      {/if}
-    </section>
-  {/if}
-  {#if awards}<AwardsCard {awards} {toads} />{/if}
-  <p><a href="{base}/setup">Your setup: main, specs and alts</a> · <a href="{base}/me/claim">Claim your characters</a> · <a href="{base}/me/settings">Your name and Warcraft Logs key</a></p>
+
+  <div class="part" id="specs">
+    <SpecsCard />
+    <ProfessionsCard preview={__PREVIEW__ ? previewMyProfessions : null} />
+    <p class="links">
+      <a href="{base}/setup">Your setup: main, specs and alts</a> · <a href="{base}/me/claim">Claim your characters</a> · <a href="{base}/me/settings">Your name and Warcraft Logs key</a>
+    </p>
+  </div>
+
+  <div class="part" id="badges">
+    {#if badges.kind === 'ok'}
+      <BadgesCard mine={badges.value} />
+    {:else}
+      <section class="card" aria-labelledby="badges-h">
+        <h2 id="badges-h">Your badges</h2>
+        {#if badges.kind === 'loading'}
+          <p class="muted" role="status">Loading…</p>
+        {:else}
+          <p class="err" role="alert">{badges.message}</p>
+        {/if}
+      </section>
+    {/if}
+    {#if awards}<AwardsCard {awards} {toads} />{/if}
+  </div>
 {/if}
 
 <style>
-  .absences { display: grid; gap: 0.75rem; margin-block: 1rem; }
+  .jump { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0 0 1rem; }
+  .jump a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .part { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-block: 1rem; scroll-margin-top: 4.5rem; }
+  .links { margin: 0; }
+  .absences { display: grid; gap: 0.75rem; margin-block: 1rem; scroll-margin-top: 4.5rem; }
   .absences h2, .absences > p { margin: 0; }
 </style>

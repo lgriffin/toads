@@ -5,7 +5,7 @@ import { signIn } from './auth';
 // Member pages open after the preview's pretend sign-in; most tests explore as an officer.
 test.beforeEach(({ page }) => signIn(page, 'officer'));
 
-for (const route of ['story/', 'highlights/', 'hub/', 'officers/']) {
+for (const route of ['story/', 'highlights/', 'hub/']) {
   test(`/${route} makes no clip provider request until a clip is played`, async ({ page }) => {
     const hits: string[] = [];
     page.on('request', (req) => {

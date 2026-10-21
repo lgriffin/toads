@@ -8,7 +8,6 @@
   import OfficerNights from '$lib/components/OfficerNights.svelte';
   import { raidDaysOf } from '$lib/absences';
   import { previewRaidSession } from '$lib/preview/absences-fake';
-  import Officers from '$lib/preview/Officers.svelte';
   import { previewAwards } from '$lib/preview/awards-fake';
   import { previewSession } from '$lib/preview/session.svelte';
 
@@ -17,12 +16,15 @@
   onMount(async () => {
     if (!__PREVIEW__) session = await getSession().catch(() => null);
   });
-  const hub: AwardsBackend = {
-    wall: () => guildAwards(),
-    members: () => listMembers(),
-    give: (b) => giveAward(b),
-    takeBack: (id) => takeBackAward(id)
-  };
+  // The preview is this same console, answered from sample data in the browser, so it shows what officers really get.
+  const hub: AwardsBackend = __PREVIEW__
+    ? previewAwards
+    : {
+        wall: () => guildAwards(),
+        members: () => listMembers(),
+        give: (b) => giveAward(b),
+        takeBack: (id) => takeBackAward(id)
+      };
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
@@ -58,28 +60,16 @@
   </section>
 {/snippet}
 
-{#if __PREVIEW__}
-  <OfficerNights {raidDays} />
-  <Officers />
-  {@render calendarLink()}
-  {@render compLink()}
-  {#if globalTier}
-    <AwardsDesk backend={previewAwards} />
-  {:else}
-    <p class="muted">Awards are given by global officers. Switch to the super admin view to try the awards desk.</p>
-  {/if}
-{:else}
-  <h1>Officer console</h1>
-  <p>
-    The shared desk every officer uses. Each raid night's own work (its absences, task board and interview panel) is in
-    that night's section, which only its officers see.
-  </p>
-  <OfficerNights {raidDays} />
-  {@render calendarLink()}
-  {@render compLink()}
-  <ReferenceCard />
-  {#if globalTier}<AwardsDesk backend={hub} />{/if}
-{/if}
+<h1>Officer console</h1>
+<p>
+  The shared desk every officer uses. Each raid night's own work (its absences, task board and interview panel) is in
+  that night's section, which only its officers see.
+</p>
+<OfficerNights {raidDays} />
+{@render calendarLink()}
+{@render compLink()}
+<ReferenceCard />
+{#if globalTier}<AwardsDesk backend={hub} />{/if}
 
 <style>
   .comp-link { display: grid; gap: 0.6rem; justify-items: start; margin-block: 1rem; }

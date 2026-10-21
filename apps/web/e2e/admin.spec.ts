@@ -33,31 +33,12 @@ test('a super admin sees integrations, jobs and grants on the admin console', as
   await expect(grants.getByRole('cell', { name: 'Croakley (1002)' })).toBeVisible();
 });
 
-test('a super admin posts for either raid night', async ({ page }) => {
-  await signIn(page, 'admin');
-  await page.goto('officers/');
-  await page.getByLabel('Audience').selectOption('raid_day');
-  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday', 'Thursday', 'Sunday']);
-  await page.getByLabel('Raid day').selectOption('Sunday');
-  await page.getByLabel('Title').fill('Sunday kara');
-  await page.getByLabel('Body').fill('Bring fire resistance gear for the opera.');
-  await page.getByRole('button', { name: 'Publish post' }).click();
-  await expect(page.getByText('Posted “Sunday kara”')).toBeVisible();
-});
-
 test('an officer adds reference reports from the officer console', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('officers/');
   await page.getByRole('region', { name: 'Reference reports' }).getByRole('link', { name: 'Add reference reports' }).click();
   await expect(page).toHaveURL(/\/toads\/officers\/reference\/$/);
   await expect(page.getByRole('heading', { name: 'Reference comparison', level: 1 })).toBeVisible();
-});
-
-test('a Wednesday officer posts for Wednesday only', async ({ page }) => {
-  await signIn(page, 'officer');
-  await page.goto('officers/');
-  await page.getByLabel('Audience').selectOption('raid_day');
-  await expect(page.getByLabel('Raid day').getByRole('option')).toHaveText(['Wednesday']);
 });
 
 test('a super admin gives a badge to a Discord role and takes it off again', async ({ page }) => {
@@ -88,7 +69,7 @@ test('the top bar shows a member by name only, and their toads greet them on the
 test('a super admin sees all their toads on their own page', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('me/');
-  const heading = page.getByRole('heading', { name: /Your performance/, level: 1 });
+  const heading = page.getByRole('heading', { name: /^Me/, level: 1 });
   for (const name of ['Super admin', 'Member', 'Wednesday Toad', 'Healer']) {
     await expect(heading.getByRole('img', { name, exact: true })).toBeVisible();
   }

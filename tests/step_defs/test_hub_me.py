@@ -250,3 +250,30 @@ def setup_cards() -> None:
     page = (ROUTES / "setup" / "+page.svelte").read_text(encoding="utf-8")
     assert "<SpecsCard />" in page
     assert "<ProfessionsCard " in page
+
+
+@given("the Me page and the Officer console", target_fixture="pages")
+def me_and_console() -> dict[str, str]:
+    return {
+        "me": (ROUTES / "me" / "+page.svelte").read_text(encoding="utf-8"),
+        "officers": (ROUTES / "officers" / "+page.svelte").read_text(encoding="utf-8"),
+    }
+
+
+@then("Me opens with a jump list to its four parts, in that order")
+def me_parts(pages: dict[str, str]) -> None:
+    me = pages["me"]
+    jump = me[me.index('<nav class="jump" aria-label="On this page">') :]
+    links = ['href="#raids"', 'href="#absences"', 'href="#specs"', 'href="#badges"']
+    assert [jump.index(link) for link in links] == sorted(jump.index(link) for link in links)
+    parts = ['id="raids"', "{@render absenceSection()}", 'id="specs"', 'id="badges"']
+    shown = me[me.index("<h1>Me <MemberToads") :]
+    assert [shown.index(p) for p in parts] == sorted(shown.index(p) for p in parts)
+
+
+@then("the preview renders the real Me and Officer console, with no preview-only page of its own")
+def preview_is_real(pages: dict[str, str]) -> None:
+    for page in pages.values():
+        assert "$lib/preview/Me.svelte" not in page and "$lib/preview/Officers.svelte" not in page
+    assert not (WEB / "preview" / "Me.svelte").exists() and not (WEB / "preview" / "Officers.svelte").exists()
+    assert "{#if __PREVIEW__}" not in pages["officers"]

@@ -4,6 +4,15 @@ Me shows a member their own raids as the WCL Analyzer's character profile shows 
 `wcl_app.character_pages` (contract in `guides/character_pages.md` in lgriffin/warcraftlogs_project). Nothing is
 re-implemented in the hub: the worker builds the pages from wcl-store and the API stores and serves them.
 
+## The page
+
+Me is in four parts, in the order a raider reaches for them, with a jump list under the heading (REQ-HUB-ME-008): **Your
+raids** (below), **Absences** (the raid nights they will miss, with a note for that night's officers), **Characters,
+specs and professions** (the primary and secondary specs officers build comps from, the professions they craft with,
+and links to claim characters and to settings) and
+**Badges and toads**. The static preview renders this same page from sample data, as it does the Officer console, so the
+preview never shows a tool the live site lacks.
+
 ## What a member sees
 
 - A summary: the character, their class, how many guild raids since their first, and the roles they played.

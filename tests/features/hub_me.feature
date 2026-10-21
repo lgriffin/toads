@@ -52,3 +52,9 @@ Feature: HUB ME
     And signing in again takes them to their hub home
     And the setup page welcomes them to the Pond from Gail and the officers
     And the setup page asks for their specs and professions with the cards Me uses
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-ME-008 Me shall be laid out in four parts a member can jump to (their raids, absences, characters with specs and professions, and badges and toads), and the static preview shall render the real Me and Officer console from sample data rather than pages of its own
+    Given the Me page and the Officer console
+    Then Me opens with a jump list to its four parts, in that order
+    And the preview renders the real Me and Officer console, with no preview-only page of its own
