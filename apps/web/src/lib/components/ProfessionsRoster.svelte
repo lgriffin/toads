@@ -14,17 +14,25 @@
   // One raid night's members and their professions, or (day null) every member who lists one, which only global
   // officers and super admins see. An officer names a member the guild's crafter for a profession they list, with a
   // note on what to send them, and can take it back. The API checks the viewer runs this night; this card only shows
-  // itself to them. `oncrafters` hands the guild-wide crafters list to the page after every load and change.
+  // itself to them. `oncrafters` hands the guild-wide crafters list to the page after every load, `onfailed` says a
+  // load failed, and `onchanged` reports a naming so the page bumps `revision`, which reloads every panel: a member can
+  // be on two nights and in the guild-wide panel at once.
   let {
     backend,
     day,
     title,
-    oncrafters
+    revision = 0,
+    oncrafters,
+    onfailed,
+    onchanged
   }: {
     backend: ProfessionsBackend;
     day: string | null;
     title: string;
+    revision?: number;
     oncrafters?: (crafters: Crafter[]) => void;
+    onfailed?: () => void;
+    onchanged?: () => void;
   } = $props();
 
   let members = $state<MemberProfessions[] | null>(null);
@@ -49,11 +57,14 @@
       [members, loadError] = [o.members, ''];
       oncrafters?.(o.crafters);
     } catch (e) {
-      if (ask === latest) loadError = professionsError(e);
+      if (ask !== latest) return;
+      loadError = professionsError(e);
+      onfailed?.();
     }
   }
 
   $effect(() => {
+    void revision;
     load();
   });
 
@@ -72,7 +83,8 @@
       message = professionsError(e);
       failed = true;
     } finally {
-      await load();
+      if (onchanged) onchanged();
+      else await load();
       busy = false;
     }
   }

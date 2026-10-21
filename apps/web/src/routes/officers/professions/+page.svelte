@@ -24,6 +24,14 @@
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
   let crafters = $state<Crafter[] | null>(null);
+  let crafterError = $state(false);
+  // Bumped after any naming, so every panel reloads: the naming is guild-wide.
+  let revision = $state(0);
+  const panel = {
+    oncrafters: (c: Crafter[]) => ([crafters, crafterError] = [c, false]),
+    onfailed: () => (crafterError = crafters === null),
+    onchanged: () => revision++
+  };
   const groups = $derived(crafters ? crafterGroups(crafters) : []);
 </script>
 
@@ -46,7 +54,9 @@
   {:else}
     <section class="card crafters" aria-labelledby="crafters-h">
       <h2 id="crafters-h">Guild crafters</h2>
-      {#if crafters === null}
+      {#if crafters === null && crafterError}
+        <p class="err" role="alert">Could not load the guild’s crafters; try again later.</p>
+      {:else if crafters === null}
         <p class="muted" role="status">Loading…</p>
       {:else if !groups.length}
         <p class="muted">Nobody is named yet. Pick a member’s profession below and name them.</p>
@@ -72,10 +82,10 @@
 
     <div class="nights">
       {#each raidDays.officerDays as day (day)}
-        <ProfessionsRoster {backend} {day} title="{dayName(day, raidDays.names)} professions" oncrafters={(c) => (crafters = c)} />
+        <ProfessionsRoster {backend} {day} title="{dayName(day, raidDays.names)} professions" {revision} {...panel} />
       {/each}
       {#if globalTier}
-        <ProfessionsRoster {backend} day={null} title="Everyone who lists a profession" oncrafters={(c) => (crafters = c)} />
+        <ProfessionsRoster {backend} day={null} title="Everyone who lists a profession" {revision} {...panel} />
       {/if}
     </div>
   {/if}

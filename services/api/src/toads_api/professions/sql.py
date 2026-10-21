@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from hub_db import GuildCrafter, Member, MemberProfession
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api import audit
@@ -55,6 +56,15 @@ class SqlProfessionRepository:
                 db.execute(
                     delete(GuildCrafter).where(GuildCrafter.member_id == member_id, GuildCrafter.profession.in_(gone))
                 )
+                # The member's own act, so they are the actor: the log shows why the naming ended.
+                for profession in gone:
+                    audit.record(
+                        db,
+                        actor=member_id,
+                        action="crafter.unlisted",
+                        target=f"member:{member_id} {profession}",
+                        raid_day=None,
+                    )
             return gone
 
     def crafters(self, member_ids: Iterable[int] | None = None) -> list[CrafterRecord]:
@@ -65,6 +75,15 @@ class SqlProfessionRepository:
             return [_crafter(r) for r in db.scalars(query)]
 
     def designate(
+        self, profession: str, member_id: int, note: str | None, by: int, raid_day: str | None
+    ) -> CrafterRecord:
+        try:
+            return self._designate(profession, member_id, note, by, raid_day)
+        except IntegrityError:
+            # Another officer named them in the same moment; the row exists now, so this write updates it.
+            return self._designate(profession, member_id, note, by, raid_day)
+
+    def _designate(
         self, profession: str, member_id: int, note: str | None, by: int, raid_day: str | None
     ) -> CrafterRecord:
         with self._db.begin() as db:

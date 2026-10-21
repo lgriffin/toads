@@ -145,10 +145,21 @@ class ProfessionService:
         if known is None:
             raise ProfessionError("Unknown profession", status=422)
         self._check_reach(member_id, raid_day)
-        if not any(r.profession == profession for r in self.repo.professions([member_id])):
+        held = next((r for r in self.repo.professions([member_id]) if r.profession == profession), None)
+        if held is None:
             raise ProfessionError(f"They do not list {known.name} on Me", status=422)
-        self.repo.designate(profession, member_id, _note(note), by, raid_day)
-        return next(c for c in self.crafters() if (c.profession, c.member_id) == (profession, member_id))
+        row = self.repo.designate(profession, member_id, _note(note), by, raid_day)
+        names = self._names([member_id, by])
+        return CrafterView(
+            profession,
+            member_id,
+            names[member_id],
+            held.skill,
+            held.specialisation,
+            row.note,
+            names.get(by),
+            row.designated_at,
+        )
 
     def undesignate(self, profession: str, member_id: int, by: int, raid_day: str | None = None) -> None:
         self._check_reach(member_id, raid_day)

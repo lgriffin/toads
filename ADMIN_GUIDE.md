@@ -396,8 +396,8 @@ Rules worth knowing:
 - **Professions and guild crafters** ([docs/professions.md](docs/professions.md)): members pick their professions on Me;
   officers see their night's on `/officers/professions` and name the guild's crafters, the members we send a profession's
   top end recipes to (`MANAGE_CRAFTERS`). A night's officers name only members of their night; global officers and super
-  admins see everyone who lists a profession and name anyone. Nothing to set up. Audited as `crafter.name` and
-  `crafter.unname`.
+  admins see everyone who lists a profession and name anyone. Nothing to set up. Audited as `crafter.name`,
+  `crafter.unname` and `crafter.unlisted` (the member dropped the profession).
 - **Logs** ([docs/logs.md](docs/logs.md)): `/logs` lists every raid the sync has analysed, filtered by any mix of
   weekdays, zone and title, with the desktop app's raid analysis per raid and a boss history over the picked days.
   Each raider's own numbers are officers' only: a raid day's officers see the raids held on that day's weekday in full,

@@ -39,7 +39,9 @@
     });
   }
 
-  const changed = $derived(JSON.stringify(asEntries()) !== JSON.stringify(saved.professions));
+  // The API returns professions by id, the form keeps catalogue order, so both are sorted before comparing.
+  const byId = (list: HeldProfession[]) => JSON.stringify([...list].sort((a, b) => a.profession.localeCompare(b.profession)));
+  const changed = $derived(byId(asEntries()) !== byId(saved.professions));
   const badSkill = $derived(asEntries().some((e) => e.skill !== null && (e.skill < 1 || e.skill > MAX_SKILL)));
 
   function show(m: MyProfessions) {

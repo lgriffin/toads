@@ -29,7 +29,8 @@ optional note on what to send them ("Flasks and transmutes"), and can take it ba
 - The member sees "Guild Alchemy crafter" and the note on their Me.
 
 The permission is `MANAGE_CRAFTERS`, held by officers for their own nights and by the global tier everywhere. Naming
-and un-naming are on the audit log (`crafter.name`, `crafter.unname`).
+and un-naming are on the audit log (`crafter.name`, `crafter.unname`), and a naming that ends because the member dropped the profession as
+`crafter.unlisted`.
 
 ## Later
 

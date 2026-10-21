@@ -202,5 +202,10 @@ def test_the_global_tier_sees_everyone_and_names_anyone(hub: Hub) -> None:
     # Dropping the profession on Me ends the naming, and the reply says so.
     dropped = _put(hub, "/api/me/professions", lily, {"professions": []})
     assert dropped.json()["unnamed"] == ["enchanting"]
+    with hub.db() as db:
+        assert (
+            db.scalars(select(AuditEntry).where(AuditEntry.action == "crafter.unlisted")).one().actor_member_id
+            == lily_id
+        )
     assert hub.get("/api/admin/professions", chief).json() == {"members": [], "crafters": []}
     assert hub.delete(f"/api/admin/crafters/enchanting/{lily_id}", chief).status_code == 404
