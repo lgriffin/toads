@@ -15,7 +15,7 @@
     <div>
       <h2 id="greeting-h">Welcome back, {name}</h2>
       <p>
-        Your toad is the <strong>{rank.label}</strong> toad. It goes with you around the hub, beside your name.
+        Your toad is the <strong>{rank.label}</strong> toad. You will find it and the rest of your toads on your Me page.
       </p>
       {#if rest.length}
         <p class="rest">

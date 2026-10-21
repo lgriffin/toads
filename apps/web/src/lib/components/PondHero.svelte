@@ -22,7 +22,7 @@
   } = $props();
 </script>
 
-<section class="pond-hero band" aria-labelledby="page-h">
+<section class="pond-hero band always-dusk" aria-labelledby="page-h">
   <div class="backdrop" aria-hidden="true">
     <PondScene />
     <div class="veil"></div>

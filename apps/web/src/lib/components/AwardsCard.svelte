@@ -3,7 +3,7 @@
   import { awardable, monthLabel, type AwardOut } from '$lib/awards';
   import { toadSrc, type Toad } from '$lib/toads';
 
-  // A member's toads as badges: first the ones they wear beside their name (rank, member, guild jobs, the badges their
+  // A member's toads as badges: first the ones they wear (rank, member, guild jobs, the badges their
   // Discord roles earn, class and role), then their awards, newest first. `heading` names the card; `empty` is what a
   // member with neither sees.
   let {

@@ -30,6 +30,6 @@
   }
   .right { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
   .small { font-size: 0.8rem; }
-  .prio-high { background: var(--accent); color: #0f1411; }
-  .prio-medium { background: #3b3320; color: var(--warn); }
+  .prio-high { background: var(--accent); color: var(--on-accent); }
+  .prio-medium { background: var(--warn-bg); color: var(--warn); }
 </style>

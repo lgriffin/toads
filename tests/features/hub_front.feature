@@ -16,7 +16,7 @@ Feature: HUB FRONT
     Then it lists the raid analyzer, the guild bank and Discord and Drive, each with a step for every tier
     And it marks the steps up to the viewer's tier, read from their session, and shows super admins the officers' steps
     And a unit test fails if a step names a permission the RBAC table lacks or gives another tier
-    And it is in the public nav, the top bar's tier chip opens it and the old toolkit address redirects to it
+    And it is in the public nav and the Hub menu, the account menu's What you can do link opens it and the old toolkit address redirects to it
 
   @ears_event_driven @member @maintainer @phase_2_5
   Scenario: REQ-HUB-FRONT-003 When a member is new to the hub, it shall offer a welcome checklist, and it shall give super admins one console for bank grants, officer tokens and the hub's integrations
@@ -27,7 +27,7 @@ Feature: HUB FRONT
   @ears_state_driven @member @raid_leader @phase_2_5
   Scenario: REQ-HUB-FRONT-004 While the launch hold is on, the hub shall show a signed-in raider one coming-soon page for the guild bank, logs analysis and raid assistance on every member page but Raid and Me (which shows a raider only their absences), show officers every page as it is being built except the bank, which shows a Forever launch notice, and show super admins exactly the officers' view plus the Admin console
     Given the launch hold
-    Then a raider's members nav is the hub, Raid and Me links and every other member page shows the coming-soon page
+    Then a raider's top bar is the Hub menu with only Hub home and Raid, and Me, and every other member page shows the coming-soon page
     And an officer opens every page but the bank, which shows the Forever launch notice
     And super admins see exactly what officers see, plus the Admin console
     And visitors and the public pages are never held
@@ -58,3 +58,18 @@ Feature: HUB FRONT
     Given the page shell
     Then it links the toad as an SVG icon, an ICO icon and an Apple touch icon under the site's asset path
     And the SVG icon is The Regular toad from the logo set and the icon files are in the web app's static folder
+
+  @ears_ubiquitous @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-009 The top bar shall show a signed-in member only a Hub menu (Raid, Logs and the other member pages, then the public pages), Me and their name, give officers and super admins one Officers menu with only the raid nights they run and the Admin console for super admins, and show no toads beside the name
+    Given the top bar
+    Then a signed-in member sees the Hub menu, Me and an account menu with their name, and visitors keep the public nav
+    And the Officers menu lists the officer tools, only the raid nights the viewer runs, and the Admin console for super admins only
+    And the top bar shows no toads; the member's toads greet them on the hub home and stand on their Me page
+    And each menu opens and closes from the keyboard, closes on Escape and on a click outside, and names what each link holds in one plain line
+
+  @ears_event_driven @member @phase_2_5
+  Scenario: REQ-HUB-FRONT-010 When a reader picks a dark or light theme, or easier reading, in the display settings, the hub shall apply it to every page before the first paint and remember it in that browser, and every page shall stay axe-clean in both themes
+    Given the display settings
+    Then a reader picks Dark, Light or Match my device, and easier reading (bigger text, roomier lines, plain headings, underlined links)
+    And the choice is applied by a script file before the first paint, within the site's script-src 'self' policy, and kept in local storage
+    And both themes share one set of colour tokens, the dusk hero art stays dark, and the e2e suite runs axe on every page in the light theme with easier reading

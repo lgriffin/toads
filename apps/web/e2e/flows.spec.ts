@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from './auth';
+import { openHubMenu } from './nav';
 
 // Member pages open after the preview's pretend sign-in; most tests explore as an officer.
 test.beforeEach(({ page }) => signIn(page, 'officer'));
@@ -107,6 +108,6 @@ test('curating a Discord post publishes it to the hub feed', async ({ page }) =>
   await expect(queue.getByText('Edited since review')).toBeVisible();
   await queue.getByRole('article').filter({ hasText: 'Lurker spout tip' }).getByRole('button', { name: 'Publish to guild' }).click();
   await expect(queue.getByRole('status')).toContainText('Published “Lurker spout tip”');
-  await page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Hub' }).click();
+  await (await openHubMenu(page)).getByRole('link', { name: /^Hub home/ }).click();
   await expect(page.locator('article').filter({ hasText: 'Lurker spout tip' })).toContainText('from Discord');
 });

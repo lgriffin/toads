@@ -24,7 +24,7 @@
 </script>
 
 <figure class="clip">
-  <div class="frame">
+  <div class="frame always-dusk">
     {#if src}
       <iframe
         {src}
@@ -87,7 +87,7 @@
     top: 0.95rem;
     border-style: solid;
     border-width: 0.65rem 0 0.65rem 1.05rem;
-    border-color: transparent transparent transparent var(--ink, #120f33);
+    border-color: transparent transparent transparent var(--on-accent);
   }
   .poster:hover .play { filter: brightness(1.15); }
   .hint { font-size: 0.85rem; color: var(--text); }

@@ -109,7 +109,7 @@
     padding: 1.4rem;
     border: 1px dashed var(--bronze);
     border-radius: 12px;
-    background: rgb(18 15 51 / 0.55);
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
   }
   figcaption p { margin: 0.3rem 0 0; color: var(--muted); }
   .tag {
@@ -118,7 +118,7 @@
     margin-right: 0.35rem;
     border-radius: 999px;
     background: var(--bronze);
-    color: var(--ink);
+    color: var(--on-bronze);
     font-weight: 700;
     font-size: 0.85rem;
   }
@@ -131,7 +131,7 @@
   .stock li { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 0.75rem; }
   .stock .count { font-variant-numeric: tabular-nums; color: var(--cream); }
   .of { color: var(--muted); }
-  .bar { grid-column: 1 / -1; height: 0.4rem; border-radius: 999px; background: rgb(196 192 234 / 0.15); overflow: hidden; }
+  .bar { grid-column: 1 / -1; height: 0.4rem; border-radius: 999px; background: color-mix(in srgb, var(--muted) 15%, transparent); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--teal); }
   .low .bar span { background: var(--warn); }
   .flag { grid-column: 1 / -1; font-size: 0.85rem; color: var(--warn); }
@@ -155,7 +155,7 @@
   .fair li { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.75rem; align-items: center; }
   .pair { position: relative; height: 0.9rem; }
   .pair span { position: absolute; left: 0; border-radius: 999px; }
-  .raids { top: 0; height: 100%; background: rgb(196 192 234 / 0.18); }
+  .raids { top: 0; height: 100%; background: color-mix(in srgb, var(--muted) 18%, transparent); }
   .got { top: 0.2rem; height: 0.5rem; background: var(--bronze); }
   .nums { font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   @media (max-width: 34rem) {

@@ -283,9 +283,9 @@ def me_page() -> dict[str, str]:
     }
 
 
-@then("its heading wears the same toads as the header")
+@then("its heading wears the same toads as the hub home's greeting")
 def me_heading(me_page: dict[str, str]) -> None:
-    # The layout loads the facts once (session, awards, role badges) and hands /me the same object the header uses.
+    # The layout loads the facts once (session, awards, role badges) and hands /me the same object the greeting uses.
     assert "setMe(() => me);" in me_page["layout"]
     assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["page"]
     assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["preview"]

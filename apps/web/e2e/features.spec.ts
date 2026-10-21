@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './auth';
+import { openAccountMenu, openHubMenu } from './nav';
 
 // Hub features lists what each tier can do in the three apps; columns above the viewer's tier show dimmed and say who
 // holds them. Super admins see it as officers do, and the page never mentions them.
@@ -8,7 +9,7 @@ const step = (page: Page, app: string, tier: string) =>
 
 test('a visitor finds Hub features in the public nav, with only the public column open', async ({ page }) => {
   await page.goto('');
-  await page.getByRole('navigation').getByRole('link', { name: 'Hub features' }).first().click();
+  await page.getByRole('navigation', { name: 'Guild' }).getByRole('link', { name: 'Hub features' }).click();
   await expect(page).toHaveURL(/\/toads\/features\/$/);
   await expect(page.getByRole('heading', { name: 'Hub features', level: 1 })).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
@@ -30,7 +31,7 @@ test('the old toolkit address lands on Hub features', async ({ page }) => {
 test('a raider has the raider column and sees what officers hold', async ({ page }) => {
   await signIn(page, 'member');
   await page.goto('');
-  await page.getByRole('link', { name: 'Raider', exact: true }).click();
+  await (await openAccountMenu(page)).getByRole('link', { name: /^What you can do/ }).click();
   await expect(page).toHaveURL(/\/toads\/features\/$/);
   await expect(step(page, 'Raid analyzer', 'raider')).not.toHaveClass(/locked/);
   await expect(step(page, 'Raid analyzer', 'raider')).toHaveClass(/here/);
@@ -52,8 +53,8 @@ test('a super admin sees the officer view, and only they see grants in the bank'
   await expect(step(page, 'Guild bank', 'officer')).toHaveClass(/here/);
   await expect(page.locator('#main').getByText(/super admin/i)).toHaveCount(0);
   // signIn re-applies the view on every load, so move on by link after switching.
-  await page.getByRole('button', { name: 'Switch to officer view' }).click();
-  await page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Bank' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to officer view' }).click();
+  await (await openHubMenu(page)).getByRole('link', { name: /^Bank/ }).click();
   await expect(page.getByRole('heading', { name: 'Bank upkeep: requests and imports' })).toBeVisible();
   await expect(page.getByRole('region', { name: /Super admins: who else runs the bank/ })).toHaveCount(0);
 });

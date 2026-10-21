@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from './auth';
+import { openOfficersMenu } from './nav';
 
 test('a new member finds the welcome checklist from the homepage', async ({ page }) => {
   await signIn(page, 'member');
@@ -18,13 +19,13 @@ test('only the super admin view opens the admin console', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('admin/');
   await expect(page.getByRole('heading', { name: 'Super admins only' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Admin' })).toHaveCount(0);
+  await expect((await openOfficersMenu(page)).getByRole('link', { name: /^Admin console/ })).toHaveCount(0);
 });
 
 test('a super admin sees integrations, jobs and grants on the admin console', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('hub/');
-  await page.getByRole('navigation', { name: 'Members' }).getByRole('link', { name: 'Admin' }).click();
+  await (await openOfficersMenu(page)).getByRole('link', { name: /^Admin console/ }).click();
   await expect(page.getByRole('heading', { name: 'Admin console', level: 1 })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Integrations' }).getByRole('heading', { name: 'Google Drive' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'import-sheets' })).toBeVisible();
@@ -71,16 +72,20 @@ test('a super admin gives a badge to a Discord role and takes it off again', asy
   await expect(desk.getByText('The Tank role no longer earns the Tank badge.')).toBeVisible();
 });
 
-test('a super admin wears the super admin and member toads', async ({ page }) => {
+test('the top bar shows a member by name only, and their toads greet them on the hub home', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('hub/');
   const header = page.getByRole('banner');
-  await expect(header.getByRole('img', { name: 'Super admin', exact: true })).toBeVisible();
-  await expect(header.getByRole('img', { name: 'Member', exact: true })).toBeVisible();
-  await expect(header.getByRole('img', { name: 'Wednesday Toad' })).toBeVisible();
+  await expect(header.getByRole('button', { name: /^Account.*Hopscotch/ })).toBeVisible();
+  await expect(header.getByRole('img', { name: 'Super admin', exact: true })).toHaveCount(0);
+  await expect(header.getByRole('img', { name: 'Wednesday Toad' })).toHaveCount(0);
+  const greeting = page.getByRole('region', { name: 'Welcome back, Hopscotch' });
+  await expect(greeting.getByRole('img', { name: 'Super admin toad' })).toBeVisible();
+  await expect(greeting.getByRole('img', { name: 'Member', exact: true })).toBeVisible();
+  await expect(greeting.getByRole('img', { name: 'Wednesday Toad' })).toBeVisible();
 });
 
-test('a super admin sees the same toads on their own page as beside their name', async ({ page }) => {
+test('a super admin sees all their toads on their own page', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('me/');
   const heading = page.getByRole('heading', { name: /Your performance/, level: 1 });

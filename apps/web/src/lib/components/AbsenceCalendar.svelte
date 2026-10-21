@@ -299,7 +299,7 @@
   .raid .cell { background: rgb(217 168 90 / 0.14); border-color: rgb(217 168 90 / 0.45); }
   .raid .tag { color: var(--bronze-hi); }
   .away .cell { background: rgb(224 106 95 / 0.16); border-color: rgb(224 106 95 / 0.6); }
-  .away .tag { color: #f0a39c; }
+  .away .tag { color: var(--bad-text); }
   button.cell:hover { border-color: var(--teal); }
   .key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 1rem; margin: 0; }
   .key > span { display: inline-flex; align-items: center; gap: 0.35rem; }
