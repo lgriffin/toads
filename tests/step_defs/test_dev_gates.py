@@ -6,6 +6,7 @@ import importlib.util
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -21,7 +22,7 @@ GATE = "ci-success"
 
 # The scripts/dev.py tasks each CI job runs. A job that drops or swaps a task fails `each_job_runs_its_tasks`.
 JOB_TASKS = {
-    "python": {"format", "lint", "imports", "reqs", "types", "test"},
+    "python": {"format", "lint", "imports", "reqs", "ratchet", "types", "test", "diffcov"},
     "postgres": {"postgres"},
     "backup": {"shell", "backup"},
     "security": {"security", "audit"},
@@ -47,6 +48,7 @@ def _load(name: str) -> ModuleType:
 dev = _load("dev")
 gate = _load("ci_gate")
 reqs = _load("reqs")
+ratchet = _load("ratchet")
 
 
 @scenario(
@@ -64,6 +66,15 @@ def test_ci_gate() -> None:
     "then the reqs job shall fail",
 )
 def test_reqs_gate() -> None:
+    pass
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-DEV-CI-003 If coverage of the api, worker, bot and hub-db falls below the floor in pyproject.toml, a PR "
+    "covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail",
+)
+def test_coverage_ratchet() -> None:
     pass
 
 
@@ -259,3 +270,46 @@ def test_plain_task_steps_pass() -> None:
         "steps:\n  - run: uv run python scripts/dev.py format lint\n  - run: python3 ../../scripts/dev.py e2e\n"
     )
     assert _task_step_problems(job) == []
+
+
+@then("the test task measures the api, worker, bot and hub-db against the floor in pyproject.toml")
+def coverage_floor() -> None:
+    (step,) = dev.TASKS["test"].steps
+    assert {"--cov=toads_api", "--cov=toads_worker", "--cov=toads_bot", "--cov=hub_db"} <= set(step.command)
+    assert not any(arg.startswith("--cov-fail-under") for arg in step.command)  # the floor lives in pyproject.toml
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert config["tool"]["coverage"]["report"]["fail_under"] >= 96
+
+
+@then("CI checks the coverage of the lines a PR changes against main")
+def diff_coverage(workflow: dict[Any, Any]) -> None:
+    (step,) = dev.TASKS["diffcov"].steps
+    assert "--compare-branch=origin/main" in step.command
+    assert "--fail-under=90" in step.command
+    python = workflow["jobs"]["python"]
+    run = [
+        task
+        for step in python["steps"]
+        for line in re.findall(r"scripts/dev\.py ([a-z0-9 -]+)", str(step.get("run", "")))
+        for task in line.split()
+    ]
+    assert run.index("test") < run.index("diffcov"), "diffcov reads the coverage.xml that test writes"
+    assert python["steps"][0]["with"]["fetch-depth"] == 0
+
+
+@then("a floor that goes down or disappears fails the ratchet, and one that rises passes")
+def ratchet_is_one_way() -> None:
+    def config(value: float | None) -> dict[str, Any]:
+        return {} if value is None else {"tool": {"coverage": {"report": {"fail_under": value}}}}
+
+    assert ratchet.lowered(config(96), config(95)) == ["tool.coverage.report.fail_under went down from 96 to 95"]
+    assert ratchet.lowered(config(96), config(None)) == ["tool.coverage.report.fail_under was 96 and is gone"]
+    assert ratchet.lowered(config(96), config(96)) == []
+    assert ratchet.lowered(config(96), config(97)) == []
+    assert ratchet.lowered(config(None), config(80)) == []  # a new floor
+
+
+@then("CI runs the ratchet against main")
+def ci_runs_ratchet(workflow: dict[Any, Any]) -> None:
+    assert "ratchet" in _tasks_run_by(workflow["jobs"]["python"])
+    assert "ratchet" in dev.CHECK

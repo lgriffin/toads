@@ -32,7 +32,8 @@ just reqs       # regenerate docs/requirements.md
 `tests/step_defs/test_dev_gates.py` fails if a CI job stops running its tasks. `ci-success` is the one required check:
 it needs every other job and fails if any failed, was cancelled or was skipped (`scripts/ci_gate.py`). A new CI job
 goes in its `needs` and in `JOB_TASKS` or `OUTSIDE_DEV` in that test. The coverage floor is `fail_under` in
-`pyproject.toml`.
+`pyproject.toml`; it only goes up (`scripts/ratchet.py` fails a PR that lowers it), and `diffcov` holds the lines a PR
+changes to 90%.
 
 ## Rules
 

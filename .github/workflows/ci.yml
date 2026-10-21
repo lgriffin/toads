@@ -13,11 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # diffcov and ratchet compare against origin/main
       - uses: astral-sh/setup-uv@v3
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: uv run python scripts/dev.py format lint imports reqs types test
+      - run: uv run python scripts/dev.py format lint imports reqs ratchet types test diffcov
 
   postgres:
     # The community repository and the hub-db migrations against a real Postgres (the other jobs use SQLite).

@@ -68,8 +68,23 @@ TASKS: dict[str, Task] = {
     "security": task("security-marked tests", ["pytest", "-m", "security", "-q", "--tb=short"]),
     "test": task(
         "unit and BDD tests with the coverage floor",
-        ["pytest", "-n", "auto", "-q", "--tb=short", "-rs", *COVERAGE, "--cov-report=term-missing:skip-covered"],
+        [
+            "pytest",
+            "-n",
+            "auto",
+            "-q",
+            "--tb=short",
+            "-rs",
+            *COVERAGE,
+            "--cov-report=term-missing:skip-covered",
+            "--cov-report=xml",
+        ],
     ),
+    "diffcov": task(
+        "coverage of the lines changed since origin/main (run test first)",
+        ["diff-cover", "coverage.xml", "--compare-branch=origin/main", "--fail-under=90"],
+    ),
+    "ratchet": task("floors in pyproject.toml only go up against origin/main", ["python", "scripts/ratchet.py"]),
     "postgres": task(
         "community repository and migrations on Postgres (needs TOADS_TEST_DATABASE_URL)",
         ["pytest", "-q", "--tb=short", "-rs", *POSTGRES_TESTS],
@@ -94,7 +109,7 @@ TASKS: dict[str, Task] = {
 }
 
 # What `check` runs: every CI check that needs no network, Docker or database, cheapest first so it fails fast.
-CHECK = ["format", "lint", "imports", "reqs", "types", "security", "test", "web-check", "web-test"]
+CHECK = ["format", "lint", "imports", "reqs", "ratchet", "types", "security", "test", "web-check", "web-test"]
 
 FIX = task("Ruff fixes and formatting", ["ruff", "check", "--fix", "."], ["ruff", "format", "."])
 
