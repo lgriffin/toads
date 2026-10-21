@@ -1,13 +1,13 @@
 /**
- * Members' awards (docs/awards.md): the milestone, achievement and title toads global officers give members. The hub
- * stores who holds what; the artwork and names come from milestones.ts (milestones and achievements) and toads.ts
- * (titles). services/api/tests/test_awards.py fails if the hub's catalogue and these drift apart.
+ * Members' awards (docs/awards.md): the milestone, achievement, title and weekly honour toads global officers give
+ * members. The hub stores who holds what; the artwork and names come from milestones.ts (milestones, achievements and
+ * honours) and toads.ts (titles). services/api/tests/test_awards.py fails if the hub's catalogue and these drift apart.
  */
 import { call, ApiError, type Fetch, type MemberEntry } from './api';
 import { MILESTONES } from './milestones';
 import type { Title } from './toads';
 
-export type AwardKind = 'milestone' | 'achievement' | 'title';
+export type AwardKind = 'milestone' | 'achievement' | 'title' | 'honour';
 
 /** An award as the hub returns it. */
 export interface AwardOut {
@@ -17,7 +17,7 @@ export interface AwardOut {
   kind: AwardKind;
   member_id: number;
   member_name: string;
-  /** "YYYY-MM" for Raider of the Month, null for every other award. */
+  /** "YYYY-MM" for Raider of the Month, "YYYY-Www" for a weekly honour, null for every other award. */
   period: string | null;
   note: string | null;
   awarded_at: string;
@@ -63,6 +63,8 @@ export interface Awardable {
   kind: AwardKind;
   /** Given for a month and held once per month (Raider of the Month). */
   monthly: boolean;
+  /** Given for a raid week and held once per week (Raider of the Week, Sunder King and the other honours). */
+  weekly: boolean;
   /** The artwork under static/logos/, without `.svg`. */
   file: string;
 }
@@ -72,8 +74,13 @@ export const AWARDABLE: readonly Awardable[] = [
   ...MILESTONES.map((m) => ({
     id: m.id,
     name: m.name,
-    kind: (m.file.startsWith('milestones/') ? 'milestone' : 'achievement') as AwardKind,
+    kind: (m.category === 'honours'
+      ? 'honour'
+      : m.file.startsWith('milestones/')
+        ? 'milestone'
+        : 'achievement') as AwardKind,
     monthly: m.id === 'raider-of-the-month',
+    weekly: m.category === 'honours',
     file: m.file
   })),
   ...TITLE_AWARDS.map((t) => ({
@@ -81,6 +88,7 @@ export const AWARDABLE: readonly Awardable[] = [
     name: t.name,
     kind: 'title' as AwardKind,
     monthly: false,
+    weekly: false,
     file: `ranks/${t.id}`
   }))
 ];
@@ -106,6 +114,36 @@ export function monthLabel(period: string): string {
     year: 'numeric',
     timeZone: 'UTC'
   });
+}
+
+/** The Monday that starts an ISO week ("2026-W43"), or null for anything else. */
+function weekStart(period: string): Date | null {
+  const m = /^(\d{4})-W(\d{2})$/.exec(period);
+  if (!m) return null;
+  const [y, w] = [Number(m[1]), Number(m[2])];
+  // Week 1 is the week with 4 January in it.
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const monday = new Date(jan4);
+  monday.setUTCDate(4 - ((jan4.getUTCDay() + 6) % 7) + (w - 1) * 7);
+  return monday;
+}
+
+/** A date's ISO week, "2026-W43": what the awards desk gives a weekly honour for by default. */
+export function isoWeek(day: Date): string {
+  const d = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()));
+  // The Thursday of the same week decides the year.
+  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+  const jan4 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const days = (d.getTime() - jan4.getTime()) / 86400000;
+  const week = 1 + Math.round((days - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+/** An award's period for people: "September 2026" for a month, "week of 19 Oct 2026" for a raid week. */
+export function periodLabel(period: string): string {
+  const monday = weekStart(period);
+  if (!monday) return monthLabel(period);
+  return `week of ${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
 }
 
 /** What to tell an officer when giving or taking back an award fails. */

@@ -369,7 +369,7 @@ Rules worth knowing:
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,
-  Healer, Damage or a class). Everyone holding the role wears the badge on their Me page and in their hub home greeting. Start by tying the Wednesday, Thursday and
+  Healer, Damage, a class or a Horde race: Orc, Troll, Tauren, Undead or Skyborne). Everyone holding the role wears the badge on their Me page and in their hub home greeting. Start by tying the Wednesday, Thursday and
   Sunday raider roles.
   A raid night's badge also sets its team: everyone holding a role tied to the Thursday Toad badge is a Thursday raider
   (on its roster and calendar), with no `raider_roles` entry needed in `raid_days.yaml`. Untie it and they leave the

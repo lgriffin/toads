@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { awardable, monthLabel, type AwardOut } from '$lib/awards';
+  import { awardable, periodLabel, type AwardOut } from '$lib/awards';
   import { toadSrc, type Toad } from '$lib/toads';
 
   // A member's toads as badges: first the ones they wear (rank, member, guild jobs, the badges their
@@ -10,7 +10,7 @@
     awards,
     toads = [],
     heading = 'Your toads',
-    empty = 'No awards yet. Officers give them for milestones, history and achievements.'
+    empty = 'No awards yet. Officers give them for milestones, history, achievements and the weekly honours.'
   }: { awards: AwardOut[]; toads?: readonly Toad[]; heading?: string; empty?: string } = $props();
   // Guild jobs are awards too; the award's own entry (with its date and note) shows them once.
   const worn = $derived(toads.filter((t) => !awards.some((a) => awardable(a.award_id)?.file === t.id)));
@@ -35,7 +35,7 @@
             <img src="{base}/logos/{art.file}-badge.svg" alt="" width="96" height="115" loading="lazy" />
           {/if}
           <span class="name">{a.name}</span>
-          {#if a.period}<span class="muted small">{monthLabel(a.period)}</span>{/if}
+          {#if a.period}<span class="muted small">{periodLabel(a.period)}</span>{/if}
           {#if a.note}<span class="muted small note">{a.note}</span>{/if}
         </li>
       {/each}

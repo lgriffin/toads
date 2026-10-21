@@ -35,6 +35,7 @@ describe('toads', () => {
     expect(roleBadgeToad('wednesday-toad')).toEqual({ kind: 'day', id: 'days/wednesday-toad', label: 'Wednesday Toad' });
     expect(roleBadgeToad('tank')?.kind).toBe('role');
     expect(roleBadgeToad('priest')?.kind).toBe('class');
+    expect(roleBadgeToad('skyborne')).toEqual({ kind: 'race', id: 'races/skyborne', label: 'Skyborne' });
     expect(roleBadgeToad('nope')).toBeNull();
     const toads = memberToads({ tier: 'raider', roleBadges: ['sunday-toad', 'healer', 'nope'], role: 'Healer' });
     expect(toads.map((t) => t.id)).toEqual(['ranks/member', 'days/sunday-toad', 'roles/healer']);

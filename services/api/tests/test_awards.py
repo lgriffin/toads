@@ -66,6 +66,36 @@ def test_a_monthly_award_needs_a_month(period: str | None) -> None:
     assert info.value.status == 422
 
 
+def test_a_weekly_honour_is_held_once_per_raid_week() -> None:
+    svc = _service()
+    v = svc.give(1, "sunder-king", by=2, period="2026-W43", note="Five stacks before the rogues opened")
+    assert (v.name, v.kind, v.period) == ("Sunder King", AwardKind.HONOUR, "2026-W43")
+    svc.give(1, "sunder-king", by=2, period="2026-W44")
+    svc.give(2, "sunder-king", by=1, period="2026-W44")
+    with pytest.raises(AwardError) as info:
+        svc.give(1, "sunder-king", by=2, period="2026-W44")
+    assert info.value.status == 409
+
+
+@pytest.mark.parametrize("period", [None, "", "2026-10", "2026-W00", "2026-W54", "2026W43", "2026-w43"])
+def test_a_weekly_honour_needs_a_week(period: str | None) -> None:
+    with pytest.raises(AwardError) as info:
+        _service().give(1, "raider-of-the-week", by=2, period=period)
+    assert info.value.status == 422
+
+
+def test_every_honour_is_weekly_and_nothing_else_is() -> None:
+    assert {a.id for a in AWARDS.values() if a.weekly} == {a.id for a in AWARDS.values() if a.kind is AwardKind.HONOUR}
+    assert "raider-of-the-week" in AWARDS
+
+
+@pytest.mark.parametrize("period", ["2026-09", "2026-W43"])
+def test_other_awards_take_no_period(period: str) -> None:
+    with pytest.raises(AwardError) as info:
+        _service().give(1, "level-60", by=2, period=period)
+    assert info.value.status == 422
+
+
 def test_other_awards_take_no_month() -> None:
     with pytest.raises(AwardError) as info:
         _service().give(1, "level-60", by=2, period="2026-09")
