@@ -5,8 +5,12 @@ Feature: DEV OPS
   @ears_ubiquitous @maintainer @phase_2_0 @pending
   Scenario: REQ-DEV-OPS-001 Every service shall expose /healthz and Prometheus metrics, and log JSON with a request id propagated from API to worker to bot
 
-  @ears_event_driven @maintainer @phase_2_7 @pending
-  Scenario: REQ-DEV-OPS-002 When the nightly backup runs, the hub shall upload a pg_dump to object storage; a monthly CI job shall restore it into an empty database and run the contract tests
+  @ears_event_driven @maintainer @phase_2_7
+  Scenario: REQ-DEV-OPS-002 When the nightly backup runs, the server shall keep a checked snapshot of the hub database, config, env files and certificates and copy it off the server encrypted, and a restore shall rewind the hub to any kept night, keeping the replaced database for undo
+    Given the production server's backup timer and scripts
+    Then the backup runs every night as the toads user and catches up a night missed while the server was off
+    And restic runs from a pinned image and the off-server settings stay out of git
+    And CI runs the backup and restore drill against a real Postgres and restic repository
 
   @ears_ubiquitous @maintainer @phase_2_3
   Scenario: REQ-DEV-OPS-003 The worker's scheduler shall rebuild the hub's analyzer widgets and performance numbers at start and then on a fixed interval, and a failed run shall not stop later runs

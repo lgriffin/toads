@@ -1,0 +1,37 @@
+# Stand-in for infra/docker-compose.prod.yml in the backup drill (drill.sh): the real Postgres and the same service
+# names, with the hub's own services replaced by idle containers so the drill needs no image builds.
+name: toads-drill
+
+x-idle: &idle
+  image: alpine:3.20
+  command: ["sleep", "infinity"]
+  init: true
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: toads
+      POSTGRES_DB: toads
+      POSTGRES_HOST_AUTH_METHOD: trust  # throwaway drill container, no published port
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toads"]
+      interval: 2s
+
+  migrate: { image: "alpine:3.20", command: ["true"] }
+  analyser-migrate: { image: "alpine:3.20", command: ["true"] }
+
+  api:
+    <<: *idle
+    healthcheck: { test: ["CMD", "true"], interval: 2s }
+    depends_on: { postgres: { condition: service_healthy } }
+  worker: *idle
+  scheduler: *idle
+  web: *idle
+
+  caddy:
+    <<: *idle
+    volumes: [caddy_data:/data]
+
+volumes:
+  caddy_data:

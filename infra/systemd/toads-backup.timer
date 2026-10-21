@@ -1,0 +1,12 @@
+# Runs toads-backup.service every night at 03:30 UTC, after raids and before the morning. Persistent: a night missed
+# while the server was off runs as soon as it is back.
+[Unit]
+Description=Nightly Toads hub backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
