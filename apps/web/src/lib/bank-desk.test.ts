@@ -47,8 +47,11 @@ describe('bank desk', () => {
     expect(noticeLabel(req(1, '7', 'pending'))).toBe('');
     expect(noticeLabel(req(1, '7', 'approved', { notice: 'queued' }))).toBe('DM on its way');
     expect(noticeLabel(req(1, '7', 'approved', { notice: 'sent' }))).toBe('DM sent');
-    expect(noticeLabel(req(1, '7', 'denied', { notice: 'failed', notice_error: 'Discord refused: 403' }))).toBe(
+    expect(noticeLabel(req(1, '7', 'denied', { notice: 'failed', notice_error: 'Discord refused: 403 Cannot send messages to this user' }))).toBe(
       'DM failed: their Discord DMs are closed, so tell them in game'
+    );
+    expect(noticeLabel(req(1, '7', 'denied', { notice: 'failed', notice_error: 'Discord refused: 403 Missing Access' }))).toBe(
+      'DM failed: Discord refused: 403 Missing Access'
     );
     expect(noticeLabel(req(1, '7', 'denied', { notice: 'failed', notice_error: 'Discord refused: 403' }), true)).toBe(
       'We could not DM you on Discord, so the answer is only here'

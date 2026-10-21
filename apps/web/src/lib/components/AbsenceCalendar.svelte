@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusById, focusOnMount } from '$lib/focus';
   import {
     NOTE_LIMIT,
     absenceError,
@@ -126,10 +127,17 @@
     }
   }
 
+  function keep(a: Absence) {
+    deleting = null;
+    focusById(`absence-delete-${a.id}`);
+  }
+
   async function remove(a: Absence) {
     deleting = null;
     try {
       await backend.cancel(a.id);
+      // The row goes, so keyboard focus moves to the list's heading rather than being lost.
+      focusById('mine-h');
       if (editing?.id === a.id) stopEditing();
       message = `Deleted your absence for ${rangeLabel(a)}.`;
       failed = false;
@@ -242,7 +250,7 @@
   </div>
 
   <section class="card" aria-labelledby="mine-h">
-    <h2 id="mine-h">Your upcoming absences</h2>
+    <h2 id="mine-h" tabindex="-1">Your upcoming absences</h2>
     {#if loadError}
       <p class="err" role="alert">{loadError}</p>
     {:else if !mine.length}
@@ -261,11 +269,11 @@
                 <div class="confirm" role="group" aria-label="Confirm deleting your absence for {rangeLabel(a)}">
                   <p class="muted">Your officers will expect you on {a.nights.length === 1 ? 'that night' : 'those nights'} again.</p>
                   <button class="btn danger" type="button" disabled={busy} onclick={() => remove(a)}>Delete absence</button>
-                  <button class="btn" type="button" onclick={() => (deleting = null)}>Keep it</button>
+                  <button class="btn" type="button" use:focusOnMount onclick={() => keep(a)}>Keep it</button>
                 </div>
               {:else}
                 <button class="btn" type="button" onclick={() => edit(a)} aria-label="Change your absence for {rangeLabel(a)}">Change</button>
-                <button class="btn danger" type="button" onclick={() => (deleting = a.id)} aria-label="Delete your absence for {rangeLabel(a)}">Delete</button>
+                <button class="btn danger" type="button" id="absence-delete-{a.id}" onclick={() => (deleting = a.id)} aria-label="Delete your absence for {rangeLabel(a)}">Delete</button>
               {/if}
             </div>
           </li>

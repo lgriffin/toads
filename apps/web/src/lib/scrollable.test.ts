@@ -3,15 +3,19 @@ import { scrollable } from './scrollable';
 
 function box(scrollWidth: number, clientWidth: number) {
   const attrs = new Map<string, string>();
+  const listeners = new Map<string, () => void>();
   return {
     scrollWidth,
     clientWidth,
-    firstElementChild: null,
+    children: [],
     set tabIndex(v: number) {
       attrs.set('tabindex', String(v));
     },
     removeAttribute: (k: string) => attrs.delete(k),
-    attrs
+    addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
+    removeEventListener: (type: string) => listeners.delete(type),
+    attrs,
+    listeners
   };
 }
 
@@ -23,5 +27,16 @@ describe('scrollable', () => {
     const fits = box(300, 300);
     scrollable(fits as unknown as HTMLElement).destroy();
     expect(fits.attrs.has('tabindex')).toBe(false);
+  });
+
+  it('rechecks when a <details> inside opens and the content grows wider', () => {
+    const b = box(300, 300);
+    const action = scrollable(b as unknown as HTMLElement);
+    expect(b.attrs.has('tabindex')).toBe(false);
+    b.scrollWidth = 900;
+    b.listeners.get('toggle')?.();
+    expect(b.attrs.get('tabindex')).toBe('0');
+    action.destroy();
+    expect(b.listeners.has('toggle')).toBe(false);
   });
 });

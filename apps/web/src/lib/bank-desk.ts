@@ -102,8 +102,11 @@ export function noticeLabel(r: BankRequest, own = false): string {
       return 'DM sent';
     case 'failed':
       if (own) return 'We could not DM you on Discord, so the answer is only here';
-      // Discord answers 403 when the member has closed DMs from server members.
-      if (r.notice_error?.includes('403')) return 'DM failed: their Discord DMs are closed, so tell them in game';
+      // Discord's "Cannot send messages to this user" (50007) means the member has closed DMs from server members;
+      // any other refusal (Missing Access, Missing Permissions) is the bot's to fix, so officers see it as it came.
+      if (r.notice_error?.includes('Cannot send messages to this user')) {
+        return 'DM failed: their Discord DMs are closed, so tell them in game';
+      }
       return `DM failed${r.notice_error ? `: ${r.notice_error}` : ''}`;
     default:
       return '';
