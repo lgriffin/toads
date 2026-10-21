@@ -1,5 +1,6 @@
 <script lang="ts">
   import { scrollable } from '$lib/scrollable';
+  import { myRaidLine, placeLabel, ROLE_NAMES, vsMedian, type MyCharacterPage, type MyRaidLine } from '$lib/characters';
   import { base } from '$app/paths';
   import { compactNumber, durationLabel } from '$lib/reference';
   import {
@@ -17,7 +18,29 @@
 
   // One raid's analysis, a section per tab of the desktop raid view. Officers of the raid's night (and global
   // officers) get every section; everyone else gets the raid's shape and each boss's totals (docs/logs.md).
-  let { backend, report, day }: { backend: LogsBackend; report: string; day: string | null } = $props();
+  let {
+    backend,
+    report,
+    day,
+    mine = null
+  }: {
+    backend: LogsBackend;
+    report: string;
+    day: string | null;
+    /** The signed-in member's character pages, for their own line on this raid; null leaves it out. */
+    mine?: ((name: string | null) => Promise<MyCharacterPage>) | null;
+  } = $props();
+
+  let line = $state<MyRaidLine | null>(null);
+  $effect(() => {
+    if (!mine) return;
+    // Best effort: without the member's pages the log still reads, just without their own line.
+    myRaidLine(report, mine).then(
+      (l) => (line = l),
+      () => (line = null)
+    );
+  });
+  const lineVs = $derived(line ? vsMedian(line.raid) : null);
 
   let view = $state<RaidView | null>(null);
   let error = $state('');
@@ -50,6 +73,20 @@
       <a href={s.url} rel="external noopener">Warcraft Logs</a>
     </p>
   </header>
+
+  {#if line}
+    {@const r = line.raid}
+    <section class="card you" aria-labelledby="you-h">
+      <h2 id="you-h">You in this raid</h2>
+      <p>
+        <strong>{line.name}</strong>, {ROLE_NAMES[r.role].toLowerCase()}: {r.display} {r.metric.toLowerCase()}{#if lineVs}, <span
+            class:ok={lineVs.better}
+            class:bad={!lineVs.better}>{lineVs.label}</span
+          > against the median for the role ({r.median_display}){/if}{#if placeLabel(r)}, {placeLabel(r)}{/if}.
+        <a href="{base}/me{__PREVIEW__ ? '/' : ''}">Every raid on Me</a>
+      </p>
+    </section>
+  {/if}
 
   {#if !view.full}
     <section class="card">
@@ -209,6 +246,8 @@
 {/snippet}
 
 <style>
+  .you { border-color: color-mix(in srgb, var(--bronze) 45%, var(--line)); margin-bottom: 1rem; }
+  .you p { margin: 0; }
   .head h1 { margin-bottom: 0.25rem; }
   .head p { margin-top: 0; }
   section + section, .tabs + section { margin-top: 1rem; }

@@ -67,11 +67,14 @@ function analyzer(id: WidgetId, title: string, description: string, extra: Parti
 
 /** The hub home's widgets in default display order, as in the API: the hub's own data. */
 export const CATALOGUE: readonly CatalogueEntry[] = [
+  // Leads the home, full width: the one number only the guild's own analysis can give a raider.
+  hub('my_performance', 'Your performance', "Your main character's last raid against the guild median for your role.", {
+    wide: true
+  }),
   hub('next_raid', 'Next raid', 'When the next raid starts and how many have signed up in Discord.'),
   hub('officer_desk', 'Raid leader desk', 'Applications, posts, highlights and spotlights waiting on officers.', {
     officer_only: true
   }),
-  hub('my_performance', 'Your performance', "Your main character's last raid against the guild median."),
   hub('raid_totals', 'Raid totals', 'Consumes, buffs and deaths per raid from the CBA and RPB sheets.', { wide: true }),
   hub('posts', 'Guild posts', 'News and posts from officers and Discord.'),
   hub('highlights', 'Recent highlights', 'The newest highlight reels.'),

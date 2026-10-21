@@ -103,3 +103,10 @@ Feature: HUB HOME
     And an officer has posted "Karazhan" as a Discord scheduled event for Wednesday evening
     And an officer has posted "Gruul's Lair" as a Discord scheduled event for Thursday evening
     Then their next raid is "Gruul's Lair" on Thursday
+
+  @ears_ubiquitous @member @phase_2_3
+  Scenario: REQ-HUB-HOME-016 The hub home shall open, for a member who has not customised it, on their last raid against the median for their role, full width and in words, and each raid's log page shall show the signed-in member their own line when one of their characters was in that raid
+    Given the hub home's default widgets
+    Then Your performance comes first and spans the home, ahead of the next raid
+    And the card leads with a sentence saying how the raid went against the median for the member's role
+    And a raid's log page looks up the member's characters and shows them their own line for that raid

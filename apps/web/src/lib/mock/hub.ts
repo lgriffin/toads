@@ -22,24 +22,25 @@ export const previewNextRaid: NextRaid = {
 export const previewNow = new Date(new Date(sampleRaid.start).getTime() - 2 * 86_400_000);
 
 export const previewPerformance: MyPerformance = {
-  generated_at: '2026-09-25 08:00:00',
-  raid: { report_id: 'ssc-0924', title: 'Serpentshrine Cavern', date: '2026-09-24' },
+  // The same raids as Hopscotch's sample character page on Me (mock/characters.ts), so the two agree.
+  generated_at: '2026-10-16 08:00:00',
+  raid: { report_id: 'pondWed1014', title: 'Serpentshrine Cavern', date: '2026-10-14' },
   entry: {
     name: 'Hopscotch',
     class: 'Rogue',
     role: 'melee',
     metric: 'Damage',
     unit: 'amount',
-    value: 2_870_000,
-    median: 2_430_000,
+    value: 9_180_000,
+    median: 8_060_000,
     rank: 2,
-    of: 7,
+    of: 3,
     recent: [
-      { date: '2026-09-10', value: 2_310_000, median: 2_280_000 },
-      { date: '2026-09-13', value: 2_520_000, median: 2_390_000 },
-      { date: '2026-09-17', value: 2_180_000, median: 2_350_000 },
-      { date: '2026-09-20', value: 2_760_000, median: 2_410_000 },
-      { date: '2026-09-24', value: 2_870_000, median: 2_430_000 }
+      { date: '2026-09-30', value: 7_260_000, median: 6_970_000 },
+      { date: '2026-10-04', value: 7_430_000, median: 7_100_000 },
+      { date: '2026-10-07', value: 7_910_000, median: 7_710_000 },
+      { date: '2026-10-11', value: 8_520_000, median: 7_640_000 },
+      { date: '2026-10-14', value: 9_180_000, median: 8_060_000 }
     ]
   },
   matched_by: 'claim',

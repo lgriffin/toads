@@ -7,9 +7,13 @@
   import { previewLogs } from '$lib/preview/logs-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import RaidLog from '$lib/components/RaidLog.svelte';
+  import { myCharacterPage } from '$lib/characters';
+  import { previewCharacterPage } from '$lib/mock/characters';
 
   let { data } = $props();
   const backend = __PREVIEW__ ? previewLogs(() => previewSession.role) : hubLogs;
+  // The member's own line on the raid comes from their character pages (GET /api/me/character-page).
+  const mine = __PREVIEW__ ? async (name: string | null) => previewCharacterPage(name) : (name: string | null) => myCharacterPage(name);
   // The raid day a raid-day officer reads the full analysis under (the list's link carries it); the API checks it.
   let day = $state<string | null | undefined>(undefined);
   onMount(() => {
@@ -24,7 +28,7 @@
   <p class="back"><a href="{base}/logs/">← Logs</a></p>
   {#if ready}
     {#key `${data.report}|${day}|${previewSession.role}`}
-      <RaidLog {backend} report={data.report} day={day ?? null} />
+      <RaidLog {backend} report={data.report} day={day ?? null} {mine} />
     {/key}
   {:else}
     <p class="muted" role="status">Loading…</p>

@@ -138,3 +138,34 @@ export function spreadValue(spread: Spread, value: number): string {
   }
   return Math.round(value).toLocaleString('en-GB');
 }
+
+/** A member's own line on a raid's log page: which of their characters was in it, and how that raid went. */
+export interface MyRaidLine {
+  name: string;
+  raid: CharacterRaid;
+}
+
+/** How many of a member's other characters the log page looks through after their main. */
+export const RAID_LINE_LOOKUPS = 3;
+
+/**
+ * Find the member's character in the raid `report`: their main's page first, then up to RAID_LINE_LOOKUPS of their
+ * other characters. Null when none of them was there, or the pages are not published yet.
+ */
+export async function myRaidLine(
+  report: string,
+  load: (name: string | null) => Promise<MyCharacterPage>
+): Promise<MyRaidLine | null> {
+  const first = await load(null);
+  const found = (mine: MyCharacterPage) => {
+    const raid = mine.page?.recent.find((r) => r.report_id === report);
+    return raid && mine.page ? { name: mine.page.name, raid } : null;
+  };
+  const hit = found(first);
+  if (hit || !first.page) return hit;
+  for (const name of first.characters.filter((n) => n !== first.page?.name).slice(0, RAID_LINE_LOOKUPS)) {
+    const line = found(await load(name));
+    if (line) return line;
+  }
+  return null;
+}

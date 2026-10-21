@@ -76,3 +76,17 @@ export function rankLabel(rank: number, of: number): string {
   const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[rank % 10] ?? 'th';
   return `${rank}${suffix} of ${of}`;
 }
+
+/**
+ * The verdict the hub home leads with, as a sentence: "beat the melee median by 14%", "was 6% under the healers'
+ * median", "matched the tanks' median".
+ */
+export function verdict(entry: PerformanceEntry): string {
+  const d = vsMedian(entry.value, entry.median);
+  const role = rolePlural(entry.role);
+  const whose = role.endsWith('s') ? `${role}'` : role;
+  if (d > 0) return `beat the ${whose} median by ${d}%`;
+  if (d < 0) return `was ${-d}% under the ${whose} median`;
+  return `matched the ${whose} median`;
+}
+

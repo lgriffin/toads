@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   myCharacterPage,
+  myRaidLine,
   placeLabel,
   rolesLabel,
   showTrends,
@@ -86,5 +87,19 @@ describe('character pages', () => {
     await myCharacterPage(null, f);
     await myCharacterPage('Lily pad', f);
     expect(seen).toEqual(['/api/me/character-page', '/api/me/character-page?name=Lily%20pad']);
+  });
+});
+
+describe('a member\'s line on a raid log', () => {
+  it('finds the main in the raid, or another of their characters, or nobody', async () => {
+    const load = async (name: string | null) => previewCharacterPage(name);
+    expect(await myRaidLine('pondWed1014', load)).toMatchObject({ name: 'Hopscotch', raid: { rank: 2, of: 3 } });
+    expect(await myRaidLine('pondThu1015', load)).toMatchObject({ name: 'Lilypadd', raid: { role: 'healer' } });
+    expect(await myRaidLine('somebodyElses', load)).toBeNull();
+  });
+
+  it('says nothing before the pages are published', async () => {
+    const empty = { generated_at: null, page: null, matched_by: null, looked_for: [], characters: [] };
+    expect(await myRaidLine('pondWed1014', async () => empty)).toBeNull();
   });
 });
