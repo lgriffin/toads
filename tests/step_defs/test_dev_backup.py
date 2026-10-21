@@ -1,6 +1,8 @@
 """REQ-DEV-OPS-002: nightly snapshots of the hub and rewinding to one (ADMIN_GUIDE.md section 13)."""
 
+import base64
 import configparser
+import json
 import os
 import re
 import shutil
@@ -87,3 +89,34 @@ def test_backup_and_restore_drill() -> None:
         [bash, str(DRILL)], cwd=ROOT, check=False, capture_output=True, text=True, timeout=900
     )
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
+
+
+@pytest.mark.parametrize(
+    ("pasted", "unwrapped"),
+    [
+        ("{wrapped}", True),
+        ('{{"access_token":{wrapped}}}', True),
+        ("{sign_in}", False),
+    ],
+)
+def test_wrapped_rclone_token_is_unwrapped(tmp_path: Path, pasted: str, unwrapped: bool) -> None:
+    """`rclone authorize drive <options>` prints the token as unpadded URL-safe base64 of {"token": "<json>"}."""
+    sign_in = (
+        '{"access_token":"ya29.a-b_c","token_type":"Bearer","refresh_token":"1//0g","expiry":"2026-10-21T16:24:00Z"}'
+    )
+    wrapped = base64.urlsafe_b64encode(json.dumps({"token": sign_in}, separators=(",", ":")).encode()).decode()
+    (tmp_path / "infra").mkdir()
+    value = pasted.format(wrapped=wrapped.rstrip("="), sign_in=sign_in)
+    (tmp_path / "infra" / ".env.backup").write_text(f"RCLONE_CONFIG_GDRIVE_TOKEN={value}\n")
+    bash = shutil.which("bash")
+    assert bash
+    result = subprocess.run(  # noqa: S603 - our own script
+        [bash, "-c", 'REPO="$1"; . scripts/backup-lib.sh; drive_token', "_", str(tmp_path)],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert (result.returncode == 0) is unwrapped
+    if unwrapped:
+        assert result.stdout.strip() == sign_in
