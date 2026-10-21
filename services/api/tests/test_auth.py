@@ -43,7 +43,8 @@ def test_member_gets_secure_session(hub: Hub) -> None:
     user = hub.user(("wed", "raider"), nick="Hopscotch")
     r = hub.callback(hub.authorize(hub.start_login(), user))
     assert r.status_code == 303
-    assert r.headers["location"] == f"{HUB}/hub"
+    # A raider who has not finished the first sign-in setup meets it first (REQ-HUB-ME-007).
+    assert r.headers["location"] == f"{HUB}/setup"
     header = _set_cookie(r, SESSION_COOKIE).lower()
     for flag in ("httponly", "secure", "samesite=lax", "path=/", f"max-age={7 * 24 * 3600}"):
         assert flag in header

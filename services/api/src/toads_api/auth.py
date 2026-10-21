@@ -26,11 +26,15 @@ from toads_api.rbac.deps import get_services, require
 from toads_api.rbac.permissions import HubRole, Permission, Principal
 from toads_api.services import Services
 from toads_api.sessions import LOGIN_COOKIE, SESSION_COOKIE, PendingLogin, SessionData
+from toads_api.setup import needs_setup
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
 
 MEMBERS_ONLY_PATH = "/members-only"
+# Where a trial or raider lands after signing in until they finish the first sign-in setup (REQ-HUB-ME-007).
+SETUP_PATH = "/setup"
+HUB_PATH = "/hub"
 # Pages that may ask to be returned to after sign-in (`/auth/login?next=recruit`). A fixed list, so the login can
 # never be turned into an open redirect.
 RETURN_PATHS = {"recruit": "/recruit"}
@@ -64,7 +68,7 @@ async def login(next: str | None = None, services: Services = Depends(get_servic
     settings = services.settings
     verifier = secrets.token_urlsafe(64)
     state = secrets.token_urlsafe(32)
-    pending = PendingLogin(state=state, code_verifier=verifier, return_to=RETURN_PATHS.get(next or "", "/hub"))
+    pending = PendingLogin(state=state, code_verifier=verifier, return_to=RETURN_PATHS.get(next or "", HUB_PATH))
     login_id = await services.sessions.begin_login(pending)
     query = urlencode(
         {
@@ -131,7 +135,13 @@ async def callback(
     )
     log.info("auth.signed_in", member_id=member_id)
     # Members land on their hub home (or the page that sent them, from RETURN_PATHS); the landing page is for visitors.
-    response = RedirectResponse(f"{public}{pending.return_to}", status_code=status.HTTP_303_SEE_OTHER)
+    # A trial or raider who has not finished the first sign-in setup meets it instead of the hub home.
+    land = pending.return_to
+    if land == HUB_PATH:
+        role_ids = member.role_ids
+        if await anyio.to_thread.run_sync(lambda: needs_setup(services, services.principal_for(member_id, role_ids))):
+            land = SETUP_PATH
+    response = RedirectResponse(f"{public}{land}", status_code=status.HTTP_303_SEE_OTHER)
     _clear_cookie(response, LOGIN_COOKIE, path="/auth")
     _cookie(response, SESSION_COOKIE, session_id, max_age=services.settings.session_ttl_seconds, path="/")
     return response
@@ -180,4 +190,6 @@ async def session_info(
         "raid_days": [d for d in days if d in principal.day_roles],
         "officer_days": [d for d in days if principal.global_officer or principal.day_roles.get(d) is HubRole.OFFICER],
         "day_names": {d.id: d.name for d in services.raid_days.raid_days},
+        # A trial or raider who has not finished the first sign-in setup (/setup, REQ-HUB-ME-007).
+        "needs_setup": await anyio.to_thread.run_sync(needs_setup, services, principal),
     }

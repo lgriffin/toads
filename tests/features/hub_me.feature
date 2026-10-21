@@ -39,3 +39,15 @@ Feature: HUB ME
     When the worker publishes character pages for "Lilypad", "Ribbit" and "Bogwalker"
     Then their raids open on their main "Ribbit" with "Lilypad" after it
     And the raids card picks characters from a dropdown that names the main
+
+  @ears_event_driven @member @phase_2_3
+  Scenario: REQ-HUB-ME-007 When a trial or raider signs in before finishing the first sign-in setup, the hub shall take them to the setup page, where they name their main, specs and alts, a character the guild's logs have not seen by its name and class
+    Given a Wednesday raider in the Toads server who has never signed in
+    When they sign in with Discord
+    Then the hub sends them to the setup page
+    When they name "Tadpole", a druid the guild's logs have not seen, as their main
+    And they add the alt "Ribbit" from the guild's logs
+    And they finish setup
+    Then setup shows "Tadpole" as their main, waiting for its first logged raid, and "Ribbit" as an alt
+    And signing in again takes them to their hub home
+    And the setup page welcomes them to the Pond from Gail and the officers

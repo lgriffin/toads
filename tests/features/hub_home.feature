@@ -34,6 +34,7 @@ Feature: HUB HOME
   @ears_event_driven @member @phase_2_3
   Scenario: REQ-HUB-HOME-005 When a member signs in with Discord, the hub shall take them to their hub home rather than the public landing page
     Given a Wednesday raider in the Toads server
+    And they finished the first sign-in setup
     When they complete Discord sign-in
     Then the hub sends them to their hub home
 

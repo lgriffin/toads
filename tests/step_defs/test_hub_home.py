@@ -167,6 +167,12 @@ def default_widgets(hub: Hub, ctx: dict[str, Any]) -> None:
     assert _shown(hub, ctx["sid"]) == [w.id for w in catalogue_for(Audience.MEMBER) if w.default_shown]
 
 
+@given("they finished the first sign-in setup")
+def finished_setup(hub: Hub, ctx: dict[str, Any]) -> None:
+    # Until then sign-in lands on /setup instead (REQ-HUB-ME-007).
+    assert hub.post("/api/me/setup/done", hub.login(ctx["user"])).status_code == 200
+
+
 @when("they complete Discord sign-in")
 def sign_in(hub: Hub, ctx: dict[str, Any]) -> None:
     ctx["response"] = hub.callback(hub.authorize(hub.start_login(), ctx["user"]))

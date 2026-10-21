@@ -36,8 +36,8 @@ export const MEMBER_NAV: readonly NavItem[] = [
   { href: '/admin', label: 'Admin', adminOnly: true }
 ];
 
-/** Member pages outside the nav: the first sign-in checklist. */
-export const MEMBER_EXTRA: readonly string[] = ['/welcome'];
+/** Member pages outside the nav: the first sign-in checklist and setup (main, specs and alts). */
+export const MEMBER_EXTRA: readonly string[] = ['/welcome', '/setup'];
 
 export function memberNav(officer: boolean, admin = false): NavItem[] {
   return MEMBER_NAV.filter((i) => (officer || admin || !i.officerOnly) && (admin || !i.adminOnly));

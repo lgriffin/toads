@@ -33,9 +33,10 @@ const HELD_FOR_OFFICERS = ['/bank'];
 
 // Open to raiders during the hold too: the Raid page is itself a coming-soon page for each raid night, and Me is where
 // raiders tell their officers which nights they will miss, which matters before launch too. Me alone, not its claim and
-// settings pages; while the hold is on it shows a raider only their absences (`absencesOnly`).
+// settings pages; while the hold is on it shows a raider only their absences (`absencesOnly`). The first sign-in setup
+// is open too: officers want every member's main, specs and alts before launch (docs/setup.md).
 const OPEN_TO_MEMBERS = ['/raid'];
-const OPEN_TO_MEMBERS_EXACT = ['/me'];
+const OPEN_TO_MEMBERS_EXACT = ['/me', '/setup'];
 
 function exactly(path: string, paths: readonly string[]): boolean {
   const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path || '/';

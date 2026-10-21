@@ -174,3 +174,72 @@ def dropdown(ctx: dict[str, Any]) -> None:
     assert '<select id="character-pick"' in card
     assert "characterLabel(c, mine.main" in card
     assert "(main)" in (WEB / "main-swap.ts").read_text(encoding="utf-8")
+
+
+# --- the first sign-in setup (007) ------------------------------------------------------------------
+
+ROUTES = Path(__file__).resolve().parents[2] / "apps" / "web" / "src" / "routes"
+
+
+@given("a Wednesday raider in the Toads server who has never signed in")
+def new_raider(hub: Hub, ctx: dict[str, Any]) -> None:
+    ctx["user"] = hub.user(("wed", "raider"))
+
+
+@when("they sign in with Discord")
+def sign_in(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = hub.callback(hub.authorize(hub.start_login(), ctx["user"]))
+    ctx["landed"] = r.headers["location"]
+    hub.client.cookies.clear()
+    ctx["sid"] = hub.login(ctx["user"])
+
+
+@then("the hub sends them to the setup page")
+def on_setup(ctx: dict[str, Any]) -> None:
+    from conftest import HUB
+
+    assert ctx["landed"] == f"{HUB}/setup"
+
+
+@when(parsers.parse('they name "{name}", a {wow_class} the guild\'s logs have not seen, as their main'))
+def name_main(hub: Hub, ctx: dict[str, Any], name: str, wow_class: str) -> None:
+    body = {"name": name, "wow_class": wow_class, "main": True}
+    assert hub.post("/api/me/setup/characters", ctx["sid"], body).json()["declared"]["name"] == name
+
+
+@when(parsers.parse('they add the alt "{name}" from the guild\'s logs'))
+def add_alt(hub: Hub, ctx: dict[str, Any], name: str) -> None:
+    (found,) = [c for c in hub.get(f"/api/characters?q={name}", ctx["sid"]).json() if c["name"] == name]
+    assert hub.post("/api/claims", ctx["sid"], {"character_id": found["id"]}).status_code == 201
+
+
+@when("they finish setup")
+def finish(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert hub.post("/api/me/setup/done", ctx["sid"]).status_code == 200
+
+
+@then(parsers.parse('setup shows "{main}" as their main, waiting for its first logged raid, and "{alt}" as an alt'))
+def setup_shows(hub: Hub, ctx: dict[str, Any], main: str, alt: str) -> None:
+    state = hub.get("/api/me/setup", ctx["sid"]).json()
+    assert state["main"] == {"name": main, "status": "not_in_logs"}
+    assert state["done"] is True
+    assert [c["character_name"] for c in hub.get("/api/claims", ctx["sid"]).json()] == [alt]
+
+
+@then("signing in again takes them to their hub home")
+def back_to_hub(hub: Hub, ctx: dict[str, Any]) -> None:
+    from conftest import HUB
+
+    r = hub.callback(hub.authorize(hub.start_login(), ctx["user"]))
+    hub.client.cookies.clear()
+    assert r.headers["location"] == f"{HUB}/hub"
+
+
+@then("the setup page welcomes them to the Pond from Gail and the officers")
+def welcome(ctx: dict[str, Any]) -> None:
+    copy = (WEB / "setup.ts").read_text(encoding="utf-8")
+    assert "heading: 'Welcome to the Pond'" in copy
+    assert "signoff: 'Gail and the officers'" in copy
+    assert "Thanks for logging in" in copy
+    page = (ROUTES / "setup" / "+page.svelte").read_text(encoding="utf-8")
+    assert "art/gail-640.webp" in page

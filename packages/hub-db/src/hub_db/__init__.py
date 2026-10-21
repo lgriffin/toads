@@ -47,6 +47,7 @@ from hub_db.professions import GuildCrafter, MemberProfession
 from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
+from hub_db.setup import DeclaredCharacter
 
 __all__ = [
     "EVERY_DAY",
@@ -70,6 +71,7 @@ __all__ = [
     "CommunityPost",
     "CredentialCipher",
     "CredentialDecryptError",
+    "DeclaredCharacter",
     "DiscordRoleBadge",
     "GuildCrafter",
     "Highlight",

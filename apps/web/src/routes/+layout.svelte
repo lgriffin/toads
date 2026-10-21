@@ -177,6 +177,7 @@
           {#if settingsOpen}
             <li><a href="{base}/me/settings/"><span class="name">Account settings</span><span class="hint">Your name and Warcraft Logs key</span></a></li>
           {/if}
+          <li><a href="{base}/setup/"><span class="name">Your setup</span><span class="hint">Your main, specs and alts</span></a></li>
           <li><a href="{base}/features/"><span class="name">What you can do</span><span class="hint">What your rank opens in the hub</span></a></li>
         </ul>
         <DisplaySettings />

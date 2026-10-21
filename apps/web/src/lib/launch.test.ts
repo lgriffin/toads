@@ -15,6 +15,12 @@ describe('launch hold', () => {
     for (const path of ['/raids', '/calendar']) expect(launchHold(path, 'raider', true)).toBe('open');
   });
 
+  it('opens the first sign-in setup to every signed-in tier, and to nobody signed out', () => {
+    for (const tier of ['raider', 'officer', 'admin'] as const)
+      for (const path of ['/setup', '/setup/']) expect(launchHold(path, tier, true)).toBe('open');
+    expect(isMemberPath('/setup')).toBe(true);
+  });
+
   it('keeps a raider\'s Me to their absences while the hold is on', () => {
     expect(absencesOnly('raider', true)).toBe(true);
     for (const tier of ['officer', 'admin'] as const) expect(absencesOnly(tier, true)).toBe(false);

@@ -91,7 +91,7 @@ async def search_characters(
     return [CharacterOut.model_validate(c) for c in found]
 
 
-def _create(services: Services, principal: Principal, character_id: int) -> tuple[ClaimOut, bool]:
+def claim_character(services: Services, principal: Principal, character_id: int) -> tuple[ClaimOut, bool]:
     name = services.characters.name_of(character_id)
     if name is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown character")
@@ -127,7 +127,7 @@ async def create_claim(
     services: Services = Depends(get_services),  # noqa: B008
 ) -> ClaimOut:
     try:
-        claim, needs_officer = await anyio.to_thread.run_sync(_create, services, principal, body.character_id)
+        claim, needs_officer = await anyio.to_thread.run_sync(claim_character, services, principal, body.character_id)
     except IntegrityError:
         # Two members claimed the same unclaimed character at once; the unique constraint picked one.
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Character already claimed") from None
