@@ -23,9 +23,16 @@ the API reads through `wcl-store`, both published from `lgriffin/warcraftlogs_pr
 ```bash
 just setup      # uv sync + npm ci
 just up         # dev stack on http://localhost:8080
-just test       # lint, mypy strict, pytest, svelte-check, vitest, reqs
+just check      # every CI check that needs no network, Docker or database (scripts/dev.py check)
+just dev types test   # any scripts/dev.py tasks, in order; `just fix` applies Ruff's fixes
 just reqs       # regenerate docs/requirements.md
 ```
+
+`scripts/dev.py` is the one list of checks: CI jobs, the justfile and a local run all call its tasks, and
+`tests/step_defs/test_dev_gates.py` fails if a CI job stops running its tasks. `ci-success` is the one required check:
+it needs every other job and fails if any failed, was cancelled or was skipped (`scripts/ci_gate.py`). A new CI job
+goes in its `needs` and in `JOB_TASKS` or `OUTSIDE_DEV` in that test. The coverage floor is `fail_under` in
+`pyproject.toml`.
 
 ## Rules
 

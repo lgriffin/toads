@@ -17,19 +17,14 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run mypy packages/hub-db/src services/api/src services/worker/src services/bot/src
-      - run: uv run lint-imports
-      - run: uv run pytest -n auto --cov=toads_api --cov=toads_worker --cov-report=term-missing --cov-fail-under=80
-      - run: uv run python scripts/reqs.py --check
+      - run: uv run python scripts/dev.py format lint imports reqs types test
 
   postgres:
     # The community repository and the hub-db migrations against a real Postgres (the other jobs use SQLite).
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16.4
         env:
           POSTGRES_USER: toads
           POSTGRES_DB: toads
@@ -45,7 +40,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: uv run pytest -q services/api/tests/test_community_sql.py services/api/tests/test_community.py -k sql
+      - run: uv run python scripts/dev.py postgres
 
   backup:
     # The nightly backup and restore scripts against a real Postgres and restic (tests/backup/drill.sh).
@@ -56,10 +51,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: shellcheck -x scripts/backup.sh scripts/backup-lib.sh scripts/restore.sh scripts/backup-install.sh tests/backup/drill.sh
-      - run: uv run pytest -q -rs tests/step_defs/test_dev_backup.py
-        env:
-          TOADS_BACKUP_DRILL: "1"
+      - run: uv run python scripts/dev.py shell backup
 
   security:
     runs-on: ubuntu-latest
@@ -74,8 +66,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: uv run pytest -m security -q
-      - run: uv export --frozen --no-hashes --no-emit-workspace > /tmp/req.txt && uv run pip-audit -r /tmp/req.txt
+      - run: uv run python scripts/dev.py security audit
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -93,14 +84,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
-      - run: npm audit --audit-level=high --omit=dev
-      - run: npm run build
-        env:
-          PREVIEW: '1'
-          BASE_PATH: /toads
+      - run: python3 ../../scripts/dev.py web-check web-test web-build web-audit
 
   e2e:
     runs-on: ubuntu-latest
@@ -116,7 +100,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+      - run: python3 ../../scripts/dev.py e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -156,3 +140,15 @@ jobs:
               [ -x "$interp" ] || { echo "$f: interpreter $interp is missing"; exit 1; }
             done'
           docker run --rm --entrypoint python toads-${{ matrix.name }}:${{ github.sha }} -c "import sys; print(sys.prefix)"
+
+  ci-success:
+    # The one required check: it needs every other job and fails if any failed, was cancelled or was skipped, so a
+    # renamed or dropped job turns the PR red instead of silently passing (REQ-DEV-CI-001, scripts/ci_gate.py).
+    if: always()
+    needs: [python, postgres, backup, security, web, e2e, images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/ci_gate.py
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
