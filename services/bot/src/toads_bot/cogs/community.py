@@ -1,7 +1,9 @@
-"""Discord side of the community layer: interview rooms, two-way officer posts.
+"""Discord side of the community layer: interview rooms, two-way officer posts, and DMs to members (the bank desk's
+answers, cogs/bank_desk.py).
 
 Inbound: messages in the mirrored channels go to the hub, where they wait for an officer. Edits and deletions follow.
-Outbound: the bot works through the hub's outbox (open or lock an interview room, post or edit an officer post).
+Outbound: the bot works through the hub's outbox (open or lock an interview room, post or edit an officer post, DM a
+member).
 Nothing the bot posts can ping anyone: every send uses AllowedMentions.none().
 """
 
@@ -23,7 +25,9 @@ log = logging.getLogger(__name__)
 
 NO_PINGS = discord.AllowedMentions.none()
 EMBED_COLOUR = discord.Colour(0x5FBF6A)
-HUB_KINDS = frozenset({"create_interview_room", "lock_interview_room", "post_message", "edit_message"})
+HUB_KINDS = frozenset({"create_interview_room", "lock_interview_room", "post_message", "edit_message", "send_dm"})
+# Jobs whose failure the hub is told about, so it can show why: a room that is not coming, a DM that cannot land.
+REPORTED_KINDS = frozenset({"create_interview_room", "send_dm"})
 
 
 class RoomError(Exception):
@@ -147,6 +151,8 @@ class Community(commands.Cog):
         self.post_to_channels = post_to_channels
         # Rooms opened whose ack the hub has not taken yet, by job id: a retry acks the same room, never opens another.
         self.opened_rooms: dict[int, int] = {}
+        # DMs sent whose ack the hub has not taken yet: a retry acks again, never DMs the member twice.
+        self.sent_dms: set[int] = set()
 
     async def cog_load(self) -> None:
         self.poll.start()
@@ -249,9 +255,10 @@ class Community(commands.Cog):
                 log.exception("outbox job %s (%s) failed; retrying", job["id"], job["kind"])
 
     async def _give_up(self, job: dict[str, Any], reason: str) -> None:
-        """A room that is not coming is reported to the hub, which shows why; other jobs are logged and retried."""
+        """A room that is not coming, or a DM that cannot land, is reported to the hub, which shows why; other jobs are
+        logged and retried."""
         log.error("outbox job %s (%s) failed: %s", job["id"], job["kind"], reason)
-        if job["kind"] != "create_interview_room":
+        if job["kind"] not in REPORTED_KINDS:
             return
         try:
             await self.hub.ack(int(job["id"]), error=reason[:300])
@@ -268,6 +275,12 @@ class Community(commands.Cog):
         elif kind == "lock_interview_room":
             await self.lock_interview_room(guild, payload)
             await self.hub.ack(job_id)
+        elif kind == "send_dm":
+            if job_id not in self.sent_dms:
+                await self.send_dm(payload)
+                self.sent_dms.add(job_id)
+            await self.hub.ack(job_id)
+            self.sent_dms.discard(job_id)
         elif kind in {"post_message", "edit_message"} and post is not None:
             if not self.post_to_channels:
                 return  # posting is behind a feature flag; the job waits until it is switched on
@@ -284,6 +297,14 @@ class Community(commands.Cog):
                 await self.hub.ack(job_id)
         else:
             log.warning("unknown outbox job kind %r", kind)
+
+    async def send_dm(self, payload: dict[str, Any]) -> None:
+        """DM one member. Discord refusing (DMs from server members turned off, or no such user) is a 4xx, which
+        run_outbox reports to the hub rather than retrying."""
+        user = self.bot.get_user(int(payload["discord_user_id"])) or await self.bot.fetch_user(
+            int(payload["discord_user_id"])
+        )
+        await user.send(str(payload["content"])[:2000], allowed_mentions=NO_PINGS)
 
     async def open_interview_room(self, guild: discord.Guild, payload: dict[str, Any]) -> int:
         try:

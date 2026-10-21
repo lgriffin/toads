@@ -18,6 +18,10 @@ and Discord in this hub, so the hub:
                                         └─ BotBridge: bank.dm / bank.post ──▶ bank bot ──▶ Discord
 ```
 
+The Bank page also holds the hub's own **request desk** ([bank-desk.md](bank-desk.md)): members ask for an item with the
+Toad Bot's `/bankrequest` and officers answer with a message the Toad Bot DMs back. It needs no ToadsBank and no
+snapshot, so officers can work requests before the bank's stock is imported.
+
 ToadsBank's HTTP contract (v1) is the source of truth for request and response shapes; the hub passes ToadsBank's
 JSON through unchanged and forwards only the body fields the contract names.
 
