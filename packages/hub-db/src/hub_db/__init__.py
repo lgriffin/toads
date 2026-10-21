@@ -41,7 +41,7 @@ from hub_db.models import (
     NightHomePage,
     main_claim,
 )
-from hub_db.officer_board import OfficerBoardCard
+from hub_db.officer_board import NightLink, OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
 from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
@@ -81,6 +81,7 @@ __all__ = [
     "MemberHomeLayout",
     "MemberSpec",
     "NightHomePage",
+    "NightLink",
     "OfficerBoardCard",
     "OfficerGrant",
     "RaidComp",

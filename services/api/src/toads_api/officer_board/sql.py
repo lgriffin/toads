@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from hub_db import NightLink as NightLinkRow
 from hub_db import OfficerBoardCard
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api import audit
-from toads_api.officer_board.repository import Card, CardFields
+from toads_api.officer_board.repository import Card, CardFields, NightLink
 
 
 def _card(row: OfficerBoardCard) -> Card:
@@ -24,6 +25,10 @@ def _card(row: OfficerBoardCard) -> Card:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def _link(row: NightLinkRow) -> NightLink:
+    return NightLink(row.id, row.raid_day_id, row.position, row.label, row.url, row.created_by, row.created_at)
 
 
 def _target(card_id: int) -> str:
@@ -105,5 +110,35 @@ class SqlBoardRepository:
             if row is None:
                 return False
             audit.record(db, actor=by, action="board.remove", target=_target(card_id), raid_day=raid_day)
+            db.delete(row)
+            return True
+
+    def links(self, raid_day: str) -> list[NightLink]:
+        query = (
+            select(NightLinkRow)
+            .where(NightLinkRow.raid_day_id == raid_day)
+            .order_by(NightLinkRow.position, NightLinkRow.id)
+        )
+        with self._db() as db:
+            return [_link(r) for r in db.scalars(query)]
+
+    def add_link(self, raid_day: str, label: str, url: str, by: int) -> NightLink:
+        last = select(func.max(NightLinkRow.position)).where(NightLinkRow.raid_day_id == raid_day)
+        with self._db.begin() as db:
+            top = db.scalar(last)
+            row = NightLinkRow(
+                raid_day_id=raid_day, position=0 if top is None else top + 1, label=label, url=url, created_by=by
+            )
+            db.add(row)
+            db.flush()
+            audit.record(db, actor=by, action="board.link_add", target=f"night_link:{row.id}", raid_day=raid_day)
+            return _link(row)
+
+    def remove_link(self, raid_day: str, link_id: int, by: int) -> bool:
+        with self._db.begin() as db:
+            row = db.get(NightLinkRow, link_id)
+            if row is None or row.raid_day_id != raid_day:
+                return False
+            audit.record(db, actor=by, action="board.link_remove", target=f"night_link:{link_id}", raid_day=raid_day)
             db.delete(row)
             return True

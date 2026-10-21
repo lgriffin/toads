@@ -50,3 +50,13 @@ Feature: HUB BOARD
     And it shows them only to that night's officers
     And the Raid page's officer desk links to it instead of holding the board
     And the Officer console lists only the nights the viewer runs
+
+  @ears_event_driven @raid_leader @phase_2_7
+  Scenario: REQ-HUB-BOARD-007 When a raid night's officer pins a strategy or role link, the hub shall show it at the top of that night's officer section with who is away from the next night, to that night's officers only
+    Given a Wednesday officer
+    When the Wednesday officer pins "Kael'thas strategy" at "https://docs.google.com/document/d/abc"
+    Then another Wednesday officer sees "Kael'thas strategy" pinned on Wednesday
+    And the audit log records "board.link_add" for Wednesday
+    And a link that is not https is refused
+    And a Sunday officer cannot see or pin Wednesday's links
+    And the night's officer section opens with the next night, who is away and the pinned links

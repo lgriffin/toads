@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 from toads_api.officer_board.repository import CardFields, InMemoryBoardRepository
-from toads_api.officer_board.service import CARD_LIMIT, LANES, BoardError, OfficerBoardService
+from toads_api.officer_board.service import CARD_LIMIT, LANES, LINK_LIMIT, BoardError, OfficerBoardService
 
 from conftest import Hub
 
@@ -185,3 +185,58 @@ def test_a_global_officer_cannot_reach_a_card_through_another_days_path(hub: Hub
     assert hub.delete(f"/api/days/sun/board/cards/{card}", sid).status_code == 404
     assert hub.get("/api/days/nope/board", sid).status_code == 404
     assert hub.get("/api/days/wed/board", None).status_code == 401
+
+
+# ---------------------------------------------------------------- pinned links
+
+
+def test_links_are_tidied_checked_and_kept_per_night() -> None:
+    svc = _svc()
+    link = svc.add_link("wed", label="  Kael   strategy ", url=" https://docs.google.com/document/d/abc ", by=1)
+    assert (link.label, link.url) == ("Kael strategy", "https://docs.google.com/document/d/abc")
+    for label, url in [
+        ("", "https://drive.google.com/x"),
+        ("x" * 81, "https://drive.google.com/x"),
+        ("Roles", "http://drive.google.com/x"),
+        ("Roles", "javascript:alert(1)"),
+        ("Roles", "https://localhost/x"),
+        ("Roles", "drive.google.com/x"),
+        ("Roles", "https://" + "a" * 500 + ".com"),
+    ]:
+        with pytest.raises(BoardError) as info:
+            svc.add_link("wed", label=label, url=url, by=1)
+        assert info.value.status == 422, (label, url)
+    assert [x.label for x in svc.links("wed")] == ["Kael strategy"]
+    assert svc.links("sun") == []
+
+
+def test_a_night_holds_a_limited_number_of_links_and_unpinning_needs_the_right_night() -> None:
+    svc = _svc()
+    for i in range(LINK_LIMIT):
+        svc.add_link("wed", label=f"Doc {i}", url=f"https://drive.google.com/{i}", by=1)
+    with pytest.raises(BoardError) as info:
+        svc.add_link("wed", label="One more", url="https://drive.google.com/x", by=1)
+    assert info.value.status == 409
+    first = svc.links("wed")[0].id
+    with pytest.raises(BoardError) as missing:
+        svc.remove_link("sun", first, by=1)
+    assert missing.value.status == 404
+    svc.remove_link("wed", first, by=1)
+    assert len(svc.links("wed")) == LINK_LIMIT - 1
+
+
+def test_link_routes_pin_list_and_unpin_through_the_database(hub: Hub) -> None:
+    sid = _officer(hub)
+    made = hub.post("/api/days/wed/links", sid, {"label": "Roles", "url": "https://drive.google.com/roles"})
+    assert made.status_code == 201
+    link = made.json()
+    assert hub.get("/api/days/wed/links", sid).json() == [link]
+    assert hub.post("/api/days/wed/links", sid, {"label": "Bad", "url": "ftp://x.com"}).status_code == 422
+    assert (
+        hub.delete(f"/api/days/sun/links/{link['id']}", hub.login(hub.user(("global", "officer")))).status_code == 404
+    )
+    assert hub.delete(f"/api/days/wed/links/{link['id']}", sid).status_code == 204
+    assert hub.get("/api/days/wed/links", sid).json() == []
+    raider = hub.login(hub.user(("wed", "raider")))
+    assert hub.get("/api/days/wed/links", raider).status_code == 403
+    assert hub.get("/api/days/wed/links", None).status_code == 401

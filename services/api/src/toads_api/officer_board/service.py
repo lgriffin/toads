@@ -6,8 +6,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
+from urllib.parse import urlsplit
 
-from toads_api.officer_board.repository import BoardRepository, Card, CardFields
+from toads_api.officer_board.repository import BoardRepository, Card, CardFields, NightLink
 
 # The board's lanes, left to right. A card's lane is one of these ids.
 LANES: dict[str, str] = {"todo": "To do", "doing": "In progress", "done": "Done"}
@@ -15,6 +16,10 @@ TITLE_LIMIT = 200
 NOTES_LIMIT = 2000
 # A board is a working list, not an archive: past this, officers clear Done before adding more.
 CARD_LIMIT = 200
+# Links pinned to a night: its strategy doc, role sheet and Drive folder, not a bookmark list.
+LINK_LIMIT = 12
+LINK_LABEL_LIMIT = 80
+LINK_URL_LIMIT = 500
 
 
 class BoardError(Exception):
@@ -141,3 +146,26 @@ class OfficerBoardService:
     def remove(self, raid_day: str, card_id: int, by: int) -> None:
         if not self.repo.remove(raid_day, card_id, by):
             raise BoardError("No such card on this board", status=404)
+
+    # ------------------------------------------------------------------------------------------- pinned links
+
+    def links(self, raid_day: str) -> list[NightLink]:
+        return self.repo.links(raid_day)
+
+    def add_link(self, raid_day: str, *, label: str, url: str, by: int) -> NightLink:
+        """Pin a link to the night. Only https links to a real host, so a pinned link never runs script or opens a
+        local file; Google Drive is the usual one, but any https page is allowed."""
+        label = " ".join(label.split())
+        if not label or len(label) > LINK_LABEL_LIMIT:
+            raise BoardError(f"Give the link a name of up to {LINK_LABEL_LIMIT} characters", status=422)
+        url = url.strip()
+        parts = urlsplit(url)
+        if len(url) > LINK_URL_LIMIT or parts.scheme != "https" or not parts.hostname or "." not in parts.hostname:
+            raise BoardError("Paste a full https:// link, such as a Google Drive share link", status=422)
+        if len(self.repo.links(raid_day)) >= LINK_LIMIT:
+            raise BoardError(f"A night holds {LINK_LIMIT} links; take one off first", status=409)
+        return self.repo.add_link(raid_day, label, url, by)
+
+    def remove_link(self, raid_day: str, link_id: int, by: int) -> None:
+        if not self.repo.remove_link(raid_day, link_id, by):
+            raise BoardError("No such link on this night", status=404)

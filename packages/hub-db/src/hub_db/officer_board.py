@@ -33,3 +33,18 @@ class OfficerBoardCard(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class NightLink(Base):
+    """A link a raid day's officers pin to their night: the strategy doc, the role sheet, the Drive folder."""
+
+    __tablename__ = "night_links"
+    __table_args__ = (Index("ix_night_links_day", "raid_day_id", "position"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    raid_day_id: Mapped[str] = mapped_column(String(32))
+    position: Mapped[int] = mapped_column(default=0)
+    label: Mapped[str] = mapped_column(String(80))
+    url: Mapped[str] = mapped_column(String(500))
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
