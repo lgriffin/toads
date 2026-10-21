@@ -5,6 +5,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from toads_bot.cogs.bank_desk import BankDesk
 from toads_bot.cogs.community import Community
 from toads_bot.cogs.raid_helper import RaidHelper
 from toads_bot.hub import HubClient
@@ -32,6 +33,7 @@ def create_bot(settings: Settings) -> commands.Bot:
             )
         )
         await bot.add_cog(RaidHelper(hub))
+        await bot.add_cog(BankDesk(hub))
         bot.tree.copy_global_to(guild=guild)
         await bot.tree.sync(guild=guild)
 

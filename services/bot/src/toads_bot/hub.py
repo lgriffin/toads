@@ -1,5 +1,6 @@
 """The bot's only door into the hub: the Hub API's /api/bot routes, authenticated with the service token, and the
-Raid-Helper import, which it calls as the member who used `/raidhelper import`."""
+Raid-Helper import and bank desk request, which it calls as the member who used `/raidhelper import` or
+`/bankrequest`."""
 
 from __future__ import annotations
 
@@ -72,4 +73,13 @@ class HubClient:
             json=export,
             headers={"X-Toads-Acting-Member": str(discord_user_id)},
             timeout=30.0,
+        )
+
+    async def bank_request(self, discord_user_id: int, item: str, quantity: int) -> httpx.Response:
+        """Ask the guild bank's request desk for an item, acting as the Discord member who used `/bankrequest`: the hub
+        reads their roles from Discord, so only guild members can ask. Returned as is, refusals included."""
+        return await self._http.post(
+            "/api/bank-desk/requests",
+            json={"item": item, "quantity": quantity},
+            headers={"X-Toads-Acting-Member": str(discord_user_id)},
         )

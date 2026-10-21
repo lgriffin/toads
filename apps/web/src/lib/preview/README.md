@@ -22,7 +22,8 @@ Sample-data versions of the hub pages, rendered only in the static preview build
 - `Bank` is the real bank page (`$lib/components/BankLive.svelte`) answered by `bank-fake.ts`, an in-memory stand-in for
   the hub's bank routes installed with `useBankFetch`. The officer view works Wednesday's request queue and imports; the
   super admin view also sees grants, officer tokens and the break-glass notice, and a token minted there can be
-  redeemed in the raider view. The state lasts until the page reloads.
+  redeemed in the raider view. The state lasts until the page reloads. Above it, the hub's own request desk (`$lib/components/BankDesk.svelte`, docs/bank-desk.md) is answered by
+  `bank-desk-fake.ts`: sample `/bankrequest` asks that the officer and super admin views answer.
 - `state.svelte.ts` holds in-memory copies of the community data and the preview visitor's home layout. Officer actions, spotlight consent and the compose
   form change only that state (kept across client-side navigation, reset on reload); nothing is sent anywhere, and the
   recruit form only shows its success message.

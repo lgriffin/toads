@@ -3,6 +3,7 @@
 from hub_db.absences import MemberAbsence
 from hub_db.awards import MemberAward
 from hub_db.bank import EVERY_DAY, BankGrant, BankGrantToken
+from hub_db.bank_desk import BankItemRequest
 from hub_db.community import (
     Application,
     ApplicationEvent,
@@ -55,6 +56,7 @@ __all__ = [
     "AuditEntry",
     "BankGrant",
     "BankGrantToken",
+    "BankItemRequest",
     "Base",
     "BotOutbox",
     "CharacterClaim",

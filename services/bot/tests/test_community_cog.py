@@ -487,3 +487,35 @@ def test_hub_client_sends_the_service_token_and_caps_text() -> None:
     assert json.loads(seen[2].content) == {"error": "The Toad Bot needs Manage Roles in the server"}
     body = json.loads(seen[3].content)
     assert (len(body["author_name"]), len(body["content"])) == (100, 4000)
+
+
+# ------------------------------------------------------------------ DMs (the bank desk's answers)
+
+DM = {"discord_user_id": str(APPLICANT), "content": "Your guild bank request #4 was approved", "bank_request_id": 4}
+
+
+def test_a_dm_reaches_the_member_without_pinging_anyone_and_is_acked() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("send_dm", DM)]
+    c = cog(hub)
+    member = MagicMock()
+    member.send = AsyncMock()
+    c.bot.get_user = MagicMock(return_value=member)  # type: ignore[method-assign]
+    run(c.run_outbox(fake_guild()))
+    c.bot.get_user.assert_called_once_with(APPLICANT)
+    assert member.send.await_args.args[0] == DM["content"]
+    mentions = member.send.await_args.kwargs["allowed_mentions"]
+    assert (mentions.everyone, mentions.users, mentions.roles) == (False, False, False)
+    hub.ack.assert_awaited_once_with(7)
+
+
+def test_a_dm_discord_refuses_is_reported_to_the_hub_not_retried() -> None:
+    hub = AsyncMock()
+    hub.outbox.return_value = [job("send_dm", DM)]
+    c = cog(hub)
+    member = MagicMock()
+    member.send = AsyncMock(side_effect=http_error(403, discord.Forbidden))
+    c.bot.get_user = MagicMock(return_value=None)  # type: ignore[method-assign]
+    c.bot.fetch_user = AsyncMock(return_value=member)  # type: ignore[method-assign]
+    run(c.run_outbox(fake_guild()))
+    hub.ack.assert_awaited_once_with(7, error="Discord refused: 403 boom")

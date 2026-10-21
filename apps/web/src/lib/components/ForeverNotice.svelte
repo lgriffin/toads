@@ -5,7 +5,10 @@
   import { base } from '$app/paths';
   import { FOREVER_LAUNCH, TAB_PREVIEW, TAB_PURPOSE, tabOf } from '$lib/launch';
   import type { MemberFacts } from '$lib/toads';
+  import { hubBankDesk } from '$lib/bank-desk';
+  import { previewBankDesk } from '$lib/preview/bank-desk-fake';
   import BankCounter from './BankCounter.svelte';
+  import BankDesk from './BankDesk.svelte';
   import BankMockup from './BankMockup.svelte';
   import ToadGreeting from './ToadGreeting.svelte';
   import ToadsMark from './ToadsMark.svelte';
@@ -15,12 +18,21 @@
   let { path, name, ...facts }: MemberFacts & { path: string; name: string } = $props();
   let tab = $derived(tabOf(path));
   let preview = $derived(tab ? TAB_PREVIEW[tab.href] : undefined);
+  // The bank's request desk is live through the hold: it needs no bank snapshot, so officers can work requests from
+  // /bankrequest before launch (docs/bank-desk.md). Only officers and super admins ever reach this notice.
+  const deskBackend = __PREVIEW__ ? previewBankDesk(true) : hubBankDesk();
 </script>
 
 <svelte:head><title>{tab?.label ?? 'Coming soon'} · Toads</title></svelte:head>
 
 <div class="pond-page">
   <ToadGreeting {name} {...facts} />
+
+  {#if preview?.mockup === 'bank'}
+    <section class="band desk-band" aria-label="Bank requests desk">
+      <BankDesk backend={deskBackend} />
+    </section>
+  {/if}
 
   {#if preview && tab}
     <section class="band notice preview" aria-labelledby="notice-h">
@@ -85,6 +97,7 @@
   .section h2 { font-size: 1.3rem; color: var(--bronze-hi); margin-bottom: 0.6rem; }
   .section ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; max-width: 70ch; }
   .section li::marker { color: var(--teal); }
+  .desk-band { padding: 2rem 0 0; }
   .close { padding: 2.2rem 0; }
   .close p { margin: 0; max-width: 60ch; color: var(--muted); }
   @media (max-width: 36rem) {

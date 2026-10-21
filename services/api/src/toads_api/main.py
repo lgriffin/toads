@@ -17,6 +17,7 @@ from toads_api.absences.routes import include_absences
 from toads_api.account.routes import router as account_router
 from toads_api.awards.routes import include_awards
 from toads_api.bank.routes import include_bank
+from toads_api.bank_desk.routes import include_bank_desk
 from toads_api.bank_grants.routes import include_bank_grants
 from toads_api.bots.routes import include_bots
 from toads_api.community.routes import include_community
@@ -147,6 +148,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     include_bank_grants(app)
     include_raid_sheets(app)
     include_officer_board(app)
+    include_bank_desk(app)
     include_officer_grants(app)
     return app
 

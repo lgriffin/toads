@@ -339,6 +339,8 @@ class OutboxKind(enum.StrEnum):
     LOCK_INTERVIEW_ROOM = "lock_interview_room"
     POST_MESSAGE = "post_message"
     EDIT_MESSAGE = "edit_message"
+    # DM one member (the bank desk's answer to their request, docs/bank-desk.md).
+    SEND_DM = "send_dm"
 
 
 class OutboxJob(BaseModel):
