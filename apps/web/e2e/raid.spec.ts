@@ -155,3 +155,38 @@ test('a raider sees no officers’ board', async ({ page }) => {
   await page.goto('officers/nights/wed/');
   await expect(page.getByRole('region', { name: 'Officers’ board' })).toHaveCount(0);
 });
+
+test('a raider opens their night\'s pinned strategy doc from the Raid page', async ({ page }) => {
+  await signIn(page, 'member');
+  await page.goto('raid/');
+  const strategy = page.getByRole('region', { name: 'Strategy' });
+  await expect(strategy).toContainText('Wednesday is running Blackwing Lair');
+  const doc = strategy.getByRole('link', { name: 'Open the BWL strategy' });
+  await expect(doc).toHaveAttribute('href', 'https://docs.google.com/document/d/preview-bwl-v2');
+  await expect(doc).toHaveAttribute('target', '_blank');
+  await expect(strategy.getByLabel('Raid Wednesday is running')).toHaveCount(0);
+});
+
+test('a night\'s officer switches the night\'s raid and pins its doc', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('raid/');
+  const strategy = page.getByRole('region', { name: 'Strategy' });
+  await strategy.getByLabel('Raid Wednesday is running').selectOption('naxx');
+  await expect(strategy).toContainText('No strategy doc is pinned for Naxxramas yet.');
+  await strategy.getByRole('link', { name: 'Strategy docs for every raid' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Strategy' })).toBeVisible();
+  const form = page.getByRole('form', { name: 'Pin a strategy doc' });
+  await form.getByLabel('Raid').selectOption('naxx');
+  await form.getByLabel('Google Doc link').fill('https://example.com/naxx');
+  await form.getByRole('button', { name: 'Pin as the raid’s strategy' }).click();
+  await expect(page.getByRole('alert')).toContainText('docs.google.com');
+  await form.getByLabel('Google Doc link').fill('https://docs.google.com/document/d/naxx');
+  await form.getByLabel('Name').fill('Naxx full clear');
+  await form.getByRole('button', { name: 'Pin as the raid’s strategy' }).click();
+  await expect(form.getByRole('status')).toHaveText('Pinned “Naxx full clear” as the Naxx strategy.');
+  await expect(page.getByRole('link', { name: 'Naxx full clear' })).toHaveAttribute(
+    'href',
+    'https://docs.google.com/document/d/naxx'
+  );
+  await expect(page.getByLabel('Wednesday')).toHaveValue('naxx');
+});
