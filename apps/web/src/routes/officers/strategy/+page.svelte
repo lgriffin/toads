@@ -36,7 +36,9 @@
       library = await backend.library();
       failed = false;
     } catch {
+      // The first load failing leaves nothing to show; a later refresh failing leaves the last list up, marked stale.
       failed = library === null;
+      if (library !== null) problem ||= 'Could not refresh the strategy docs; what is shown may be out of date. Reload the page.';
     }
   }
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));

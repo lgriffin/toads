@@ -131,3 +131,34 @@ def test_strategy_needs_a_signed_in_member(hub: Hub) -> None:
     member = hub.login(hub.user())
     assert hub.get("/api/strategy", member).status_code == 200
     assert hub.post("/api/admin/strategy", member, {"raid": "mc", "url": DOC + "1"}).status_code == 403
+
+
+def test_a_night_picked_twice_at_once_ends_up_updated(hub: Hub) -> None:
+    from hub_db import NightRaid
+    from sqlalchemy.exc import IntegrityError
+    from toads_api.strategy.sql import SqlStrategyRepository
+
+    repo = SqlStrategyRepository(hub.services.db)
+    real = repo._set_night_raid
+    calls = 0
+
+    def racing(raid_day: str, raid: str | None, by: int) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # Another officer's pick lands between this one's read and its insert, so its insert collides.
+            with hub.services.db.begin() as db:
+                db.add(NightRaid(raid_day_id=raid_day, raid="mc"))
+            raise IntegrityError("INSERT INTO night_raids", {}, Exception("duplicate key"))
+        real(raid_day, raid, by)
+
+    repo._set_night_raid = racing  # type: ignore[method-assign]
+    repo.set_night_raid("wed", "bwl", 1)
+    assert (calls, repo.night_raids()) == (2, {"wed": "bwl"})
+
+    def always(raid_day: str, raid: str | None, by: int) -> None:
+        raise IntegrityError("INSERT INTO night_raids", {}, Exception("duplicate key"))
+
+    repo._set_night_raid = always  # type: ignore[method-assign]
+    with pytest.raises(IntegrityError):
+        repo.set_night_raid("wed", "mc", 1)

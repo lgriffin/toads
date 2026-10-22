@@ -32,17 +32,28 @@
   });
   $effect(() => {
     // Only the night's officers pick its raid, so only they need the raid list.
-    if (officer && !raids.length) backend.library().then((l) => (raids = l.raids.map((r) => r.raid)), () => {});
+    if (officer && !raids.length)
+      backend.library().then(
+        (l) => (raids = l.raids.map((r) => r.raid)),
+        () => (problem = 'Could not load the raids to pick from; try again later.')
+      );
   });
 
   async function choose(e: Event) {
-    const value = (e.currentTarget as HTMLSelectElement).value;
+    const select = e.currentTarget as HTMLSelectElement;
+    // The night this pick is for: the viewer may switch nights before the answer comes back.
+    const picking = day;
     saving = true;
     problem = '';
     try {
-      night = await backend.setNight(day, value || null);
+      const answer = await backend.setNight(picking, select.value || null);
+      if (picking === day) night = answer;
     } catch (err) {
-      problem = strategyError(err);
+      if (picking === day) {
+        problem = strategyError(err);
+        // Put the picker back on the raid the night is still running.
+        select.value = night?.raid?.id ?? '';
+      }
     } finally {
       saving = false;
     }
