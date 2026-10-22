@@ -1,20 +1,20 @@
 /**
- * Raid strategy docs (docs/strategy.md): Google Docs pinned to classic raids, for every night or for one night, and the
- * raids each night is running, so the night's Raid page shows each raid's doc. Officers keep the docs in Google Drive;
- * the hub only links them.
+ * Raid strategy docs (docs/strategy.md): officers add Google Docs to each classic raid, then each raid night pins the
+ * docs its raiders see on the night's Raid page. Officers keep the docs in Google Drive; the hub only links them.
  *
- * - GET    /api/strategy                  every raid's docs, for every night and each night's own, and each night's raids
- * - POST   /api/admin/strategy            pin a doc to a raid for every night or one night (global officers)
- * - DELETE /api/admin/strategy/{id}       take a doc down; the one it replaced is pinned again
- * - POST   /api/days/{day}/strategy/docs  pin as one of that night's officers, for that night or every night
- * - DELETE /api/days/{day}/strategy/docs/{id}
- * - GET    /api/days/{day}/strategy       the raids the night is running, each with its doc (the Raid page)
- * - PUT    /api/days/{day}/strategy       say which raids the night is running, in order (that night's officers)
+ * - GET    /api/strategy                  every raid's docs and the docs each night pins
+ * - POST   /api/admin/strategy            add a doc to a raid (global officers)
+ * - DELETE /api/admin/strategy/{id}       take a doc down, off every night that pins it
+ * - POST   /api/days/{day}/strategy/docs  add a doc as one of that night's officers
+ * - DELETE /api/days/{day}/strategy/docs/{id}   take down a doc no other night pins
+ * - GET    /api/days/{day}/strategy       the docs the night pins (the Raid page)
+ * - PUT    /api/days/{day}/strategy       pin the night's docs, in order (that night's officers)
  */
 import { ApiError, call, type Fetch } from "./api";
 
 export const TITLE_LIMIT = 80;
 export const URL_LIMIT = 500;
+export const NIGHT_LIMIT = 10;
 
 export interface Raid {
   id: string;
@@ -25,110 +25,96 @@ export interface Raid {
 export interface StrategyDoc {
   id: number;
   raid: string;
-  /** The night it is pinned for; null for every night. */
-  raid_day: string | null;
   title: string;
   url: string;
-  /** Who pinned it, by the name they chose on the hub; null once they are gone. */
+  /** Who added it, by the name they chose on the hub; null once they are gone. */
   added_by: string | null;
   added_at: string;
 }
 
-/** A raid's docs for one night, or for every night (`raid_day` null). */
-export interface Slot {
-  raid_day: string | null;
-  /** "Every night", or the night's name. */
-  name: string;
-  pinned: StrategyDoc;
-  /** The docs the pinned one replaced, newest first. */
-  replaced: StrategyDoc[];
+export interface LibraryDoc extends StrategyDoc {
+  /** The raid days that pin it for their raiders. */
+  nights: string[];
 }
 
-export interface RaidStrategy {
+export interface RaidDocs {
   raid: Raid;
-  /** Every night's doc first, then each night's own; only where a doc is pinned. */
-  slots: Slot[];
+  /** Newest first. */
+  docs: LibraryDoc[];
 }
 
-export interface NightRaids {
+export interface NightDocs {
   raid_day: string;
   name: string;
-  /** Raid ids, in the order the night runs them. */
-  raids: string[];
+  /** Doc ids, in the order the Raid page lists them. */
+  docs: number[];
 }
 
 export interface Library {
-  raids: RaidStrategy[];
-  nights: NightRaids[];
+  raids: RaidDocs[];
+  nights: NightDocs[];
 }
 
-export interface NightRaidDoc {
+export interface NightDoc {
   raid: Raid;
-  /** The night's own doc for the raid, else its every-night doc. */
-  pinned: StrategyDoc | null;
+  doc: StrategyDoc;
 }
 
 export interface NightStrategy {
   raid_day: string;
-  raids: NightRaidDoc[];
-}
-
-/**
- * Where a doc is pinned from. `through`: the night the officer pins through (null for global officers and super
- * admins). `night`: the night the doc is for (null for every night).
- */
-export interface PinTarget {
-  through: string | null;
-  night: string | null;
+  docs: NightDoc[];
 }
 
 export interface StrategyBackend {
   library(): Promise<Library>;
-  pin(
+  /** `through`: the night the officer adds through; null for global officers and super admins. */
+  add(
     raid: string,
     url: string,
     title: string,
-    target: PinTarget,
+    through: string | null,
   ): Promise<StrategyDoc>;
-  /** `through`: the night the officer takes it down through; null for the global tier. */
   remove(id: number, through: string | null): Promise<void>;
   night(day: string): Promise<NightStrategy>;
-  setNight(day: string, raids: string[]): Promise<NightStrategy>;
+  setNight(day: string, docs: number[]): Promise<NightStrategy>;
 }
 
 const night = (day: string) => `/api/days/${encodeURIComponent(day)}/strategy`;
 const docs = (day: string | null) =>
   day === null ? "/api/admin/strategy" : `${night(day)}/docs`;
 
-function pinBody(
-  raid: string,
-  url: string,
-  title: string,
-  { through, night }: PinTarget,
-) {
-  if (through === null) return { raid, url, title, raid_day: night };
-  return { raid, url, title, every_night: night === null };
-}
-
 export function hubStrategy(f: Fetch = fetch): StrategyBackend {
   return {
     library: () => call<Library>(f, "/api/strategy"),
-    pin: (raid, url, title, target) =>
-      call<StrategyDoc>(f, docs(target.through), {
+    add: (raid, url, title, through) =>
+      call<StrategyDoc>(f, docs(through), {
         method: "POST",
-        body: JSON.stringify(pinBody(raid, url, title, target)),
+        body: JSON.stringify({ raid, url, title }),
       }),
     remove: (id, through) =>
       call<void>(f, `${docs(through)}/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
     night: (day) => call<NightStrategy>(f, night(day)),
-    setNight: (day, raids) =>
+    setNight: (day, ids) =>
       call<NightStrategy>(f, night(day), {
         method: "PUT",
-        body: JSON.stringify({ raids }),
+        body: JSON.stringify({ docs: ids }),
       }),
   };
+}
+
+/** The docs an officer can pin for a night, as picker options: "ZG · Hakkar guide", raid by raid. */
+export function docOptions(
+  library: Library,
+): { id: string; short: string; name: string }[] {
+  return library.raids.flatMap((r) =>
+    r.docs.map((d) => ({
+      id: String(d.id),
+      short: r.raid.short,
+      name: d.title,
+    })),
+  );
 }
 
 const GOOGLE_HOSTS = new Set(["docs.google.com", "drive.google.com"]);
@@ -155,21 +141,21 @@ export function docProblem(url: string, title = ""): string | null {
   return null;
 }
 
-/** "Pinned 22 Oct by Hopscotch". */
-export function pinnedLine(
+/** "Added 22 Oct by Hopscotch". */
+export function addedLine(
   doc: Pick<StrategyDoc, "added_at" | "added_by">,
 ): string {
   const when = new Date(doc.added_at).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
-  return doc.added_by ? `Pinned ${when} by ${doc.added_by}` : `Pinned ${when}`;
+  return doc.added_by ? `Added ${when} by ${doc.added_by}` : `Added ${when}`;
 }
 
 export function strategyError(e: unknown): string {
   if (!(e instanceof ApiError)) return "Something went wrong; try again.";
   if (e.status === 403)
-    return "Only officers pin strategy docs, and only a night’s officers pick its raids.";
+    return "Only officers add strategy docs, and only a night’s officers pin its docs.";
   if (e.status === 404)
     return "That doc is gone; someone may have taken it down.";
   return e.message || "Something went wrong; try again.";
