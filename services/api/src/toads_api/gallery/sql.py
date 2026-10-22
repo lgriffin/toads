@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from hub_db import GalleryPhoto, GalleryPhotoFile, LiveStream, PhotoOfTheWeek
+from hub_db import GalleryPhoto, GalleryPhotoFile, LiveStream, Member, PhotoOfTheWeek, TrustedChannel
 from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -25,6 +26,10 @@ def _aware(at: datetime) -> datetime:
     return at if at.tzinfo is not None else at.replace(tzinfo=UTC)
 
 
+def _maybe(at: datetime | None) -> datetime | None:
+    return None if at is None else _aware(at)
+
+
 def _photo(row: GalleryPhoto) -> PhotoRecord:
     return PhotoRecord(
         id=row.id,
@@ -36,6 +41,7 @@ def _photo(row: GalleryPhoto) -> PhotoRecord:
         media_type=row.media_type,
         source=row.source,
         created_at=_aware(row.created_at),
+        approved_at=_maybe(row.approved_at),
     )
 
 
@@ -52,7 +58,8 @@ def _stream(row: LiveStream) -> StreamRecord:
         title=row.title,
         started_at=_aware(row.started_at),
         ends_at=_aware(row.ends_at),
-        ended_at=None if row.ended_at is None else _aware(row.ended_at),
+        ended_at=_maybe(row.ended_at),
+        approved_at=_maybe(row.approved_at),
     )
 
 
@@ -89,15 +96,47 @@ class SqlGalleryRepository:
     def photos(
         self, *, since: datetime | None = None, before_id: int | None = None, limit: int | None = None
     ) -> list[PhotoRecord]:
-        query = select(GalleryPhoto).order_by(GalleryPhoto.id.desc())
+        query = select(GalleryPhoto).where(GalleryPhoto.approved_at.is_not(None)).order_by(GalleryPhoto.id.desc())
         if since is not None:
-            query = query.where(GalleryPhoto.created_at >= since)
+            query = query.where(GalleryPhoto.approved_at >= since)
         if before_id is not None:
             query = query.where(GalleryPhoto.id < before_id)
         if limit is not None:
             query = query.limit(limit)
         with self._db() as db:
             return [_photo(r) for r in db.scalars(query)]
+
+    def pending_photos(self, discord_user_id: int | None = None) -> list[PhotoRecord]:
+        query = select(GalleryPhoto).where(GalleryPhoto.approved_at.is_(None)).order_by(GalleryPhoto.id)
+        if discord_user_id is not None:
+            query = query.where(GalleryPhoto.discord_user_id == discord_user_id)
+        with self._db() as db:
+            return [_photo(r) for r in db.scalars(query)]
+
+    def approve_photo(self, photo_id: int, at: datetime, note: AuditNote) -> PhotoRecord | None:
+        with self._db.begin() as db:
+            claimed = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(GalleryPhoto)
+                    .where(GalleryPhoto.id == photo_id, GalleryPhoto.approved_at.is_(None))
+                    .values(approved_at=at, approved_by=note.actor)
+                ),
+            ).rowcount
+            if not claimed:
+                return None  # Gone, or another officer decided it first.
+            _audit(db, note)
+            row = db.get(GalleryPhoto, photo_id)
+            return None if row is None else _photo(row)
+
+    def nights_of(self, discord_user_ids: Collection[int]) -> dict[int, frozenset[str]]:
+        if not discord_user_ids:
+            return {}
+        query = select(Member.discord_user_id, Member.raid_days).where(
+            Member.discord_user_id.in_(list(discord_user_ids))
+        )
+        with self._db() as db:
+            return {int(i): frozenset(days) for i, days in db.execute(query) if days}
 
     def photo_file(self, photo_id: int, thumbnail: bool) -> tuple[bytes, str] | None:
         column = GalleryPhotoFile.thumbnail if thumbnail else GalleryPhotoFile.image
@@ -117,8 +156,17 @@ class SqlGalleryRepository:
         with self._db() as db:
             return int(db.scalar(query) or 0)
 
-    def delete_photo(self, photo_id: int, note: AuditNote) -> bool:
+    def delete_photo(self, photo_id: int, note: AuditNote, *, only_waiting: bool = False) -> bool:
         with self._db.begin() as db:
+            if only_waiting:
+                # Locks the row, so an approval in flight finishes first and this sees it.
+                waiting = db.scalar(
+                    select(GalleryPhoto.id)
+                    .where(GalleryPhoto.id == photo_id, GalleryPhoto.approved_at.is_(None))
+                    .with_for_update()
+                )
+                if waiting is None:
+                    return False
             # Deleted explicitly rather than by cascade: SQLite only cascades with its foreign key pragma on.
             db.execute(delete(PhotoOfTheWeek).where(PhotoOfTheWeek.photo_id == photo_id))
             db.execute(delete(GalleryPhotoFile).where(GalleryPhotoFile.photo_id == photo_id))
@@ -150,6 +198,7 @@ class SqlGalleryRepository:
     def start_stream(self, stream: NewStream) -> StreamRecord:
         with self._db.begin() as db:
             self._end_open(db, stream.discord_user_id, stream.at)
+            trusted = db.get(TrustedChannel, (stream.discord_user_id, stream.channel)) is not None
             row = LiveStream(
                 discord_user_id=stream.discord_user_id,
                 streamer_name=stream.streamer_name,
@@ -157,10 +206,69 @@ class SqlGalleryRepository:
                 title=stream.title,
                 started_at=stream.at,
                 ends_at=stream.ends_at,
+                approved_at=stream.at if trusted else None,
             )
             db.add(row)
             db.flush()
             return _stream(row)
+
+    def trusted(self, discord_user_id: int, channel: str) -> bool:
+        with self._db() as db:
+            return db.get(TrustedChannel, (discord_user_id, channel)) is not None
+
+    def approve_stream(self, stream_id: int, at: datetime, approved_by: int, note: AuditNote) -> StreamRecord | None:
+        with self._db.begin() as db:
+            claimed = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(LiveStream)
+                    .where(
+                        LiveStream.id == stream_id,
+                        LiveStream.approved_at.is_(None),
+                        LiveStream.ended_at.is_(None),
+                        LiveStream.ends_at > at,
+                    )
+                    .values(approved_at=at)
+                ),
+            ).rowcount
+            row = db.get(LiveStream, stream_id) if claimed else None
+            if row is None:
+                return None  # Gone, ended, run out, or another officer decided it first.
+            if db.get(TrustedChannel, (row.discord_user_id, row.channel)) is None:
+                db.add(
+                    TrustedChannel(
+                        discord_user_id=row.discord_user_id,
+                        channel=row.channel,
+                        approved_by=approved_by,
+                        approved_at=at,
+                    )
+                )
+            _audit(db, note)
+            db.flush()
+            return _stream(row)
+
+    def reject_stream(self, stream_id: int, at: datetime, note: AuditNote) -> bool:
+        with self._db.begin() as db:
+            ended = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(LiveStream)
+                    .where(LiveStream.id == stream_id, LiveStream.approved_at.is_(None), LiveStream.ended_at.is_(None))
+                    .values(ended_at=at)
+                ),
+            ).rowcount
+            if not ended:
+                return False
+            _audit(db, note)
+            return True
+
+    def untrust(self, discord_user_id: int, channel: str) -> None:
+        with self._db.begin() as db:
+            db.execute(
+                delete(TrustedChannel).where(
+                    TrustedChannel.discord_user_id == discord_user_id, TrustedChannel.channel == channel
+                )
+            )
 
     @staticmethod
     def _end_open(db: Session, discord_user_id: int, at: datetime) -> int:
@@ -198,8 +306,17 @@ class SqlGalleryRepository:
     def open_streams(self, at: datetime) -> list[StreamRecord]:
         query = (
             select(LiveStream)
-            .where(LiveStream.ended_at.is_(None), LiveStream.ends_at > at)
+            .where(LiveStream.ended_at.is_(None), LiveStream.ends_at > at, LiveStream.approved_at.is_not(None))
             .order_by(LiveStream.id.desc())
+        )
+        with self._db() as db:
+            return [_stream(r) for r in db.scalars(query)]
+
+    def pending_streams(self, at: datetime) -> list[StreamRecord]:
+        query = (
+            select(LiveStream)
+            .where(LiveStream.ended_at.is_(None), LiveStream.ends_at > at, LiveStream.approved_at.is_(None))
+            .order_by(LiveStream.id)
         )
         with self._db() as db:
             return [_stream(r) for r in db.scalars(query)]

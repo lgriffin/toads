@@ -1,6 +1,6 @@
 /**
- * The Highlights page (docs/highlights.md): members post photos with the Toad Bot's `/highlight`, which sit in a
- * 48-hour carousel and then the archive for good; a global officer picks a photo of the week for seven days;
+ * The Highlights page (docs/highlights.md): members post photos with the Toad Bot's `/highlight`, which, once an
+ * officer approves them, sit in a 48-hour carousel and then the archive for good; a global officer picks a photo of the week for seven days;
  * `/stream start` puts a member's Twitch channel on the page while they are live; `/clip` shares a video clip that a
  * global officer publishes to the clips section.
  *
@@ -24,6 +24,8 @@ export interface Photo {
   thumbnail_url: string;
   /** The viewer posted it, or is a global officer. */
   removable: boolean;
+  /** Waiting for an officer: only its poster and the officers who may approve it see it. */
+  waiting?: boolean;
 }
 
 export interface Pick {
@@ -42,7 +44,26 @@ export interface Stream {
   started_at: string;
   ends_at: string;
   removable: boolean;
+  waiting?: boolean;
 }
+
+/** Whose posts the viewer approves: everyone's (global officers), or those of these raid nights' members. */
+export interface ReviewScope {
+  every_night: boolean;
+  nights: string[];
+}
+
+/** A post waiting for an officer, with the raid nights whose officers may decide it (none: global officers only). */
+export type WaitingPhoto = Photo & { nights: string[] };
+export type WaitingStream = Stream & { nights: string[] };
+
+export interface ReviewQueue {
+  photos: WaitingPhoto[];
+  streams: WaitingStream[];
+}
+
+export type ReviewKind = 'photos' | 'streams';
+export type Decision = 'approve' | 'reject';
 
 export interface Board {
   carousel: Photo[];
@@ -54,6 +75,11 @@ export interface Board {
   can_curate: boolean;
   /** The viewer may post with `/highlight` (raiders). */
   can_post: boolean;
+  /** The viewer's own posts still waiting for an officer. */
+  waiting_photos: Photo[];
+  waiting_streams: Stream[];
+  /** Set when the viewer approves posts. */
+  review: ReviewScope | null;
 }
 
 export interface ArchivePage {
@@ -76,6 +102,26 @@ export interface GalleryBackend {
   /** Clips waiting for review; global officers only. */
   clipQueue(): Promise<Highlight[]>;
   reviewClip(id: string, action: ClipReview): Promise<Highlight>;
+  /** What waits for this officer's approval. */
+  reviewQueue(scope: ReviewScope): Promise<ReviewQueue>;
+  decide(scope: ReviewScope, kind: ReviewKind, item: WaitingPhoto | WaitingStream, decision: Decision): Promise<void>;
+}
+
+/**
+ * Where an officer decides a post: the global officers' routes, or the routes of a night the officer runs and the
+ * poster is on (the hub takes the night from the path). Null when the officer may not decide it.
+ */
+export function reviewBase(scope: ReviewScope, nights: readonly string[]): string | null {
+  if (scope.every_night) return '/api/admin/gallery';
+  const night = scope.nights.find((n) => nights.includes(n));
+  return night ? `/api/days/${encodeURIComponent(night)}/gallery` : null;
+}
+
+/** Several nights' queues as one, oldest first, each post once (a poster on two of the officer's nights). */
+export function mergeQueues(queues: readonly ReviewQueue[]): ReviewQueue {
+  const once = <T extends { id: number }>(items: T[]) =>
+    [...new Map(items.map((i) => [i.id, i])).values()].sort((a, b) => a.id - b.id);
+  return { photos: once(queues.flatMap((q) => q.photos)), streams: once(queues.flatMap((q) => q.streams)) };
 }
 
 export function hubGallery(f: Fetch = fetch): GalleryBackend {
@@ -94,7 +140,17 @@ export function hubGallery(f: Fetch = fetch): GalleryBackend {
           method: 'POST',
           body: JSON.stringify({ action })
         })
-      )
+      ),
+    reviewQueue: async (scope) => {
+      if (scope.every_night) return call<ReviewQueue>(f, '/api/admin/gallery/review');
+      const nights = scope.nights.map((n) => call<ReviewQueue>(f, `/api/days/${encodeURIComponent(n)}/gallery/review`));
+      return mergeQueues(await Promise.all(nights));
+    },
+    decide: async (scope, kind, item, decision) => {
+      const base = reviewBase(scope, item.nights);
+      if (!base) throw new ApiError(403, 'That is for the officers of its poster’s raid night.');
+      await call<unknown>(f, `${base}/${kind}/${item.id}/${decision}`, { method: 'POST' });
+    }
   };
 }
 

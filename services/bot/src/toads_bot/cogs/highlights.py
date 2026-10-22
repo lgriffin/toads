@@ -1,8 +1,10 @@
 """`/highlight`, `/stream` and `/clip`: members fill the hub's Highlights page from Discord (docs/highlights.md).
 
-- `/highlight <photo> [caption]` posts a photo: 48 hours in the carousel, then the archive for good.
+- `/highlight <photo> [caption]` posts a photo: once an officer approves it, 48 hours in the carousel, then the archive
+  for good.
 - `/stream start <link> [title]` puts the member's Twitch channel on the page while they are live, and says so in the
-  channel; `/stream end` takes it off.
+  channel; `/stream end` takes it off. The first stream from a channel waits for an officer's approval and is not
+  announced; after that, the channel's streams go up at once.
 - `/clip <link> <title>` shares a YouTube, Twitch or Streamable clip for a global officer to publish.
 
 The bot only carries what was sent. The hub reads the member's roles from Discord and decides: raiders post, and the
@@ -118,10 +120,14 @@ class Highlights(commands.Cog):
         if response.status_code != 201:
             await interaction.followup.send(refusal(response), ephemeral=True, allowed_mentions=NO_PINGS)
             return
-        await interaction.followup.send(
-            f"Your photo is on {self.where()}: in the carousel for 48 hours, then in the archive for good.",
-            ephemeral=True,
-        )
+        if response.json().get("waiting", False):
+            text = (
+                f"Thanks! An officer will look at your photo; once they approve it, it is on {self.where()}: "
+                "in the carousel for 48 hours, then in the archive for good."
+            )
+        else:
+            text = f"Your photo is on {self.where()}: in the carousel for 48 hours, then in the archive for good."
+        await interaction.followup.send(text, ephemeral=True)
 
     async def start_stream(self, interaction: Any, link: str, title: str) -> None:
         # Deferred privately, so refusals stay with the member; only the announcement goes to the channel.
@@ -136,6 +142,14 @@ class Highlights(commands.Cog):
             await interaction.followup.send(refusal(response), ephemeral=True, allowed_mentions=NO_PINGS)
             return
         stream = response.json()
+        if stream.get("waiting", False):
+            # Not announced: nothing about it is public until an officer approves the channel.
+            await interaction.followup.send(
+                f"An officer needs to approve twitch.tv/{stream['channel']} for you first; once they do, your stream "
+                f"shows on {self.where()}, and later streams from it go up straight away.",
+                ephemeral=True,
+            )
+            return
         about = f": {stream['title']}" if stream.get("title") else ""
         announcement = (
             f"{stream['streamer_name']} is live on Twitch{about}\nhttps://www.twitch.tv/{stream['channel']}\n"

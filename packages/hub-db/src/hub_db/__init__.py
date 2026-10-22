@@ -24,7 +24,7 @@ from hub_db.credentials import (
     WclCredential,
     WclCredentialStatus,
 )
-from hub_db.gallery import GalleryPhoto, GalleryPhotoFile, LiveStream, PhotoOfTheWeek
+from hub_db.gallery import GalleryPhoto, GalleryPhotoFile, LiveStream, PhotoOfTheWeek, TrustedChannel
 from hub_db.logs import LogIndex, LogRaid
 from hub_db.models import (
     AnalyzerBadgePage,
@@ -103,6 +103,7 @@ __all__ = [
     "ReferencePage",
     "Spotlight",
     "StoredWclCredentials",
+    "TrustedChannel",
     "WclCredential",
     "WclCredentialStatus",
     "main_claim",

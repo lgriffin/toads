@@ -5,6 +5,8 @@ import {
   byMonth,
   galleryError,
   hubGallery,
+  mergeQueues,
+  reviewBase,
   step,
   timeLeft,
   twitchChannelUrl,
@@ -83,6 +85,48 @@ describe('page helpers', () => {
   });
 });
 
+describe('approval', () => {
+  const waiting = (id: number, nights: string[]) => ({ ...photo(id, '2026-10-20T10:00:00Z'), waiting: true, nights });
+
+  it('sends a night officer to a night they run that the poster is on', () => {
+    expect(reviewBase({ every_night: true, nights: [] }, [])).toBe('/api/admin/gallery');
+    expect(reviewBase({ every_night: false, nights: ['wed', 'sun'] }, ['sun'])).toBe('/api/days/sun/gallery');
+    expect(reviewBase({ every_night: false, nights: ['wed'] }, ['sun'])).toBeNull();
+    expect(reviewBase({ every_night: false, nights: ['wed'] }, [])).toBeNull();
+  });
+
+  it('merges nights’ queues without repeating a post', () => {
+    const merged = mergeQueues([
+      { photos: [waiting(3, ['wed', 'sun']), waiting(1, ['wed'])], streams: [] },
+      { photos: [waiting(3, ['wed', 'sun'])], streams: [] }
+    ]);
+    expect(merged.photos.map((p) => p.id)).toEqual([1, 3]);
+  });
+
+  it('asks each night the officer runs, and decides on the right route', async () => {
+    const f = vi.fn(async (path: string, init?: RequestInit) => {
+      void init;
+      return new Response(JSON.stringify(path.endsWith('review') ? { photos: [waiting(5, ['wed'])], streams: [] } : {}));
+    });
+    const g = hubGallery(f as unknown as typeof fetch);
+    const queue = await g.reviewQueue({ every_night: false, nights: ['wed', 'sun'] });
+    expect(queue.photos.map((p) => p.id)).toEqual([5]);
+    await g.decide({ every_night: false, nights: ['wed', 'sun'] }, 'photos', queue.photos[0], 'approve');
+    await g.reviewQueue({ every_night: true, nights: [] });
+    await g.decide({ every_night: true, nights: [] }, 'streams', { ...queue.photos[0], nights: [] } as never, 'reject');
+    await expect(g.decide({ every_night: false, nights: ['sun'] }, 'photos', queue.photos[0], 'approve')).rejects.toMatchObject({
+      status: 403
+    });
+    expect(f.mock.calls.map(([path, init]) => `${init?.method ?? 'GET'} ${path}`)).toEqual([
+      'GET /api/days/wed/gallery/review',
+      'GET /api/days/sun/gallery/review',
+      'POST /api/days/wed/gallery/photos/5/approve',
+      'GET /api/admin/gallery/review',
+      'POST /api/admin/gallery/streams/5/reject'
+    ]);
+  });
+});
+
 describe('hub backend', () => {
   it('calls the hub routes', async () => {
     const f = vi.fn(async (path: string, init?: RequestInit) => {
@@ -145,6 +189,26 @@ describe('preview backend', () => {
     await expect(g.pickPhoto(11)).rejects.toMatchObject({ status: 403 });
     await expect(g.removeStream(1)).rejects.toMatchObject({ status: 403 });
     expect((await g.board()).carousel.map((p) => p.id)).toEqual([11, 10, 9]);
+  });
+
+  it('shows a raider their waiting posts and lets an officer decide them', async () => {
+    const raider = await previewGallery(false, now).board();
+    expect([raider.waiting_photos.map((p) => p.id), raider.waiting_streams.map((s) => s.channel), raider.review]).toEqual([
+      [13],
+      ['hopscotch_plays'],
+      null
+    ]);
+    expect(raider.carousel.some((p) => p.id === 13)).toBe(false);
+    await expect(previewGallery(false, now).reviewQueue({ every_night: true, nights: [] })).rejects.toMatchObject({ status: 403 });
+    const g = previewGallery(true, now);
+    const board = await g.board();
+    expect(board.review).toEqual({ every_night: true, nights: [] });
+    const queue = await g.reviewQueue(board.review!);
+    await g.decide(board.review!, 'photos', queue.photos[0], 'approve');
+    await g.decide(board.review!, 'streams', queue.streams[0], 'reject');
+    const after = await g.board();
+    expect([after.carousel[0].id, after.streams.map((s) => s.channel)]).toEqual([13, ['lilypadd_tv']]);
+    expect(await g.reviewQueue(board.review!)).toEqual({ photos: [], streams: [] });
   });
 
   it('lets a global officer pick the photo of the week and work the clips', async () => {
