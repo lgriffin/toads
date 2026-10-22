@@ -47,6 +47,8 @@ from toads_api.officer_board.service import OfficerBoardService
 from toads_api.officer_board.sql import SqlBoardRepository
 from toads_api.officer_grants.service import NO_STANDING, OfficerGrantService
 from toads_api.officer_grants.sql import SqlOfficerGrantRepository
+from toads_api.professions.service import ProfessionService
+from toads_api.professions.sql import SqlProfessionRepository
 from toads_api.raid_sheets.config import RaidSheetsConfig
 from toads_api.raid_sheets.dates import weekday_named
 from toads_api.raid_sheets.service import RaidSheetService
@@ -82,6 +84,7 @@ class Services:
     logs: LogService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
     comps: CompService = field(init=False)
+    professions: ProfessionService = field(init=False)
     officer_board: OfficerBoardService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
@@ -160,6 +163,7 @@ class Services:
         self.awards = AwardService(SqlAwardRepository(self.db), self.account.shown_names)
         self.role_badges = RoleBadgeService(SqlRoleBadgeRepository(self.db))
         self.comps = CompService(SqlCompRepository(self.db), self.account.shown_names)
+        self.professions = ProfessionService(SqlProfessionRepository(self.db), self.account.shown_names)
         guild_time = ZoneInfo(self.raid_days.timezone)
         self.officer_board = OfficerBoardService(
             SqlBoardRepository(self.db),

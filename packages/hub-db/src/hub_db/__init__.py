@@ -43,6 +43,7 @@ from hub_db.models import (
 )
 from hub_db.officer_board import NightLink, OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
+from hub_db.professions import GuildCrafter, MemberProfession
 from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
@@ -70,6 +71,7 @@ __all__ = [
     "CredentialCipher",
     "CredentialDecryptError",
     "DiscordRoleBadge",
+    "GuildCrafter",
     "Highlight",
     "InterviewPanelist",
     "LogIndex",
@@ -79,6 +81,7 @@ __all__ = [
     "MemberAbsence",
     "MemberAward",
     "MemberHomeLayout",
+    "MemberProfession",
     "MemberSpec",
     "NightHomePage",
     "NightLink",
