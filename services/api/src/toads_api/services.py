@@ -69,6 +69,8 @@ from toads_api.role_badges.service import RoleBadgeService
 from toads_api.role_badges.sql import SqlRoleBadgeRepository
 from toads_api.sessions import SessionStore
 from toads_api.settings import Settings
+from toads_api.strategy.service import StrategyService
+from toads_api.strategy.sql import SqlStrategyRepository
 
 
 @dataclass
@@ -94,6 +96,8 @@ class Services:
     officer_board: OfficerBoardService = field(init=False)
     # Each night's loot list: big-ticket items and who is in line for them (docs/loot.md).
     loot: LootService = field(init=False)
+    # Raid strategy docs: one pinned Google Doc per raid, and the raid each night is running (docs/strategy.md).
+    strategy: StrategyService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -195,6 +199,7 @@ class Services:
             roster=lambda day: [e.member_id for e in self.comps.pool(day)],
             clock=lambda: datetime.fromtimestamp(self.clock(), UTC),
         )
+        self.strategy = StrategyService(SqlStrategyRepository(self.db), self.account.shown_names)
         sheets_config = RaidSheetsConfig.load(self.settings.raid_sheets_config)
         # Each raid day's weekday (0 is Monday): `weekdays` in raid_sheets.yaml, else the weekday its name says.
         weekdays = {

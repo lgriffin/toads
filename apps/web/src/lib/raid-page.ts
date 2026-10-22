@@ -34,6 +34,6 @@ export const PLANNED: readonly Planned[] = [
   },
   {
     title: 'Prep for the night',
-    body: 'The bosses, the consumables we ask for and the strategy notes, in one place.'
+    body: 'The bosses and the consumables we ask for, beside the night’s strategy doc.'
   }
 ];

@@ -39,6 +39,7 @@ OFFICER_ONLY = {
     P.MANAGE_OFFICER_BOARD,
     P.MANAGE_LOOT,
     P.MANAGE_CRAFTERS,
+    P.MANAGE_STRATEGY,
 }
 
 # The build spec's table: which tier holds which permission on its own raid day.

@@ -59,6 +59,10 @@ class Permission(enum.StrEnum):
     # Members' professions and the guild's crafters (docs/professions.md): a night's officers see their night's
     # professions and name its members guild crafters; the global tier sees and names across the guild.
     MANAGE_CRAFTERS = "manage_crafters"
+    # Raid strategy docs (docs/strategy.md): every officer pins one Google Doc per raid (a night's officers through
+    # their night's path, the global tier guild-wide); a night's officers say which raid their night is running, so its
+    # Raid page shows that raid's doc.
+    MANAGE_STRATEGY = "manage_strategy"
     # Super admins only (docs/admin.md "View as"): see the hub, read only, as one raid night's raider or officer.
     VIEW_AS = "view_as"
 

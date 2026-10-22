@@ -12,6 +12,7 @@
   import { previewSession } from '$lib/preview/session.svelte';
   import DaySwitch from '$lib/components/DaySwitch.svelte';
   import NightCrafters from '$lib/components/NightCrafters.svelte';
+  import NightStrategy from '$lib/components/NightStrategy.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
 
   // One raid night's home. Members see their team's night; officers also get the officer desk for the nights they
@@ -30,6 +31,8 @@
   const officer = $derived(raidDays.officerDays.includes(day));
   const onTeam = $derived(raidDays.teams.includes(day));
   const away = $derived(mine.filter((a) => a.raid_day === day));
+  // The bands below the hero alternate dusk and ink: Strategy, the officer desk, nights away, crafters, what's coming.
+  const crafterBand = $derived(1 + Number(officer) + Number(onTeam));
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
 </script>
 
@@ -63,8 +66,10 @@
       <a class="ghost" href="{base}/logs/">See the logs</a>
     </PondHero>
 
+    <NightStrategy {day} {name} {officer} dusk />
+
     {#if officer}
-      <section class="band dusk desk" aria-labelledby="desk-h">
+      <section class="band desk" aria-labelledby="desk-h">
         <div class="head">
           <p class="kicker">Officer desk</p>
           <h2 id="desk-h">Running {name}</h2>
@@ -75,7 +80,7 @@
     {/if}
 
     {#if onTeam}
-      <section class="band" aria-labelledby="away-h">
+      <section class="band" class:dusk={officer} aria-labelledby="away-h">
         <div class="head">
           <h2 id="away-h">Your nights away</h2>
           {#if away.length}
@@ -91,9 +96,9 @@
       </section>
     {/if}
 
-    <NightCrafters {day} {name} dusk={onTeam} />
+    <NightCrafters {day} {name} dusk={crafterBand % 2 === 0} />
 
-    <section class="band {onTeam ? '' : 'dusk'}" aria-labelledby="soon-h">
+    <section class="band" class:dusk={crafterBand % 2 === 1} aria-labelledby="soon-h">
       <div class="head">
         <h2 id="soon-h">Coming to the raid page</h2>
         <p>What this page is being built to hold for {name}.</p>

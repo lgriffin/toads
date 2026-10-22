@@ -38,6 +38,7 @@ from toads_api.reference.routes import include_reference
 from toads_api.role_badges.routes import include_role_badges
 from toads_api.services import Services, build_services
 from toads_api.settings import Settings
+from toads_api.strategy.routes import include_strategy
 
 log = structlog.get_logger(__name__)
 
@@ -156,6 +157,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     include_raid_sheets(app)
     include_officer_board(app)
     include_loot(app)
+    include_strategy(app)
     include_bank_desk(app)
     include_gallery(app)
     include_officer_grants(app)

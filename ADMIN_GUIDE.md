@@ -380,7 +380,7 @@ Rules worth knowing:
   page, passes it on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
 - **Audit log** (`audit` table): `officer.grant`, `officer.revoke`, `view_as.start`, `view_as.end`, `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
-  `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
+  `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions, board changes (`board.*`) and strategy docs (`strategy.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,
   Healer, Damage, a class or a Horde race: Orc, Troll, Tauren, Undead or Skyborne). Everyone holding the role wears the badge on their Me page and in their hub home greeting. Start by tying the Wednesday, Thursday and
@@ -399,8 +399,8 @@ Rules worth knowing:
   that day's officers see them all in the night's officer section and under Officers, Calendar (`/officers/calendar`, `view_absences`). Nothing to
   configure: nights follow each raid day's `name` in `raid_days.yaml` (a day named "Wednesday" raids on Wednesdays).
   Notes are seen only by that night's officers. Not audited: an absence is a member's own word, not an officer action.
-- **Officer sections**: `/officers` is the shared Officer console every officer uses (calendar, comp builder,
-  recruitment, reference reports, awards). Each raid night also has its own section, `/officers/nights/{day}`, with that
+- **Officer sections**: `/officers` is the shared Officer console every officer uses (calendar, strategy docs, comp
+  builder, recruitment, reference reports, awards). Each raid night also has its own section, `/officers/nights/{day}`, with that
   night's absences, task board, loot priority and interview panel. An officer sees only the sections of the nights they run: a
   Sunday officer never sees Wednesday's. Global officers and super admins see every night.
 - **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board in
@@ -413,6 +413,15 @@ Rules worth knowing:
   item data is LibItemDB's (MIT), bundled with the API: Forever's items with Classic's filling in the raid loot
   Forever's beta data lacks; refresh it with `scripts/import_items.py` (docs/loot.md "Item data"). Audited as
   `loot.add`, `loot.note`, `loot.line`, `loot.received`, `loot.unreceived` and `loot.remove`.
+- **Raid strategy docs** ([docs/strategy.md](docs/strategy.md)): **Officers > Strategy** (`/officers/strategy`)
+  holds one pinned Google Doc per classic raid (MC, BWL, ZG, AQ20, AQ40, Naxx, and TBD for a raid not listed yet).
+  Every officer (any night's, global officers and super admins) pins a doc by picking the raid and pasting its
+  `https://docs.google.com` or `drive.google.com` link; pinning a new one replaces the raid's doc on every night, and
+  the last few it replaced stay listed below it (`MANAGE_STRATEGY`: a night's officers through their night's path, the
+  global tier through `/api/admin/strategy`). Each night's officers pick the raid their night is running, there or
+  on the night's Raid page (`MANAGE_STRATEGY`, scoped to the night in the URL), and the night's Raid page then shows
+  that raid's doc to its raiders. The hub only links the doc: share it in Drive with the raiders. Nothing to set up.
+  Audited as `strategy.pin`, `strategy.remove` and `strategy.night`.
 - **Professions and guild crafters** ([docs/professions.md](docs/professions.md)): members pick their professions on Me;
   officers see their night's on `/officers/professions` and name the guild's crafters, the members we send a profession's
   top end recipes to (`MANAGE_CRAFTERS`). A night's officers name only members of their night; global officers and super

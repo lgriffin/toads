@@ -72,6 +72,6 @@ first needs it and searched in memory. To refresh it from a newer LibItemDB rele
 An entry id from another night's list answers 404 under this night's path.
 
 The rules live in `toads_api.loot.service` over a repository protocol, the catalogue in `toads_api.loot.catalogue`;
-lists are in hub-db's `loot_items` and `loot_recipients` tables (migration 0040). The web component is
+lists are in hub-db's `loot_items` and `loot_recipients` tables (migration 0041). The web component is
 `apps/web/src/lib/components/LootPriority.svelte` (logic in `$lib/loot.ts`; the preview answers from
 `$lib/preview/loot-fake.ts`).

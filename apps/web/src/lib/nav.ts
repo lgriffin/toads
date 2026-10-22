@@ -62,7 +62,8 @@ export const OFFICER_MENU: readonly NavItem[] = [
   { href: '/officers/calendar', label: 'Calendar', hint: 'Who will miss your raid nights' },
   { href: '/officers/comp', label: 'Comp builder', hint: 'Plan groups and buffs' },
   { href: '/officers/professions', label: 'Professions', hint: 'Who crafts what, and the guild’s crafters' },
-  { href: '/officers/recruitment', label: 'Recruitment', hint: 'Interview panels for each night' }
+  { href: '/officers/recruitment', label: 'Recruitment', hint: 'Interview panels for each night' },
+  { href: '/officers/strategy', label: 'Strategy', hint: 'The pinned Google Doc for each raid' }
 ];
 
 /** The Hub menu: the member pages this member may open, then the public pages under "About the guild". */
