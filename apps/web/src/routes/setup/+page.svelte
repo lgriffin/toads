@@ -29,7 +29,9 @@
 
   async function load() {
     try {
-      [setup, claims] = await Promise.all([backend.state(), backend.claims()]);
+      // In turn: reading the setup turns named characters the logs now know into claims, which the claims list shows.
+      setup = await backend.state();
+      claims = await backend.claims();
       loadError = '';
     } catch (e) {
       loadError = setupError(e);
@@ -38,13 +40,19 @@
   onMount(load);
 
   // Runs one change, reloads, and puts any failure beside the step that made it.
-  async function run(action: () => Promise<unknown>, say: (m: string) => void, fail: (e: unknown) => string = setupError) {
+  async function run(
+    action: () => Promise<unknown>,
+    say: (m: string) => void,
+    fail: (e: unknown) => string = setupError
+  ): Promise<boolean> {
     busy = true;
     say('');
     try {
       await action();
+      return true;
     } catch (e) {
       say(fail(e));
+      return false;
     } finally {
       await load();
       busy = false;
@@ -53,8 +61,13 @@
   const sayMain = (m: string) => (mainMessage = m);
   const sayAlt = (m: string) => (altMessage = m);
 
-  // The main is claimed first, then named main: a refused claim says why in the claim's own words.
+  // The main is claimed first (unless it is already theirs), then named main: a refused claim says why in the claim's
+  // own words.
   async function pickMain(c: CharacterMatch) {
+    if (mine.has(c.id)) {
+      await run(() => backend.setMain(c.id), sayMain);
+      return;
+    }
     busy = true;
     mainMessage = '';
     try {
@@ -130,7 +143,7 @@
           {setup.main ? 'Picked the wrong one? Pick again.' : 'The character you raid as most. Find it in the guild’s logs, or add it if it hasn’t raided with us yet.'}
           A name that matches your Discord nickname is approved at once; any other waits for an officer of your raid night.
         </p>
-        <SetupPicker id="main" action="This is my main" {busy} {mine} search={backend.search} onpick={pickMain} onname={nameMain} />
+        <SetupPicker id="main" action="This is my main" heldAction="Make it my main" {busy} {mine} search={backend.search} onpick={pickMain} onname={nameMain} />
       {:else}
         <p class="muted">To change your main, <a href="{base}/me/">ask for a main swap on Me</a>; your raid night’s officers approve it.</p>
       {/if}

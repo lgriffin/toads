@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from toads_api.discord_api import SCOPES, DiscordAuthError, DiscordError
 from toads_api.identity import upsert_member
-from toads_api.rbac.deps import get_services, require
+from toads_api.rbac.deps import elevate, get_services, require
 from toads_api.rbac.permissions import HubRole, Permission, Principal
 from toads_api.services import Services
 from toads_api.sessions import LOGIN_COOKIE, SESSION_COOKIE, PendingLogin, SessionData
@@ -138,8 +138,19 @@ async def callback(
     # A trial or raider who has not finished the first sign-in setup meets it instead of the hub home.
     land = pending.return_to
     if land == HUB_PATH:
-        role_ids = member.role_ids
-        if await anyio.to_thread.run_sync(lambda: needs_setup(services, services.principal_for(member_id, role_ids))):
+        # The same principal the session will resolve to, super admin and officer grants included.
+        principal = elevate(
+            services.settings,
+            await anyio.to_thread.run_sync(
+                services.principal_for,
+                member_id,
+                set(member.role_ids),
+                member.server_name,
+                member.user_id,
+                member.username,
+            ),
+        )
+        if await anyio.to_thread.run_sync(needs_setup, services, principal):
             land = SETUP_PATH
     response = RedirectResponse(f"{public}{land}", status_code=status.HTTP_303_SEE_OTHER)
     _clear_cookie(response, LOGIN_COOKIE, path="/auth")

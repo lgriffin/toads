@@ -128,3 +128,59 @@ def test_a_named_main_is_refused_once_they_hold_an_approved_character(hub: Hub) 
     r = hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid", "main": True})
     assert r.status_code == 409
     assert hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid"}).status_code == 201
+
+
+def test_a_named_main_replaces_a_pending_one_and_an_alt_never_stands_in(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider"), nick="Ribbit"))
+    hub.post("/api/claims", sid, {"character_id": 3})
+    hub.post("/api/me/setup/main", sid, {"character_id": 3})
+    # Ribbit matches the nickname and is approved at once, but Croak stays the main they named.
+    hub.post("/api/claims", sid, {"character_id": 2})
+    state = hub.get("/api/me/setup", sid).json()
+    assert (state["main"], state["main_open"]) == ({"name": "Croak", "status": "pending"}, True)
+    # Changing their mind to a character the logs have not seen moves the main to it.
+    hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid", "main": True})
+    assert hub.get("/api/me/setup", sid).json()["main"] == {"name": "Tadpole", "status": "not_in_logs"}
+    # And back to a held character: the named row is no longer the main.
+    assert hub.post("/api/me/setup/main", sid, {"character_id": 3}).status_code == 204
+    state = hub.get("/api/me/setup", sid).json()
+    assert state["main"] == {"name": "Croak", "status": "pending"}
+    assert [d["main"] for d in state["declared"]] == [False]
+
+
+def test_a_named_main_that_raids_becomes_main_even_after_a_nickname_alt(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider"), nick="Ribbit"))
+    hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid", "main": True})
+    hub.post("/api/claims", sid, {"character_id": 2})
+    assert hub.get("/api/me/setup", sid).json()["main"] == {"name": "Tadpole", "status": "not_in_logs"}
+    hub.characters.names[9] = "Tadpole"
+    assert hub.get("/api/me/setup", sid).json()["main"] == {"name": "Tadpole", "status": "pending"}
+
+
+def test_a_named_character_already_theirs_or_turned_down_clears_without_a_new_claim(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider")))
+    wed = hub.login(hub.user(("wed", "officer")))
+    hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid"})
+    hub.post("/api/me/setup/characters", sid, {"name": "Newt", "wow_class": "mage"})
+    hub.characters.names.update({9: "Tadpole", 10: "Newt"})
+    tadpole = hub.post("/api/claims", sid, {"character_id": 9}).json()
+    newt = hub.post("/api/claims", sid, {"character_id": 10}).json()
+    hub.post(f"/api/days/wed/claims/{newt['id']}/reject", wed, {"reason": "Not yours"})
+    state = hub.get("/api/me/setup", sid).json()
+    assert state["declared"] == []
+    claims = {c["character_name"]: c for c in hub.get("/api/claims", sid).json()}
+    assert (claims["Tadpole"]["id"], claims["Newt"]["status"]) == (tadpole["id"], "rejected")
+
+
+def test_naming_a_logged_main_clears_an_earlier_named_one(hub: Hub) -> None:
+    sid = hub.login(hub.user(("wed", "raider")))
+    hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid", "main": True})
+    hub.post("/api/me/setup/characters", sid, {"name": "Croak", "wow_class": "mage", "main": True})
+    state = hub.get("/api/me/setup", sid).json()
+    assert state["main"] == {"name": "Croak", "status": "pending"}
+    assert [(d["name"], d["main"]) for d in state["declared"]] == [("Tadpole", False)]
+
+
+def test_an_officer_granted_or_super_admin_member_meets_setup_at_sign_in(hub: Hub) -> None:
+    officer = hub.user(("wed", "officer"))
+    assert _land(hub, officer) == f"{HUB}/setup"

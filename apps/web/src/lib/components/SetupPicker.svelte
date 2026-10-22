@@ -7,6 +7,7 @@
   let {
     id,
     action,
+    heldAction,
     busy = false,
     mine = new Set<number>(),
     search,
@@ -16,12 +17,15 @@
     id: string;
     /** The pick button's words, such as "This is my main". */
     action: string;
+    /** The button's words for a character the member already holds; without it, those say "Yours". */
+    heldAction?: string;
     busy?: boolean;
     /** Characters the member already holds or is waiting on. */
     mine?: ReadonlySet<number>;
     search: (query: string) => Promise<CharacterMatch[]>;
     onpick: (character: CharacterMatch) => void;
-    onname: (name: string, wowClass: string) => void;
+    /** Resolves true once saved; the form keeps what was typed until then. */
+    onname: (name: string, wowClass: string) => Promise<boolean>;
   } = $props();
 
   let query = $state('');
@@ -61,11 +65,11 @@
     name = characterQuery(query);
   }
 
-  function submit(event: SubmitEvent) {
+  async function submit(event: SubmitEvent) {
     event.preventDefault();
     const n = characterQuery(name);
     if (n.length < MIN_CHARACTER_QUERY || !wowClass) return;
-    onname(n, wowClass);
+    if (!(await onname(n, wowClass))) return;
     naming = false;
     name = '';
     wowClass = '';
@@ -91,7 +95,9 @@
       {#each matches as m (m.id)}
         <li>
           <span>{m.name}{#if m.player_class}<span class="muted"> · {m.player_class}</span>{/if}</span>
-          {#if mine.has(m.id)}
+          {#if mine.has(m.id) && heldAction}
+            <button type="button" class="btn primary" disabled={busy} onclick={() => onpick(m)}>{heldAction}</button>
+          {:else if mine.has(m.id)}
             <span class="muted">Yours</span>
           {:else}
             <button type="button" class="btn primary" disabled={busy} onclick={() => onpick(m)}>{action}</button>

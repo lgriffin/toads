@@ -102,23 +102,15 @@ def needs_setup(services: Services, principal: Principal) -> bool:
         return member is not None and member.setup_done_at is None
 
 
-def _main_open(db: Session, member: Member | None, character_id: int | None = None) -> bool:
-    """A member names their first main while they hold no approved character but `character_id`: from then on, the
-    main changes only by a main swap."""
-    if member is None:
-        return False
-    approved = db.scalars(
-        select(CharacterClaim.character_id).where(
-            CharacterClaim.member_id == member.id, CharacterClaim.status == ClaimStatus.APPROVED
+def _claims(db: Session, member_id: int) -> list[CharacterClaim]:
+    """The member's live claims (approved or pending), oldest first."""
+    return list(
+        db.scalars(
+            select(CharacterClaim)
+            .where(CharacterClaim.member_id == member_id, CharacterClaim.status != ClaimStatus.REJECTED)
+            .order_by(CharacterClaim.id)
         )
     )
-    return all(cid == character_id for cid in approved)
-
-
-def _known(services: Services, name: str) -> int | None:
-    """The id of the character the guild's logs know by exactly this name, if any."""
-    folded = _fold(name)
-    return next((c.id for c in services.characters.search(name) if _fold(c.name) == folded), None)
 
 
 def _declared(db: Session, member_id: int) -> list[DeclaredCharacter]:
@@ -129,70 +121,98 @@ def _declared(db: Session, member_id: int) -> list[DeclaredCharacter]:
     )
 
 
-def _claim_as_main(services: Services, principal: Principal, character_id: int) -> None:
-    with services.db.begin() as db:
-        member = db.get(Member, principal.member_id)
-        if _main_open(db, member, character_id) and member is not None:
-            member.main_character_id = character_id
-            audit.record(
-                db, actor=principal.member_id, action="setup.main", target=f"character {character_id}", raid_day=None
-            )
+def _main(db: Session, member: Member | None) -> MainOut | None:
+    """The member's main as setup shows it. The main they named comes first, approved or not: the claim they named
+    (members.main_character_id), else a named main the logs have not seen. Only with neither does Me's own rule show:
+    their first approved claim. An alt approved by nickname never stands in for a main they named."""
+    if member is None:
+        return None
+    claims = _claims(db, member.id)
+    named = next((c for c in claims if c.character_id == member.main_character_id), None)
+    if named is not None:
+        return MainOut(
+            name=named.character_name, status="approved" if named.status is ClaimStatus.APPROVED else "pending"
+        )
+    if (kept := next((d for d in _declared(db, member.id) if d.main), None)) is not None:
+        return MainOut(name=kept.name, status="not_in_logs")
+    if (first := main_claim(None, [c for c in claims if c.status is ClaimStatus.APPROVED])) is not None:
+        return MainOut(name=first.character_name, status="approved")
+    return None
 
 
-def _resolve(services: Services, principal: Principal) -> list[ClaimOut]:
-    """Turn the named characters the logs now know into claims, as a claim from the picker would be. A character
-    someone else holds stays named, for an officer to sort out."""
+def _main_open(db: Session, member: Member | None) -> bool:
+    """The first main is the member's to name until they have an approved one: from then on, the main changes only by
+    a main swap that officers approve."""
+    if member is None:
+        return False
+    main = _main(db, member)
+    return main is None or main.status != "approved"
+
+
+def _name_main(db: Session, member: Member, character_id: int | None) -> None:
+    """Make a claimed character (or, with None, the named row the caller marks) the member's one named main."""
+    member.main_character_id = character_id
+    for d in _declared(db, member.id):
+        d.main = False
+    if character_id is not None:
+        audit.record(db, actor=member.id, action="setup.main", target=f"character {character_id}", raid_day=None)
+
+
+def _locked_member(db: Session, member_id: int) -> Member | None:
+    # Locked, so two setup calls at once from one member read and write its main and named rows one after the other.
+    return db.scalar(select(Member).where(Member.id == member_id).with_for_update())
+
+
+def _known(services: Services, name: str) -> int | None:
+    """The id of the character the guild's logs know by exactly this name, if any."""
+    folded = _fold(name)
+    return next((c.id for c in services.characters.search(name) if _fold(c.name) == folded), None)
+
+
+def _settle(services: Services, principal: Principal, row_id: int, character_id: int) -> ClaimOut | None:
+    """A named character the logs now know: claim it (unless the member already holds or was refused it), make it the
+    main if it was the named main and the main is still open, and drop the row. Someone else's live claim keeps the
+    row, for an officer to sort out. Returns a claim made here."""
     with services.db() as db:
-        rows = [(d.id, d.name, d.main) for d in _declared(db, principal.member_id)]
-    made: list[ClaimOut] = []
-    for row_id, name, main in rows:
-        character_id = _known(services, name)
-        if character_id is None:
-            continue
+        existing = db.scalar(select(CharacterClaim).where(CharacterClaim.character_id == character_id))
+        theirs = existing is not None and existing.member_id == principal.member_id
+        if existing is not None and not theirs and existing.status is not ClaimStatus.REJECTED:
+            return None
+    made: ClaimOut | None = None
+    if not theirs:
         try:
-            claim, _ = claim_character(services, principal, character_id)
+            made, _ = claim_character(services, principal, character_id)
         except (HTTPException, IntegrityError):
-            continue
-        made.append(claim)
-        if main:
-            _claim_as_main(services, principal, character_id)
-        with services.db.begin() as db:
-            row = db.get(DeclaredCharacter, row_id)
-            if row is not None:
-                db.delete(row)
+            return None
+    with services.db.begin() as db:
+        member = _locked_member(db, principal.member_id)
+        row = db.get(DeclaredCharacter, row_id)
+        if row is None or member is None:
+            return made
+        # A claim of theirs an officer turned down stays turned down: the row goes, the claim is not asked again.
+        live = theirs and existing is not None and existing.status is not ClaimStatus.REJECTED
+        if row.main and (made is not None or live) and _main_open(db, member):
+            _name_main(db, member, character_id)
+        db.delete(row)
     return made
 
 
-def _main(db: Session, member: Member | None, declared: list[DeclaredCharacter]) -> MainOut | None:
-    """The member's main as setup shows it: their main now, else the claim they named main, else the named main the
-    logs have not seen."""
-    if member is None:
-        return None
-    claims = list(
-        db.scalars(
-            select(CharacterClaim)
-            .where(CharacterClaim.member_id == member.id, CharacterClaim.status != ClaimStatus.REJECTED)
-            .order_by(CharacterClaim.id)
-        )
-    )
-    approved = [c for c in claims if c.status is ClaimStatus.APPROVED]
-    if (main := main_claim(member.main_character_id, approved)) is not None:
-        return MainOut(name=main.character_name, status="approved")
-    if (named := next((c for c in claims if c.character_id == member.main_character_id), None)) is not None:
-        return MainOut(name=named.character_name, status="pending")
-    if (kept := next((d for d in declared if d.main), None)) is not None:
-        return MainOut(name=kept.name, status="not_in_logs")
-    return None
+def _resolve(services: Services, principal: Principal) -> list[ClaimOut]:
+    """Turn the named characters the logs now know into claims, as a claim from the picker would be."""
+    with services.db() as db:
+        rows = [(d.id, d.name) for d in _declared(db, principal.member_id)]
+    found = [(row_id, character_id) for row_id, name in rows if (character_id := _known(services, name)) is not None]
+    settled = (_settle(services, principal, row_id, character_id) for row_id, character_id in found)
+    return [claim for claim in settled if claim is not None]
 
 
 def _state(services: Services, principal: Principal) -> SetupOut:
     with services.db() as db:
         member = db.get(Member, principal.member_id)
-        declared = _declared(db, principal.member_id)
         return SetupOut(
             done=member is not None and member.setup_done_at is not None,
-            main=_main(db, member, declared),
-            declared=[DeclaredOut.model_validate(d) for d in declared],
+            main=_main(db, member),
+            declared=[DeclaredOut.model_validate(d) for d in _declared(db, principal.member_id)],
             main_open=_main_open(db, member),
         )
 
@@ -216,27 +236,33 @@ async def my_setup(principal: Claimant, services: Hub) -> SetupOut:
     return await anyio.to_thread.run_sync(_state, services, principal)
 
 
+def _refuse_closed_main(services: Services, principal: Principal) -> None:
+    with services.db() as db:
+        if not _main_open(db, db.get(Member, principal.member_id)):
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="Ask your officers to swap your main")
+
+
 def _declare(services: Services, principal: Principal, body: DeclareIn) -> DeclaredResult:
     name = _tidy(body.name)
     if body.wow_class not in CLASSES:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown class")
-    with services.db() as db:
-        if body.main and not _main_open(db, db.get(Member, principal.member_id)):
-            raise HTTPException(status.HTTP_409_CONFLICT, detail="Ask your officers to swap your main")
-    character_id = _known(services, name)
-    if character_id is not None:
+    if body.main:
+        _refuse_closed_main(services, principal)
+    if (character_id := _known(services, name)) is not None:
         claim, _ = claim_character(services, principal, character_id)
         if body.main:
-            _claim_as_main(services, principal, character_id)
+            _set_main(services, principal, character_id)
         return DeclaredResult(claim=claim)
     with services.db.begin() as db:
-        mine = _declared(db, principal.member_id)
-        if any(_fold(d.name) == _fold(name) for d in mine):
+        member = _locked_member(db, principal.member_id)
+        if member is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such member")
+        if any(_fold(d.name) == _fold(name) for d in _declared(db, member.id)):
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Already named")
         if body.main:
-            for d in mine:
-                d.main = False
-        row = DeclaredCharacter(member_id=principal.member_id, name=name, wow_class=body.wow_class, main=body.main)
+            # The named row becomes the one main: no claim stands in for it any more.
+            _name_main(db, member, None)
+        row = DeclaredCharacter(member_id=member.id, name=name, wow_class=body.wow_class, main=body.main)
         db.add(row)
         db.flush()
         return DeclaredResult(declared=DeclaredOut.model_validate(row))
@@ -269,25 +295,21 @@ async def drop_character(row_id: int, principal: Claimant, services: Hub) -> Res
 
 def _set_main(services: Services, principal: Principal, character_id: int) -> None:
     with services.db.begin() as db:
-        claim = db.scalar(
+        member = _locked_member(db, principal.member_id)
+        held = db.scalar(
             select(CharacterClaim).where(
                 CharacterClaim.character_id == character_id,
                 CharacterClaim.member_id == principal.member_id,
                 CharacterClaim.status != ClaimStatus.REJECTED,
             )
         )
-        if claim is None:
+        if held is None or member is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Claim the character first")
-        member = db.get(Member, principal.member_id)
-        if member is None or not _main_open(db, member, character_id):
+        if member.main_character_id == character_id:
+            return
+        if not _main_open(db, member):
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Ask your officers to swap your main")
-        member.main_character_id = character_id
-        # A named main the logs have not seen gives way to the one just claimed.
-        for d in _declared(db, principal.member_id):
-            d.main = False
-        audit.record(
-            db, actor=principal.member_id, action="setup.main", target=f"character {character_id}", raid_day=None
-        )
+        _name_main(db, member, character_id)
 
 
 @router.post("/api/me/setup/main", status_code=status.HTTP_204_NO_CONTENT)
