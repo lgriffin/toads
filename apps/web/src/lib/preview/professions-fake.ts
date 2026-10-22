@@ -3,18 +3,18 @@
  * Professions page works on GitHub Pages with no hub behind it. Changes last until the page reloads.
  */
 import { ApiError } from '$lib/api';
-import type { Crafter, MemberProfessions, MyProfessions, ProfessionsBackend } from '$lib/professions';
+import type { Crafter, MemberProfessions, MyProfessions, NightCrafter, ProfessionsBackend } from '$lib/professions';
 
 const AT = '2026-10-19T18:00:00Z';
 
 /** Hopscotch's own professions on the preview's Me, named the guild's alchemist. */
 export const previewMyProfessions: MyProfessions = {
   professions: [
-    { profession: 'alchemy', skill: 375, specialisation: 'transmute' },
-    { profession: 'herbalism', skill: 375, specialisation: null },
+    { profession: 'alchemy', skill: 300, specialisation: null },
+    { profession: 'herbalism', skill: 300, specialisation: null },
     { profession: 'cooking', skill: 300, specialisation: null }
   ],
-  crafter_for: [{ profession: 'alchemy', note: 'Flasks and Primal Might', designated_by: 'Hadur', designated_at: AT }]
+  crafter_for: [{ profession: 'alchemy', note: 'Flasks and Arcanite transmutes', designated_by: 'Hadur', designated_at: AT }]
 };
 
 const MEMBERS: (MemberProfessions & { nights: string[] })[] = [
@@ -24,8 +24,8 @@ const MEMBERS: (MemberProfessions & { nights: string[] })[] = [
     name: 'Lilypadd',
     nights: ['wed'],
     professions: [
-      { profession: 'tailoring', skill: 375, specialisation: 'spellfire' },
-      { profession: 'enchanting', skill: 360, specialisation: null }
+      { profession: 'tailoring', skill: 300, specialisation: null },
+      { profession: 'enchanting', skill: 300, specialisation: null }
     ],
     crafter_for: []
   },
@@ -34,8 +34,8 @@ const MEMBERS: (MemberProfessions & { nights: string[] })[] = [
     name: 'Ribbit',
     nights: ['sun'],
     professions: [
-      { profession: 'blacksmithing', skill: 375, specialisation: 'hammersmith' },
-      { profession: 'mining', skill: 375, specialisation: null }
+      { profession: 'blacksmithing', skill: 300, specialisation: 'hammersmith' },
+      { profession: 'mining', skill: 300, specialisation: null }
     ],
     crafter_for: []
   },
@@ -48,9 +48,9 @@ export function previewProfessions(): ProfessionsBackend {
       profession: 'alchemy',
       member_id: 1,
       member_name: 'Hopscotch',
-      skill: 375,
-      specialisation: 'transmute',
-      note: 'Flasks and Primal Might',
+      skill: 300,
+      specialisation: null,
+      note: 'Flasks and Arcanite transmutes',
       designated_by: 'Hadur',
       designated_at: AT
     }
@@ -98,4 +98,14 @@ export function previewProfessions(): ProfessionsBackend {
       crafters = crafters.filter((c) => !(c.profession === profession && c.member_id === memberId));
     }
   };
+}
+
+/** The Raid page's guild crafters for a night in the preview: Wednesday has two, Sunday one. */
+export function previewNightCrafters(day: string): NightCrafter[] {
+  const all: (NightCrafter & { night: string })[] = [
+    { night: 'wed', profession: 'alchemy', member_id: 1, member_name: 'Hopscotch', skill: 300, specialisation: null, note: 'Flasks and transmutes' },
+    { night: 'wed', profession: 'tailoring', member_id: 2, member_name: 'Lilypadd', skill: 300, specialisation: null, note: null },
+    { night: 'sun', profession: 'blacksmithing', member_id: 3, member_name: 'Ribbit', skill: 300, specialisation: 'weaponsmith', note: 'Send Arcanite' }
+  ];
+  return all.filter((c) => c.night === day).map(({ night: _, ...c }) => c);
 }

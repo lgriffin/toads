@@ -61,6 +61,12 @@ def test_a_photo_goes_to_the_hub_as_the_member_who_posted_it() -> None:
     assert answer.kwargs["ephemeral"] is True
 
 
+def test_a_photo_waiting_for_an_officer_says_so() -> None:
+    i = interaction()
+    run(Highlights(hub_answering(201, {"id": 1, "waiting": True}, [])).post_photo(i, attachment(), ""))
+    assert "once they approve it" in i.followup.send.call_args.args[0]
+
+
 def test_what_is_not_a_photo_never_reaches_the_hub() -> None:
     seen: list[httpx.Request] = []
     cog = Highlights(hub_answering(201, {}, seen))
@@ -102,6 +108,14 @@ def test_a_stream_the_bot_cannot_announce_is_still_on_the_page() -> None:
     run(Highlights(hub_answering(201, STREAM, [])).start_stream(i, "twitch.tv/hopscotch", ""))
     assert "could not announce" in i.followup.send.call_args.args[0]
     assert i.followup.send.call_args.kwargs["ephemeral"] is True
+
+
+def test_a_stream_waiting_for_an_officer_is_not_announced() -> None:
+    i = interaction()
+    run(Highlights(hub_answering(201, {**STREAM, "waiting": True}, [])).start_stream(i, "twitch.tv/hopscotch", ""))
+    i.channel.send.assert_not_called()
+    answer = i.followup.send.call_args
+    assert "approve twitch.tv/hopscotch" in answer.args[0] and answer.kwargs["ephemeral"] is True
 
 
 def test_a_bad_stream_link_is_answered_privately() -> None:

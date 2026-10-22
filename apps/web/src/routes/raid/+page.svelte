@@ -11,6 +11,7 @@
   import { previewAbsences, previewRaidSession } from '$lib/preview/absences-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import DaySwitch from '$lib/components/DaySwitch.svelte';
+  import NightCrafters from '$lib/components/NightCrafters.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
 
   // One raid night's home. Members see their team's night; officers also get the officer desk for the nights they
@@ -90,7 +91,9 @@
       </section>
     {/if}
 
-    <section class="band {officer ? '' : 'dusk'}" aria-labelledby="soon-h">
+    <NightCrafters {day} {name} dusk={onTeam} />
+
+    <section class="band {onTeam ? '' : 'dusk'}" aria-labelledby="soon-h">
       <div class="head">
         <h2 id="soon-h">Coming to the raid page</h2>
         <p>What this page is being built to hold for {name}.</p>

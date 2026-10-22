@@ -14,17 +14,16 @@ export interface Profession {
   specialisations: [string, string][];
 }
 
-export const MAX_SKILL = 375;
+export const MAX_SKILL = 300;
 export const NOTE_LIMIT = 200;
 
 export const PROFESSIONS: Profession[] = [
-  { id: 'alchemy', name: 'Alchemy', secondary: false, specialisations: [['elixir', 'Elixir Master'], ['potion', 'Potion Master'], ['transmute', 'Transmutation Master']] },
+  { id: 'alchemy', name: 'Alchemy', secondary: false, specialisations: [] },
   { id: 'blacksmithing', name: 'Blacksmithing', secondary: false, specialisations: [['armorsmith', 'Armorsmith'], ['weaponsmith', 'Weaponsmith'], ['axesmith', 'Master Axesmith'], ['hammersmith', 'Master Hammersmith'], ['swordsmith', 'Master Swordsmith']] },
   { id: 'enchanting', name: 'Enchanting', secondary: false, specialisations: [] },
   { id: 'engineering', name: 'Engineering', secondary: false, specialisations: [['gnomish', 'Gnomish'], ['goblin', 'Goblin']] },
-  { id: 'jewelcrafting', name: 'Jewelcrafting', secondary: false, specialisations: [] },
   { id: 'leatherworking', name: 'Leatherworking', secondary: false, specialisations: [['dragonscale', 'Dragonscale'], ['elemental', 'Elemental'], ['tribal', 'Tribal']] },
-  { id: 'tailoring', name: 'Tailoring', secondary: false, specialisations: [['mooncloth', 'Mooncloth'], ['shadoweave', 'Shadoweave'], ['spellfire', 'Spellfire']] },
+  { id: 'tailoring', name: 'Tailoring', secondary: false, specialisations: [] },
   { id: 'herbalism', name: 'Herbalism', secondary: false, specialisations: [] },
   { id: 'mining', name: 'Mining', secondary: false, specialisations: [] },
   { id: 'skinning', name: 'Skinning', secondary: false, specialisations: [] },
@@ -74,12 +73,15 @@ export interface Crafter {
   designated_at: string;
 }
 
+/** A guild crafter as a raid night's members see them on the Raid page: without who named them. */
+export type NightCrafter = Pick<Crafter, 'profession' | 'member_id' | 'member_name' | 'skill' | 'specialisation' | 'note'>;
+
 export interface Overview {
   members: MemberProfessions[];
   crafters: Crafter[];
 }
 
-/** "Alchemy 375, Transmutation Master": what a member's line in a list says about one profession. */
+/** "Engineering 300, Gnomish": what a member's line in a list says about one profession. */
 export function describe(h: Pick<HeldProfession, 'profession' | 'skill' | 'specialisation'>): string {
   const p = professionOf(h.profession);
   const spec = h.specialisation ? p?.specialisations.find(([id]) => id === h.specialisation)?.[1] : undefined;
@@ -92,7 +94,9 @@ export function withProfession(members: readonly MemberProfessions[], profession
 }
 
 /** The guild's crafters grouped by profession, in catalogue order, leaving out professions with nobody named. */
-export function crafterGroups(crafters: readonly Crafter[]): { profession: Profession; crafters: Crafter[] }[] {
+export function crafterGroups<C extends Pick<Crafter, 'profession'>>(
+  crafters: readonly C[]
+): { profession: Profession; crafters: C[] }[] {
   return PROFESSIONS.map((profession) => ({
     profession,
     crafters: crafters.filter((c) => c.profession === profession.id)
@@ -103,6 +107,10 @@ export const getMyProfessions = (f: Fetch = fetch) => call<MyProfessions>(f, '/a
 
 export const saveMyProfessions = (professions: HeldProfession[], f: Fetch = fetch) =>
   call<MyProfessions>(f, '/api/me/professions', { method: 'PUT', body: JSON.stringify({ professions }) });
+
+/** The guild's crafters on one raid night, for its Raid page. */
+export const getNightCrafters = (day: string, f: Fetch = fetch) =>
+  call<NightCrafter[]>(f, `/api/days/${encodeURIComponent(day)}/crafters`);
 
 /** The officers' page reads and names through this, so the static preview can stand in for the hub. `day` null is
  * the guild-wide view, for global officers and super admins. */

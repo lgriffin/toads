@@ -1,6 +1,15 @@
 import { describe as group, expect, it, vi } from 'vitest';
-import { PROFESSIONS, crafterGroups, describe, hubProfessions, professionName, withProfession, type Crafter } from './professions';
-import { previewProfessions } from './preview/professions-fake';
+import {
+  PROFESSIONS,
+  crafterGroups,
+  describe,
+  getNightCrafters,
+  hubProfessions,
+  professionName,
+  withProfession,
+  type Crafter
+} from './professions';
+import { previewNightCrafters, previewProfessions } from './preview/professions-fake';
 
 const crafter = (profession: string, member_name: string): Crafter => ({
   profession,
@@ -22,8 +31,8 @@ group('professions', () => {
   });
 
   it('describes a profession with its skill and specialisation', () => {
-    expect(describe({ profession: 'alchemy', skill: 375, specialisation: 'transmute' })).toBe(
-      'Alchemy 375 · Transmutation Master'
+    expect(describe({ profession: 'engineering', skill: 300, specialisation: 'gnomish' })).toBe(
+      'Engineering 300 · Gnomish'
     );
     expect(describe({ profession: 'mining', skill: null, specialisation: null })).toBe('Mining');
   });
@@ -58,11 +67,19 @@ group('professions', () => {
     const preview = previewProfessions();
     await expect(preview.name('wed', 'mining', 3, '')).rejects.toThrow('not on this raid night');
     await expect(preview.name('wed', 'mining', 2, '')).rejects.toThrow('do not list');
-    await preview.name('wed', 'tailoring', 2, 'Spellfire sets');
+    await preview.name('wed', 'tailoring', 2, 'Mooncloth bags');
     const night = await preview.overview('wed');
     expect(night.crafters.map((c) => c.member_name)).toEqual(['Hopscotch', 'Lilypadd']);
-    expect(night.members.find((m) => m.name === 'Lilypadd')?.crafter_for[0].note).toBe('Spellfire sets');
+    expect(night.members.find((m) => m.name === 'Lilypadd')?.crafter_for[0].note).toBe('Mooncloth bags');
     await preview.unname('wed', 'tailoring', 2);
     expect((await preview.overview(null)).crafters).toHaveLength(1);
+  });
+
+  it('reads a night\'s guild crafters for the Raid page, and the preview keeps each night to its own', async () => {
+    const f = vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await getNightCrafters('wed', f as unknown as typeof fetch);
+    expect((f.mock.calls[0] as unknown[])[0]).toBe('/api/days/wed/crafters');
+    expect(crafterGroups(previewNightCrafters('wed')).map((g) => g.profession.id)).toEqual(['alchemy', 'tailoring']);
+    expect(previewNightCrafters('sun').map((c) => c.member_name)).toEqual(['Ribbit']);
   });
 });

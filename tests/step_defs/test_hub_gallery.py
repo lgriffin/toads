@@ -99,7 +99,7 @@ def bot_posts_phone_photo(hub: Hub, people: dict[str, Any], caption: str) -> Non
     assert r.status_code == 201, r.text
 
 
-@given(parsers.parse("the raider has posted {n:d} photos a day apart"))
+@given(parsers.parse("the raider has posted {n:d} photos a day apart, each approved by a Wednesday officer"))
 def raider_posted_photos(hub: Hub, people: dict[str, Any], n: int) -> None:
     people["photos"] = []
     for i in range(n):
@@ -108,6 +108,101 @@ def raider_posted_photos(hub: Hub, people: dict[str, Any], n: int) -> None:
         r = _bot_posts(hub, people["raider_user"].user_id, _photo_bytes(), f"photo {i + 1}")
         assert r.status_code == 201, r.text
         people["photos"].append(r.json()["id"])
+        wednesday_officer_approves(hub, people)
+
+
+# ---------------------------------------------------------------- approval
+
+
+def _officer(hub: Hub, people: dict[str, Any], day: str) -> str:
+    key = f"{day}_officer"
+    if key not in people:
+        people[key] = hub.login(hub.user((day, "officer"), nick=f"{day.title()} officer"))
+    sid: str = people[key]
+    return sid
+
+
+def _queue(hub: Hub, sid: str, base: str) -> dict[str, Any]:
+    r = hub.get(f"{base}/review", sid)
+    assert r.status_code == 200, r.text
+    queue: dict[str, Any] = r.json()
+    return queue
+
+
+def _decide(hub: Hub, sid: str, base: str, action: str) -> None:
+    queue = _queue(hub, sid, base)
+    for kind in ("photos", "streams"):
+        for item in queue[kind]:
+            r = hub.post(f"{base}/{kind}/{item['id']}/{action}", sid)
+            assert r.status_code in (200, 204), r.text
+
+
+@when("a Wednesday officer approves what the raider posted")
+def wednesday_officer_approves(hub: Hub, people: dict[str, Any]) -> None:
+    _decide(hub, _officer(hub, people, "wed"), "/api/days/wed/gallery", "approve")
+
+
+@when("the global officer rejects what the raider posted")
+def global_officer_rejects(hub: Hub, people: dict[str, Any]) -> None:
+    _decide(hub, people["global"], "/api/admin/gallery", "reject")
+
+
+@then("the member sees no photo and no stream")
+def member_sees_nothing(hub: Hub, people: dict[str, Any]) -> None:
+    board = _board(hub, people["member"])
+    assert (board["carousel"], board["streams"], board["waiting_photos"], board["review"]) == ([], [], [], None)
+    assert _archive(hub, people["member"])["photos"] == []
+
+
+@then("the raider sees their photo and stream waiting for an officer")
+def raider_sees_waiting(hub: Hub, people: dict[str, Any]) -> None:
+    raider = hub.login(people["raider_user"])
+    board = _board(hub, raider)
+    assert [(p["caption"], p["waiting"]) for p in board["waiting_photos"]] == [("Gruul down!", True)]
+    assert [s["channel"] for s in board["waiting_streams"]] == ["hopscotch"]
+    photo = board["waiting_photos"][0]
+    assert hub.get(photo["thumbnail_url"], raider).status_code == 200
+    assert hub.get(photo["thumbnail_url"], people["member"]).status_code == 404
+    people["waiting_photo"] = photo
+
+
+@then("a Sunday officer has nothing to approve and cannot approve them")
+def sunday_officer_cannot(hub: Hub, people: dict[str, Any]) -> None:
+    sid = _officer(hub, people, "sun")
+    assert _queue(hub, sid, "/api/days/sun/gallery") == {"photos": [], "streams": []}
+    assert _board(hub, sid)["review"] == {"every_night": False, "nights": ["sun"]}
+    photo = people["waiting_photo"]
+    assert hub.post(f"/api/days/sun/gallery/photos/{photo['id']}/approve", sid).status_code == 404
+    assert hub.post(f"/api/days/wed/gallery/photos/{photo['id']}/approve", sid).status_code == 403
+    assert hub.get(photo["image_url"], sid).status_code == 404
+
+
+@then("a Wednesday officer has the photo and the stream to approve")
+def wednesday_officer_queue(hub: Hub, people: dict[str, Any]) -> None:
+    sid = _officer(hub, people, "wed")
+    queue = _queue(hub, sid, "/api/days/wed/gallery")
+    assert [(p["caption"], p["nights"]) for p in queue["photos"]] == [("Gruul down!", ["wed"])]
+    assert [s["channel"] for s in queue["streams"]] == ["hopscotch"]
+    assert hub.get(queue["photos"][0]["image_url"], sid).status_code == 200
+
+
+@then(parsers.parse('the audit log records "{first}" and "{second}"'))
+def audit_both(hub: Hub, first: str, second: str) -> None:
+    assert (_audits(hub, first), _audits(hub, second)) == (1, 1)
+
+
+@then("nothing waits for an officer and the raider's photo is gone")
+def nothing_waits(hub: Hub, people: dict[str, Any]) -> None:
+    assert _queue(hub, people["global"], "/api/admin/gallery") == {"photos": [], "streams": []}
+    raider = hub.login(people["raider_user"])
+    board = _board(hub, raider)
+    assert (board["waiting_photos"], board["waiting_streams"]) == ([], [])
+
+
+@when("the global officer takes the stream down")
+def global_officer_takes_stream_down(hub: Hub, people: dict[str, Any]) -> None:
+    (live,) = _board(hub, people["global"])["streams"]
+    assert hub.delete(f"/api/gallery/streams/{live['id']}", people["global"]).status_code == 204
 
 
 @then(parsers.parse('the member sees the photo in the carousel, captioned "{caption}" and posted by "{name}"'))
