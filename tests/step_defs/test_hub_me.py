@@ -243,3 +243,10 @@ def welcome(ctx: dict[str, Any]) -> None:
     assert "Thanks for logging in" in copy
     page = (ROUTES / "setup" / "+page.svelte").read_text(encoding="utf-8")
     assert "art/gail-640.webp" in page
+
+
+@then("the setup page asks for their specs and professions with the cards Me uses")
+def setup_cards() -> None:
+    page = (ROUTES / "setup" / "+page.svelte").read_text(encoding="utf-8")
+    assert "<SpecsCard />" in page
+    assert "<ProfessionsCard " in page

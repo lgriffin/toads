@@ -80,7 +80,7 @@ export const WELCOME = {
   heading: 'Welcome to the Pond',
   body: [
     'Thanks for logging in. Before you hop in, let’s get some info about you.',
-    'Tell us your main, the specs you play and any alts, so we know who’s who on raid night and the officers can seat you in the right spot.'
+    'Tell us your main, the specs you play, any alts and your professions, so we know who’s who on raid night, the officers can seat you in the right spot and the guild knows who can craft what.'
   ],
   signoff: 'Gail and the officers'
 } as const;

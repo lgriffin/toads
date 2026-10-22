@@ -1,7 +1,7 @@
 # First sign-in setup
 
 `/setup` gathers what the officers need about a member as soon as they reach the hub (REQ-HUB-ME-007): their main,
-their primary and secondary spec, and their alts. Professions join it once they land on Me.
+their primary and secondary spec, their alts and their professions.
 
 ## Who sees it
 
@@ -30,7 +30,8 @@ The page opens with Gail, the bank toad, and a note from her and the officers. T
   they hold no approved character but that one. It sets `members.main_character_id`, which Me honours once the claim is
   approved, so an alt approved first by nickname never becomes the main by accident. After that, the main changes only
   by a main swap the officers approve (docs/me.md).
-- Specs are the same card as on Me (`SpecsCard`, `/api/me/specs`).
+- Specs and professions are the same cards as on Me (`SpecsCard`, `/api/me/specs`; `ProfessionsCard`,
+  `/api/me/professions`).
 
 ## Routes
 

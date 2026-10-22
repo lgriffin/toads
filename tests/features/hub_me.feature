@@ -41,7 +41,7 @@ Feature: HUB ME
     And the raids card picks characters from a dropdown that names the main
 
   @ears_event_driven @member @phase_2_3
-  Scenario: REQ-HUB-ME-007 When a trial or raider signs in before finishing the first sign-in setup, the hub shall take them to the setup page, where they name their main, specs and alts, a character the guild's logs have not seen by its name and class
+  Scenario: REQ-HUB-ME-007 When a trial or raider signs in before finishing the first sign-in setup, the hub shall take them to the setup page, where they name their main, specs, alts and professions, a character the guild's logs have not seen by its name and class
     Given a Wednesday raider in the Toads server who has never signed in
     When they sign in with Discord
     Then the hub sends them to the setup page
@@ -51,3 +51,4 @@ Feature: HUB ME
     Then setup shows "Tadpole" as their main, waiting for its first logged raid, and "Ribbit" as an alt
     And signing in again takes them to their hub home
     And the setup page welcomes them to the Pond from Gail and the officers
+    And the setup page asks for their specs and professions with the cards Me uses

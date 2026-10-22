@@ -8,7 +8,9 @@
   import { previewSetup } from '$lib/preview/setup-fake';
   import { MAIN_STATUS, WELCOME, altsOf, hubSetup, setupError, type Alt, type SetupState } from '$lib/setup';
   import SetupPicker from '$lib/components/SetupPicker.svelte';
+  import ProfessionsCard from '$lib/components/ProfessionsCard.svelte';
   import SpecsCard from '$lib/components/SpecsCard.svelte';
+  import { previewMyProfessions } from '$lib/preview/professions-fake';
 
   // The first sign-in setup (docs/setup.md): sign-in sends a trial or raider here until they press Finish, and the
   // account menu brings anyone back to change things. Each step saves as it goes, so leaving early loses nothing.
@@ -150,7 +152,7 @@
       {#if mainMessage}<p class="err" role="alert">{mainMessage}</p>{/if}
     </li>
 
-    <li class="step specs">
+    <li class="step embedded">
       <SpecsCard />
     </li>
 
@@ -173,6 +175,10 @@
       {/if}
       <SetupPicker id="alt" action="Add as an alt" {busy} {mine} search={backend.search} onpick={pickAlt} onname={nameAlt} />
       {#if altMessage}<p class="err" role="alert">{altMessage}</p>{/if}
+    </li>
+
+    <li class="step embedded">
+      <ProfessionsCard preview={__PREVIEW__ ? previewMyProfessions : null} />
     </li>
   </ol>
 
@@ -213,10 +219,10 @@
   .steps { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 1rem; counter-reset: step; }
   .step { counter-increment: step; display: grid; gap: 0.6rem; }
   .step h2 { margin: 0; }
-  .step > h2::before, .specs :global(h2)::before { content: counter(step) '. '; color: var(--accent); }
+  .step > h2::before, .embedded > :global(section > h2)::before { content: counter(step) '. '; color: var(--accent); }
   .step p { margin: 0; }
-  .specs { display: block; }
-  .specs :global(.specs) { margin-block: 0; }
+  .embedded { display: block; }
+  .embedded > :global(section) { margin-block: 0; }
   .picked { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; }
   .alts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
   .alts li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.25rem 0; border-bottom: 1px solid var(--line); }
