@@ -4,6 +4,8 @@
 - PUT    /api/me/professions                                  replace them
 - GET    /api/days/{day}/professions                          the night's roster with everyone's professions, and the
                                                               guild's crafters (that night's officers)
+- GET    /api/days/{day}/crafters                             the guild's crafters on the night, for its Raid page
+                                                              (any signed-in member)
 - PUT    /api/days/{day}/crafters/{profession}/{member_id}    name one of the night's members a guild crafter
 - DELETE /api/days/{day}/crafters/{profession}/{member_id}    take it back
 - GET    /api/admin/professions                               every member who lists a profession, and the guild's
@@ -47,6 +49,7 @@ def get_professions(request: Request) -> ProfessionService:
 
 Professions = Annotated[ProfessionService, Depends(get_professions)]
 SignedIn = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
+DayViewer = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS, scoped=True))]
 DayOfficer = Annotated[Principal, Depends(require(Permission.MANAGE_CRAFTERS, scoped=True))]
 GlobalOfficer = Annotated[Principal, Depends(require(Permission.MANAGE_CRAFTERS))]
 ID = r"^[a-z-]{1,32}$"
@@ -98,6 +101,17 @@ class CrafterOut(BaseModel):
     note: str | None
     designated_by: str | None
     designated_at: datetime
+
+
+class NightCrafterOut(BaseModel):
+    """A guild crafter as a night's raiders see them: who to send mats or recipes to, without who named them."""
+
+    profession: str
+    member_id: int
+    member_name: str
+    skill: int | None
+    specialisation: str | None
+    note: str | None
 
 
 class OverviewOut(BaseModel):
@@ -170,6 +184,25 @@ async def night_professions(day: str, principal: DayOfficer, professions: Profes
     members = await anyio.to_thread.run_sync(professions.roster, day)
     crafters = await anyio.to_thread.run_sync(professions.crafters)
     return OverviewOut(members=[_member(m) for m in members], crafters=[_crafter(c) for c in crafters])
+
+
+@router.get("/api/days/{day}/crafters")
+async def night_crafters(
+    day: str, principal: DayViewer, professions: Professions, request: Request
+) -> list[NightCrafterOut]:
+    await refresh_raid_rosters(get_services(request))
+    crafters = await anyio.to_thread.run_sync(professions.night_crafters, day)
+    return [
+        NightCrafterOut(
+            profession=c.profession,
+            member_id=c.member_id,
+            member_name=c.member_name,
+            skill=c.skill,
+            specialisation=c.specialisation,
+            note=c.note,
+        )
+        for c in crafters
+    ]
 
 
 @router.get("/api/admin/professions")

@@ -136,6 +136,11 @@ class ProfessionService:
             )
         return sorted(views, key=lambda v: (order.index(v.profession), v.member_name.casefold(), v.member_id))
 
+    def night_crafters(self, raid_day: str) -> list[CrafterView]:
+        """The guild's crafters who are on the raid day, for its raiders' Raid page."""
+        on = set(self.repo.members_on(raid_day))
+        return [c for c in self.crafters() if c.member_id in on]
+
     def designate(
         self, profession: str, member_id: int, note: str | None, by: int, raid_day: str | None = None
     ) -> CrafterView:

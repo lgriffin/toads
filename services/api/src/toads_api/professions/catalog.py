@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # The highest skill a profession reaches.
-MAX_SKILL = 375
+MAX_SKILL = 300
 
 
 @dataclass(frozen=True)
