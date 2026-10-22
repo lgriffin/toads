@@ -10,9 +10,14 @@
 - POST   /api/gallery/streams                       raiders: put their Twitch channel on the page (`/stream start`)
 - POST   /api/gallery/streams/end                   raiders: take their stream off (`/stream end`)
 - DELETE /api/gallery/streams/{id}                  its streamer, or a global officer: take it off
+- GET    /api/days/{day}/gallery/review             the night's officers: what its members posted that waits for them
+- POST   /api/days/{day}/gallery/photos|streams/{id}/approve|reject   the night's officers: decide one
+- GET    /api/admin/gallery/review                  global officers: everything waiting
+- POST   /api/admin/gallery/photos|streams/{id}/approve|reject        global officers: decide any
 
-Photos and streams are members-only: nothing here is on the public Story. Who may remove what is worked out here
-(the poster, or anyone holding manage_highlights) and handed to the service as `moderator`.
+Photos and streams are members-only: nothing here is on the public Story, and nothing shows until an officer approves
+it. Who may remove what is worked out here (the poster, or anyone holding manage_highlights) and handed to the service
+as `moderator`; who may approve what, as a `Reviewer` (the night in the path, or every night for the global tier).
 """
 
 from __future__ import annotations
@@ -37,6 +42,9 @@ from toads_api.gallery.service import (
     GalleryError,
     GalleryService,
     Pick,
+    Reviewer,
+    WaitingPhoto,
+    WaitingStream,
 )
 from toads_api.rbac.deps import ACTING_MEMBER_HEADER, get_services, require
 from toads_api.rbac.permissions import Permission, Principal, can
@@ -47,13 +55,17 @@ log = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/gallery", tags=["highlights"])
 # Guild-wide officer routes live under /api/admin (the global tier's alone).
 curators = APIRouter(prefix="/api/admin/gallery", tags=["highlights", "global officers"])
+# A raid night's officers approve what members of their night post; the night comes from the path alone.
+night_officers = APIRouter(prefix="/api/days/{day}/gallery", tags=["highlights", "officers"])
 
 Live = Annotated[Services, Depends(get_services)]
 Viewer = Annotated[Principal, Depends(require(Permission.VIEW_GUILD_RAIDS))]
 Poster = Annotated[Principal, Depends(require(Permission.UPLOAD_SCREENSHOTS))]
 Streamer = Annotated[Principal, Depends(require(Permission.SUBMIT_HIGHLIGHT))]
 Curator = Annotated[Principal, Depends(require(Permission.MANAGE_HIGHLIGHTS))]
+NightOfficer = Annotated[Principal, Depends(require(Permission.MANAGE_HIGHLIGHTS, scoped=True))]
 PhotoId = Annotated[int, Path(ge=1)]
+StreamId = Annotated[int, Path(ge=1)]
 
 
 def gallery_of(live: Live) -> GalleryService:
@@ -87,6 +99,8 @@ class PhotoOut(BaseModel):
     thumbnail_url: str
     # Whether the viewer may take it down: they posted it, or they are a global officer.
     removable: bool
+    # Still waiting for an officer: only its poster and the officers who may approve it see it.
+    waiting: bool = False
 
 
 class PickOut(BaseModel):
@@ -105,6 +119,28 @@ class StreamOut(BaseModel):
     started_at: datetime
     ends_at: datetime
     removable: bool
+    waiting: bool = False
+
+
+class ReviewScopeOut(BaseModel):
+    """Whose posts the viewer approves: every member's (global tier), or those of these raid nights' members."""
+
+    every_night: bool
+    nights: list[str]
+
+
+class WaitingPhotoOut(PhotoOut):
+    # The raid nights whose officers may decide it; empty means the global tier only.
+    nights: list[str]
+
+
+class WaitingStreamOut(StreamOut):
+    nights: list[str]
+
+
+class ReviewQueueOut(BaseModel):
+    photos: list[WaitingPhotoOut]
+    streams: list[WaitingStreamOut]
 
 
 class BoardOut(BaseModel):
@@ -116,6 +152,11 @@ class BoardOut(BaseModel):
     # The viewer may pick the photo of the week and take anything down.
     can_curate: bool
     can_post: bool
+    # The viewer's own posts still waiting for an officer.
+    waiting_photos: list[PhotoOut]
+    waiting_streams: list[StreamOut]
+    # Set when the viewer approves posts: whose, and so which review routes to call.
+    review: ReviewScopeOut | None
 
 
 class ArchiveOut(BaseModel):
@@ -134,18 +175,23 @@ def _curator(p: Principal) -> bool:
 
 
 def _photo(r: PhotoRecord, p: Principal) -> PhotoOut:
-    return PhotoOut(
-        id=r.id,
-        uploader_name=r.uploader_name,
-        caption=r.caption,
-        width=r.width,
-        height=r.height,
-        created_at=r.created_at,
-        carousel_until=r.created_at + CAROUSEL_WINDOW,
-        image_url=f"/api/gallery/photos/{r.id}/image",
-        thumbnail_url=f"/api/gallery/photos/{r.id}/thumbnail",
-        removable=_curator(p) or (p.discord_user_id is not None and r.discord_user_id == p.discord_user_id),
-    )
+    return PhotoOut(**_photo_fields(r, p))
+
+
+def _photo_fields(r: PhotoRecord, p: Principal) -> dict[str, object]:
+    return {
+        "id": r.id,
+        "uploader_name": r.uploader_name,
+        "caption": r.caption,
+        "width": r.width,
+        "height": r.height,
+        "created_at": r.created_at,
+        "carousel_until": (r.approved_at or r.created_at) + CAROUSEL_WINDOW,
+        "image_url": f"/api/gallery/photos/{r.id}/image",
+        "thumbnail_url": f"/api/gallery/photos/{r.id}/thumbnail",
+        "removable": _curator(p) or (p.discord_user_id is not None and r.discord_user_id == p.discord_user_id),
+        "waiting": r.approved_at is None,
+    }
 
 
 def _pick(pick: Pick, p: Principal) -> PickOut:
@@ -158,15 +204,37 @@ def _pick(pick: Pick, p: Principal) -> PickOut:
 
 
 def _stream(s: StreamRecord, p: Principal) -> StreamOut:
-    return StreamOut(
-        id=s.id,
-        streamer_name=s.streamer_name,
-        channel=s.channel,
-        title=s.title,
-        started_at=s.started_at,
-        ends_at=s.ends_at,
-        removable=_curator(p) or (p.discord_user_id is not None and s.discord_user_id == p.discord_user_id),
-    )
+    return StreamOut(**_stream_fields(s, p))
+
+
+def _stream_fields(s: StreamRecord, p: Principal) -> dict[str, object]:
+    return {
+        "id": s.id,
+        "streamer_name": s.streamer_name,
+        "channel": s.channel,
+        "title": s.title,
+        "started_at": s.started_at,
+        "ends_at": s.ends_at,
+        "removable": _curator(p) or (p.discord_user_id is not None and s.discord_user_id == p.discord_user_id),
+        "waiting": s.approved_at is None,
+    }
+
+
+def _waiting_photo(w: WaitingPhoto, p: Principal) -> WaitingPhotoOut:
+    return WaitingPhotoOut(**_photo_fields(w.photo, p), nights=sorted(w.nights))
+
+
+def _waiting_stream(w: WaitingStream, p: Principal) -> WaitingStreamOut:
+    return WaitingStreamOut(**_stream_fields(w.stream, p), nights=sorted(w.nights))
+
+
+def _reviewer_of(p: Principal, live: Services) -> Reviewer | None:
+    """Whose posts this member approves, from their roles: every member's for the global tier, else their officer
+    nights' members'. Only for reads (the board, a waiting photo's bytes); approving takes the night from the path."""
+    if can(p, Permission.MANAGE_HIGHLIGHTS):
+        return Reviewer(p.member_id, every_night=True)
+    nights = frozenset(d.id for d in live.raid_days.raid_days if can(p, Permission.MANAGE_HIGHLIGHTS, d.id))
+    return Reviewer(p.member_id, nights=nights) if nights else None
 
 
 def _refuse(exc: GalleryError) -> HTTPException:
@@ -183,8 +251,9 @@ def _discord_id(principal: Principal) -> int:
 
 
 @router.get("/board")
-async def board(principal: Viewer, gallery: Gallery) -> BoardOut:
-    b = await anyio.to_thread.run_sync(gallery.board)
+async def board(principal: Viewer, gallery: Gallery, live: Live) -> BoardOut:
+    b = await anyio.to_thread.run_sync(gallery.board, principal.discord_user_id)
+    reviewer = _reviewer_of(principal, live)
     return BoardOut(
         carousel=[_photo(r, principal) for r in b.carousel],
         photo_of_the_week=None if b.photo_of_the_week is None else _pick(b.photo_of_the_week, principal),
@@ -192,6 +261,11 @@ async def board(principal: Viewer, gallery: Gallery) -> BoardOut:
         checked_live=b.checked_live,
         can_curate=_curator(principal),
         can_post=can(principal, Permission.UPLOAD_SCREENSHOTS),
+        waiting_photos=[_photo(r, principal) for r in b.waiting_photos],
+        waiting_streams=[_stream(s, principal) for s in b.waiting_streams],
+        review=None
+        if reviewer is None
+        else ReviewScopeOut(every_night=reviewer.every_night, nights=sorted(reviewer.nights)),
     )
 
 
@@ -215,9 +289,11 @@ async def photos_of_the_week(principal: Viewer, gallery: Gallery) -> list[PickOu
     return [_pick(p, principal) for p in await anyio.to_thread.run_sync(gallery.picks)]
 
 
-async def _file(gallery: GalleryService, photo_id: int, thumbnail: bool) -> Response:
+async def _file(gallery: GalleryService, photo_id: int, thumbnail: bool, p: Principal, live: Services) -> Response:
     try:
-        data, media_type = await anyio.to_thread.run_sync(gallery.photo_file, photo_id, thumbnail)
+        data, media_type = await anyio.to_thread.run_sync(
+            gallery.photo_file, photo_id, thumbnail, p.discord_user_id, _reviewer_of(p, live)
+        )
     except GalleryError as exc:
         raise _refuse(exc) from None
     # Members-only and removable: browsers must ask again each time, so a taken-down photo stops showing at once.
@@ -226,13 +302,13 @@ async def _file(gallery: GalleryService, photo_id: int, thumbnail: bool) -> Resp
 
 
 @router.get("/photos/{photo_id}/image")
-async def photo_image(photo_id: PhotoId, _: Viewer, gallery: Gallery) -> Response:
-    return await _file(gallery, photo_id, thumbnail=False)
+async def photo_image(photo_id: PhotoId, principal: Viewer, gallery: Gallery, live: Live) -> Response:
+    return await _file(gallery, photo_id, False, principal, live)
 
 
 @router.get("/photos/{photo_id}/thumbnail")
-async def photo_thumbnail(photo_id: PhotoId, _: Viewer, gallery: Gallery) -> Response:
-    return await _file(gallery, photo_id, thumbnail=True)
+async def photo_thumbnail(photo_id: PhotoId, principal: Viewer, gallery: Gallery, live: Live) -> Response:
+    return await _file(gallery, photo_id, True, principal, live)
 
 
 # --------------------------------------------------------------------- write
@@ -298,7 +374,7 @@ async def end_my_stream(principal: Streamer, gallery: Gallery) -> StreamsEnded:
 
 
 @router.delete("/streams/{stream_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_stream(stream_id: Annotated[int, Path(ge=1)], principal: Viewer, gallery: Gallery) -> Response:
+async def remove_stream(stream_id: StreamId, principal: Viewer, gallery: Gallery) -> Response:
     try:
         await anyio.to_thread.run_sync(
             gallery.remove_stream, stream_id, principal.member_id, principal.discord_user_id, _curator(principal)
@@ -308,6 +384,111 @@ async def remove_stream(stream_id: Annotated[int, Path(ge=1)], principal: Viewer
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# ------------------------------------------------------------------ approval
+
+
+async def _queue(gallery: GalleryService, reviewer: Reviewer, p: Principal) -> ReviewQueueOut:
+    q = await anyio.to_thread.run_sync(gallery.review_queue, reviewer)
+    return ReviewQueueOut(
+        photos=[_waiting_photo(w, p) for w in q.photos], streams=[_waiting_stream(w, p) for w in q.streams]
+    )
+
+
+async def _approve_photo(gallery: GalleryService, photo_id: int, reviewer: Reviewer, p: Principal) -> PhotoOut:
+    try:
+        photo = await anyio.to_thread.run_sync(gallery.approve_photo, photo_id, reviewer)
+    except GalleryError as exc:
+        raise _refuse(exc) from None
+    log.info("gallery.photo_approved", photo_id=photo_id)
+    return _photo(photo, p)
+
+
+async def _reject_photo(gallery: GalleryService, photo_id: int, reviewer: Reviewer) -> Response:
+    try:
+        await anyio.to_thread.run_sync(gallery.reject_photo, photo_id, reviewer)
+    except GalleryError as exc:
+        raise _refuse(exc) from None
+    log.info("gallery.photo_rejected", photo_id=photo_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+async def _approve_stream(gallery: GalleryService, stream_id: int, reviewer: Reviewer, p: Principal) -> StreamOut:
+    try:
+        stream = await anyio.to_thread.run_sync(gallery.approve_stream, stream_id, reviewer)
+    except GalleryError as exc:
+        raise _refuse(exc) from None
+    log.info("gallery.stream_approved", stream_id=stream_id, channel=stream.channel)
+    return _stream(stream, p)
+
+
+async def _reject_stream(gallery: GalleryService, stream_id: int, reviewer: Reviewer) -> Response:
+    try:
+        await anyio.to_thread.run_sync(gallery.reject_stream, stream_id, reviewer)
+    except GalleryError as exc:
+        raise _refuse(exc) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _night(day: str, p: Principal) -> Reviewer:
+    return Reviewer(p.member_id, nights=frozenset({day}))
+
+
+def _every(p: Principal) -> Reviewer:
+    return Reviewer(p.member_id, every_night=True)
+
+
+@night_officers.get("/review")
+async def night_queue(day: str, principal: NightOfficer, gallery: Gallery) -> ReviewQueueOut:
+    """What members of this night posted that waits for an officer."""
+    return await _queue(gallery, _night(day, principal), principal)
+
+
+@night_officers.post("/photos/{photo_id}/approve")
+async def night_approve_photo(day: str, photo_id: PhotoId, principal: NightOfficer, gallery: Gallery) -> PhotoOut:
+    return await _approve_photo(gallery, photo_id, _night(day, principal), principal)
+
+
+@night_officers.post("/photos/{photo_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def night_reject_photo(day: str, photo_id: PhotoId, principal: NightOfficer, gallery: Gallery) -> Response:
+    return await _reject_photo(gallery, photo_id, _night(day, principal))
+
+
+@night_officers.post("/streams/{stream_id}/approve")
+async def night_approve_stream(day: str, stream_id: StreamId, principal: NightOfficer, gallery: Gallery) -> StreamOut:
+    return await _approve_stream(gallery, stream_id, _night(day, principal), principal)
+
+
+@night_officers.post("/streams/{stream_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def night_reject_stream(day: str, stream_id: StreamId, principal: NightOfficer, gallery: Gallery) -> Response:
+    return await _reject_stream(gallery, stream_id, _night(day, principal))
+
+
+@curators.get("/review")
+async def every_queue(principal: Curator, gallery: Gallery) -> ReviewQueueOut:
+    """Everything waiting for an officer, whichever night its poster is on."""
+    return await _queue(gallery, _every(principal), principal)
+
+
+@curators.post("/photos/{photo_id}/approve")
+async def approve_photo(photo_id: PhotoId, principal: Curator, gallery: Gallery) -> PhotoOut:
+    return await _approve_photo(gallery, photo_id, _every(principal), principal)
+
+
+@curators.post("/photos/{photo_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_photo(photo_id: PhotoId, principal: Curator, gallery: Gallery) -> Response:
+    return await _reject_photo(gallery, photo_id, _every(principal))
+
+
+@curators.post("/streams/{stream_id}/approve")
+async def approve_stream(stream_id: StreamId, principal: Curator, gallery: Gallery) -> StreamOut:
+    return await _approve_stream(gallery, stream_id, _every(principal), principal)
+
+
+@curators.post("/streams/{stream_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_stream(stream_id: StreamId, principal: Curator, gallery: Gallery) -> Response:
+    return await _reject_stream(gallery, stream_id, _every(principal))
+
+
 def include_gallery(app: FastAPI) -> None:
-    for r in (router, curators):
+    for r in (router, curators, night_officers):
         app.include_router(r)

@@ -1,11 +1,22 @@
 /**
  * The preview's Highlights page: sample photos as if raiders had used the Toad Bot's /highlight, a photo of the week,
  * one live stream and the mock community's clips, kept in the browser only so the page works on GitHub Pages with no
- * hub behind it. Picks, takedowns and clip reviews last until the page reloads. The photos are drawn here as SVG.
+ * hub behind it. Picks, takedowns, approvals and clip reviews last until the page reloads. The photos are drawn here
+ * as SVG. One photo and one stream wait for an officer: the raider sees them as theirs, the officer view can decide them.
  */
 import { ApiError } from '$lib/api';
 import type { Highlight } from '$lib/community';
-import type { ArchivePage, Board, GalleryBackend, Photo, Pick, Stream } from '$lib/gallery';
+import type {
+  ArchivePage,
+  Board,
+  GalleryBackend,
+  Photo,
+  Pick,
+  ReviewQueue,
+  Stream,
+  WaitingPhoto,
+  WaitingStream
+} from '$lib/gallery';
 import { community } from './state.svelte';
 
 const HOUR = 3_600_000;
@@ -32,9 +43,11 @@ interface Sample {
   hue: number;
   ago: number;
   mine?: boolean;
+  waiting?: boolean;
 }
 
 const SAMPLES: Sample[] = [
+  { id: 13, name: 'Hopscotch', caption: 'Void Reaver loot pile', hue: 220, ago: HOUR / 2, mine: true, waiting: true },
   { id: 12, name: 'Hopscotch', caption: 'Gruul down with two minutes to spare', hue: 140, ago: 3 * HOUR, mine: true },
   { id: 11, name: 'Lilypadd', caption: 'Pond party at the Mag lair entrance', hue: 190, ago: 9 * HOUR },
   { id: 10, name: 'Ribbit', caption: 'Our first Prince kill, everyone alive', hue: 260, ago: 20 * HOUR },
@@ -65,13 +78,15 @@ export function previewGallery(curate: boolean, now: () => number = Date.now): G
       carousel_until: new Date(at + 2 * DAY).toISOString(),
       image_url: src,
       thumbnail_url: src,
-      removable: curate || Boolean(s.mine)
+      removable: curate || Boolean(s.mine),
+      waiting: Boolean(s.waiting)
     };
   };
   let photos = SAMPLES.map(photo);
+  const shown = () => photos.filter((p) => !p.waiting);
   let picks: Pick[] = [
-    { photo: photos[4], chosen_by_name: 'Hadur', starts_at: iso(start - 2 * DAY), ends_at: iso(start + 5 * DAY) },
-    { photo: photos[8], chosen_by_name: 'Hadur', starts_at: iso(start - 9 * DAY), ends_at: iso(start - 2 * DAY) }
+    { photo: photos[5], chosen_by_name: 'Hadur', starts_at: iso(start - 2 * DAY), ends_at: iso(start + 5 * DAY) },
+    { photo: photos[9], chosen_by_name: 'Hadur', starts_at: iso(start - 9 * DAY), ends_at: iso(start - 2 * DAY) }
   ];
   let streams: Stream[] = [
     {
@@ -82,8 +97,23 @@ export function previewGallery(curate: boolean, now: () => number = Date.now): G
       started_at: iso(start - HOUR),
       ends_at: iso(start + 11 * HOUR),
       removable: curate
+    },
+    {
+      id: 2,
+      streamer_name: 'Hopscotch',
+      channel: 'hopscotch_plays',
+      title: 'Alt night in Shattrath',
+      started_at: iso(start - HOUR / 4),
+      ends_at: iso(start + 11 * HOUR),
+      removable: true,
+      waiting: true
     }
   ];
+  const live = () => streams.filter((s) => !s.waiting);
+  const queue = (): ReviewQueue => ({
+    photos: photos.filter((p) => p.waiting).map((p): WaitingPhoto => ({ ...p, nights: ['wed'] })),
+    streams: streams.filter((s) => s.waiting).map((s): WaitingStream => ({ ...s, nights: ['wed'] }))
+  });
 
   const find = (id: number) => {
     const found = photos.find((p) => p.id === id);
@@ -99,15 +129,19 @@ export function previewGallery(curate: boolean, now: () => number = Date.now): G
 
   return {
     board: async (): Promise<Board> => ({
-      carousel: photos.filter((p) => Date.parse(p.carousel_until) > now()),
+      carousel: shown().filter((p) => Date.parse(p.carousel_until) > now()),
       photo_of_the_week: current(),
-      streams,
+      streams: live(),
       checked_live: false,
       can_curate: curate,
-      can_post: true
+      can_post: true,
+      // The officer view decides the waiting posts; the raider view posted them.
+      waiting_photos: curate ? [] : photos.filter((p) => p.waiting),
+      waiting_streams: curate ? [] : streams.filter((s) => s.waiting),
+      review: curate ? { every_night: true, nights: [] } : null
     }),
     archive: async (before): Promise<ArchivePage> => {
-      const older = photos.filter((p) => before == null || p.id < before);
+      const older = shown().filter((p) => before == null || p.id < before);
       const page = older.slice(0, PAGE);
       return {
         photos: page,
@@ -140,6 +174,25 @@ export function previewGallery(curate: boolean, now: () => number = Date.now): G
     clipQueue: async () => {
       if (!curate) throw new ApiError(403, 'Forbidden');
       return community.highlights.filter((h) => h.status === 'submitted');
+    },
+    reviewQueue: async () => {
+      if (!curate) throw new ApiError(403, 'Forbidden');
+      return queue();
+    },
+    decide: async (_scope, kind, item, decision) => {
+      if (!curate) throw new ApiError(403, 'Forbidden');
+      if (kind === 'photos') {
+        const at = now();
+        photos =
+          decision === 'reject'
+            ? photos.filter((p) => p.id !== item.id)
+            : photos.map((p) => (p.id === item.id ? { ...p, waiting: false, carousel_until: iso(at + 2 * DAY) } : p));
+      } else {
+        streams =
+          decision === 'reject'
+            ? streams.filter((s) => s.id !== item.id)
+            : streams.map((s) => (s.id === item.id ? { ...s, waiting: false } : s));
+      }
     },
     reviewClip: async (id, action) => {
       if (!curate) throw new ApiError(403, 'Forbidden');

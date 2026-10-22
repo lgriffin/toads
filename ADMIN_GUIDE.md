@@ -122,8 +122,11 @@ Messages" from server members will not get the DM: the Bank page's request desk 
 
 It also fills the Highlights page ([docs/highlights.md](docs/highlights.md)): `/highlight` posts a photo (48 hours in the
 carousel, then the archive), `/stream start`/`/stream end` show a member's Twitch stream, and `/clip` shares a clip for
-review. These need the bot's **Send Messages** in the channels members use them in, since `/stream start` announces the
-stream there. Global officers pick the photo of the week and take photos down on the page itself.
+review. Nothing shows until an officer approves it: a night's officers approve what their night's members post, global
+officers approve anyone's, from "Waiting for your approval" at the top of the Highlights page. Approving a stream trusts
+that channel for the member, so later streams from it go up at once. These need the bot's **Send Messages** in the
+channels members use them in, since `/stream start` announces a trusted stream there. Global officers pick the photo of
+the week and take photos down on the page itself.
 
 The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
 member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.

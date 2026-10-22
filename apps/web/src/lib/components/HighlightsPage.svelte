@@ -9,10 +9,16 @@
     galleryError,
     step,
     timeLeft,
+    twitchChannelUrl,
     type Board,
     type ClipReview,
+    type Decision,
     type GalleryBackend,
-    type Photo
+    type Photo,
+    type ReviewKind,
+    type ReviewQueue,
+    type WaitingPhoto,
+    type WaitingStream
   } from '$lib/gallery';
   import ClipPlayer from './ClipPlayer.svelte';
   import LivePlayer from './LivePlayer.svelte';
@@ -31,6 +37,8 @@
   let clips = $state<Highlight[]>([]);
   let clipsError = $state('');
   let queue = $state<Highlight[]>([]);
+  let approvals = $state<ReviewQueue>({ photos: [], streams: [] });
+  let approvalsError = $state('');
   let slide = $state(0);
   let selected = $state<Photo | null>(null);
   let confirming = $state(false);
@@ -49,8 +57,37 @@
       board = await backend.board();
       loadError = '';
       if (board.can_curate) queue = await backend.clipQueue().catch(() => []);
+      await loadApprovals();
     } catch (e) {
       loadError = galleryError(e);
+    }
+  }
+
+  async function loadApprovals() {
+    if (!board?.review) return;
+    try {
+      approvals = await backend.reviewQueue(board.review);
+      approvalsError = '';
+    } catch (e) {
+      approvalsError = galleryError(e);
+    }
+  }
+
+  async function decide(kind: ReviewKind, item: WaitingPhoto | WaitingStream, decision: Decision) {
+    if (!board?.review) return;
+    const what = kind === 'photos' ? `“${(item as WaitingPhoto).caption || 'The photo'}”` : `${(item as WaitingStream).streamer_name}’s stream`;
+    try {
+      await backend.decide(board.review, kind, item, decision);
+      notice =
+        decision === 'approve'
+          ? `${what} is on the page now.`
+          : kind === 'photos'
+            ? `${what} was turned down and deleted.`
+            : `${what} was turned down.`;
+      await loadBoard();
+      if (decision === 'approve' && kind === 'photos') await loadArchive();
+    } catch (e) {
+      notice = galleryError(e);
     }
   }
 
@@ -150,7 +187,8 @@
 <header class="intro">
   <h1>Highlights</h1>
   <p class="muted lede">
-    Raid night in pictures, streams and clips. Photos stay in the carousel for 48 hours and in the archive for good.
+    Raid night in pictures, streams and clips. An officer approves each photo; it then stays in the carousel for 48
+    hours and in the archive for good.
   </p>
 </header>
 
@@ -162,6 +200,68 @@
 {:else if !board}
   <p class="muted">Loading highlights…</p>
 {:else}
+  {#if board.review && (approvals.photos.length || approvals.streams.length || approvalsError)}
+    <section aria-labelledby="approve-h" class="card review approvals">
+      <h2 id="approve-h">Waiting for your approval</h2>
+      <p class="muted">
+        {board.review.every_night ? 'Everything members have posted' : 'What members of your raid nights have posted'}.
+        Nothing here shows to anyone else until you approve it; turning down a photo deletes it.
+      </p>
+      {#if approvalsError}
+        <p class="err" role="alert">{approvalsError} <button type="button" class="btn small" onclick={loadApprovals}>Try again</button></p>
+      {/if}
+      <ul>
+        {#each approvals.photos as p (p.id)}
+          <li>
+            <span class="pending">
+              <button type="button" class="pending-thumb" onclick={() => open(p)} aria-label="Open “{p.caption || 'photo'}” by {p.uploader_name}">
+                <img src={p.thumbnail_url} alt="" loading="lazy" />
+              </button>
+              <span><strong>{p.caption || 'Untitled photo'}</strong> <span class="muted">by {by(p)}</span></span>
+            </span>
+            <span class="actions">
+              <button type="button" class="btn small primary" onclick={() => decide('photos', p, 'approve')}>Approve</button>
+              <button type="button" class="btn small danger" onclick={() => decide('photos', p, 'reject')}>Turn down</button>
+            </span>
+          </li>
+        {/each}
+        {#each approvals.streams as s (s.id)}
+          <li>
+            <span>
+              <strong>{s.streamer_name}</strong> wants to stream
+              <a href={twitchChannelUrl(s.channel) ?? undefined} target="_blank" rel="noopener noreferrer">twitch.tv/{s.channel}</a>{s.title ? `: ${s.title}` : ''}
+              <span class="muted">· approving trusts this channel for their later streams</span>
+            </span>
+            <span class="actions">
+              <button type="button" class="btn small primary" onclick={() => decide('streams', s, 'approve')}>Approve</button>
+              <button type="button" class="btn small danger" onclick={() => decide('streams', s, 'reject')}>Turn down</button>
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if board.waiting_photos.length || board.waiting_streams.length}
+    <section aria-labelledby="mine-h" class="card mine">
+      <h2 id="mine-h">Waiting for an officer</h2>
+      <p class="muted">Only you and the officers can see these until one of them approves them.</p>
+      <ul class="tiles">
+        {#each board.waiting_photos as p (p.id)}
+          <li>
+            <button type="button" class="tile" onclick={() => open(p)} aria-label="Open your waiting photo “{p.caption || 'photo'}”">
+              <img src={p.thumbnail_url} alt="" loading="lazy" />
+              <span class="star waiting">Waiting</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+      {#each board.waiting_streams as s (s.id)}
+        <p>Your stream on twitch.tv/{s.channel} shows here once an officer approves the channel.</p>
+      {/each}
+    </section>
+  {/if}
+
   {#if board.streams.length}
     <section aria-labelledby="live-h">
       <h2 id="live-h">Live now</h2>
@@ -301,9 +401,12 @@
   <h2 id="how-h">Add to Highlights from Discord</h2>
   <dl>
     <dt><code>/highlight</code></dt>
-    <dd>Attach a photo and a caption. Raiders’ photos show here at once; location data is stripped.</dd>
+    <dd>Attach a photo and a caption. It shows here once an officer approves it; location data is stripped.</dd>
     <dt><code>/stream start</code></dt>
-    <dd>Paste your Twitch link to show your stream here while you are live. <code>/stream end</code> takes it off.</dd>
+    <dd>
+      Paste your Twitch link to show your stream here while you are live. An officer approves a channel the first time;
+      after that it goes up at once. <code>/stream end</code> takes it off.
+    </dd>
     <dt><code>/clip</code></dt>
     <dd>Share a YouTube, Twitch clip or Streamable link. A global officer publishes it to the clips.</dd>
   </dl>
@@ -318,7 +421,7 @@
         <p class="muted">{by(selected)}</p>
         {#if actionError}<p class="err" role="alert">{actionError}</p>{/if}
         <div class="actions">
-          {#if board?.can_curate && selected.id !== pickId}
+          {#if board?.can_curate && selected.id !== pickId && !selected.waiting}
             <button type="button" class="btn small primary" disabled={busy} onclick={() => selected && makePick(selected)}>Make photo of the week</button>
           {/if}
           {#if selected.removable}
@@ -381,6 +484,15 @@
   .review { margin-bottom: 1rem; }
   .review h3 { margin: 0 0 0.5rem; }
   .review ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .approvals { margin-top: 1.25rem; }
+  .approvals > p { margin: 0 0 0.75rem; }
+  .pending { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+  .pending-thumb { padding: 0; border: 0; border-radius: 4px; overflow: hidden; background: none; cursor: zoom-in; flex: none; }
+  .pending-thumb img { display: block; width: 4.5rem; height: 3rem; object-fit: cover; }
+  .pending-thumb:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .mine { margin-top: 1.25rem; }
+  .mine > p { margin: 0 0 0.6rem; }
+  .star.waiting { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
   .review li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
 
   .month { margin: 1rem 0 0.5rem; font-size: 1rem; color: var(--bronze-hi); }

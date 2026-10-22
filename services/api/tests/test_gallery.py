@@ -10,8 +10,8 @@ import httpx
 import pytest
 from PIL import Image
 from toads_api.gallery import images
-from toads_api.gallery.repository import InMemoryGalleryRepository
-from toads_api.gallery.service import DAILY_PHOTOS, GalleryError, GalleryService
+from toads_api.gallery.repository import InMemoryGalleryRepository, PhotoRecord, StreamRecord
+from toads_api.gallery.service import DAILY_PHOTOS, GalleryError, GalleryService, Reviewer
 from toads_api.gallery.twitch import TwitchLive, parse_channel
 
 START = datetime(2026, 10, 21, 20, 0, tzinfo=UTC)
@@ -39,6 +39,24 @@ def png(width: int = 64, height: int = 48, mode: str = "RGB") -> bytes:
     out = io.BytesIO()
     Image.new(mode, (width, height), (0, 128, 0, 128) if mode == "RGBA" else "green").save(out, format="PNG")
     return out.getvalue()
+
+
+GLOBAL = Reviewer(1, every_night=True)
+WED = Reviewer(2, nights=frozenset({"wed"}))
+SUN = Reviewer(3, nights=frozenset({"sun"}))
+
+
+def post(
+    service: GalleryService, uid: int, name: str = "Hop", caption: str = "", source: str = "discord"
+) -> PhotoRecord:
+    """Post a photo and have a global officer approve it."""
+    return service.approve_photo(service.post_photo(uid, name, caption, png(), source).id, GLOBAL)
+
+
+def stream(service: GalleryService, uid: int, name: str, link: str, title: str = "") -> StreamRecord:
+    """Start a stream and have a global officer approve its channel."""
+    s = service.start_stream(uid, name, link, title)
+    return s if s.approved_at is not None else service.approve_stream(s.id, GLOBAL)
 
 
 def gallery(live: Live | None = None) -> tuple[GalleryService, InMemoryGalleryRepository, Clock]:
@@ -114,19 +132,19 @@ def test_decompression_bombs_are_refused(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_a_photo_shows_in_the_carousel_for_48_hours_and_in_the_archive_for_good() -> None:
     service, _, clock = gallery()
-    first = service.post_photo(7, "  Hop\nscotch ", "  Gruul   down! ", png(), "discord")
+    first = post(service, 7, "  Hop\nscotch ", "  Gruul   down! ")
     assert (first.uploader_name, first.caption, first.source) == ("Hop scotch", "Gruul down!", "discord")
     clock.now += timedelta(hours=47, minutes=59)
     assert [p.id for p in service.board().carousel] == [first.id]
     clock.now += timedelta(minutes=2)
-    second = service.post_photo(8, "Croak", "", png(), "site")
+    second = post(service, 8, "Croak", source="site")
     assert [p.id for p in service.board().carousel] == [second.id]
     assert [p.id for p in service.archive().photos] == [second.id, first.id]
 
 
 def test_the_archive_pages_newest_first() -> None:
     service, _, _ = gallery()
-    ids = [service.post_photo(i, "Hop", "", png(), "discord").id for i in range(5)]
+    ids = [post(service, i).id for i in range(5)]
     page = service.archive(limit=2)
     assert ([p.id for p in page.photos], page.next_before) == ([ids[4], ids[3]], ids[3])
     page = service.archive(before=ids[1], limit=2)
@@ -163,8 +181,8 @@ def test_a_member_can_post_twenty_photos_a_day() -> None:
 
 def test_a_photo_of_the_week_runs_seven_days_and_a_new_pick_replaces_it() -> None:
     service, repo, clock = gallery()
-    a = service.post_photo(7, "Hop", "", png(), "discord")
-    b = service.post_photo(8, "Croak", "", png(), "discord")
+    a = post(service, 7)
+    b = post(service, 8, "Croak")
     pick = service.pick_photo_of_the_week(a.id, 1, "  Lily ")
     assert (pick.photo.id, pick.pick.chosen_by_name, pick.pick.ends_at) == (a.id, "Lily", START + timedelta(days=7))
     clock.now += timedelta(days=3)
@@ -177,15 +195,15 @@ def test_a_photo_of_the_week_runs_seven_days_and_a_new_pick_replaces_it() -> Non
     assert service.archive().picked == {a.id, b.id}
     clock.now += timedelta(days=7)
     assert service.board().photo_of_the_week is None
-    assert [n.action for n in repo.audits] == ["gallery.photo_of_the_week"] * 2
+    assert [n.action for n in repo.audits if n.action != "gallery.approve_photo"] == ["gallery.photo_of_the_week"] * 2
     with pytest.raises(GalleryError, match="No such photo"):
         service.pick_photo_of_the_week(99, 1, "Lily")
 
 
 def test_a_poster_or_a_global_officer_can_take_a_photo_down() -> None:
     service, repo, _ = gallery()
-    a = service.post_photo(7, "Hop", "", png(), "discord")
-    b = service.post_photo(8, "Croak", "", png(), "discord")
+    a = post(service, 7)
+    b = post(service, 8, "Croak")
     service.pick_photo_of_the_week(b.id, 1, "Lily")
     with pytest.raises(GalleryError, match="Only the member who posted") as exc:
         service.remove_photo(a.id, 2, 8, moderator=False)
@@ -204,12 +222,111 @@ def test_a_poster_or_a_global_officer_can_take_a_photo_down() -> None:
 
 def test_photo_files_come_back_as_stored() -> None:
     service, _, _ = gallery()
-    a = service.post_photo(7, "Hop", "", png(1000, 1000), "discord")
+    a = service.approve_photo(service.post_photo(7, "Hop", "", png(1000, 1000), "discord").id, GLOBAL)
     image, kind = service.photo_file(a.id, thumbnail=False)
     thumb, _ = service.photo_file(a.id, thumbnail=True)
     assert kind == "image/webp"
     assert Image.open(io.BytesIO(image)).size == (1000, 1000)
     assert Image.open(io.BytesIO(thumb)).size == (images.THUMB_EDGE, images.THUMB_EDGE)
+
+
+# --------------------------------------------------------------- approval
+
+
+def test_a_photo_waits_for_an_officer_before_anyone_else_sees_it() -> None:
+    service, repo, clock = gallery()
+    repo.nights[7] = frozenset({"wed"})
+    waiting = service.post_photo(7, "Hop", "Gruul down!", png(), "discord")
+    assert waiting.approved_at is None
+    board = service.board(viewer_discord_id=8)
+    assert (board.carousel, board.waiting_photos, service.archive().photos) == ([], [], [])
+    assert [p.id for p in service.board(viewer_discord_id=7).waiting_photos] == [waiting.id]
+    with pytest.raises(GalleryError, match="No such photo"):
+        service.pick_photo_of_the_week(waiting.id, 1, "Lily")
+    clock.now += timedelta(hours=30)  # approved late: still a full 48 hours in the carousel
+    approved = service.approve_photo(waiting.id, WED)
+    assert approved.approved_at == clock.now
+    assert repo.audits[-1].action == "gallery.approve_photo" and repo.audits[-1].actor == WED.actor_id
+    clock.now += timedelta(hours=47)
+    assert [p.id for p in service.board().carousel] == [waiting.id]
+    assert service.board(viewer_discord_id=7).waiting_photos == []
+
+
+def test_a_nights_officers_decide_only_their_nights_posts_and_global_officers_decide_all() -> None:
+    service, repo, _ = gallery()
+    repo.nights.update({7: frozenset({"wed"}), 8: frozenset({"sun"})})
+    wed = service.post_photo(7, "Hop", "", png(), "discord")
+    sun = service.post_photo(8, "Croak", "", png(), "discord")
+    nowhere = service.post_photo(9, "Lily", "", png(), "discord")
+    queue = service.review_queue(WED)
+    assert [(w.photo.id, w.nights) for w in queue.photos] == [(wed.id, frozenset({"wed"}))]
+    assert [w.photo.id for w in service.review_queue(GLOBAL).photos] == [wed.id, sun.id, nowhere.id]
+    for photo_id in (sun.id, nowhere.id):
+        with pytest.raises(GalleryError, match="waiting for you") as exc:
+            service.approve_photo(photo_id, WED)
+        assert exc.value.status == 404
+    service.approve_photo(nowhere.id, GLOBAL)
+    with pytest.raises(GalleryError, match="waiting for you"):
+        service.approve_photo(nowhere.id, GLOBAL)  # decided already
+
+
+def test_a_rejected_photo_is_deleted_for_good() -> None:
+    service, repo, _ = gallery()
+    repo.nights[7] = frozenset({"sun"})
+    photo = service.post_photo(7, "Hop", "", png(), "discord")
+    with pytest.raises(GalleryError):
+        service.reject_photo(photo.id, WED)
+    service.reject_photo(photo.id, SUN)
+    assert repo.audits[-1].action == "gallery.reject_photo"
+    assert service.review_queue(GLOBAL).photos == [] and service.board(viewer_discord_id=7).waiting_photos == []
+    with pytest.raises(GalleryError, match="No such photo"):
+        service.photo_file(photo.id, thumbnail=False, viewer_discord_id=7)
+
+
+def test_a_waiting_photos_bytes_are_for_its_poster_and_its_officers_only() -> None:
+    service, repo, _ = gallery()
+    repo.nights[7] = frozenset({"wed"})
+    photo = service.post_photo(7, "Hop", "", png(), "discord")
+    assert service.photo_file(photo.id, False, viewer_discord_id=7)[1] == "image/webp"
+    assert service.photo_file(photo.id, True, viewer_discord_id=2, reviewer=WED)[1] == "image/webp"
+    assert service.photo_file(photo.id, True, reviewer=GLOBAL)[1] == "image/webp"
+    for viewer, reviewer in ((8, None), (3, SUN), (None, None)):
+        with pytest.raises(GalleryError, match="No such photo"):
+            service.photo_file(photo.id, False, viewer_discord_id=viewer, reviewer=reviewer)
+    service.approve_photo(photo.id, WED)
+    assert service.photo_file(photo.id, False, viewer_discord_id=8)[1] == "image/webp"
+
+
+def test_a_stream_waits_until_an_officer_approves_its_channel_once() -> None:
+    service, repo, clock = gallery()
+    repo.nights[7] = frozenset({"wed"})
+    s = service.start_stream(7, "Hop", "twitch.tv/hopscotch", "Sunday Gruul")
+    assert s.approved_at is None and service.board().streams == []
+    assert [x.id for x in service.board(viewer_discord_id=7).waiting_streams] == [s.id]
+    assert [w.stream.id for w in service.review_queue(WED).streams] == [s.id]
+    assert service.review_queue(SUN).streams == []
+    with pytest.raises(GalleryError, match="waiting for you"):
+        service.approve_stream(s.id, SUN)
+    service.approve_stream(s.id, WED)
+    assert [x.channel for x in service.board().streams] == ["hopscotch"]
+    assert repo.audits[-1].action == "gallery.approve_stream"
+    clock.now += timedelta(days=2)
+    assert service.start_stream(7, "Hop", "twitch.tv/hopscotch", "").approved_at == clock.now  # trusted now
+    other = service.start_stream(7, "Hop", "twitch.tv/hopscotch_alt", "")  # a new channel waits again
+    assert other.approved_at is None and service.board().streams == []
+
+
+def test_a_rejected_or_expired_stream_leaves_the_queue() -> None:
+    service, repo, clock = gallery()
+    s = service.start_stream(7, "Hop", "twitch.tv/hopscotch", "")
+    service.reject_stream(s.id, GLOBAL)
+    assert repo.audits[-1].action == "gallery.reject_stream"
+    assert service.review_queue(GLOBAL).streams == [] and not repo.trusted(7, "hopscotch")
+    t = service.start_stream(7, "Hop", "twitch.tv/hopscotch", "")
+    clock.now += timedelta(hours=12)
+    assert service.review_queue(GLOBAL).streams == []
+    with pytest.raises(GalleryError, match="waiting for you"):
+        service.approve_stream(t.id, GLOBAL)
 
 
 # ---------------------------------------------------------------- streams
@@ -240,9 +357,9 @@ def test_only_twitch_channel_links_are_streams(link: str, channel: str | None) -
 
 def test_a_stream_shows_until_it_is_ended_or_twelve_hours_pass() -> None:
     service, _, clock = gallery()
-    s = service.start_stream(7, "Hop", "https://twitch.tv/Hopscotch", "  Sunday  Gruul ")
+    s = stream(service, 7, "Hop", "https://twitch.tv/Hopscotch", "  Sunday  Gruul ")
     assert (s.channel, s.title, s.ends_at) == ("hopscotch", "Sunday Gruul", START + timedelta(hours=12))
-    service.start_stream(8, "Croak", "twitch.tv/croak", "")
+    stream(service, 8, "Croak", "twitch.tv/croak")
     assert [x.channel for x in service.board().streams] == ["croak", "hopscotch"]
     assert service.end_my_stream(8) == 1
     assert [x.channel for x in service.board().streams] == ["hopscotch"]
@@ -253,8 +370,8 @@ def test_a_stream_shows_until_it_is_ended_or_twelve_hours_pass() -> None:
 
 def test_a_new_stream_replaces_the_members_last_one() -> None:
     service, _, _ = gallery()
-    service.start_stream(7, "Hop", "twitch.tv/hopscotch", "")
-    service.start_stream(7, "Hop", "twitch.tv/hopscotch_alt", "")
+    stream(service, 7, "Hop", "twitch.tv/hopscotch")
+    stream(service, 7, "Hop", "twitch.tv/hopscotch_alt")
     assert [x.channel for x in service.board().streams] == ["hopscotch_alt"]
 
 
@@ -271,8 +388,8 @@ def test_with_twitch_asked_only_live_channels_show_after_a_grace_period() -> Non
     live = Live(frozenset({"hopscotch"}))
     service, _, clock = gallery(live)
     assert service.board().streams == [] and live.asked == []  # nothing to ask about
-    service.start_stream(7, "Hop", "twitch.tv/hopscotch", "")
-    service.start_stream(8, "Croak", "twitch.tv/croak", "")
+    stream(service, 7, "Hop", "twitch.tv/hopscotch")
+    stream(service, 8, "Croak", "twitch.tv/croak")
     assert len(service.board().streams) == 2  # just started: Twitch may not list them yet
     clock.now += timedelta(minutes=6)
     board = service.board()
@@ -285,15 +402,19 @@ def test_with_twitch_asked_only_live_channels_show_after_a_grace_period() -> Non
 
 def test_a_streamer_or_a_global_officer_can_take_a_stream_down() -> None:
     service, repo, _ = gallery()
-    s = service.start_stream(7, "Hop", "twitch.tv/hopscotch", "")
+    s = stream(service, 7, "Hop", "twitch.tv/hopscotch")
     with pytest.raises(GalleryError, match="Only the streamer") as exc:
         service.remove_stream(s.id, 2, 8, moderator=False)
     assert exc.value.status == 403
+    repo.audits.clear()
     service.remove_stream(s.id, 3, 7, moderator=False)
     assert service.board().streams == [] and repo.audits == []  # their own: nothing to audit
-    t = service.start_stream(8, "Croak", "twitch.tv/croak", "")
+    assert service.start_stream(7, "Hop", "twitch.tv/hopscotch", "").approved_at is not None  # still trusted
+    t = stream(service, 8, "Croak", "twitch.tv/croak")
     service.remove_stream(t.id, 1, 1, moderator=True)
-    assert [n.action for n in repo.audits] == ["gallery.remove_stream"]
+    assert [n.action for n in repo.audits][-1] == "gallery.remove_stream"
+    # An officer took it down, so the channel needs approving again.
+    assert service.start_stream(8, "Croak", "twitch.tv/croak", "").approved_at is None
     with pytest.raises(GalleryError, match="No such stream"):
         service.remove_stream(99, 1, 1, moderator=True)
 

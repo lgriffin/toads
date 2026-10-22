@@ -3,6 +3,9 @@
 Members post photos with the Toad Bot's `/highlight`; each shows in the carousel for 48 hours and stays in the archive
 for good. A global officer can make one the photo of the week for seven days. `/stream` puts a member's Twitch channel
 on the page while they are live. The image bytes live in their own table so listing photos never reads them.
+
+Nothing shows until an officer approves it: a photo waits with no `approved_at`, and so does a stream from a Twitch
+channel no officer has approved for that member yet (`gallery_trusted_channels`).
 """
 
 from __future__ import annotations
@@ -30,6 +33,10 @@ class GalleryPhoto(Base):
     # Where it was posted from: "discord" or "site".
     source: Mapped[str] = mapped_column(String(16), default="discord")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    # When an officer approved it, and who: until then only its poster and the officers who may approve it see it.
+    # The 48 hours in the carousel count from here.
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
 
 
 class GalleryPhotoFile(Base):
@@ -70,3 +77,17 @@ class LiveStream(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    # None while it waits for an officer; set at once when the channel is trusted for this member.
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TrustedChannel(Base):
+    """A Twitch channel an officer approved for one member: their later streams from it show without waiting. An
+    officer taking one of its streams down withdraws the trust."""
+
+    __tablename__ = "gallery_trusted_channels"
+
+    discord_user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    channel: Mapped[str] = mapped_column(String(25), primary_key=True)
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
