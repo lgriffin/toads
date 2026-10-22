@@ -84,8 +84,11 @@ class SqlLootRepository:
                 )
                 return self._one(db, row)
         except IntegrityError:
-            # (raid_day_id, item_id) is unique: the item is on the list already, perhaps added a moment ago.
-            return None
+            # (raid_day_id, item_id) is unique: the item is on the list already, perhaps added a moment ago. Anything
+            # else that failed is not a duplicate, so it is raised.
+            if any(e.item_id == item_id for e in self.entries(raid_day)):
+                return None
+            raise
 
     def set_note(self, raid_day: str, entry_id: int, note: str, by: int, at: datetime) -> LootEntry | None:
         with self._db.begin() as db:
@@ -129,7 +132,7 @@ class SqlLootRepository:
             return self._one(db, row)
 
     def mark(
-        self, raid_day: str, entry_id: int, member_id: int, received_at: datetime | None, by: int
+        self, raid_day: str, entry_id: int, member_id: int, received: bool, by: int, at: datetime
     ) -> LootEntry | None:
         with self._db.begin() as db:
             row = self._row(db, raid_day, entry_id)
@@ -140,8 +143,9 @@ class SqlLootRepository:
             )
             if line is None:
                 return None
-            line.received_at = received_at
-            action = "loot.received" if received_at is not None else "loot.unreceived"
+            line.received_at = at if received else None
+            row.updated_at = at
+            action = "loot.received" if received else "loot.unreceived"
             audit.record(
                 db, actor=by, action=action, target=_target(entry_id), raid_day=raid_day, detail=str(member_id)
             )

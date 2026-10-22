@@ -148,6 +148,7 @@ def test_the_line_is_ranked_and_the_first_without_the_item_is_next_up() -> None:
         (3, "Toadstool", False),
     ]
     view = svc.mark("wed", entry, 2, received=True, by=1)
+    assert view.entry.updated_at == NOW
     assert [(r.name, r.received_at, r.next_up) for r in view.recipients][:2] == [
         ("Lilypad", NOW, False),
         ("Hopscotch", None, True),
@@ -232,8 +233,11 @@ def test_routes_add_rank_note_mark_and_remove_through_the_database(hub: Hub) -> 
     assert (entry["item_name"], entry["note"], entry["quality"]) == ("Bonereaver's Edge", "Warriors", 4)
     path = f"/api/days/wed/loot/{entry['id']}"
     assert hub.put(f"{path}/line", sid, {"member_ids": [b, a]}).status_code == 200
+    before = hub.get("/api/days/wed/loot", sid).json()["items"][0]["updated_at"]
+    hub.now += 60
     r = hub.put(f"{path}/line/{b}/received", sid, {"received": True})
     assert [x["next_up"] for x in r.json()["recipients"]] == [False, True]
+    assert r.json()["updated_at"] > before
     # Dropping someone from the line forgets them; the others keep their marks and move up.
     r = hub.put(f"{path}/line", sid, {"member_ids": [a, b]})
     assert [(x["name"], x["rank"], x["received_at"] is not None) for x in r.json()["recipients"]] == [
@@ -263,3 +267,19 @@ def test_routes_refuse_bad_input_and_another_days_path(hub: Hub) -> None:
     assert hub.put(f"/api/days/sun/loot/{entry['id']}/line", glob, {"member_ids": []}).status_code == 404
     assert hub.delete(f"/api/days/sun/loot/{entry['id']}", glob).status_code == 404
     assert hub.get("/api/days/wed/loot", sid).json()["items"][0]["note"] == ""
+
+
+def test_an_insert_that_fails_for_another_reason_is_not_called_a_duplicate(
+    hub: Hub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from sqlalchemy.exc import IntegrityError
+    from toads_api.loot import sql
+
+    def broken(*args: Any, **kwargs: Any) -> None:
+        raise IntegrityError("INSERT INTO audit", {}, Exception("audit is broken"))
+
+    monkeypatch.setattr(sql.audit, "record", broken)
+    repo = sql.SqlLootRepository(hub.services.db)
+    with pytest.raises(IntegrityError):
+        repo.add("wed", 19019, "Thunderfury", "", 1, NOW)
+    assert repo.entries("wed") == []

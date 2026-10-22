@@ -135,8 +135,7 @@ class LootService:
     def mark(self, raid_day: str, entry_id: int, member_id: int, *, received: bool, by: int) -> LootView:
         if self.repo.entry(raid_day, entry_id) is None:
             raise LootError("That item is not on this night's loot list", status=404)
-        at = self._clock() if received else None
-        entry = self.repo.mark(raid_day, entry_id, member_id, at, by)
+        entry = self.repo.mark(raid_day, entry_id, member_id, received, by, self._clock())
         if entry is None:
             raise LootError("That member is not in line for this item", status=404)
         return self._view(entry)

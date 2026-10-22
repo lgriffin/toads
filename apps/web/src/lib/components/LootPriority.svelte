@@ -43,21 +43,24 @@
 
   const onList = $derived(new Set(items.map((e) => e.item_id)));
 
+  // Each load and search takes a number; only the latest one's answer is shown, so an older answer that arrives late
+  // (another night's, a second "Try again", a query typed over) never replaces a newer one.
+  let loads = 0;
   async function load() {
-    const night = day;
+    const ticket = ++loads;
     try {
-      const loot = await backend.loot(night);
-      if (night !== day) return;
+      const loot = await backend.loot(day);
+      if (ticket !== loads) return;
       items = loot.items;
       roster = loot.roster;
       catalogue = loot.catalogue;
       loadError = '';
     } catch (e) {
-      if (night !== day) return;
+      if (ticket !== loads) return;
       items = [];
       loadError = lootError(e);
     } finally {
-      if (night === day) loaded = true;
+      if (ticket === loads) loaded = true;
     }
   }
   $effect(() => {
@@ -69,34 +72,34 @@
     message = '';
     query = '';
     results = [];
+    searched = '';
+    searches++;
     load();
   });
 
-  // Search as the officer types, a moment after they stop; a late answer for an older query is dropped.
+  // Search as the officer types, a moment after they stop.
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let searches = 0;
   function typed() {
     clearTimeout(timer);
+    const ticket = ++searches;
     const q = query.trim();
-    if (q.length < MIN_QUERY) {
-      results = [];
-      searched = '';
-      return;
-    }
-    timer = setTimeout(() => search(q), 250);
+    results = [];
+    searched = '';
+    searching = false;
+    if (q.length >= MIN_QUERY) timer = setTimeout(() => search(q, ticket), 250);
   }
-  async function search(q: string) {
-    const night = day;
+  async function search(q: string, ticket: number) {
     searching = true;
     try {
-      const found = await backend.search(night, q);
-      if (night === day && q === query.trim()) {
-        results = found;
-        searched = q;
-      }
+      const found = await backend.search(day, q);
+      if (ticket !== searches) return;
+      results = found;
+      searched = q;
     } catch (e) {
-      if (night === day) say(lootError(e), true);
+      if (ticket === searches) say(lootError(e), true);
     } finally {
-      searching = false;
+      if (ticket === searches) searching = false;
     }
   }
 
@@ -109,6 +112,8 @@
   async function attempt(action: (still: () => boolean) => Promise<void>) {
     const night = day;
     const still = () => night === day;
+    // Any change disarms a pending "Take off for good", so a later click on it never removes an item by surprise.
+    confirmRemove = null;
     busy = true;
     try {
       await action(still);

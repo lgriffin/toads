@@ -49,9 +49,10 @@ class LootRepository(Protocol):
         ...
 
     def mark(
-        self, raid_day: str, entry_id: int, member_id: int, received_at: datetime | None, by: int
+        self, raid_day: str, entry_id: int, member_id: int, received: bool, by: int, at: datetime
     ) -> LootEntry | None:
-        """Set or clear one member's received mark; None when the item is gone or the member is not in its line."""
+        """Mark one member received at `at`, or clear the mark; either way the item counts as updated at `at`. None
+        when the item is gone or the member is not in its line."""
         ...
 
     def remove(self, raid_day: str, entry_id: int, by: int) -> bool: ...
@@ -95,13 +96,14 @@ class InMemoryLootRepository:
         return self._put(replace(e, recipients=line, updated_at=at))
 
     def mark(
-        self, raid_day: str, entry_id: int, member_id: int, received_at: datetime | None, by: int
+        self, raid_day: str, entry_id: int, member_id: int, received: bool, by: int, at: datetime
     ) -> LootEntry | None:
         e = self.entry(raid_day, entry_id)
         if e is None or all(r.member_id != member_id for r in e.recipients):
             return None
-        line = tuple(replace(r, received_at=received_at) if r.member_id == member_id else r for r in e.recipients)
-        return self._put(replace(e, recipients=line))
+        stamp = at if received else None
+        line = tuple(replace(r, received_at=stamp) if r.member_id == member_id else r for r in e.recipients)
+        return self._put(replace(e, recipients=line, updated_at=at))
 
     def remove(self, raid_day: str, entry_id: int, by: int) -> bool:
         before = len(self.rows)
