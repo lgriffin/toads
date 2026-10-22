@@ -29,7 +29,7 @@ the site.
   megapixels; animated images and other formats are refused with the reason. A member can post 20 a day.
 - **Re-encoding.** The hub never keeps the file as sent: Pillow decodes it, turns it the right way up, and writes a WebP
   of at most 2048 px and a 640 px thumbnail. EXIF is dropped, so a phone photo's GPS position never reaches the page.
-  The bytes live in Postgres (`gallery_photo_files`, migration `0034`), so the nightly backup holds them.
+  The bytes live in Postgres (`gallery_photo_files`, migration `0035`), so the nightly backup holds them.
 - **Carousel and archive.** The carousel shows photos from the last 48 hours, newest first. The archive lists every
   photo ever posted, by month, 48 at a time. Nothing expires out of the archive.
 - **Photo of the week.** A global officer opens any photo and picks it; it sits at the top of the page for seven days.

@@ -1,7 +1,7 @@
 """Highlights: members' photos from the Toad Bot, the photo of the week, and live Twitch streams
 
-Revision ID: 0034
-Revises: 0033
+Revision ID: 0035
+Revises: 0034
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0034"
-down_revision = "0033"
+revision = "0035"
+down_revision = "0034"
 branch_labels = None
 depends_on = None
 
