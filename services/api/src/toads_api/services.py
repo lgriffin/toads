@@ -45,6 +45,9 @@ from toads_api.home.service import HomeService
 from toads_api.home.sql import SqlHomeRepository
 from toads_api.logs.service import LogService
 from toads_api.logs.sql import SqlLogRepository
+from toads_api.loot.catalogue import bundled as bundled_items
+from toads_api.loot.service import LootService
+from toads_api.loot.sql import SqlLootRepository
 from toads_api.notify import Notifier, RedisOutbox
 from toads_api.officer_board.service import OfficerBoardService
 from toads_api.officer_board.sql import SqlBoardRepository
@@ -89,6 +92,8 @@ class Services:
     comps: CompService = field(init=False)
     professions: ProfessionService = field(init=False)
     officer_board: OfficerBoardService = field(init=False)
+    # Each night's loot list: big-ticket items and who is in line for them (docs/loot.md).
+    loot: LootService = field(init=False)
     home: HomeService = field(init=False)
     performance: PerformanceService = field(init=False)
     badges: BadgeService = field(init=False)
@@ -182,6 +187,13 @@ class Services:
             SqlBoardRepository(self.db),
             self.account.shown_names,
             today=lambda: datetime.fromtimestamp(self.clock(), guild_time).date(),
+        )
+        self.loot = LootService(
+            SqlLootRepository(self.db),
+            bundled_items,
+            self.account.shown_names,
+            roster=lambda day: [e.member_id for e in self.comps.pool(day)],
+            clock=lambda: datetime.fromtimestamp(self.clock(), UTC),
         )
         sheets_config = RaidSheetsConfig.load(self.settings.raid_sheets_config)
         # Each raid day's weekday (0 is Monday): `weekdays` in raid_sheets.yaml, else the weekday its name says.

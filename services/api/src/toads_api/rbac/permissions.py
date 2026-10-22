@@ -51,6 +51,8 @@ class Permission(enum.StrEnum):
     VIEW_ABSENCES = "view_absences"
     # The officers' task board for a raid day (docs/officer-board.md): that day's officers and the global tier.
     MANAGE_OFFICER_BOARD = "manage_officer_board"
+    # Each raid day's loot list (docs/loot.md): big-ticket items and who is first, second, third in line for them.
+    MANAGE_LOOT = "manage_loot"
     # Super admins only (docs/admin.md "Officer grants"): make one Discord member an officer of a raid day, or a global
     # officer, on top of their Discord roles. Nothing grants super admin: that is configuration alone.
     MANAGE_OFFICER_GRANTS = "manage_officer_grants"

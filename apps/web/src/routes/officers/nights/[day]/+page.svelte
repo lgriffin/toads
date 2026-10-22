@@ -9,6 +9,7 @@
   import { hubPanels } from '$lib/interview-panels';
   import { hubComps } from '$lib/comp';
   import { hubLinks } from '$lib/night-links';
+  import { hubLoot } from '$lib/loot';
   import { hubBoard } from '$lib/officer-board';
   import { hubClaims } from '$lib/officer-claims';
   import { dayToad } from '$lib/raid-page';
@@ -17,16 +18,18 @@
   import { previewClaims } from '$lib/preview/claims-fake';
   import { previewComps } from '$lib/preview/comp-fake';
   import { previewLinks } from '$lib/preview/links-fake';
+  import { previewLoot } from '$lib/preview/loot-fake';
   import { previewPanels } from '$lib/preview/panels-fake';
   import { previewSession } from '$lib/preview/session.svelte';
   import ClaimsQueue from '$lib/components/ClaimsQueue.svelte';
   import NightTonight from '$lib/components/NightTonight.svelte';
   import InterviewPanelCard from '$lib/components/InterviewPanelCard.svelte';
+  import LootPriority from '$lib/components/LootPriority.svelte';
   import OfficerBoard from '$lib/components/OfficerBoard.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
   import TeamAbsences from '$lib/components/TeamAbsences.svelte';
 
-  // One raid night's own officer section: tonight at a glance (who is away, the pinned Drive documents), its members' character claims, its team's absences, its task board and its interview panel. Only that
+  // One raid night's own officer section: tonight at a glance (who is away, the pinned Drive documents), its members' character claims, its team's absences, its task board, its loot priority and its interview panel. Only that
   // night's officers see it (global officers and super admins see every night); another night's officers get a
   // refusal and none of its content. The API checks every call against the night in the path. Keyed by night, so
   // moving to another night's section starts its panels afresh rather than showing the last night's.
@@ -46,6 +49,7 @@
   const claims = __PREVIEW__ ? previewClaims : hubClaims();
   const comps = __PREVIEW__ ? previewComps : hubComps();
   const links = __PREVIEW__ ? previewLinks : hubLinks();
+  const loot = __PREVIEW__ ? previewLoot : hubLoot();
 </script>
 
 <svelte:head><title>{runs ? `${name} officers` : 'Officers'} · Toads</title></svelte:head>
@@ -63,7 +67,7 @@
     <PondHero
       title="{name} officers"
       line="Your night's officer section"
-      lede="Everything {name}'s officers run for their own team: character claims, who is away, the task board and the interview panel. Only {name}'s officers and super admins see it."
+      lede="Everything {name}'s officers run for their own team: character claims, who is away, the task board, loot priority and the interview panel. Only {name}'s officers and super admins see it."
       toads={[dayToad(day, name)]}
     >
       <a class="medal" href="{base}/officers/comp?day={day}">Build {name}'s comp</a>
@@ -84,7 +88,9 @@
 
     <div class="band"><OfficerBoard backend={board} {day} dayName={name} /></div>
 
-    <div class="band dusk"><InterviewPanelCard backend={panels} {day} night={name} /></div>
+    <div class="band dusk"><LootPriority backend={loot} {day} dayName={name} /></div>
+
+    <div class="band"><InterviewPanelCard backend={panels} {day} night={name} /></div>
   </div>
   {/key}
 {/if}

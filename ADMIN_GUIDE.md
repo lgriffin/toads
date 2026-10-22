@@ -401,12 +401,18 @@ Rules worth knowing:
   Notes are seen only by that night's officers. Not audited: an absence is a member's own word, not an officer action.
 - **Officer sections**: `/officers` is the shared Officer console every officer uses (calendar, comp builder,
   recruitment, reference reports, awards). Each raid night also has its own section, `/officers/nights/{day}`, with that
-  night's absences, task board and interview panel. An officer sees only the sections of the nights they run: a
+  night's absences, task board, loot priority and interview panel. An officer sees only the sections of the nights they run: a
   Sunday officer never sees Wednesday's. Global officers and super admins see every night.
 - **Officers' board** ([docs/officer-board.md](docs/officer-board.md)): each raid night has its own task board in
   its officer section (To do, In progress, Done), seen and worked only by that night's officers, global officers and super
   admins (`MANAGE_OFFICER_BOARD`). Nothing to set up: a night's board appears with the night in
   `config/raid_days.yaml`. Audited as `board.add`, `board.edit`, `board.move` and `board.remove`.
+- **Loot priority** ([docs/loot.md](docs/loot.md)): each raid night's officer section has a loot list: officers search
+  the item catalogue by name, add the big-ticket items, rank the night's raid group for each (1st, 2nd, 3rd...) and mark
+  each one received (`MANAGE_LOOT`, that night's officers, global officers and super admins). Nothing to set up. The
+  item data is LibItemDB's (MIT), bundled with the API: Forever's items with Classic's filling in the raid loot
+  Forever's beta data lacks; refresh it with `scripts/import_items.py` (docs/loot.md "Item data"). Audited as
+  `loot.add`, `loot.note`, `loot.line`, `loot.received`, `loot.unreceived` and `loot.remove`.
 - **Professions and guild crafters** ([docs/professions.md](docs/professions.md)): members pick their professions on Me;
   officers see their night's on `/officers/professions` and name the guild's crafters, the members we send a profession's
   top end recipes to (`MANAGE_CRAFTERS`). A night's officers name only members of their night; global officers and super
