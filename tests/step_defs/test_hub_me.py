@@ -235,11 +235,11 @@ def back_to_hub(hub: Hub, ctx: dict[str, Any]) -> None:
     assert r.headers["location"] == f"{HUB}/hub"
 
 
-@then("the setup page welcomes them to the Pond from Gail and the officers")
+@then("the setup page welcomes them to the Pond from Gally and the officers")
 def welcome(ctx: dict[str, Any]) -> None:
     copy = (WEB / "setup.ts").read_text(encoding="utf-8")
     assert "heading: 'Welcome to the Pond'" in copy
-    assert "signoff: 'Gail and the officers'" in copy
+    assert "signoff: 'Gally and the officers'" in copy
     assert "Thanks for logging in" in copy
     page = (ROUTES / "setup" / "+page.svelte").read_text(encoding="utf-8")
     assert "art/gail-640.webp" in page

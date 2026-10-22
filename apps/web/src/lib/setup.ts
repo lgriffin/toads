@@ -73,7 +73,7 @@ export function hubSetup(f: Fetch = fetch): SetupBackend {
 }
 
 /**
- * The welcome at the top of the page, from Gail, the bank toad, and the officers. Officers edit the wording here, in
+ * The welcome at the top of the page, from Gally (_gallagher) and the officers. Officers edit the wording here, in
  * a PR; the pond, never anything else.
  */
 export const WELCOME = {
@@ -82,7 +82,7 @@ export const WELCOME = {
     'Thanks for logging in. Before you hop in, let’s get some info about you.',
     'Tell us your main, the specs you play, any alts and your professions, so we know who’s who on raid night, the officers can seat you in the right spot and the guild knows who can craft what.'
   ],
-  signoff: 'Gail and the officers'
+  signoff: 'Gally and the officers'
 } as const;
 
 export interface Alt {

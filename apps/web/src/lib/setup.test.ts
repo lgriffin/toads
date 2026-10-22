@@ -16,9 +16,9 @@ const claim = (id: number, name: string, status: Claim['status']): Claim => ({
 const state = (over: Partial<SetupState> = {}): SetupState => ({ done: false, main: null, declared: [], main_open: true, ...over });
 
 describe('setup', () => {
-  it('welcomes from Gail and the officers to the Pond, never anything else', () => {
+  it('welcomes from Gally and the officers to the Pond, never anything else', () => {
     expect(WELCOME.heading).toBe('Welcome to the Pond');
-    expect(WELCOME.signoff).toBe('Gail and the officers');
+    expect(WELCOME.signoff).toBe('Gally and the officers');
     expect(WELCOME.body.join(' ')).toContain('Thanks for logging in');
     expect(JSON.stringify(WELCOME).toLowerCase()).not.toContain('frog');
   });
