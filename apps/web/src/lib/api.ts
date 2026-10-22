@@ -155,6 +155,11 @@ export const unclaim = (claimId: number, f: Fetch = fetch) =>
     method: "DELETE",
   });
 
+/** The hub refusing a change because a super admin is viewing it as another role (docs/admin.md "View as"). */
+export function isViewAsRefusal(e: unknown): e is ApiError {
+  return e instanceof ApiError && e.status === 403 && e.message.includes("read only");
+}
+
 /** What to tell a member when a claim call fails. */
 export function claimError(e: unknown): string {
   if (!(e instanceof ApiError)) return "Something went wrong; try again.";
@@ -162,7 +167,7 @@ export function claimError(e: unknown): string {
     case 401:
       return "Sign in with Discord to claim characters.";
     case 403:
-      return "Claiming needs a trial or raider role on a raid day.";
+      return isViewAsRefusal(e) ? e.message : "Claiming needs a trial or raider role on a raid day.";
     case 404:
       return "That character has not appeared in the guild’s logs.";
     case 409:

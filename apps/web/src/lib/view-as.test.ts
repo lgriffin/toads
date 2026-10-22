@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError, claimError, isViewAsRefusal } from './api';
+import { setupError } from './setup';
 import { startViewAs, stopViewAs, viewAsLabel, viewAsNights } from './view-as';
 
 describe('view as', () => {
@@ -21,5 +23,14 @@ describe('view as', () => {
     const g = vi.fn(async () => new Response(null, { status: 204 }));
     await stopViewAs(g);
     expect(g).toHaveBeenLastCalledWith('/api/admin/view-as', expect.objectContaining({ method: 'DELETE' }));
+  });
+
+  it('says a refusal is the read-only view, not a missing role', () => {
+    const readOnly = new ApiError(403, 'You are viewing the hub as another role, which is read only. Go back to make changes.');
+    expect(isViewAsRefusal(readOnly)).toBe(true);
+    expect(claimError(readOnly)).toBe(readOnly.message);
+    expect(setupError(readOnly)).toBe(readOnly.message);
+    expect(isViewAsRefusal(new ApiError(403, 'Forbidden'))).toBe(false);
+    expect(claimError(new ApiError(403, 'Forbidden'))).toMatch(/trial or raider/);
   });
 });

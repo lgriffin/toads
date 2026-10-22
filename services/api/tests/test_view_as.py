@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+
+from hub_db import AuditEntry
+from sqlalchemy import select
 from toads_api.rbac import HubRole, Permission, Principal, can
 from toads_api.rbac.permissions import ViewAs
+from toads_api.sessions import _key
 
 from conftest import Hub, make_settings
 
@@ -65,3 +71,33 @@ def test_switching_view_moves_straight_to_the_new_one(hub: Hub) -> None:
     hub.put("/api/admin/view-as/raider/wed", sid)
     assert hub.put("/api/admin/view-as/officer/sun", sid).status_code == 200
     assert hub.get("/api/session", sid).json()["day_roles"] == {"sun": "officer"}
+
+
+def test_opening_setup_while_viewing_settles_nothing(hub: Hub) -> None:
+    sid = _super_admin(hub)
+    hub.put("/api/admin/view-as/raider/sun", sid)
+    hub.delete("/api/admin/view-as", sid)
+    assert hub.post("/api/me/setup/characters", sid, {"name": "Tadpole", "wow_class": "druid"}).status_code == 201
+    hub.put("/api/admin/view-as/raider/sun", sid)
+    hub.characters.names[9] = "Tadpole"  # the logs now know it; opening setup would normally claim it
+    assert [d["name"] for d in hub.get("/api/me/setup", sid).json()["declared"]] == ["Tadpole"]
+    assert hub.get("/api/claims", sid).json() == []
+
+
+def test_a_session_from_a_newer_build_still_loads(hub: Hub) -> None:
+    sid = _super_admin(hub)
+    key = _key("session", sid)
+    raw = json.loads(asyncio.run(hub.redis.get(key)))
+    asyncio.run(hub.redis.set(key, json.dumps({**raw, "from_a_later_build": 1})))
+    assert hub.get("/api/session", sid).status_code == 200
+
+
+def test_the_break_glass_admins_going_back_is_marked_break_glass(hub: Hub) -> None:
+    user = hub.user()
+    hub.services.settings = make_settings(break_glass_admin_id=str(user.user_id))
+    sid = hub.login(user)
+    hub.put("/api/admin/view-as/raider/sun", sid)
+    assert hub.delete("/api/admin/view-as", sid).status_code == 204
+    with hub.db() as db:
+        actions = [a.action for a in db.scalars(select(AuditEntry).order_by(AuditEntry.id))]
+    assert actions == ["break_glass", "view_as.start", "break_glass", "view_as.end"]

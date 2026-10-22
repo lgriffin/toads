@@ -55,8 +55,9 @@ async def start_viewing_as(
     if day is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown raid day")
     session_id, data = await _session(request, live)
-    await live.sessions.save(session_id, replace(data, view_as_role=as_tier, view_as_day=night))
+    # Audited first, so no view starts or ends without its entry.
     await anyio.to_thread.run_sync(_record, live, principal, "view_as.start", as_tier, night)
+    await live.sessions.save(session_id, replace(data, view_as_role=as_tier, view_as_day=night))
     log.info("view_as.start", member_id=principal.member_id, role=as_tier, raid_day=night)
     return {"role": as_tier, "raid_day": night, "name": day.name}
 
@@ -66,7 +67,7 @@ async def stop_viewing_as(request: Request, principal: SuperAdmin, live: Live) -
     """Go back to being a super admin; doing so when not viewing as anyone is harmless."""
     session_id, data = await _session(request, live)
     if data.view_as_role or data.view_as_day:
-        await live.sessions.save(session_id, replace(data, view_as_role="", view_as_day=""))
         await anyio.to_thread.run_sync(_record, live, principal, "view_as.end", data.view_as_role, data.view_as_day)
+        await live.sessions.save(session_id, replace(data, view_as_role="", view_as_day=""))
         log.info("view_as.end", member_id=principal.member_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

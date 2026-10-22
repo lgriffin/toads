@@ -138,7 +138,7 @@ def viewing(services: Services, principal: Principal, view_as: ViewAs | None) ->
         discord_user_id=principal.discord_user_id,
         discord_username=principal.discord_username,
         discord_role_ids=principal.discord_role_ids,
-        viewing_as=view_as,
+        viewing_as=replace(view_as, break_glass=principal.break_glass),
     )
 
 
@@ -228,7 +228,8 @@ class Require:
         ):
             # docs/admin.md "View as": read only, so nothing is done in a raider's or officer's name but going back.
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=VIEW_AS_READ_ONLY)
-        if principal.break_glass and request.method not in SAFE_METHODS:
+        glass = principal.break_glass or (principal.viewing_as is not None and principal.viewing_as.break_glass)
+        if glass and request.method not in SAFE_METHODS:
             # docs/admin.md: every change made through the break-glass admin is on the audit log, marked as such.
             await anyio.to_thread.run_sync(
                 _record_break_glass, get_services(request), principal, request, raid_day, self.permission.value

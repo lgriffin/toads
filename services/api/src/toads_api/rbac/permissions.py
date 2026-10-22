@@ -95,6 +95,8 @@ class ViewAs:
 
     role: HubRole
     raid_day: str
+    # The break-glass admin is viewing: their going back is still audited as a break-glass change.
+    break_glass: bool = False
 
 
 @dataclass(frozen=True)

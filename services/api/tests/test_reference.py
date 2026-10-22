@@ -311,3 +311,16 @@ def test_stored_comparison_round_trips_in_memory() -> None:
     svc = ReferenceService(repo, [].append, configured=True)
     assert svc.comparison(OURS, THEIRS) == repo.stored[(OURS, THEIRS)]
     assert svc.overview().comparisons[0].guild_title == "a"
+
+
+def test_a_login_finished_while_viewing_as_another_role_connects_nothing(wired: tuple[Hub, FakeWcl, list[str]]) -> None:
+    hub, wcl, _ = wired
+    user = hub.user()
+    hub.services.settings = make_settings(super_admin_ids=str(user.user_id))
+    sid = hub.login(user)
+    start = hub.post("/api/days/wed/reference/login", sid).json()["authorize_url"]
+    state = parse_qs(urlparse(start).query)["state"][0]
+    hub.put("/api/admin/view-as/officer/wed", sid)  # docs/admin.md "View as": read only
+    r = hub.client.get(f"/api/reference/login/callback?code=abc&state={state}", headers=hub.as_(sid))
+    assert r.status_code == 403 and "read only" in r.json()["detail"]
+    assert wcl.seen == []

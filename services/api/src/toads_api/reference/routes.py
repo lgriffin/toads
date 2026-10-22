@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from toads_api import audit
 from toads_api.rbac import Permission, Principal
-from toads_api.rbac.deps import get_services, require
+from toads_api.rbac.deps import VIEW_AS_READ_ONLY, get_services, require
 from toads_api.rbac.permissions import can
 from toads_api.reference.login import CALLBACK_PATH, WclLogin, WclLoginError
 from toads_api.reference.repository import Job
@@ -247,6 +247,9 @@ async def login_callback(
     # The officer who started the login finishes it, and must still hold officer powers on that day.
     if pending.member_id != principal.member_id or not can(principal, Permission.VIEW_INSIGHTS, pending.raid_day):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    if principal.viewing_as is not None:
+        # A login started before viewing the hub as another role does not connect while that read-only view is on.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=VIEW_AS_READ_ONLY)
     if not code:
         return _back(live, pending.raid_day, "cancelled")
     try:
