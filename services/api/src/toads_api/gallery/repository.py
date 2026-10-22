@@ -69,8 +69,6 @@ class NewStream:
     title: str
     at: datetime
     ends_at: datetime
-    # The channel is trusted for this member, so the stream shows at once.
-    approved: bool = False
 
 
 @dataclass(frozen=True)
@@ -104,7 +102,8 @@ class GalleryRepository(Protocol):
         ...
 
     def approve_photo(self, photo_id: int, at: datetime, note: AuditNote) -> PhotoRecord | None:
-        """Show a waiting photo from `at`, and record who approved it. None when it is missing."""
+        """Show a waiting photo from `at`, and record who approved it. None when it is missing or no longer waiting
+        (checked in the same transaction as the write)."""
         ...
 
     def nights_of(self, discord_user_ids: Collection[int]) -> dict[int, frozenset[str]]:
@@ -117,8 +116,9 @@ class GalleryRepository(Protocol):
 
     def photos_posted_since(self, discord_user_id: int, since: datetime) -> int: ...
 
-    def delete_photo(self, photo_id: int, note: AuditNote) -> bool:
-        """Delete a photo, its bytes and any photo-of-the-week pick of it, and record who did. False when missing."""
+    def delete_photo(self, photo_id: int, note: AuditNote, *, only_waiting: bool = False) -> bool:
+        """Delete a photo, its bytes and any photo-of-the-week pick of it, and record who did. False when missing, or
+        when `only_waiting` and it has been approved (checked in the same transaction as the delete)."""
         ...
 
     def pick(self, photo_id: int, chosen_by: int, chosen_by_name: str, at: datetime, ends_at: datetime) -> PickRecord:
@@ -130,7 +130,8 @@ class GalleryRepository(Protocol):
         ...
 
     def start_stream(self, stream: NewStream) -> StreamRecord:
-        """Start a member's stream (shown at once when `approved`), ending any stream of theirs still open."""
+        """Start a member's stream, ending any stream of theirs still open. It shows at once when the channel is trusted
+        for the member, read in the same transaction."""
         ...
 
     def trusted(self, discord_user_id: int, channel: str) -> bool:
@@ -138,7 +139,8 @@ class GalleryRepository(Protocol):
         ...
 
     def approve_stream(self, stream_id: int, at: datetime, approved_by: int, note: AuditNote) -> StreamRecord | None:
-        """Show a waiting stream and trust its channel for its member from now on. None when it is missing."""
+        """Show a waiting stream and trust its channel for its member from now on. None when it is missing, approved,
+        ended or run out at `at` (checked in the same transaction as the write)."""
         ...
 
     def untrust(self, discord_user_id: int, channel: str) -> None: ...
@@ -150,6 +152,10 @@ class GalleryRepository(Protocol):
     def get_stream(self, stream_id: int) -> StreamRecord | None: ...
 
     def end_stream(self, stream_id: int, at: datetime, note: AuditNote | None = None) -> StreamRecord | None: ...
+
+    def reject_stream(self, stream_id: int, at: datetime, note: AuditNote) -> bool:
+        """End a waiting stream and record who turned it down. False when it is no longer waiting."""
+        ...
 
     def open_streams(self, at: datetime) -> list[StreamRecord]:
         """Approved streams not ended whose time has not run out at `at`, newest first."""
@@ -213,7 +219,7 @@ class InMemoryGalleryRepository:
 
     def approve_photo(self, photo_id: int, at: datetime, note: AuditNote) -> PhotoRecord | None:
         r = self.rows.get(photo_id)
-        if r is None:
+        if r is None or r.approved_at is not None:
             return None
         r = self.rows[photo_id] = replace(r, approved_at=at)
         self.audits.append(note)
@@ -231,9 +237,11 @@ class InMemoryGalleryRepository:
     def photos_posted_since(self, discord_user_id: int, since: datetime) -> int:
         return sum(1 for r in self.rows.values() if r.discord_user_id == discord_user_id and r.created_at >= since)
 
-    def delete_photo(self, photo_id: int, note: AuditNote) -> bool:
-        if self.rows.pop(photo_id, None) is None:
+    def delete_photo(self, photo_id: int, note: AuditNote, *, only_waiting: bool = False) -> bool:
+        found = self.rows.get(photo_id)
+        if found is None or (only_waiting and found.approved_at is not None):
             return False
+        del self.rows[photo_id]
         self.files.pop(photo_id, None)
         self.pick_rows = [p for p in self.pick_rows if p.photo_id != photo_id]
         self.audits.append(note)
@@ -259,7 +267,7 @@ class InMemoryGalleryRepository:
             title=stream.title,
             started_at=stream.at,
             ends_at=stream.ends_at,
-            approved_at=stream.at if stream.approved else None,
+            approved_at=stream.at if (stream.discord_user_id, stream.channel) in self.trust else None,
         )
         self.streams[record.id] = record
         return record
@@ -269,7 +277,7 @@ class InMemoryGalleryRepository:
 
     def approve_stream(self, stream_id: int, at: datetime, approved_by: int, note: AuditNote) -> StreamRecord | None:
         s = self.streams.get(stream_id)
-        if s is None:
+        if s is None or s.approved_at is not None or s.ended_at is not None or s.ends_at <= at:
             return None
         s = self.streams[stream_id] = replace(s, approved_at=at)
         self.trust.add((s.discord_user_id, s.channel))
@@ -297,6 +305,14 @@ class InMemoryGalleryRepository:
         if note is not None:
             self.audits.append(note)
         return s
+
+    def reject_stream(self, stream_id: int, at: datetime, note: AuditNote) -> bool:
+        s = self.streams.get(stream_id)
+        if s is None or s.approved_at is not None or s.ended_at is not None:
+            return False
+        self.streams[stream_id] = replace(s, ended_at=at)
+        self.audits.append(note)
+        return True
 
     def open_streams(self, at: datetime) -> list[StreamRecord]:
         return [

@@ -115,14 +115,19 @@ class SqlGalleryRepository:
 
     def approve_photo(self, photo_id: int, at: datetime, note: AuditNote) -> PhotoRecord | None:
         with self._db.begin() as db:
-            row = db.get(GalleryPhoto, photo_id)
-            if row is None:
-                return None
-            row.approved_at = at
-            row.approved_by = note.actor
+            claimed = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(GalleryPhoto)
+                    .where(GalleryPhoto.id == photo_id, GalleryPhoto.approved_at.is_(None))
+                    .values(approved_at=at, approved_by=note.actor)
+                ),
+            ).rowcount
+            if not claimed:
+                return None  # Gone, or another officer decided it first.
             _audit(db, note)
-            db.flush()
-            return _photo(row)
+            row = db.get(GalleryPhoto, photo_id)
+            return None if row is None else _photo(row)
 
     def nights_of(self, discord_user_ids: Collection[int]) -> dict[int, frozenset[str]]:
         if not discord_user_ids:
@@ -151,8 +156,17 @@ class SqlGalleryRepository:
         with self._db() as db:
             return int(db.scalar(query) or 0)
 
-    def delete_photo(self, photo_id: int, note: AuditNote) -> bool:
+    def delete_photo(self, photo_id: int, note: AuditNote, *, only_waiting: bool = False) -> bool:
         with self._db.begin() as db:
+            if only_waiting:
+                # Locks the row, so an approval in flight finishes first and this sees it.
+                waiting = db.scalar(
+                    select(GalleryPhoto.id)
+                    .where(GalleryPhoto.id == photo_id, GalleryPhoto.approved_at.is_(None))
+                    .with_for_update()
+                )
+                if waiting is None:
+                    return False
             # Deleted explicitly rather than by cascade: SQLite only cascades with its foreign key pragma on.
             db.execute(delete(PhotoOfTheWeek).where(PhotoOfTheWeek.photo_id == photo_id))
             db.execute(delete(GalleryPhotoFile).where(GalleryPhotoFile.photo_id == photo_id))
@@ -184,6 +198,7 @@ class SqlGalleryRepository:
     def start_stream(self, stream: NewStream) -> StreamRecord:
         with self._db.begin() as db:
             self._end_open(db, stream.discord_user_id, stream.at)
+            trusted = db.get(TrustedChannel, (stream.discord_user_id, stream.channel)) is not None
             row = LiveStream(
                 discord_user_id=stream.discord_user_id,
                 streamer_name=stream.streamer_name,
@@ -191,7 +206,7 @@ class SqlGalleryRepository:
                 title=stream.title,
                 started_at=stream.at,
                 ends_at=stream.ends_at,
-                approved_at=stream.at if stream.approved else None,
+                approved_at=stream.at if trusted else None,
             )
             db.add(row)
             db.flush()
@@ -203,10 +218,22 @@ class SqlGalleryRepository:
 
     def approve_stream(self, stream_id: int, at: datetime, approved_by: int, note: AuditNote) -> StreamRecord | None:
         with self._db.begin() as db:
-            row = db.get(LiveStream, stream_id)
+            claimed = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(LiveStream)
+                    .where(
+                        LiveStream.id == stream_id,
+                        LiveStream.approved_at.is_(None),
+                        LiveStream.ended_at.is_(None),
+                        LiveStream.ends_at > at,
+                    )
+                    .values(approved_at=at)
+                ),
+            ).rowcount
+            row = db.get(LiveStream, stream_id) if claimed else None
             if row is None:
-                return None
-            row.approved_at = at
+                return None  # Gone, ended, run out, or another officer decided it first.
             if db.get(TrustedChannel, (row.discord_user_id, row.channel)) is None:
                 db.add(
                     TrustedChannel(
@@ -219,6 +246,21 @@ class SqlGalleryRepository:
             _audit(db, note)
             db.flush()
             return _stream(row)
+
+    def reject_stream(self, stream_id: int, at: datetime, note: AuditNote) -> bool:
+        with self._db.begin() as db:
+            ended = cast(
+                CursorResult[Any],
+                db.execute(
+                    update(LiveStream)
+                    .where(LiveStream.id == stream_id, LiveStream.approved_at.is_(None), LiveStream.ended_at.is_(None))
+                    .values(ended_at=at)
+                ),
+            ).rowcount
+            if not ended:
+                return False
+            _audit(db, note)
+            return True
 
     def untrust(self, discord_user_id: int, channel: str) -> None:
         with self._db.begin() as db:

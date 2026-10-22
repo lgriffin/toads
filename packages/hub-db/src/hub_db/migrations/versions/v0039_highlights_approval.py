@@ -37,12 +37,17 @@ def upgrade() -> None:
         sa.Column("approved_by", sa.Integer(), sa.ForeignKey("members.id", ondelete="SET NULL"), nullable=True),
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=False),
     )
-    # What members already saw stays up; their channels stay trusted.
+    # What members already saw stays up; their channels stay trusted...
     op.execute("UPDATE gallery_photos SET approved_at = created_at")
     op.execute("UPDATE live_streams SET approved_at = started_at")
+    # ...except a channel whose stream an officer took down, which waits for approval again under the new rules.
     op.execute(
         "INSERT INTO gallery_trusted_channels (discord_user_id, channel, approved_at) "
-        "SELECT discord_user_id, channel, MIN(started_at) FROM live_streams GROUP BY discord_user_id, channel"
+        "SELECT s.discord_user_id, s.channel, MIN(s.started_at) FROM live_streams s "
+        "WHERE NOT EXISTS (SELECT 1 FROM live_streams t JOIN audit a ON a.action = 'gallery.remove_stream' "
+        "AND a.target LIKE 'stream ' || CAST(t.id AS VARCHAR) || ':%' "
+        "WHERE t.discord_user_id = s.discord_user_id AND t.channel = s.channel) "
+        "GROUP BY s.discord_user_id, s.channel"
     )
 
 

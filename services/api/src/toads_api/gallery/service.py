@@ -257,7 +257,7 @@ class GalleryService:
         note = AuditNote(
             reviewer.actor_id, "gallery.reject_photo", f"photo {photo_id} by discord user {photo.discord_user_id}"
         )
-        if not self._repo.delete_photo(photo_id, note):
+        if not self._repo.delete_photo(photo_id, note, only_waiting=True):
             raise GalleryError("No such photo waiting for you to approve", 404)
 
     def _waiting_stream(self, stream_id: int, reviewer: Reviewer) -> StreamRecord:
@@ -285,7 +285,8 @@ class GalleryService:
     def reject_stream(self, stream_id: int, reviewer: Reviewer) -> None:
         stream = self._waiting_stream(stream_id, reviewer)
         note = AuditNote(reviewer.actor_id, "gallery.reject_stream", f"stream {stream_id}: twitch.tv/{stream.channel}")
-        self._repo.end_stream(stream_id, self._clock(), note)
+        if not self._repo.reject_stream(stream_id, self._clock(), note):
+            raise GalleryError("No such stream waiting for you to approve", 404)
 
     def remove_photo(self, photo_id: int, actor_id: int, actor_discord_id: int | None, moderator: bool) -> None:
         """Take a photo down for good: its poster, or a global officer."""
@@ -317,10 +318,7 @@ class GalleryService:
             raise GalleryError(f"A stream title is at most {TITLE_LIMIT} characters", 422)
         now = self._clock()
         shown = _clean(name)[:NAME_LIMIT] or str(discord_user_id)
-        trusted = self._repo.trusted(discord_user_id, channel)
-        return self._repo.start_stream(
-            NewStream(discord_user_id, shown, channel, title, now, now + STREAM_LIMIT, approved=trusted)
-        )
+        return self._repo.start_stream(NewStream(discord_user_id, shown, channel, title, now, now + STREAM_LIMIT))
 
     def end_my_stream(self, discord_user_id: int) -> int:
         return self._repo.end_streams_of(discord_user_id, self._clock())

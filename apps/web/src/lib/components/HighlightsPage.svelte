@@ -42,6 +42,7 @@
   let slide = $state(0);
   let selected = $state<Photo | null>(null);
   let confirming = $state(false);
+  let rejecting = $state<number | null>(null);
   let busy = $state(false);
   let notice = $state('');
   let actionError = $state('');
@@ -76,6 +77,7 @@
   async function decide(kind: ReviewKind, item: WaitingPhoto | WaitingStream, decision: Decision) {
     if (!board?.review) return;
     const what = kind === 'photos' ? `“${(item as WaitingPhoto).caption || 'The photo'}”` : `${(item as WaitingStream).streamer_name}’s stream`;
+    rejecting = null;
     try {
       await backend.decide(board.review, kind, item, decision);
       notice =
@@ -220,8 +222,13 @@
               <span><strong>{p.caption || 'Untitled photo'}</strong> <span class="muted">by {by(p)}</span></span>
             </span>
             <span class="actions">
-              <button type="button" class="btn small primary" onclick={() => decide('photos', p, 'approve')}>Approve</button>
-              <button type="button" class="btn small danger" onclick={() => decide('photos', p, 'reject')}>Turn down</button>
+              {#if rejecting === p.id}
+                <button type="button" class="btn small danger" onclick={() => decide('photos', p, 'reject')}>Yes, delete it for good</button>
+                <button type="button" class="btn small" onclick={() => (rejecting = null)}>Keep it</button>
+              {:else}
+                <button type="button" class="btn small primary" onclick={() => decide('photos', p, 'approve')}>Approve</button>
+                <button type="button" class="btn small danger" onclick={() => (rejecting = p.id)}>Turn down</button>
+              {/if}
             </span>
           </li>
         {/each}
