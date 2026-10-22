@@ -196,7 +196,7 @@ def raider_coming_soon(launch: str) -> None:
     assert "let hubGroups = $derived(hubMenu(members));" in layout
     assert "{:else if hold === 'coming-soon'}\n    <ComingSoon {...me} />" in layout
     assert "const OPEN_TO_MEMBERS = ['/raid'];" in launch
-    assert "const OPEN_TO_MEMBERS_EXACT = ['/me'];" in launch
+    assert "const OPEN_TO_MEMBERS_EXACT = ['/me', '/setup'];" in launch
     assert "{#if held}" in _read("routes/me/+page.svelte")
     assert "gives raiders the coming-soon page on every member page" in _read("lib/launch.test.ts")
     assert "opens the Raid page and Me, where absences live, to every signed-in tier" in _read("lib/launch.test.ts")

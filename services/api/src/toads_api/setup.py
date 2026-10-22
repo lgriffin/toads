@@ -219,7 +219,7 @@ async def my_setup(principal: Claimant, services: Hub) -> SetupOut:
 def _declare(services: Services, principal: Principal, body: DeclareIn) -> DeclaredResult:
     name = _tidy(body.name)
     if body.wow_class not in CLASSES:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown class")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown class")
     with services.db() as db:
         if body.main and not _main_open(db, db.get(Member, principal.member_id)):
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Ask your officers to swap your main")
