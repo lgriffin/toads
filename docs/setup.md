@@ -14,7 +14,7 @@ their primary and secondary spec, their alts and their professions.
 
 ## The welcome
 
-The page opens with Gail, the bank toad, and a note from her and the officers. The wording is `WELCOME` in
+The page opens with Gail, the bank toad, beside a note signed by Gally (_gallagher) and the officers. The wording is `WELCOME` in
 `apps/web/src/lib/setup.ts`; officers change it there in a PR. Toads and the Pond, never frogs.
 
 ## Characters

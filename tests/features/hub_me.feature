@@ -50,7 +50,7 @@ Feature: HUB ME
     And they finish setup
     Then setup shows "Tadpole" as their main, waiting for its first logged raid, and "Ribbit" as an alt
     And signing in again takes them to their hub home
-    And the setup page welcomes them to the Pond from Gail and the officers
+    And the setup page welcomes them to the Pond from Gally and the officers
     And the setup page asks for their specs and professions with the cards Me uses
 
   @ears_ubiquitous @member @phase_2_3
