@@ -56,8 +56,10 @@ or while a raid has no doc pinned, it says so.
 An every-night doc serves every night running the raid, yet every officer may pin or replace one (Leigh's call, 22 Oct
 2026): a night's officers do it through their own night's path, so their power stays scoped to a raid day in the URL and
 the audit log names the night they acted for. A night's own docs and raids are that night's alone. Every change is on the
-audit log: `strategy.pin` and `strategy.remove` (the raid in `detail`, the night the doc is for or none for every
-night) and `strategy.night` (the night and its raids, comma separated).
+audit log: `strategy.pin` and `strategy.remove` (the night the officer acted through, or none for the global tier;
+`detail` names the raid and the night the doc is for, such as "mc for every night") and `strategy.night` (the night and
+its raids, comma separated). Pinning a doc for a night adds its raid to that night in the same write, and saves of one
+night's raids take turns, so two officers never leave a night running a list neither picked.
 
 ## Storage
 

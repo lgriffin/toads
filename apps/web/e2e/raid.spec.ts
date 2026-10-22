@@ -341,4 +341,9 @@ test("a night's officer adds a raid to the night and pins a doc for that night a
       .locator("summary")
       .first(),
   ).toHaveText("BWL then Naxx then AQ40");
+  const nights = page.getByRole("region", { name: "What each night is running" });
+  await nights.locator("summary").first().click();
+  await nights.getByRole("checkbox", { name: /Naxxramas/ }).uncheck();
+  await expect(nights.locator("summary").first()).toHaveText("BWL then AQ40");
+  await expect(nights.getByRole("checkbox", { name: /Naxxramas/ })).not.toBeChecked();
 });

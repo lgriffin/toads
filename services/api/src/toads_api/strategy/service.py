@@ -124,10 +124,20 @@ class StrategyService:
             out.append(RaidStrategy(raid, [Slot(d, places[d][0], places[d][1:]) for d in ranked]))
         return out
 
-    def pin(self, raid: str, *, url: str, by: int, title: str = "", raid_day: str | None = None) -> DocView:
+    def pin(
+        self,
+        raid: str,
+        *,
+        url: str,
+        by: int,
+        title: str = "",
+        raid_day: str | None = None,
+        through: str | None = None,
+    ) -> DocView:
         """Pin a Google Doc to a raid for one night (`raid_day`) or every night (None). It becomes the doc for that
         raid there at once; the one it replaces is kept below it until KEEP newer ones push it out. A doc pinned for
-        one night also adds the raid to the raids that night is running, so its Raid page shows it straight away."""
+        one night also adds the raid to the raids that night is running, so its Raid page shows it straight away.
+        `through`: the night the officer pins through (None for the global tier), for the audit log."""
         known = RAIDS.get(raid)
         if known is None:
             raise StrategyError("Pick one of the raids", status=422)
@@ -137,17 +147,15 @@ class StrategyService:
         url = url.strip()
         if len(url) > URL_LIMIT or not google_link(url):
             raise StrategyError("Paste the doc's https://docs.google.com or drive.google.com link", status=422)
-        doc = self.repo.pin(raid, raid_day, title, url, by, KEEP)
-        if raid_day is not None:
-            running = self.repo.night_raids().get(raid_day, [])
-            if raid not in running:
-                self.repo.set_night_raids(raid_day, [*running, raid], by)
+        doc = self.repo.pin(raid, raid_day, title, url, by, KEEP, through)
         return self._views([doc])[0]
 
-    def remove(self, doc_id: int, by: int, nights: frozenset[str | None] | None = None) -> None:
+    def remove(
+        self, doc_id: int, by: int, nights: frozenset[str | None] | None = None, through: str | None = None
+    ) -> None:
         """Take a doc down. Taking down a pinned doc pins the one it replaced again, if there is one. With `nights`,
         only a doc pinned for one of them (None standing for every night)."""
-        if not self.repo.remove(doc_id, by, nights):
+        if not self.repo.remove(doc_id, by, nights, through):
             raise StrategyError("No such strategy doc", status=404)
 
     def night_raids(self) -> dict[str, list[str]]:

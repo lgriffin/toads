@@ -209,7 +209,9 @@ async def night_pin_strategy(day: str, body: NightPinIn, principal: DayOfficer, 
     night = None if body.every_night else day
     try:
         view = await anyio.to_thread.run_sync(
-            lambda: strategy.pin(body.raid, url=body.url, title=body.title, by=principal.member_id, raid_day=night)
+            lambda: strategy.pin(
+                body.raid, url=body.url, title=body.title, by=principal.member_id, raid_day=night, through=day
+            )
         )
     except StrategyError as exc:
         raise _refused(exc) from None
@@ -221,7 +223,7 @@ async def night_pin_strategy(day: str, body: NightPinIn, principal: DayOfficer, 
 async def night_remove_strategy(day: str, doc_id: DocId, principal: DayOfficer, strategy: Strategy) -> Response:
     try:
         # A night's officers take down that night's docs and the every-night ones, never another night's.
-        await anyio.to_thread.run_sync(strategy.remove, doc_id, principal.member_id, frozenset({day, None}))
+        await anyio.to_thread.run_sync(strategy.remove, doc_id, principal.member_id, frozenset({day, None}), day)
     except StrategyError as exc:
         raise _refused(exc) from None
     log.info("strategy.removed", by=principal.member_id, day=day, doc=doc_id)

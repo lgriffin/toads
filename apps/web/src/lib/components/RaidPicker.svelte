@@ -16,7 +16,11 @@
   const shorts = $derived(chosen.map((id) => raids.find((r) => r.id === id)?.short ?? id));
   const summary = $derived(shorts.length ? shorts.join(' then ') : 'Not decided yet');
 
-  function toggle(id: string, on: boolean) {
+  function toggle(box: HTMLInputElement, id: string) {
+    const on = box.checked;
+    // The ticks show what the night is saved as running: this one changes once `chosen` does, and stays put if the
+    // save fails.
+    box.checked = chosen.includes(id);
     onchange(on ? [...chosen.filter((r) => r !== id), id] : chosen.filter((r) => r !== id));
   }
   function away(e: MouseEvent) {
@@ -41,7 +45,7 @@
         <input
           type="checkbox"
           checked={chosen.includes(r.id)}
-          onchange={(e) => toggle(r.id, (e.currentTarget as HTMLInputElement).checked)}
+          onchange={(e) => toggle(e.currentTarget as HTMLInputElement, r.id)}
         />
         <span><strong>{r.short}</strong> {r.name}</span>
         {#if chosen.includes(r.id) && chosen.length > 1}

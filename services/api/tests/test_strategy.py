@@ -239,3 +239,53 @@ def test_a_night_picked_twice_at_once_ends_up_updated(hub: Hub) -> None:
     repo._set_night_raids = always  # type: ignore[method-assign]
     with pytest.raises(IntegrityError):
         repo.set_night_raids("wed", ["mc"], 1)
+
+
+def test_the_audit_log_names_the_night_an_officer_acted_through(hub: Hub) -> None:
+    from hub_db import AuditEntry
+    from sqlalchemy import select
+
+    sid = hub.login(hub.user(("wed", "officer")))
+    every = hub.post("/api/days/wed/strategy/docs", sid, {"raid": "mc", "url": DOC + "1", "every_night": True}).json()
+    hub.post("/api/days/wed/strategy/docs", sid, {"raid": "bwl", "url": DOC + "2"})
+    assert hub.delete(f"/api/days/wed/strategy/docs/{every['id']}", sid).status_code == 204
+    with hub.services.db() as db:
+        rows = [
+            (a.action, a.raid_day_id, a.detail)
+            for a in db.scalars(select(AuditEntry).where(AuditEntry.action.like("strategy.%")).order_by(AuditEntry.id))
+        ]
+    assert rows == [
+        ("strategy.pin", "wed", "mc for every night"),
+        ("strategy.pin", "wed", "bwl for wed"),
+        ("strategy.remove", "wed", "mc for every night"),
+    ]
+
+
+def test_a_doc_pinned_for_a_night_joins_the_end_of_its_raids_in_the_same_write(hub: Hub) -> None:
+    from toads_api.strategy.sql import SqlStrategyRepository
+
+    repo = SqlStrategyRepository(hub.services.db)
+    repo.pin("bwl", "sun", "BWL", DOC + "1", 1, KEEP)
+    repo.set_night_raids("wed", ["zg", "mc"], 1)
+    repo.pin("aq20", "wed", "AQ20", DOC + "2", 1, KEEP)
+    repo.pin("zg", "wed", "ZG", DOC + "3", 1, KEEP)
+    repo.pin("naxx", None, "Naxx", DOC + "4", 1, KEEP)
+    assert repo.night_raids() == {"sun": ["bwl"], "wed": ["zg", "mc", "aq20"]}
+
+
+def test_postgres_saves_of_one_nights_raids_take_turns() -> None:
+    from types import SimpleNamespace
+    from typing import Any
+
+    from toads_api.strategy.sql import _lock_night
+
+    for dialect, locks in (("postgresql", 1), ("sqlite", 0)):
+        seen: list[Any] = []
+        db = SimpleNamespace(
+            get_bind=lambda d=dialect: SimpleNamespace(dialect=SimpleNamespace(name=d)),
+            execute=lambda stmt, params, seen=seen: seen.append((str(stmt), params)),
+        )
+        _lock_night(db, "wed")  # type: ignore[arg-type]
+        assert len(seen) == locks
+        if locks:
+            assert "pg_advisory_xact_lock" in seen[0][0] and seen[0][1] == {"key": "night_raid:wed"}

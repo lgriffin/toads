@@ -93,14 +93,19 @@
     await reload();
   }
 
+  // The night whose raids are saving: its picker waits, so a second tick builds on the first one's answer.
+  let savingNight = $state<string | null>(null);
   async function choose(day: string, raids: string[]) {
     problem = '';
+    savingNight = day;
     try {
       await backend.setNight(day, raids);
     } catch (err) {
       problem = strategyError(err);
+    } finally {
+      await reload();
+      savingNight = null;
     }
-    await reload();
   }
 </script>
 
@@ -136,6 +141,7 @@
                 label="Raids {n.name} is running"
                 raids={raidList}
                 chosen={n.raids}
+                disabled={savingNight === n.raid_day}
                 onchange={(picked) => choose(n.raid_day, picked)}
               />
             {:else}
