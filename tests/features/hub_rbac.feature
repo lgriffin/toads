@@ -49,3 +49,18 @@ Feature: HUB RBAC
     When the super admin revokes the raider's officer grants
     Then the raider's session reports no officer standing
     And the audit log records each officer grant and revoke
+
+  # View as (docs/admin.md "View as"): a super admin checks what a raid night's raiders or officers see, launch hold
+  # included, without being able to act in their name.
+  @ears_state_driven @maintainer @phase_2_6
+  Scenario: REQ-HUB-RBAC-006 While a super admin views the hub as a raid night's raider or officer, the hub shall give their requests that role's standing on that night alone, refuse every change except going back, and audit the start and end
+    Given a super admin signed in
+    When the super admin views the hub as the "sun" raider
+    Then their session reports viewing as the "sun" raider with raider standing for "sun" only and no super admin
+    And they may not reach the officers' or super admins' routes
+    And every change they try is refused as read only
+    When the super admin views the hub as the "sun" officer
+    Then they may reach the officers' routes for "sun" but not for "wed"
+    When the super admin goes back
+    Then their session reports a super admin again
+    And the audit log records each view as start and end

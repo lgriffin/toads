@@ -32,6 +32,10 @@ class SessionData:
     refreshed_at: float
     # The Discord username (account handle). Defaulted so sessions written before it was stored still load.
     discord_username: str = ""
+    # A super admin viewing the hub as a raid night's raider or officer (docs/admin.md "View as"): "raider" or
+    # "officer", and the raid day's id. Empty when they are themselves; a role refresh keeps it.
+    view_as_role: str = ""
+    view_as_day: str = ""
 
 
 @dataclass(frozen=True)

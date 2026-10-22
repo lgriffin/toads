@@ -18,6 +18,7 @@
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
   import { LAUNCH_HOLD, heldNav, isMemberPath, launchHold } from '$lib/launch';
   import { setMe } from '$lib/me-context';
+  import { stopViewAs, viewAsLabel } from '$lib/view-as';
   import { dayName, raidDaysOf } from '$lib/absences';
   import { previewRaidSession } from '$lib/preview/absences-fake';
   import ComingSoon from '$lib/components/ComingSoon.svelte';
@@ -105,6 +106,23 @@
   let isHubHome = $derived(path === '/hub' || path === '/hub/');
   let holdPending = $derived(LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed));
 
+  // A super admin viewing the hub as a raid night's raider or officer (docs/admin.md "View as"): the session already
+  // carries that role's standing, so every page, menu and the launch hold follow it. The bar says so and takes them back.
+  let viewAs = $derived(__PREVIEW__ ? null : (session?.view_as ?? null));
+  let leaving = $state(false);
+  let leaveError = $state('');
+  async function backToSuperAdmin() {
+    leaving = true;
+    leaveError = '';
+    try {
+      await stopViewAs();
+      window.location.assign(`${base}/admin/`);
+    } catch {
+      leaveError = 'The hub did not answer. Try again.';
+      leaving = false;
+    }
+  }
+
   let accountOpen = $state(false);
   function switchView(next: PreviewRole) {
     accountOpen = false;
@@ -122,6 +140,14 @@
 
 {#if __PREVIEW__}
   <div class="preview">Preview with sample data. Nothing here is live.</div>
+{/if}
+
+{#if viewAs}
+  <div class="viewing" role="status">
+    <span>Viewing the hub as a <strong>{viewAsLabel(viewAs)}</strong>. Read only: nothing can be changed in their name.</span>
+    <button type="button" onclick={backToSuperAdmin} disabled={leaving}>Back to super admin</button>
+    {#if leaveError}<span>{leaveError}</span>{/if}
+  </div>
 {/if}
 
 {#snippet links(groups: NavGroup[])}
@@ -188,6 +214,9 @@
           {/each}
           <button class="item out" type="button" onclick={logOut}>Log out</button>
         {:else}
+          {#if viewAs}
+            <button class="item" type="button" onclick={backToSuperAdmin} disabled={leaving}>Back to super admin</button>
+          {/if}
           <form method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
             <button class="item out" type="submit">Log out</button>
           </form>
@@ -396,6 +425,31 @@
     font-size: 0.85rem;
     text-align: center;
   }
+  /* The view as bar: the accent strip in both themes, so a super admin never forgets whose hub they are looking at. */
+  .viewing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem 0.75rem;
+    padding: 0.4rem 1rem;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  .viewing button {
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border-radius: 6px;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .viewing button:hover { background: color-mix(in srgb, var(--on-accent) 14%, transparent); }
   .gate { max-width: 36rem; margin: 2rem auto; }
   main { max-width: 72rem; margin: 0 auto; padding: 1rem; }
   /* The pond pages' bands start flush under the top bar, so no strip of page colour shows above a dusk hero. */

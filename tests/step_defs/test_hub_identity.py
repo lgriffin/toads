@@ -82,6 +82,11 @@ def test_rbac_005() -> None:
     pass
 
 
+@_bind("hub_rbac.feature", 6)
+def test_rbac_006() -> None:
+    pass
+
+
 @_bind("hub_claim.feature", 1)
 def test_claim_001() -> None:
     pass
@@ -354,6 +359,78 @@ def officer_grants_audited(hub: Hub) -> None:
         ("officer.grant", None),
         ("officer.revoke", "sun"),
         ("officer.revoke", None),
+    ]
+
+
+# --- view as (REQ-HUB-RBAC-006) ------------------------------------------------------------------------
+
+
+@given("a super admin signed in")
+def super_admin_signed_in(hub: Hub, ctx: dict[str, Any]) -> None:
+    admin = hub.user(("wed", "officer"))
+    hub.services.settings = make_settings(super_admin_ids=str(admin.user_id))
+    ctx["admin"] = hub.login(admin)
+
+
+@when(parsers.parse('the super admin views the hub as the "{day}" {role}'))
+def view_as(hub: Hub, ctx: dict[str, Any], day: str, role: str) -> None:
+    r = hub.put(f"/api/admin/view-as/{role}/{day}", ctx["admin"])
+    assert r.status_code == 200, r.text
+    assert r.json() == {"role": role, "raid_day": day, "name": RAID_DAYS.day(day).name}  # type: ignore[union-attr]
+
+
+@then(
+    parsers.parse(
+        'their session reports viewing as the "{day}" raider with raider standing for "{also}" only and no super admin'
+    )
+)
+def viewing_as_raider(hub: Hub, ctx: dict[str, Any], day: str, also: str) -> None:
+    s = hub.get("/api/session", ctx["admin"]).json()
+    assert s["view_as"] == {"role": "raider", "raid_day": day, "name": "Sunday"}
+    assert (s["day_roles"], s["officer_days"]) == ({also: "raider"}, [])
+    assert not (s["super_admin"] or s["global_officer"])
+
+
+@then("they may not reach the officers' or super admins' routes")
+def viewer_kept_out(hub: Hub, ctx: dict[str, Any]) -> None:
+    for path in ("/api/days/sun/claims", "/api/days/wed/claims", "/api/admin/officer-grants"):
+        assert hub.get(path, ctx["admin"]).status_code == 403, path
+
+
+@then("every change they try is refused as read only")
+def viewer_read_only(hub: Hub, ctx: dict[str, Any]) -> None:
+    r = hub.post("/api/days/sun/absences", ctx["admin"], {"starts_on": "2026-11-01", "ends_on": "2026-11-01"})
+    assert r.status_code == 403
+    assert "read only" in r.json()["detail"]
+
+
+@then(parsers.parse('they may reach the officers\' routes for "{day}" but not for "{other}"'))
+def viewer_as_officer(hub: Hub, ctx: dict[str, Any], day: str, other: str) -> None:
+    assert hub.get(f"/api/days/{day}/claims", ctx["admin"]).status_code == 200
+    assert hub.get(f"/api/days/{other}/claims", ctx["admin"]).status_code == 403
+    assert hub.get("/api/session", ctx["admin"]).json()["officer_days"] == [day]
+
+
+@when("the super admin goes back")
+def go_back(hub: Hub, ctx: dict[str, Any]) -> None:
+    assert hub.delete("/api/admin/view-as", ctx["admin"]).status_code == 204
+
+
+@then("their session reports a super admin again")
+def super_admin_again(hub: Hub, ctx: dict[str, Any]) -> None:
+    s = hub.get("/api/session", ctx["admin"]).json()
+    assert s["super_admin"] and s["view_as"] is None
+    assert hub.get("/api/admin/officer-grants", ctx["admin"]).status_code == 200
+
+
+@then("the audit log records each view as start and end")
+def view_as_audited(hub: Hub) -> None:
+    with hub.db() as db:
+        rows = [(a.action, a.target, a.raid_day_id) for a in db.scalars(select(AuditEntry).order_by(AuditEntry.id))]
+    assert [r for r in rows if r[0].startswith("view_as.")] == [
+        ("view_as.start", "raider", "sun"),
+        ("view_as.start", "officer", "sun"),
+        ("view_as.end", "officer", "sun"),
     ]
 
 

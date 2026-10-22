@@ -15,9 +15,9 @@ from starlette.routing import BaseRoute
 
 from toads_api import audit
 from toads_api.identity import DiscordUnavailableError, NotAMemberError, acting_principal, refresh
-from toads_api.rbac.permissions import GRANTABLE, Permission, Principal, can
+from toads_api.rbac.permissions import GRANTABLE, HubRole, Permission, Principal, ViewAs, can
 from toads_api.services import Services
-from toads_api.sessions import SESSION_COOKIE
+from toads_api.sessions import SESSION_COOKIE, SessionData
 from toads_api.settings import Settings
 
 
@@ -85,7 +85,8 @@ async def _acting_member(request: Request, services: Services, raw: str) -> Prin
 async def with_grants(services: Services, principal: Principal) -> Principal:
     """The member's bank grants, read from the database on every request and never cached with their roles, so a
     revoke takes effect on their next call, on the site and through the bank bot alike (docs/bank.md "Grants")."""
-    if principal.discord_user_id is None:
+    if principal.discord_user_id is None or principal.viewing_as is not None:
+        # Viewing the hub as a raider or officer shows that role's bank, not the super admin's own grants.
         return principal
     held = await anyio.to_thread.run_sync(services.bank_grants.held_by, principal.discord_user_id)
     if not held:
@@ -110,13 +111,41 @@ async def get_principal(request: Request) -> Principal:
     """Resolve the caller from their server-side session; roles come from Discord only (REQ-HUB-RBAC-001), super
     admins from configuration. Bank grants are added by the guards that can use them (Require, /api/bank/me)."""
     services = get_services(request)
-    return elevate(services.settings, await _session_principal(request, services))
+    principal, view_as = await _session_principal(request, services)
+    return viewing(services, elevate(services.settings, principal), view_as)
 
 
-async def _session_principal(request: Request, services: Services) -> Principal:
+# The roles a super admin may view the hub as (docs/admin.md "View as"), by the name the session and URL use.
+VIEW_AS_ROLES: dict[str, HubRole] = {"raider": HubRole.RAIDER, "officer": HubRole.OFFICER}
+VIEW_AS_READ_ONLY = "You are viewing the hub as another role, which is read only. Go back to make changes."
+
+
+def view_as_of(data: SessionData) -> ViewAs | None:
+    role = VIEW_AS_ROLES.get(data.view_as_role)
+    return ViewAs(role, data.view_as_day) if role is not None and data.view_as_day else None
+
+
+def viewing(services: Services, principal: Principal, view_as: ViewAs | None) -> Principal:
+    """docs/admin.md "View as": a super admin's requests carry one raid night's raider or officer standing and nothing
+    else, still under their own identity. Anyone else's stored view is ignored (a super admin dropped from the
+    configuration is simply themselves again), as is a raid day the configuration no longer has."""
+    if view_as is None or not principal.super_admin or services.raid_days.day(view_as.raid_day) is None:
+        return principal
+    return Principal(
+        member_id=principal.member_id,
+        display_name=principal.display_name,
+        day_roles={view_as.raid_day: view_as.role},
+        discord_user_id=principal.discord_user_id,
+        discord_username=principal.discord_username,
+        discord_role_ids=principal.discord_role_ids,
+        viewing_as=view_as,
+    )
+
+
+async def _session_principal(request: Request, services: Services) -> tuple[Principal, ViewAs | None]:
     acting = request.headers.get(ACTING_MEMBER_HEADER)
     if acting is not None:
-        return await _acting_member(request, services, acting.strip())
+        return await _acting_member(request, services, acting.strip()), None
     session_id = request.cookies.get(SESSION_COOKIE)
     data = await services.sessions.get(session_id) if session_id else None
     if session_id is None or data is None:
@@ -130,7 +159,7 @@ async def _session_principal(request: Request, services: Services) -> Principal:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended; sign in again")
         data = refreshed
     # Off the event loop: the night badges' roles come from the database.
-    return await anyio.to_thread.run_sync(
+    principal = await anyio.to_thread.run_sync(
         services.principal_for,
         data.member_id,
         set(data.role_ids),
@@ -138,6 +167,7 @@ async def _session_principal(request: Request, services: Services) -> Principal:
         data.discord_user_id,
         data.discord_username,
     )
+    return principal, view_as_of(data)
 
 
 def _record_break_glass(
@@ -191,6 +221,13 @@ class Require:
                     _record_denial, get_services(request), principal, request, raid_day, self.permission.value
                 )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        if (
+            principal.viewing_as is not None
+            and request.method not in SAFE_METHODS
+            and self.permission is not Permission.VIEW_AS
+        ):
+            # docs/admin.md "View as": read only, so nothing is done in a raider's or officer's name but going back.
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=VIEW_AS_READ_ONLY)
         if principal.break_glass and request.method not in SAFE_METHODS:
             # docs/admin.md: every change made through the break-glass admin is on the audit log, marked as such.
             await anyio.to_thread.run_sync(

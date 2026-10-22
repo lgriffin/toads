@@ -370,10 +370,13 @@ Rules worth knowing:
   member an officer of a raid night, or of every night (a global officer), on top of their Discord roles. Read on every
   request, so a revoke works on their next action. A grant never makes a super admin, and its holder cannot grant
   anything. Audited as `officer.grant` and `officer.revoke`.
+- **View as** ([docs/admin.md](docs/admin.md#view-as)): on the Admin page a super admin sees the hub as one raid
+  night's raider or officer, launch hold included, to test what they see. Read only, with a bar at the top to go back.
+  Audited as `view_as.start` and `view_as.end`.
 - **Officer tokens** are the self-service way to hand out grants: a super admin mints one on the Bank page or the Admin
   page, passes it on privately, and the member redeems it on the Bank page or with `/bank redeem <token>`. 7 days and one use by
   default (at most 30 days and 25 uses). Only a hash is stored; the token is shown once.
-- **Audit log** (`audit` table): `officer.grant`, `officer.revoke`, `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
+- **Audit log** (`audit` table): `officer.grant`, `officer.revoke`, `view_as.start`, `view_as.end`, `bank.grant`, `bank.revoke`, `bank.token_minted`, `bank.token_redeemed`,
   `bank.token_revoked`, `break_glass`, plus officer actions such as claim decisions and board changes (`board.*`).
 - **Role badges** ([docs/role-badges.md](docs/role-badges.md)): on the Admin page, under "Badges from Discord roles",
   pick a server role and the badge it earns (Wednesday Toad, Thursday Toad, Sunday Toad, each night's Officer, Tank,

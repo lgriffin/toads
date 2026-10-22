@@ -63,6 +63,29 @@ Routes (super admins only): `GET /api/admin/officer-grants` (the grants and the 
 (`{discord_user_id, raid_day}`, `raid_day` null for every night; `201`, or `200` when already held) and
 `DELETE /api/admin/officer-grants/{id}`.
 
+## View as
+
+To check what a raid night's raiders or officers see, a super admin opens the Admin page and, under "View as", picks
+Raider or Officer and a night, then "View as a Sunday raider" (or officer). The hub then answers their requests as that
+role on that night alone, so every page, menu and refusal is the one that member gets, **the launch hold included**: as
+a raider they get the coming-soon page and the pages raiders may open during the hold.
+
+- It is **read only**. Every change (`POST`, `PUT`, `PATCH`, `DELETE`) is refused with `403` while it is on, except
+  going back, so nothing is ever done in a raider's or officer's name.
+- It never changes who they are: their own name, member id, Discord account and badges stay theirs, so Me shows their
+  own absences, characters and numbers seen through that role. Their bank grants do not count while viewing.
+- A bar across the top names the role ("Viewing the hub as a Sunday raider") with "Back to super admin", which is also
+  in the account menu. Going back, signing out or the session expiring all end it.
+- It lives in the super admin's server-side session (`view_as_role`, `view_as_day` in Redis) and survives a role
+  refresh. It only counts for a super admin: someone dropped from `TOADS_SUPER_ADMIN_IDS` is simply themselves again,
+  as is anyone viewing a night since removed from `raid_days.yaml`.
+- `/api/session` reports it as `view_as` (`{role, raid_day, name}`, else `null`), and its other fields are then that
+  role's: `super_admin` and `global_officer` are false.
+
+Routes (super admins only, `view_as`): `PUT /api/admin/view-as/{raider|officer}/{night}` starts or switches the view
+and `DELETE /api/admin/view-as` goes back (`204`, harmless when not viewing). Audited as `view_as.start` and
+`view_as.end`.
+
 ## Officer tokens
 
 A super admin mints a token on the Bank page (`POST /api/admin/bank/tokens`), naming:
@@ -102,6 +125,8 @@ the token is still usable, counts the use and adds the grants it names, as from 
 | `bank.token_revoked` | the super admin | `bank token {id}` | |
 | `officer.grant` | the super admin | `officer grant {id}: officer for discord user {id}` (`global officer` for every night) | |
 | `officer.revoke` | the super admin | the same | |
+| `view_as.start` | the super admin | `raider` or `officer` (raid day in its column) | |
+| `view_as.end` | the super admin | the same | |
 | `break_glass` | the break-glass admin | `{METHOD} {path}` | the permission used |
 
 ## Configuration

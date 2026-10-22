@@ -8,12 +8,16 @@
   import BankGrants from '$lib/components/BankGrants.svelte';
   import OfficerGrants from '$lib/components/OfficerGrants.svelte';
   import RoleBadges from '$lib/components/RoleBadges.svelte';
+  import ViewAsCard from '$lib/components/ViewAsCard.svelte';
+  import { goto } from '$app/navigation';
+  import { previewSignIn } from '$lib/preview/session.svelte';
+  import { startViewAs, viewAsNights, type ViewAsRole } from '$lib/view-as';
   import { hubOfficerGrants } from '$lib/officer-grants';
   import { previewBankFetch } from '$lib/preview/bank-fake';
   import { previewOfficerGrants } from '$lib/preview/officer-grants-fake';
   import { previewRoleBadges } from '$lib/preview/role-badges-fake';
   import { hubRoleBadges } from '$lib/role-badges';
-  import { NIGHT_IDS } from '$lib/nights';
+  import { NIGHT_IDS, NIGHT_NAMES } from '$lib/nights';
 
   // The super admin console: who is an officer by grant, which Discord roles earn which badges, who else runs the
   // bank, and where each integration is set up. The hub's routes are the gate (MANAGE_OFFICER_GRANTS,
@@ -26,6 +30,18 @@
   const allowed = $derived(__PREVIEW__ || !!session?.super_admin);
   const days = $derived(__PREVIEW__ ? [...NIGHT_IDS] : (session?.officer_days ?? []));
   const outside = (href: string) => href.startsWith('https://');
+  const viewNights = $derived(viewAsNights(__PREVIEW__ ? undefined : session?.day_names, NIGHT_NAMES));
+  // The hub keeps the view in the session, so a full load picks it up everywhere; the preview has its own pretend
+  // raider and officer, with no nights of their own.
+  async function viewAs(role: ViewAsRole, day: string) {
+    if (__PREVIEW__) {
+      previewSignIn(role === 'raider' ? 'member' : 'officer');
+      await goto(`${base}/hub/`);
+      return;
+    }
+    await startViewAs(role, day);
+    window.location.assign(`${base}/hub/`);
+  }
 </script>
 
 <svelte:head><title>Admin · Toads</title></svelte:head>
@@ -41,9 +57,13 @@
   </section>
 {:else}
   <p class="lede">
-    Officer grants, badges from Discord roles, bank grants, officer tokens and the hub's integrations. Super admins are named in the hub's
+    Viewing the hub as a raider or officer, officer grants, badges from Discord roles, bank grants, officer tokens and the hub's integrations. Super admins are named in the hub's
     configuration, and the break-glass admin's changes are always audited.
   </p>
+
+  <div class="block">
+    <ViewAsCard nights={viewNights} onview={viewAs} />
+  </div>
 
   <div class="block">
     <OfficerGrants backend={__PREVIEW__ ? previewOfficerGrants() : hubOfficerGrants()} />

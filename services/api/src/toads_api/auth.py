@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from toads_api.discord_api import SCOPES, DiscordAuthError, DiscordError
 from toads_api.identity import upsert_member
-from toads_api.rbac.deps import elevate, get_services, require
+from toads_api.rbac.deps import VIEW_AS_ROLES, elevate, get_services, require
 from toads_api.rbac.permissions import HubRole, Permission, Principal
 from toads_api.services import Services
 from toads_api.sessions import LOGIN_COOKIE, SESSION_COOKIE, PendingLogin, SessionData
@@ -182,6 +182,8 @@ async def session_info(
     officer_days: days they hold officer powers for; every configured day for a global officer.
     day_names: every configured raid day's name by id, in config order (the Raid page's switcher).
     super_admin / break_glass: above the global tier, from configuration (docs/admin.md).
+    view_as: while a super admin views the hub as a raid night's raider or officer (docs/admin.md "View as"), that role
+    and night; everything above is then that role's standing. None otherwise.
     """
     days = [d.id for d in services.raid_days.raid_days]
     # The name the member chose to be shown by (REQ-HUB-PRIV-005). The principal keeps the Discord nickname, which
@@ -203,4 +205,14 @@ async def session_info(
         "day_names": {d.id: d.name for d in services.raid_days.raid_days},
         # A trial or raider who has not finished the first sign-in setup (/setup, REQ-HUB-ME-007).
         "needs_setup": await anyio.to_thread.run_sync(needs_setup, services, principal),
+        "view_as": _view_as(services, principal),
     }
+
+
+def _view_as(services: Services, principal: Principal) -> dict[str, str] | None:
+    view = principal.viewing_as
+    if view is None:
+        return None
+    day = services.raid_days.day(view.raid_day)
+    role = next(name for name, r in VIEW_AS_ROLES.items() if r is view.role)
+    return {"role": role, "raid_day": view.raid_day, "name": day.name if day else view.raid_day}
