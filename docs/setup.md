@@ -8,7 +8,7 @@ their primary and secondary spec, and their alts. Professions join it once they 
 - Sign-in sends a trial or raider (anyone who may claim characters) to `/setup` instead of the hub home until they
   press **Finish and hop in** (`members.setup_done_at`). A sign-in that asked to return somewhere (`/recruit`) still
   returns there, and members with no raid night role go to the hub as before. `/api/session` says `needs_setup`.
-- Everyone meets it once, existing members included: migration 0033 leaves `setup_done_at` empty for all.
+- Everyone meets it once, existing members included: migration 0035 leaves `setup_done_at` empty for all.
 - Anyone can rerun it from the account menu (**Your setup**) or the link at the foot of Me.
 - It is open to raiders during the launch hold (`OPEN_TO_MEMBERS_EXACT` in `apps/web/src/lib/launch.ts`).
 

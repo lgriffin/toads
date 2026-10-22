@@ -1,7 +1,7 @@
 """The first sign-in setup: when a member finished it, and characters they named that the logs have not seen yet
 
-Revision ID: 0033
-Revises: 0032
+Revision ID: 0035
+Revises: 0034
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0033"
-down_revision = "0032"
+revision = "0035"
+down_revision = "0034"
 branch_labels = None
 depends_on = None
 
