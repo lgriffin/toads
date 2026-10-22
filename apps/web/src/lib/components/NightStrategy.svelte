@@ -2,9 +2,11 @@
   import { base } from '$app/paths';
   import { hubStrategy, pinnedLine, strategyError, type NightStrategy, type Raid } from '$lib/strategy';
   import { PREVIEW_RAIDS, previewStrategy } from '$lib/preview/strategy-fake';
+  import RaidPicker from './RaidPicker.svelte';
 
-  // The Raid page's strategy (docs/strategy.md): the raid the night is running and the Google Doc pinned to that raid.
-  // The night's officers pick the raid here; officers pin the docs on the officers' Strategy page.
+  // The Raid page's strategy (docs/strategy.md): each raid the night is running, in order, with its Google Doc (the
+  // night's own doc for the raid, else the every-night one). The night's officers pick its raids here; officers pin the
+  // docs on the officers' Strategy page.
   // `dusk` paints the band dark, so it alternates with the bands around it on the page.
   let { day, name, officer = false, dusk = false }: { day: string; name: string; officer?: boolean; dusk?: boolean } =
     $props();
@@ -31,7 +33,7 @@
     );
   });
   $effect(() => {
-    // Only the night's officers pick its raid, so only they need the raid list.
+    // Only the night's officers pick its raids, so only they need the raid list.
     if (officer && !raids.length)
       backend.library().then(
         (l) => (raids = l.raids.map((r) => r.raid)),
@@ -39,62 +41,68 @@
       );
   });
 
-  async function choose(e: Event) {
-    const select = e.currentTarget as HTMLSelectElement;
+  async function choose(picked: string[]) {
     // The night this pick is for: the viewer may switch nights before the answer comes back.
     const picking = day;
     saving = true;
     problem = '';
     try {
-      const answer = await backend.setNight(picking, select.value || null);
+      const answer = await backend.setNight(picking, picked);
       if (picking === day) night = answer;
     } catch (err) {
-      if (picking === day) {
-        problem = strategyError(err);
-        // Put the picker back on the raid the night is still running.
-        select.value = night?.raid?.id ?? '';
-      }
+      if (picking === day) problem = strategyError(err);
     } finally {
       saving = false;
     }
   }
+
+  const running = $derived(night ? night.raids.map((r) => r.raid.name) : []);
 </script>
 
 <section class="band" class:dusk aria-labelledby="strategy-h">
   <div class="head">
     <h2 id="strategy-h">Strategy</h2>
-    {#if night?.raid}
-      <p>{name} is running {night.raid.name}. The officers keep one strategy doc per raid in Google Drive.</p>
+    {#if running.length}
+      <p>{name} is running {running.join(' then ')}. The officers keep the strategy docs in Google Drive.</p>
     {:else if night}
-      <p>{name}’s officers have not said which raid the night is running yet.</p>
+      <p>{name}’s officers have not said which raids the night is running yet.</p>
     {/if}
   </div>
   {#if failed}
     <p class="err" role="alert">Could not load the night’s strategy; try again later.</p>
   {:else if night === null}
     <p class="muted" role="status">Loading…</p>
-  {:else if night.raid && night.pinned}
-    <div class="doc">
-      <a class="medal" href={night.pinned.url} target="_blank" rel="noopener noreferrer">
-        Open the {night.raid.short} strategy
-      </a>
-      <p>
-        <strong>{night.pinned.title}</strong>
-        <span class="muted">{pinnedLine(night.pinned)} · opens in Google Drive</span>
-      </p>
-    </div>
-  {:else if night.raid}
-    <p class="muted">No strategy doc is pinned for {night.raid.name} yet.</p>
+  {:else if night.raids.length}
+    <ul class="docs">
+      {#each night.raids as r (r.raid.id)}
+        <li class="doc">
+          {#if r.pinned}
+            <a class="medal" href={r.pinned.url} target="_blank" rel="noopener noreferrer">
+              Open the {r.raid.short} strategy
+            </a>
+            <p>
+              <strong>{r.pinned.title}</strong>
+              <span class="muted">
+                {pinnedLine(r.pinned)}{r.pinned.raid_day ? ` for ${name}` : ''} · opens in Google Drive
+              </span>
+            </p>
+          {:else}
+            <p><strong>{r.raid.short}</strong> <span class="muted">No strategy doc is pinned for {r.raid.name} yet.</span></p>
+          {/if}
+        </li>
+      {/each}
+    </ul>
   {/if}
   {#if officer && night}
     <div class="pick">
-      <label for="night-raid-{day}">Raid {name} is running</label>
-      <select id="night-raid-{day}" value={night.raid?.id ?? ''} disabled={saving || !raids.length} onchange={choose}>
-        <option value="">Not decided yet</option>
-        {#each raids as r (r.id)}
-          <option value={r.id}>{r.short}: {r.name}</option>
-        {/each}
-      </select>
+      <span class="label" aria-hidden="true">Raids {name} is running</span>
+      <RaidPicker
+        label="Raids {name} is running"
+        {raids}
+        chosen={night.raids.map((r) => r.raid.id)}
+        disabled={saving || !raids.length}
+        onchange={choose}
+      />
       <a href="{base}/officers/strategy/">Strategy docs for every raid</a>
     </div>
     {#if problem}<p class="err" role="alert">{problem}</p>{/if}
@@ -102,9 +110,10 @@
 </section>
 
 <style>
-  .doc { display: grid; gap: 0.6rem; justify-items: start; }
+  .docs { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
+  .doc { display: grid; gap: 0.6rem; justify-items: start; align-content: start; }
   .doc p { margin: 0; display: grid; gap: 0.1rem; }
-  .pick { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; }
-  .pick label { font-weight: 700; }
-  .pick select { font: inherit; padding: 0.35rem 0.5rem; border-radius: 6px; max-width: 100%; }
+  .pick { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: flex-start; }
+  .pick > .label, .pick > a { padding-top: 0.4rem; }
+  .pick .label { font-weight: 700; }
 </style>

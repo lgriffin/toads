@@ -18,11 +18,12 @@
     type Library,
     type StrategyDoc
   } from '$lib/strategy';
+  import RaidPicker from '$lib/components/RaidPicker.svelte';
 
-  // The officers' strategy docs (docs/strategy.md): one pinned Google Doc per raid, which every night running that raid
-  // shows on its Raid page. Every officer pins and takes down docs (a night's officers through their night's path, the
-  // global tier through /api/admin); each night's officers pick the raid their night is running. The API checks every
-  // call.
+  // The officers' strategy docs (docs/strategy.md): Google Docs pinned to each raid, for every night or for one night,
+  // which every night running that raid shows on its Raid page (its own doc first). Every officer pins and takes down
+  // docs for every night and for the nights they run (a night's officers through their night's path, the global tier
+  // through /api/admin); each night's officers pick the raids their night is running. The API checks every call.
   let session = $state<Session | null | undefined>(undefined);
   const backend = __PREVIEW__ ? previewStrategy : hubStrategy();
   let library = $state<Library | null>(null);
@@ -44,11 +45,16 @@
   const raidDays = $derived(raidDaysOf(__PREVIEW__ ? previewRaidSession(previewSession.role) : session));
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
   const runs = (day: string) => globalTier || raidDays.officerDays.includes(day);
-  // The night an officer pins through: none for the global tier, else the first night they run.
-  const pinDay = $derived(globalTier ? null : (raidDays.officerDays[0] ?? null));
-  const canPin = $derived(globalTier || pinDay !== null);
+  // An officer pins for every night or for a night they run; the global tier for any night.
+  const pinNights = $derived(library ? library.nights.filter((n) => runs(n.raid_day)) : []);
+  const canPin = $derived(globalTier || raidDays.officerDays.length > 0);
+  // The night a night officer acts through: the doc's own night, else the first night they run.
+  const through = (night: string | null) => (globalTier ? null : (night ?? raidDays.officerDays[0] ?? null));
+  const canTakeDown = (night: string | null) => canPin && (night === null || runs(night));
+  const raidList = $derived(library ? library.raids.map((r) => r.raid) : []);
 
   let raid = $state('');
+  let forNight = $state('');
   let url = $state('');
   let title = $state('');
   let busy = $state(false);
@@ -61,10 +67,12 @@
     problem = (raid ? '' : 'Pick the raid the doc is for.') || docProblem(url, title) || '';
     if (problem) return;
     busy = true;
+    const night = forNight || null;
     try {
-      const doc = await backend.pin(raid, url.trim(), title.trim(), pinDay);
+      const doc = await backend.pin(raid, url.trim(), title.trim(), { through: through(night), night });
       const short = library?.raids.find((r) => r.raid.id === doc.raid)?.raid.short ?? doc.raid;
-      done = `Pinned “${doc.title}” as the ${short} strategy.`;
+      const where = night ? (library?.nights.find((n) => n.raid_day === night)?.name ?? night) : 'every night';
+      done = `Pinned “${doc.title}” as the ${short} strategy for ${where}.`;
       [url, title] = ['', ''];
       await reload();
     } catch (err) {
@@ -78,22 +86,26 @@
     if (!confirm(`Take down “${doc.title}”? If it is the pinned doc, the one it replaced is pinned again.`)) return;
     problem = '';
     try {
-      await backend.remove(doc.id, pinDay);
+      await backend.remove(doc.id, through(doc.raid_day));
     } catch (err) {
       problem = strategyError(err);
     }
     await reload();
   }
 
-  async function choose(day: string, e: Event) {
-    const value = (e.currentTarget as HTMLSelectElement).value;
+  // The night whose raids are saving: its picker waits, so a second tick builds on the first one's answer.
+  let savingNight = $state<string | null>(null);
+  async function choose(day: string, raids: string[]) {
     problem = '';
+    savingNight = day;
     try {
-      await backend.setNight(day, value || null);
+      await backend.setNight(day, raids);
     } catch (err) {
       problem = strategyError(err);
+    } finally {
+      await reload();
+      savingNight = null;
     }
-    await reload();
   }
 </script>
 
@@ -103,8 +115,8 @@
   <p class="crumb"><a href="{base}/officers/">Officers</a></p>
   <h1>Strategy</h1>
   <p class="lede muted">
-    One strategy doc per raid, kept in Google Drive. Pin a new doc and it replaces the raid’s current one everywhere.
-    Each night’s Raid page shows the doc for the raid that night is running.
+    Strategy docs live in Google Drive. Pin one per raid for every night, or give a night its own. A new doc replaces
+    the one pinned in the same place. Each night’s Raid page shows the doc for every raid that night is running.
   </p>
 
   {#if failed}
@@ -116,21 +128,25 @@
 
     <section class="card" aria-labelledby="nights-h">
       <h2 id="nights-h">What each night is running</h2>
-      <p class="muted">A night’s officers pick its raid. Its raiders see that raid’s doc on their Raid page.</p>
+      <p class="muted">
+        A night’s officers pick one or more raids. Its raiders see each raid’s doc on their Raid page. Pinning a doc for
+        a night adds its raid to that night.
+      </p>
       <ul class="nights">
         {#each library.nights as n (n.raid_day)}
           <li>
-            <label for="night-{n.raid_day}">{n.name}</label>
+            <span class="night-name">{n.name}</span>
             {#if runs(n.raid_day)}
-              <select id="night-{n.raid_day}" value={n.raid ?? ''} onchange={(e) => choose(n.raid_day, e)}>
-                <option value="">Not decided yet</option>
-                {#each library.raids as r (r.raid.id)}
-                  <option value={r.raid.id}>{r.raid.short}: {r.raid.name}</option>
-                {/each}
-              </select>
+              <RaidPicker
+                label="Raids {n.name} is running"
+                raids={raidList}
+                chosen={n.raids}
+                disabled={savingNight === n.raid_day}
+                onchange={(picked) => choose(n.raid_day, picked)}
+              />
             {:else}
-              <span id="night-{n.raid_day}">
-                {library.raids.find((r) => r.raid.id === n.raid)?.raid.name ?? 'Not decided yet'}
+              <span>
+                {n.raids.map((id) => raidList.find((r) => r.id === id)?.name ?? id).join(' then ') || 'Not decided yet'}
               </span>
             {/if}
           </li>
@@ -151,6 +167,15 @@
               {/each}
             </select>
           </label>
+          <label>
+            For
+            <select bind:value={forNight}>
+              <option value="">Every night</option>
+              {#each pinNights as n (n.raid_day)}
+                <option value={n.raid_day}>{n.name} only</option>
+              {/each}
+            </select>
+          </label>
           <label class="wide">
             Google Doc link
             <input
@@ -168,7 +193,7 @@
           </label>
         </div>
         <p class="muted">Share the doc in Drive with the raiders first; the hub only links it.</p>
-        <button class="btn primary" type="submit" disabled={busy}>Pin as the raid’s strategy</button>
+        <button class="btn primary" type="submit" disabled={busy}>Pin the strategy doc</button>
         {#if done}<p class="ok" role="status">{done}</p>{/if}
       </form>
     {:else}
@@ -179,33 +204,36 @@
       {#each library.raids as r (r.raid.id)}
         <li class="card">
           <h2>{r.raid.short} <span class="muted">{r.raid.name}</span></h2>
-          {#if r.pinned}
-            <p class="doc">
-              <a href={r.pinned.url} target="_blank" rel="noopener noreferrer">{r.pinned.title}</a>
-              <span class="muted">{pinnedLine(r.pinned)}</span>
-            </p>
-            {#if canPin}
-              <button class="btn danger" type="button" onclick={() => r.pinned && takeDown(r.pinned)}>Take down</button>
-            {/if}
+          {#each r.slots as slot (slot.raid_day ?? '')}
+            <section class="slot" aria-label="{r.raid.short} {slot.name}">
+              <h3>{slot.name}</h3>
+              <p class="doc">
+                <a href={slot.pinned.url} target="_blank" rel="noopener noreferrer">{slot.pinned.title}</a>
+                <span class="muted">{pinnedLine(slot.pinned)}</span>
+              </p>
+              {#if canTakeDown(slot.raid_day)}
+                <button class="btn small danger" type="button" onclick={() => takeDown(slot.pinned)}>Take down</button>
+              {/if}
+              {#if slot.replaced.length}
+                <details>
+                  <summary>Replaced docs ({slot.replaced.length})</summary>
+                  <ul>
+                    {#each slot.replaced as d (d.id)}
+                      <li>
+                        <a href={d.url} target="_blank" rel="noopener noreferrer">{d.title}</a>
+                        <span class="muted">{pinnedLine(d)}</span>
+                        {#if canTakeDown(slot.raid_day)}
+                          <button class="btn small danger" type="button" onclick={() => takeDown(d)}>Take down</button>
+                        {/if}
+                      </li>
+                    {/each}
+                  </ul>
+                </details>
+              {/if}
+            </section>
           {:else}
             <p class="muted">No doc pinned yet.</p>
-          {/if}
-          {#if r.replaced.length}
-            <details>
-              <summary>Replaced docs ({r.replaced.length})</summary>
-              <ul>
-                {#each r.replaced as d (d.id)}
-                  <li>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer">{d.title}</a>
-                    <span class="muted">{pinnedLine(d)}</span>
-                    {#if canPin}
-                      <button class="btn small danger" type="button" onclick={() => takeDown(d)}>Take down</button>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            </details>
-          {/if}
+          {/each}
         </li>
       {/each}
     </ul>
@@ -221,20 +249,24 @@
   .card { display: grid; gap: 0.6rem; }
   .card p { margin: 0; }
   .nights { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-  .nights li { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.75rem; align-items: center; }
-  .nights label { font-weight: 700; }
-  .nights select { width: min(100%, 22rem); }
+  .nights li { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.75rem; align-items: start; }
+  .night-name { font-weight: 700; padding-top: 0.4rem; }
+  .nights :global(.picker) { justify-self: start; }
+  .nights li > span:not(.night-name) { padding-top: 0.4rem; }
   .fields select, .fields input { width: 100%; box-sizing: border-box; }
   select, input { font: inherit; padding: 0.4rem 0.5rem; border-radius: 6px; max-width: 100%; }
-  .fields { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr); }
+  .fields { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 14rem)) minmax(0, 1fr); }
   .fields label { display: grid; gap: 0.25rem; font-weight: 700; }
-  .fields .wide:last-child { grid-column: 2; }
+  .fields .wide:last-child { grid-column: 3; }
   .pin button { justify-self: start; }
   .ok { color: var(--teal); }
   .raids { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
   .raids h2 { font-size: 1.2rem; }
+  .raids .card { align-content: start; }
   .raids h2 .muted { font-family: 'Alegreya Sans', system-ui, sans-serif; font-weight: 400; font-size: 1rem; letter-spacing: 0; }
   .raids .btn { justify-self: start; }
+  .slot { display: grid; gap: 0.35rem; padding-top: 0.6rem; border-top: 1px solid var(--line); }
+  .slot h3 { margin: 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   .doc { display: grid; gap: 0.1rem; }
   .doc a { font-weight: 700; overflow-wrap: anywhere; }
   details ul { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.4rem; }
