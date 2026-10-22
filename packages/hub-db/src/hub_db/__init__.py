@@ -26,6 +26,7 @@ from hub_db.credentials import (
 )
 from hub_db.gallery import GalleryPhoto, GalleryPhotoFile, LiveStream, PhotoOfTheWeek, TrustedChannel
 from hub_db.logs import LogIndex, LogRaid
+from hub_db.loot import LootItem, LootRecipient
 from hub_db.models import (
     AnalyzerBadgePage,
     AnalyzerCharacterBuild,
@@ -83,6 +84,8 @@ __all__ = [
     "LiveStream",
     "LogIndex",
     "LogRaid",
+    "LootItem",
+    "LootRecipient",
     "MainSwapRequest",
     "Member",
     "MemberAbsence",
