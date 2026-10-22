@@ -22,15 +22,7 @@ class Profession:
 PROFESSIONS: dict[str, Profession] = {
     p.id: p
     for p in [
-        Profession(
-            "alchemy",
-            "Alchemy",
-            specialisations=(
-                ("elixir", "Elixir Master"),
-                ("potion", "Potion Master"),
-                ("transmute", "Transmutation Master"),
-            ),
-        ),
+        Profession("alchemy", "Alchemy"),
         Profession(
             "blacksmithing",
             "Blacksmithing",
@@ -44,17 +36,12 @@ PROFESSIONS: dict[str, Profession] = {
         ),
         Profession("enchanting", "Enchanting"),
         Profession("engineering", "Engineering", specialisations=(("gnomish", "Gnomish"), ("goblin", "Goblin"))),
-        Profession("jewelcrafting", "Jewelcrafting"),
         Profession(
             "leatherworking",
             "Leatherworking",
             specialisations=(("dragonscale", "Dragonscale"), ("elemental", "Elemental"), ("tribal", "Tribal")),
         ),
-        Profession(
-            "tailoring",
-            "Tailoring",
-            specialisations=(("mooncloth", "Mooncloth"), ("shadoweave", "Shadoweave"), ("spellfire", "Spellfire")),
-        ),
+        Profession("tailoring", "Tailoring"),
         Profession("herbalism", "Herbalism"),
         Profession("mining", "Mining"),
         Profession("skinning", "Skinning"),

@@ -35,7 +35,7 @@ def _p(profession: str, skill: int | None = None, spec: str | None = None) -> Pr
 
 def test_professions_are_known_listed_once_with_a_skill_in_range_and_their_own_specialisation() -> None:
     svc = _service()
-    mine, gone = svc.set_mine(1, [_p("tailoring", 300, "spellfire"), _p("alchemy"), _p("cooking", 300)])
+    mine, gone = svc.set_mine(1, [_p("tailoring", 300), _p("alchemy"), _p("cooking", 300)])
     assert [(r.member_id, r.profession) for r in mine.professions] == [(1, "alchemy"), (1, "cooking"), (1, "tailoring")]
     assert gone == []
     for bad in (
@@ -44,6 +44,8 @@ def test_professions_are_known_listed_once_with_a_skill_in_range_and_their_own_s
         [_p("alchemy", 0)],
         [_p("alchemy", 301)],
         [_p("alchemy", 300, "spellfire")],
+        [_p("engineering", 300, "transmute")],
+        [_p("jewelcrafting")],
         [_p("enchanting", 300, "anything")],
     ):
         with pytest.raises(ProfessionError) as info:
@@ -55,7 +57,7 @@ def test_professions_are_known_listed_once_with_a_skill_in_range_and_their_own_s
 
 def test_officers_name_crafters_only_for_professions_the_member_lists() -> None:
     svc = _service()
-    svc.set_mine(2, [_p("alchemy", 300, "transmute")])
+    svc.set_mine(2, [_p("alchemy", 300), _p("engineering", 300, "goblin")])
     with pytest.raises(ProfessionError) as info:
         svc.designate("tailoring", 2, None, by=1)
     assert info.value.status == 422
@@ -66,7 +68,7 @@ def test_officers_name_crafters_only_for_professions_the_member_lists() -> None:
     assert (view.member_name, view.skill, view.specialisation, view.note, view.designated_by) == (
         "Lilypadd",
         300,
-        "transmute",
+        None,
         "Flasks and transmutes",
         "Hopscotch",
     )
@@ -130,12 +132,15 @@ def test_a_member_sets_and_reads_their_professions(hub: Hub) -> None:
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.get("/api/me/professions", sid).json() == {"professions": [], "crafter_for": [], "unnamed": []}
     body = {
-        "professions": [{"profession": "alchemy", "skill": 300, "specialisation": "elixir"}, {"profession": "fishing"}]
+        "professions": [
+            {"profession": "engineering", "skill": 300, "specialisation": "gnomish"},
+            {"profession": "fishing"},
+        ]
     }
     r = _put(hub, "/api/me/professions", sid, body)
     assert r.status_code == 200, r.text
     assert hub.get("/api/me/professions", sid).json()["professions"] == [
-        {"profession": "alchemy", "skill": 300, "specialisation": "elixir"},
+        {"profession": "engineering", "skill": 300, "specialisation": "gnomish"},
         {"profession": "fishing", "skill": None, "specialisation": None},
     ]
     assert (

@@ -10,11 +10,11 @@ const AT = '2026-10-19T18:00:00Z';
 /** Hopscotch's own professions on the preview's Me, named the guild's alchemist. */
 export const previewMyProfessions: MyProfessions = {
   professions: [
-    { profession: 'alchemy', skill: 300, specialisation: 'transmute' },
+    { profession: 'alchemy', skill: 300, specialisation: null },
     { profession: 'herbalism', skill: 300, specialisation: null },
     { profession: 'cooking', skill: 300, specialisation: null }
   ],
-  crafter_for: [{ profession: 'alchemy', note: 'Flasks and Primal Might', designated_by: 'Hadur', designated_at: AT }]
+  crafter_for: [{ profession: 'alchemy', note: 'Flasks and Arcanite transmutes', designated_by: 'Hadur', designated_at: AT }]
 };
 
 const MEMBERS: (MemberProfessions & { nights: string[] })[] = [
@@ -24,7 +24,7 @@ const MEMBERS: (MemberProfessions & { nights: string[] })[] = [
     name: 'Lilypadd',
     nights: ['wed'],
     professions: [
-      { profession: 'tailoring', skill: 300, specialisation: 'spellfire' },
+      { profession: 'tailoring', skill: 300, specialisation: null },
       { profession: 'enchanting', skill: 300, specialisation: null }
     ],
     crafter_for: []
@@ -49,8 +49,8 @@ export function previewProfessions(): ProfessionsBackend {
       member_id: 1,
       member_name: 'Hopscotch',
       skill: 300,
-      specialisation: 'transmute',
-      note: 'Flasks and Primal Might',
+      specialisation: null,
+      note: 'Flasks and Arcanite transmutes',
       designated_by: 'Hadur',
       designated_at: AT
     }

@@ -62,7 +62,7 @@ def raider_picks(hub: Hub, people: dict[str, Any], first: str, skill: int, spec:
 
 @when("the raider drops every profession")
 def raider_drops(hub: Hub, people: dict[str, Any]) -> None:
-    assert _put_mine(hub, people["raider"], []).json()["unnamed"] == ["alchemy"]
+    assert _put_mine(hub, people["raider"], []).json()["unnamed"] == ["engineering"]
 
 
 def _raider_id(hub: Hub, people: dict[str, Any]) -> int:
