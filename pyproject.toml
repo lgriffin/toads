@@ -82,6 +82,10 @@ markers = [
 ]
 
 # The floor `scripts/dev.py test` holds the four packages to. It only goes up (scripts/ratchet.py).
+[tool.coverage.run]
+# Writes the toad art once by hand; nothing runs it.
+omit = ["scripts/toad_art.py"]
+
 [tool.coverage.report]
 fail_under = 96
 

@@ -21,9 +21,9 @@ Feature: DEV CI
     And CI runs the reqs check
 
   @ears_unwanted_behavior @maintainer @phase_1_3 @phase_2_0
-  Scenario: REQ-DEV-CI-003 If coverage of the api, worker, bot and hub-db falls below the floor in pyproject.toml, a PR covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail
+  Scenario: REQ-DEV-CI-003 If coverage of the api, worker, bot, hub-db and scripts falls below the floor in pyproject.toml, a PR covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail
     Given the CI workflow
-    Then the test task measures the api, worker, bot and hub-db against the floor in pyproject.toml
+    Then the test task measures the api, worker, bot, hub-db and scripts against the floor in pyproject.toml
     And CI checks the coverage of the lines a PR changes against main
     And a floor that goes down or disappears fails the ratchet, and one that rises passes
     And CI runs the ratchet against main

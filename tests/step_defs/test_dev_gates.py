@@ -71,8 +71,8 @@ def test_reqs_gate() -> None:
 
 @scenario(
     str(FEATURE),
-    "REQ-DEV-CI-003 If coverage of the api, worker, bot and hub-db falls below the floor in pyproject.toml, a PR "
-    "covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail",
+    "REQ-DEV-CI-003 If coverage of the api, worker, bot, hub-db and scripts falls below the floor in pyproject.toml, "
+    "a PR covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail",
 )
 def test_coverage_ratchet() -> None:
     pass
@@ -272,10 +272,11 @@ def test_plain_task_steps_pass() -> None:
     assert _task_step_problems(job) == []
 
 
-@then("the test task measures the api, worker, bot and hub-db against the floor in pyproject.toml")
+@then("the test task measures the api, worker, bot, hub-db and scripts against the floor in pyproject.toml")
 def coverage_floor() -> None:
     (step,) = dev.TASKS["test"].steps
-    assert {"--cov=toads_api", "--cov=toads_worker", "--cov=toads_bot", "--cov=hub_db"} <= set(step.command)
+    measured = {"--cov=toads_api", "--cov=toads_worker", "--cov=toads_bot", "--cov=hub_db", "--cov=scripts"}
+    assert measured <= set(step.command)
     assert not any(arg.startswith("--cov-fail-under") for arg in step.command)  # the floor lives in pyproject.toml
     config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert config["tool"]["coverage"]["report"]["fail_under"] >= 96
@@ -294,6 +295,7 @@ def diff_coverage(workflow: dict[Any, Any]) -> None:
         for task in line.split()
     ]
     assert run.index("test") < run.index("diffcov"), "diffcov reads the coverage.xml that test writes"
+    assert dev.CHECK.index("test") < dev.CHECK.index("diffcov"), "a local check runs the same gate"
     assert python["steps"][0]["with"]["fetch-depth"] == 0
 
 
@@ -307,6 +309,17 @@ def ratchet_is_one_way() -> None:
     assert ratchet.lowered(config(96), config(96)) == []
     assert ratchet.lowered(config(96), config(97)) == []
     assert ratchet.lowered(config(None), config(80)) == []  # a new floor
+
+
+def test_ratchet_reads_the_base_ref(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert ratchet.main(["--base", "HEAD"]) == 0  # this tree against itself: nothing went down
+    assert ratchet.main(["--base", "no-such-ref"]) == 1  # an unreadable base fails rather than passing unchecked
+
+    def higher_base(*args: Any, **kwargs: Any) -> Any:
+        return ratchet.subprocess.CompletedProcess(args, 0, "[tool.coverage.report]\nfail_under = 100\n", "")
+
+    monkeypatch.setattr(ratchet.subprocess, "run", higher_base)
+    assert ratchet.main([]) == 1
 
 
 @then("CI runs the ratchet against main")
