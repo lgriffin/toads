@@ -30,6 +30,7 @@ dev = [
     "toads-bot",
     "pytest>=8",
     "pytest-cov>=5",
+    "diff-cover>=9.2",
     "pytest-bdd>=7",
     "pytest-xdist>=3.6",
     "hypothesis>=6",
@@ -80,9 +81,13 @@ markers = [
     "maintainer: developer / maintainer persona",
 ]
 
-# The floor `scripts/dev.py test` holds the four packages to.
+# The floor `scripts/dev.py test` holds the four packages to. It only goes up (scripts/ratchet.py).
+[tool.coverage.run]
+# Writes the toad art once by hand; nothing runs it.
+omit = ["scripts/toad_art.py"]
+
 [tool.coverage.report]
-fail_under = 80
+fail_under = 96
 
 # Architecture contracts, checked by `lint-imports` in CI (just lint). Frontends and the bot reach the hub only
 # through the API; community rules stay free of RBAC, web framework and storage imports.

@@ -20,8 +20,13 @@ Feature: DEV CI
     And a duplicated REQ id fails the reqs check
     And CI runs the reqs check
 
-  @ears_ubiquitous @maintainer @phase_1_3 @phase_2_0 @pending
-  Scenario: REQ-DEV-CI-003 Coverage shall not fall below 70 for wcl-core/wcl-store and 80 for services/api and services/worker
+  @ears_unwanted_behavior @maintainer @phase_1_3 @phase_2_0
+  Scenario: REQ-DEV-CI-003 If coverage of the api, worker, bot, hub-db and scripts falls below the floor in pyproject.toml, a PR covers less than 90 percent of the lines it changes, or a PR lowers the floor, then CI shall fail
+    Given the CI workflow
+    Then the test task measures the api, worker, bot, hub-db and scripts against the floor in pyproject.toml
+    And CI checks the coverage of the lines a PR changes against main
+    And a floor that goes down or disappears fails the ratchet, and one that rises passes
+    And CI runs the ratchet against main
 
   @ears_event_driven @maintainer @phase_2_0
   Scenario: REQ-DEV-CI-004 When apps/web changes on main, CI shall publish a static build of the web app with sample data to GitHub Pages, marked as a preview
