@@ -43,7 +43,7 @@ page.
   waits again.
 - Every approval and rejection is on the audit log (`gallery.approve_photo`, `gallery.reject_photo`,
   `gallery.approve_stream`, `gallery.reject_stream`). Photos and streams already up before approval existed (migration
-  `0038`) count as approved.
+  `0039`) count as approved.
 
 ## Photos
 

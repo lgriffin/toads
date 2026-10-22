@@ -1,8 +1,8 @@
 """Highlights wait for an officer: photos and streams gain approved_at, and gallery_trusted_channels remembers the
 Twitch channels an officer approved for a member. Everything already on the page counts as approved.
 
-Revision ID: 0038
-Revises: 0037
+Revision ID: 0039
+Revises: 0038
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0038"
-down_revision = "0037"
+revision = "0039"
+down_revision = "0038"
 branch_labels = None
 depends_on = None
 
