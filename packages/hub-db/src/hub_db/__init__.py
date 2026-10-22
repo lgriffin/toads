@@ -41,7 +41,7 @@ from hub_db.models import (
     NightHomePage,
     main_claim,
 )
-from hub_db.officer_board import OfficerBoardCard
+from hub_db.officer_board import NightLink, OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
 from hub_db.professions import GuildCrafter, MemberProfession
 from hub_db.raid_sheets import RaidSheetSnapshot
@@ -84,6 +84,7 @@ __all__ = [
     "MemberProfession",
     "MemberSpec",
     "NightHomePage",
+    "NightLink",
     "OfficerBoardCard",
     "OfficerGrant",
     "RaidComp",

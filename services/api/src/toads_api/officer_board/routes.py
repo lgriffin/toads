@@ -6,6 +6,9 @@ officers, global officers and super admins only (MANAGE_OFFICER_BOARD), never a 
 - PUT    /api/days/{day}/board/cards/{card_id}         rewrite a card's title, notes, assignee and due date
 - POST   /api/days/{day}/board/cards/{card_id}/move    move a card to a lane and a place in it
 - DELETE /api/days/{day}/board/cards/{card_id}         take a card off the board
+- GET    /api/days/{day}/links                         the links pinned to the night (strategy doc, role sheet)
+- POST   /api/days/{day}/links                         pin a link
+- DELETE /api/days/{day}/links/{link_id}               unpin a link
 """
 
 from __future__ import annotations
@@ -18,8 +21,11 @@ import structlog
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, Field
 
+from toads_api.officer_board.repository import NightLink
 from toads_api.officer_board.service import (
     LANES,
+    LINK_LABEL_LIMIT,
+    LINK_URL_LIMIT,
     NOTES_LIMIT,
     TITLE_LIMIT,
     BoardError,
@@ -90,6 +96,21 @@ class NewCardIn(CardIn):
 class MoveIn(BaseModel):
     lane: str = Field(pattern=LANE)
     position: int = Field(ge=0, le=1000)
+
+
+class LinkOut(BaseModel):
+    id: int
+    label: str
+    url: str
+
+
+class LinkIn(BaseModel):
+    label: str = Field(min_length=1, max_length=LINK_LABEL_LIMIT)
+    url: str = Field(min_length=1, max_length=LINK_URL_LIMIT)
+
+
+def _link(x: NightLink) -> LinkOut:
+    return LinkOut(id=x.id, label=x.label, url=x.url)
 
 
 def _card(v: CardView) -> CardOut:
@@ -182,6 +203,33 @@ async def remove_card(day: str, card_id: CardId, principal: Officer, board: Boar
     except BoardError as exc:
         raise _refused(exc) from None
     log.info("board.card_removed", by=principal.member_id, day=day, card=card_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/api/days/{day}/links")
+async def night_links(day: str, principal: Officer, board: Board) -> list[LinkOut]:
+    return [_link(x) for x in await anyio.to_thread.run_sync(board.links, day)]
+
+
+@router.post("/api/days/{day}/links", status_code=status.HTTP_201_CREATED)
+async def pin_link(day: str, body: LinkIn, principal: Officer, board: Board) -> LinkOut:
+    try:
+        link = await anyio.to_thread.run_sync(
+            lambda: board.add_link(day, label=body.label, url=body.url, by=principal.member_id)
+        )
+    except BoardError as exc:
+        raise _refused(exc) from None
+    log.info("board.link_pinned", by=principal.member_id, day=day, link=link.id)
+    return _link(link)
+
+
+@router.delete("/api/days/{day}/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unpin_link(day: str, link_id: CardId, principal: Officer, board: Board) -> Response:
+    try:
+        await anyio.to_thread.run_sync(board.remove_link, day, link_id, principal.member_id)
+    except BoardError as exc:
+        raise _refused(exc) from None
+    log.info("board.link_unpinned", by=principal.member_id, day=day, link=link_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

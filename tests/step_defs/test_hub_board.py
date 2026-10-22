@@ -183,6 +183,37 @@ def not_overdue_when_done(hub: Hub, people: dict[str, Any], lane: str) -> None:
 
 # ---------------------------------------------------------------- the Raid page
 
+
+@when(parsers.parse('the Wednesday officer pins "{label}" at "{url}"'))
+def officer_pins(hub: Hub, people: dict[str, Any], label: str, url: str) -> None:
+    r = hub.post("/api/days/wed/links", people["officer"], {"label": label, "url": url})
+    assert r.status_code == 201, r.text
+
+
+@then(parsers.parse('another Wednesday officer sees "{label}" pinned on Wednesday'))
+def another_sees_link(hub: Hub, label: str) -> None:
+    r = hub.get("/api/days/wed/links", hub.login(hub.user(("wed", "officer"))))
+    assert r.status_code == 200, r.text
+    assert [link["label"] for link in r.json()] == [label]
+
+
+@then("a link that is not https is refused")
+def plain_http_refused(hub: Hub, people: dict[str, Any]) -> None:
+    for url in ("http://docs.google.com/x", "javascript:alert(1)", "https://localhost/x"):
+        r = hub.post("/api/days/wed/links", people["officer"], {"label": "Roles", "url": url})
+        assert r.status_code == 422, url
+    assert len(hub.get("/api/days/wed/links", people["officer"]).json()) == 1
+
+
+@then("a Sunday officer cannot see or pin Wednesday's links")
+def sunday_refused_links(hub: Hub, people: dict[str, Any]) -> None:
+    sid = hub.login(hub.user(("sun", "officer")))
+    assert hub.get("/api/days/wed/links", sid).status_code == 403
+    r = hub.post("/api/days/wed/links", sid, {"label": "Roles", "url": "https://docs.google.com/y"})
+    assert r.status_code == 403
+    assert len(hub.get("/api/days/wed/links", people["officer"]).json()) == 1
+
+
 WEB = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
 
 
@@ -230,3 +261,12 @@ def raid_links(night_page: str) -> None:
 def console_lists_own_nights(night_page: str) -> None:
     assert "{#each raidDays.officerDays as day (day)}" in _web("lib/components/OfficerNights.svelte")
     assert "<OfficerNights {raidDays} />" in _web("routes/officers/+page.svelte")
+
+
+@then("the night's officer section opens with the next night, who is away and the pinned links")
+def night_opens_with_tonight() -> None:
+    shown = _shown_to_officers(_web("routes/officers/nights/[day]/+page.svelte"))
+    assert shown.index("<NightTonight {day} {name} {absences} {comps} {links} />") < shown.index("<ClaimsQueue")
+    component = _web("lib/components/NightTonight.svelte")
+    for part in ("tonight(team, pool)", "links.pin(day, label, url)", "links.unpin(day, link.id)"):
+        assert part in component, part
