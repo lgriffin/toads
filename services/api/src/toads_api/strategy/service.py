@@ -1,6 +1,6 @@
-"""Rules for raid strategy docs. No RBAC, web framework or storage imports: the routes decide who may call (every
-officer pins docs, a night's officers through its path and the global tier through /api/admin; a night's officers or
-the global tier say which raid the night is running) and the repository decides where rows live.
+"""Rules for raid strategy docs (docs/strategy.md). No RBAC, web framework or storage imports: the routes decide who
+may call (every officer pins docs, for their own nights or every night; the global tier for any; a night's officers or
+the global tier say which raids the night is running) and the repository decides where rows live.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ RAIDS: dict[str, Raid] = {
 }
 TITLE_LIMIT = 80
 URL_LIMIT = 500
-# The docs a raid keeps: its pinned doc and the ones it replaced, newest first. Older ones drop off.
+# The docs a raid keeps for each night and for every night: its pinned doc and the ones it replaced, newest first.
 KEEP = 6
 # Officers keep strategy in Google Drive, so a pinned doc is a Google Docs, Sheets, Slides or Drive link.
 GOOGLE_HOSTS = frozenset({"docs.google.com", "drive.google.com"})
@@ -69,20 +69,35 @@ class DocView:
 
 
 @dataclass(frozen=True)
-class RaidStrategy:
-    raid: Raid
-    # The raid's authoritative doc: the newest pinned. None until one is.
-    pinned: DocView | None
+class Slot:
+    """A raid's docs for one raid night, or for every night (`raid_day` None)."""
+
+    raid_day: str | None
+    # The newest doc pinned here.
+    pinned: DocView
     # The docs it replaced, newest first.
     replaced: list[DocView]
 
 
 @dataclass(frozen=True)
-class NightStrategy:
-    """What a night's Raid page shows: the raid the night is running and that raid's pinned doc."""
+class RaidStrategy:
+    raid: Raid
+    # Every night's doc first, then each night's own, in the order asked for; only the places a doc is pinned.
+    slots: list[Slot]
 
-    raid: Raid | None
+
+@dataclass(frozen=True)
+class NightRaidDoc:
+    raid: Raid
+    # The night's own doc for the raid, else the raid's every-night doc; None while neither is pinned.
     pinned: DocView | None
+
+
+@dataclass(frozen=True)
+class NightStrategy:
+    """What a night's Raid page shows: each raid the night is running, in order, with its doc."""
+
+    raids: list[NightRaidDoc]
 
 
 class StrategyService:
@@ -94,19 +109,25 @@ class StrategyService:
         names = self._shown_names({d.created_by for d in docs if d.created_by is not None})
         return [DocView(d, names.get(d.created_by) if d.created_by is not None else None) for d in docs]
 
-    def library(self) -> list[RaidStrategy]:
-        """Every raid in order, with its pinned doc and the docs it replaced."""
+    def library(self, nights: Iterable[str] = ()) -> list[RaidStrategy]:
+        """Every raid in order, with its docs for every night and for each night that pinned its own. `nights` orders
+        the nights' slots (the raid days' config order); a night it leaves out comes after them."""
+        order = {day: i for i, day in enumerate(nights)}
         views = self._views(self.repo.docs())
         out = []
         for raid in RAIDS.values():
-            mine = [v for v in views if v.doc.raid == raid.id]
-            out.append(RaidStrategy(raid, mine[0] if mine else None, mine[1:]))
+            places: dict[str | None, list[DocView]] = {}
+            for v in views:
+                if v.doc.raid == raid.id:
+                    places.setdefault(v.doc.raid_day, []).append(v)
+            ranked = sorted(places, key=lambda d: (d is not None, order.get(d or "", len(order)), d or ""))
+            out.append(RaidStrategy(raid, [Slot(d, places[d][0], places[d][1:]) for d in ranked]))
         return out
 
     def pin(self, raid: str, *, url: str, by: int, title: str = "", raid_day: str | None = None) -> DocView:
-        """Pin a Google Doc to a raid. It becomes the raid's one authoritative doc, on every night running that raid;
-        the one it replaces is kept below it until KEEP newer ones push it out. `raid_day` is the night whose officer
-        pinned it (for the audit log); None for the global tier."""
+        """Pin a Google Doc to a raid for one night (`raid_day`) or every night (None). It becomes the doc for that
+        raid there at once; the one it replaces is kept below it until KEEP newer ones push it out. A doc pinned for
+        one night also adds the raid to the raids that night is running, so its Raid page shows it straight away."""
         known = RAIDS.get(raid)
         if known is None:
             raise StrategyError("Pick one of the raids", status=422)
@@ -116,26 +137,37 @@ class StrategyService:
         url = url.strip()
         if len(url) > URL_LIMIT or not google_link(url):
             raise StrategyError("Paste the doc's https://docs.google.com or drive.google.com link", status=422)
-        return self._views([self.repo.pin(raid, title, url, by, KEEP, raid_day)])[0]
+        doc = self.repo.pin(raid, raid_day, title, url, by, KEEP)
+        if raid_day is not None:
+            running = self.repo.night_raids().get(raid_day, [])
+            if raid not in running:
+                self.repo.set_night_raids(raid_day, [*running, raid], by)
+        return self._views([doc])[0]
 
-    def remove(self, doc_id: int, by: int, raid_day: str | None = None) -> None:
-        """Take a doc down. Taking down a raid's pinned doc pins the one it replaced again, if there is one."""
-        if not self.repo.remove(doc_id, by, raid_day):
+    def remove(self, doc_id: int, by: int, nights: frozenset[str | None] | None = None) -> None:
+        """Take a doc down. Taking down a pinned doc pins the one it replaced again, if there is one. With `nights`,
+        only a doc pinned for one of them (None standing for every night)."""
+        if not self.repo.remove(doc_id, by, nights):
             raise StrategyError("No such strategy doc", status=404)
 
-    def night_raids(self) -> dict[str, str]:
+    def night_raids(self) -> dict[str, list[str]]:
         return self.repo.night_raids()
 
     def night(self, raid_day: str) -> NightStrategy:
-        raid = RAIDS.get(self.repo.night_raids().get(raid_day, ""))
-        if raid is None:
-            return NightStrategy(None, None)
-        pinned = next((r.pinned for r in self.library() if r.raid.id == raid.id), None)
-        return NightStrategy(raid, pinned)
+        docs = self._views(self.repo.docs())
+        out = []
+        for raid_id in self.repo.night_raids().get(raid_day, []):
+            raid = RAIDS.get(raid_id)
+            if raid is None:
+                continue
+            own = next((v for v in docs if (v.doc.raid, v.doc.raid_day) == (raid.id, raid_day)), None)
+            every = next((v for v in docs if (v.doc.raid, v.doc.raid_day) == (raid.id, None)), None)
+            out.append(NightRaidDoc(raid, own or every))
+        return NightStrategy(out)
 
-    def set_night(self, raid_day: str, raid: str | None, by: int) -> NightStrategy:
-        """Say which raid a night is running, so its Raid page shows that raid's pinned doc; None clears it."""
-        if raid is not None and raid not in RAIDS:
-            raise StrategyError("Pick one of the raids", status=422)
-        self.repo.set_night_raid(raid_day, raid, by)
+    def set_night(self, raid_day: str, raids: list[str], by: int) -> NightStrategy:
+        """Say which raids a night is running, in order, so its Raid page shows each raid's doc; [] clears them."""
+        if any(r not in RAIDS for r in raids):
+            raise StrategyError("Pick from the raids listed", status=422)
+        self.repo.set_night_raids(raid_day, list(dict.fromkeys(raids)), by)
         return self.night(raid_day)

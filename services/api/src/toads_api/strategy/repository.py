@@ -10,10 +10,11 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class StrategyDoc:
-    """A Google Doc pinned to a raid."""
+    """A Google Doc pinned to a raid, for one raid night (`raid_day`) or for every night (None)."""
 
     id: int
     raid: str
+    raid_day: str | None
     title: str
     url: str
     created_by: int | None
@@ -22,22 +23,24 @@ class StrategyDoc:
 
 class StrategyRepository(Protocol):
     def docs(self) -> list[StrategyDoc]:
-        """Every raid's docs, newest first."""
+        """Every doc, newest first."""
         ...
 
-    def pin(self, raid: str, title: str, url: str, by: int, keep: int, raid_day: str | None = None) -> StrategyDoc:
-        """Pin a doc to `raid`, replacing its pinned doc. The raid keeps only its `keep` newest docs. `raid_day` is the
-        night whose officer pinned it, for the audit log; None for the global tier."""
+    def pin(self, raid: str, raid_day: str | None, title: str, url: str, by: int, keep: int) -> StrategyDoc:
+        """Pin a doc to `raid` for `raid_day` (None: every night), replacing the one pinned there. Each raid and night
+        keeps only its `keep` newest docs."""
         ...
 
-    def remove(self, doc_id: int, by: int, raid_day: str | None = None) -> bool: ...
-
-    def night_raids(self) -> dict[str, str]:
-        """The raid each raid day is running, by raid day; a day that has not said is left out."""
+    def remove(self, doc_id: int, by: int, nights: frozenset[str | None] | None = None) -> bool:
+        """Take a doc down. With `nights`, only a doc pinned for one of them (None standing for every night)."""
         ...
 
-    def set_night_raid(self, raid_day: str, raid: str | None, by: int) -> None:
-        """Say which raid `raid_day` is running; None clears it."""
+    def night_raids(self) -> dict[str, list[str]]:
+        """The raids each raid day is running, in order, by raid day; a day that has not said is left out."""
+        ...
+
+    def set_night_raids(self, raid_day: str, raids: list[str], by: int) -> None:
+        """Say which raids `raid_day` is running, in order; an empty list clears them."""
         ...
 
 
@@ -46,30 +49,27 @@ class InMemoryStrategyRepository:
     """For service tests."""
 
     rows: list[StrategyDoc] = field(default_factory=list)
-    nights: dict[str, str] = field(default_factory=dict)
+    nights: dict[str, list[str]] = field(default_factory=dict)
     next_id: int = 1
 
     def docs(self) -> list[StrategyDoc]:
         return sorted(self.rows, key=lambda d: -d.id)
 
-    def pin(self, raid: str, title: str, url: str, by: int, keep: int, raid_day: str | None = None) -> StrategyDoc:
-        doc = StrategyDoc(self.next_id, raid, title, url, by, datetime.now(UTC))
+    def pin(self, raid: str, raid_day: str | None, title: str, url: str, by: int, keep: int) -> StrategyDoc:
+        doc = StrategyDoc(self.next_id, raid, raid_day, title, url, by, datetime.now(UTC))
         self.next_id += 1
         self.rows.append(doc)
-        kept = [d.id for d in self.docs() if d.raid == raid][:keep]
-        self.rows = [d for d in self.rows if d.raid != raid or d.id in kept]
+        kept = [d.id for d in self.docs() if (d.raid, d.raid_day) == (raid, raid_day)][:keep]
+        self.rows = [d for d in self.rows if (d.raid, d.raid_day) != (raid, raid_day) or d.id in kept]
         return doc
 
-    def remove(self, doc_id: int, by: int, raid_day: str | None = None) -> bool:
+    def remove(self, doc_id: int, by: int, nights: frozenset[str | None] | None = None) -> bool:
         before = len(self.rows)
-        self.rows = [d for d in self.rows if d.id != doc_id]
+        self.rows = [d for d in self.rows if d.id != doc_id or (nights is not None and d.raid_day not in nights)]
         return len(self.rows) < before
 
-    def night_raids(self) -> dict[str, str]:
-        return dict(self.nights)
+    def night_raids(self) -> dict[str, list[str]]:
+        return {day: list(raids) for day, raids in self.nights.items() if raids}
 
-    def set_night_raid(self, raid_day: str, raid: str | None, by: int) -> None:
-        if raid is None:
-            self.nights.pop(raid_day, None)
-        else:
-            self.nights[raid_day] = raid
+    def set_night_raids(self, raid_day: str, raids: list[str], by: int) -> None:
+        self.nights[raid_day] = list(raids)
