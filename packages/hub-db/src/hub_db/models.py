@@ -51,6 +51,9 @@ class Member(Base):
     # When the member last signed in to the hub. Null for someone the hub only knows from Discord: a raid night's role
     # holder the comp builder lists, or a member a bot acted for. Rows from before migration 0023 take created_at.
     signed_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the member finished the first sign-in setup (/setup: main, specs, alts). Null sends a trial or raider there
+    # after each sign-in until they finish it; anyone can rerun it later (docs/setup.md).
+    setup_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     profile_public: Mapped[bool] = mapped_column(default=False)
     dms_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

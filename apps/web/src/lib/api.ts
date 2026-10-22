@@ -37,6 +37,8 @@ export interface Session {
   officer_days: string[];
   /** Every configured raid day's name by id, in config order. Missing from an older hub. */
   day_names?: Record<string, string>;
+  /** A trial or raider who has not finished the first sign-in setup (/setup). Missing from an older hub. */
+  needs_setup?: boolean;
 }
 
 export interface MemberEntry {

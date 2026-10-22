@@ -51,3 +51,5 @@ replaces the pending one. A rejection's reason shows on Me until the member asks
    build never replaces a newer one, and every chart is checked against the chart contract.
 
 `GET /api/me/character-page` (`?name=` picks another of the member's characters) answers the signed-in member only.
+
+New members name their main, specs and alts on the first sign-in setup first (docs/setup.md).

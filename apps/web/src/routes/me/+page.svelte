@@ -147,7 +147,7 @@
     </section>
   {/if}
   {#if awards}<AwardsCard {awards} {toads} />{/if}
-  <p><a href="{base}/me/claim">Claim your characters</a> · <a href="{base}/me/settings">Your name and Warcraft Logs key</a></p>
+  <p><a href="{base}/setup">Your setup: main, specs and alts</a> · <a href="{base}/me/claim">Claim your characters</a> · <a href="{base}/me/settings">Your name and Warcraft Logs key</a></p>
 {/if}
 
 <style>

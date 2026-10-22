@@ -283,7 +283,7 @@ def test_concurrent_claim_race_is_409(hub: Hub, monkeypatch: pytest.MonkeyPatch)
     def lost_race(*_: object) -> None:
         raise IntegrityError("INSERT", {}, Exception("uq_claim_character"))
 
-    monkeypatch.setattr(claims, "_create", lost_race)
+    monkeypatch.setattr(claims, "claim_character", lost_race)
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.post("/api/claims", sid, {"character_id": 1}).status_code == 409
 
