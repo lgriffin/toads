@@ -156,11 +156,12 @@ describe("strategy docs", () => {
     await expect(previewStrategy.remove(added.id, null)).rejects.toBeInstanceOf(
       ApiError,
     );
-    for (let i = 0; i < 20; i++)
-      await previewStrategy.add("tbd", `${DOC}t${i}`, "", null);
-    await expect(
-      previewStrategy.add("tbd", `${DOC}more`, "", null),
-    ).rejects.toThrow(/take an old one down/);
+    const many = [];
+    for (let i = 0; i < 11; i++)
+      many.push((await previewStrategy.add("tbd", `${DOC}t${i}`, "", null)).id);
+    await expect(previewStrategy.setNight("thu", many)).rejects.toThrow(
+      /up to 10/,
+    );
     library = await previewStrategy.library();
     expect(library.nights.map((n) => n.raid_day)).toContain("thu");
   });

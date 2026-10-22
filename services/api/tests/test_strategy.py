@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 from toads_api.strategy.repository import InMemoryStrategyRepository
-from toads_api.strategy.service import DOC_LIMIT, NIGHT_LIMIT, StrategyError, StrategyService, google_link
+from toads_api.strategy.service import NIGHT_LIMIT, StrategyError, StrategyService, google_link
 
 from conftest import Hub
 
@@ -57,16 +57,6 @@ def test_docs_are_added_to_a_raid_newest_first_and_shown_to_no_night() -> None:
     assert (second.doc.title, second.doc.url, second.added_by) == ("Naxx full clear", DOC + "2", None)
     assert _docs(svc, "naxx") == [DOC + "2", DOC + "1"]
     assert svc.night("wed").docs == []
-
-
-def test_a_raid_holds_a_limited_number_of_docs() -> None:
-    svc = _svc()
-    for i in range(DOC_LIMIT):
-        svc.add("mc", url=f"{DOC}{i}", by=1)
-    with pytest.raises(StrategyError) as info:
-        svc.add("mc", url=DOC + "more", by=1)
-    assert (info.value.status, "take an old one down" in info.value.message) == (422, True)
-    svc.add("bwl", url=DOC + "bwl", by=1)
 
 
 @pytest.mark.parametrize(
@@ -129,6 +119,9 @@ def test_a_night_takes_down_only_docs_no_other_night_pins() -> None:
             svc.remove(doc, by=1, through="wed", nights=frozenset({"wed"}))
         assert info.value.status == 409
     svc.remove(own, by=1, through="wed", nights=frozenset({"wed"}))
+    with pytest.raises(StrategyError) as info:
+        svc.remove(own, by=1, through="wed", nights=frozenset({"wed"}))
+    assert info.value.status == 404
     svc.remove(sun, by=1, through="wed", nights=frozenset({"wed", "sun"}))
     svc.remove(both, by=1)
     assert _docs(svc, "naxx") == []
@@ -255,3 +248,25 @@ def test_postgres_saves_of_one_nights_docs_take_turns() -> None:
         assert len(seen) == locks
         if locks:
             assert "pg_advisory_xact_lock" in seen[0][0] and seen[0][1] == {"key": "night_strategy:wed"}
+
+
+def test_the_database_checks_other_nights_pins_as_it_takes_a_doc_down(hub: Hub) -> None:
+    from toads_api.strategy.sql import SqlStrategyRepository
+
+    repo = SqlStrategyRepository(hub.services.db)
+    doc = repo.add("mc", "MC", DOC + "1", 1).id
+    repo.set_night_docs("sun", [doc], 1)
+    assert repo.remove(doc, 1, "wed", frozenset({"wed"})) == "pinned"
+    assert repo.remove(doc, 1, "wed", frozenset({"wed", "sun"})) == "removed"
+    assert repo.remove(doc, 1, None, None) == "missing"
+    assert repo.night_docs() == {}
+
+
+def test_a_doc_taken_down_while_a_night_saves_is_left_out(hub: Hub) -> None:
+    from toads_api.strategy.sql import SqlStrategyRepository
+
+    repo = SqlStrategyRepository(hub.services.db)
+    keep, gone = (repo.add("mc", "MC", f"{DOC}{i}", 1).id for i in range(2))
+    repo.remove(gone, 1)
+    repo.set_night_docs("wed", [gone, keep], 1)
+    assert repo.night_docs() == {"wed": [keep]}

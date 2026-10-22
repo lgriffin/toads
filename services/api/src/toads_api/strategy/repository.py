@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Literal, Protocol
+
+# What taking a doc down did: took it down, found no such doc, or left it up because a night outside `nights` pins it.
+Removed = Literal["removed", "missing", "pinned"]
 
 
 @dataclass(frozen=True)
@@ -29,8 +32,9 @@ class StrategyRepository(Protocol):
         """Add a doc to `raid`. `through`: the night the officer acted through, for the audit log."""
         ...
 
-    def remove(self, doc_id: int, by: int, through: str | None = None) -> bool:
-        """Take a doc down, and off every night that pinned it."""
+    def remove(self, doc_id: int, by: int, through: str | None = None, nights: frozenset[str] | None = None) -> Removed:
+        """Take a doc down, and off every night that pins it. With `nights`, only while no other night pins it, checked
+        in the same write."""
         ...
 
     def night_docs(self) -> dict[str, list[int]]:
@@ -38,7 +42,8 @@ class StrategyRepository(Protocol):
         ...
 
     def set_night_docs(self, raid_day: str, doc_ids: list[int], by: int) -> None:
-        """Say which docs `raid_day` pins for its raiders, in order; an empty list clears them."""
+        """Say which docs `raid_day` pins for its raiders, in order, leaving out any taken down meanwhile; an empty list
+        clears them."""
         ...
 
 
@@ -59,14 +64,18 @@ class InMemoryStrategyRepository:
         self.rows.append(doc)
         return doc
 
-    def remove(self, doc_id: int, by: int, through: str | None = None) -> bool:
-        before = len(self.rows)
+    def remove(self, doc_id: int, by: int, through: str | None = None, nights: frozenset[str] | None = None) -> Removed:
+        if not any(d.id == doc_id for d in self.rows):
+            return "missing"
+        if nights is not None and any(doc_id in ids for day, ids in self.nights.items() if day not in nights):
+            return "pinned"
         self.rows = [d for d in self.rows if d.id != doc_id]
         self.nights = {day: [i for i in ids if i != doc_id] for day, ids in self.nights.items()}
-        return len(self.rows) < before
+        return "removed"
 
     def night_docs(self) -> dict[str, list[int]]:
         return {day: list(ids) for day, ids in self.nights.items() if ids}
 
     def set_night_docs(self, raid_day: str, doc_ids: list[int], by: int) -> None:
-        self.nights[raid_day] = list(doc_ids)
+        known = {d.id for d in self.rows}
+        self.nights[raid_day] = [i for i in doc_ids if i in known]

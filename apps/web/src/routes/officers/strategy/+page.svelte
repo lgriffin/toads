@@ -180,8 +180,8 @@
               />
             {:else}
               <span>
-                {options
-                  .filter((o) => n.docs.includes(Number(o.id)))
+                {n.docs
+                  .flatMap((id) => options.filter((o) => o.id === String(id)))
                   .map((o) => `${o.short}: ${o.name}`)
                   .join(', ') || 'No docs pinned'}
               </span>

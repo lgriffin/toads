@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api import audit
-from toads_api.strategy.repository import StrategyDoc
+from toads_api.strategy.repository import Removed, StrategyDoc
 
 
 def _doc(row: StrategyDocRow) -> StrategyDoc:
@@ -42,23 +42,23 @@ class SqlStrategyRepository:
             )
             return _doc(row)
 
-    def remove(self, doc_id: int, by: int, through: str | None = None) -> bool:
+    def remove(self, doc_id: int, by: int, through: str | None = None, nights: frozenset[str] | None = None) -> Removed:
         with self._db.begin() as db:
-            row = db.get(StrategyDocRow, doc_id)
+            # Locked, so a night pinning it meanwhile waits on its foreign key and then leaves it out; a pin already
+            # saved is seen below.
+            row = db.scalar(select(StrategyDocRow).where(StrategyDocRow.id == doc_id).with_for_update())
             if row is None:
-                return False
-            audit.record(
-                db,
-                actor=by,
-                action="strategy.remove",
-                target=f"strategy_doc:{doc_id}",
-                raid_day=through,
-                detail=row.raid,
-            )
+                return "missing"
+            if nights is not None:
+                pinning = db.scalars(select(NightDoc.raid_day_id).where(NightDoc.doc_id == doc_id))
+                if any(day not in nights for day in pinning):
+                    return "pinned"
+            target = f"strategy_doc:{doc_id}"
+            audit.record(db, actor=by, action="strategy.remove", target=target, raid_day=through, detail=row.raid)
             # Not left to ON DELETE CASCADE alone: SQLite only honours it with foreign keys switched on.
             db.execute(delete(NightDoc).where(NightDoc.doc_id == doc_id))
             db.delete(row)
-            return True
+            return "removed"
 
     def night_docs(self) -> dict[str, list[int]]:
         query = select(NightDoc).order_by(NightDoc.raid_day_id, NightDoc.position, NightDoc.doc_id)
@@ -69,8 +69,8 @@ class SqlStrategyRepository:
         return out
 
     def set_night_docs(self, raid_day: str, doc_ids: list[int], by: int) -> None:
-        # A doc taken down while the night is being saved makes the insert fail its foreign key, or two saves collide on
-        # the primary key where Postgres's lock is not taken: try once more over the other write.
+        # Two saves can collide on the primary key where Postgres's lock is not taken, or a doc taken down meanwhile can
+        # fail the foreign key: try once more over the other write, which leaves that doc out.
         for attempt in range(2):
             try:
                 self._set_night_docs(raid_day, doc_ids, by)
@@ -83,6 +83,9 @@ class SqlStrategyRepository:
         with self._db.begin() as db:
             _lock_night(db, raid_day)
             db.execute(delete(NightDoc).where(NightDoc.raid_day_id == raid_day))
+            # A doc taken down since the service checked the list is left out rather than failing the save.
+            known = set(db.scalars(select(StrategyDocRow.id).where(StrategyDocRow.id.in_(doc_ids))))
+            doc_ids = [d for d in doc_ids if d in known]
             db.add_all(NightDoc(raid_day_id=raid_day, doc_id=d, position=i, set_by=by) for i, d in enumerate(doc_ids))
             db.flush()
             audit.record(

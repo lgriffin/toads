@@ -54,8 +54,8 @@ def downgrade() -> None:
         sa.Column("set_by", sa.Integer(), sa.ForeignKey("members.id", ondelete="SET NULL"), nullable=True),
         sa.Column("set_at", sa.DateTime(timezone=True), nullable=False),
     )
-    # A night runs each raid it pinned a doc for, in the order of its first doc for that raid; every doc is kept for
-    # every night.
+    # A night runs each raid it pinned a doc for, in the order of its first doc for that raid. Which night a doc was
+    # once pinned for is gone after the upgrade, so every doc comes back as an every-night doc.
     op.execute(
         "INSERT INTO night_raid_choices (raid_day_id, raid, position, set_by, set_at) "
         "SELECT n.raid_day_id, d.raid, MIN(n.position), MAX(n.set_by), MAX(n.set_at) "

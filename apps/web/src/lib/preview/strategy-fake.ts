@@ -2,6 +2,7 @@
 import { ApiError } from "$lib/api";
 import { PREVIEW_DAY_NAMES } from "./absences-fake";
 import {
+  NIGHT_LIMIT,
   docProblem,
   type Library,
   type NightStrategy,
@@ -20,8 +21,6 @@ export const PREVIEW_RAIDS: Raid[] = [
   { id: "tbd", short: "TBD", name: "Another raid (to be decided)" },
 ];
 
-// The docs a raid holds at most, as the hub keeps them.
-const DOC_LIMIT = 20;
 let nextId = 1;
 const doc = (
   raid: string,
@@ -118,11 +117,6 @@ export const previewStrategy: StrategyBackend = {
     const known = PREVIEW_RAIDS.find((r) => r.id === raid);
     if (problem || !known)
       throw new ApiError(422, problem ?? "Pick one of the raids");
-    if (docs.filter((d) => d.raid === raid).length >= DOC_LIMIT)
-      throw new ApiError(
-        422,
-        `${known.short} has ${DOC_LIMIT} docs; take an old one down first`,
-      );
     const added = doc(
       raid,
       title.trim().split(/\s+/).join(" ") || `${known.name} strategy`,
@@ -156,7 +150,10 @@ export const previewStrategy: StrategyBackend = {
         422,
         "Pick from the docs listed; one may have been taken down",
       );
-    nights[day] = [...new Set(ids)];
+    const chosen = [...new Set(ids)];
+    if (chosen.length > NIGHT_LIMIT)
+      throw new ApiError(422, `Pin up to ${NIGHT_LIMIT} docs for a night`);
+    nights[day] = chosen;
     return nightOf(day);
   },
 };

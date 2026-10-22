@@ -35,8 +35,6 @@ RAIDS: dict[str, Raid] = {
 }
 TITLE_LIMIT = 80
 URL_LIMIT = 500
-# The docs a raid holds at most; officers take an old one down to add more.
-DOC_LIMIT = 20
 # The docs a night pins for its raiders at most.
 NIGHT_LIMIT = 10
 # Officers keep strategy in Google Drive, so a pinned doc is a Google Docs, Sheets, Slides or Drive link.
@@ -117,20 +115,17 @@ class StrategyService:
         url = url.strip()
         if len(url) > URL_LIMIT or not google_link(url):
             raise StrategyError("Paste the doc's https://docs.google.com or drive.google.com link", status=422)
-        if sum(d.raid == raid for d in self.repo.docs()) >= DOC_LIMIT:
-            raise StrategyError(f"{known.short} has {DOC_LIMIT} docs; take an old one down first", status=422)
         return self._views([self.repo.add(raid, title, url, by, through)])[0]
 
     def remove(self, doc_id: int, by: int, *, through: str | None = None, nights: frozenset[str] | None = None) -> None:
         """Take a doc down, and off every night that pins it. With `nights` (the nights a night officer runs), a doc
         another night pins stays up for that night's officers or the global tier to decide."""
-        if nights is not None and any(
-            doc_id in ids for day, ids in self.repo.night_docs().items() if day not in nights
-        ):
+        outcome = self.repo.remove(doc_id, by, through, nights)
+        if outcome == "pinned":
             raise StrategyError(
                 "Another night pins this doc; its officers or a global officer can take it down", status=409
             )
-        if not self.repo.remove(doc_id, by, through):
+        if outcome == "missing":
             raise StrategyError("No such strategy doc", status=404)
 
     def night_docs(self) -> dict[str, list[int]]:
@@ -147,7 +142,8 @@ class StrategyService:
         return NightStrategy(out)
 
     def set_night(self, raid_day: str, doc_ids: list[int], by: int) -> NightStrategy:
-        """Pin docs for a night's raiders, in order, so its Raid page shows them; [] clears them."""
+        """Pin docs for a night's raiders, in order, so its Raid page shows them; [] clears them. A doc taken down while
+        this saves is left out, as if it had not been ticked."""
         known = {d.id for d in self.repo.docs()}
         chosen = list(dict.fromkeys(doc_ids))
         if any(i not in known for i in chosen):

@@ -17,7 +17,7 @@ name (up to 80 characters; "Naxxramas strategy" when left blank), then presses *
 `https://docs.google.com` and `https://drive.google.com` links are taken (up to 500 characters), so a link always opens a
 Google Doc, Sheet, Slides deck or Drive file. If something is wrong the reason shows under the button.
 
-- A raid holds every doc its officers add, newest first, up to 20; take an old one down to add more.
+- A raid holds every doc its officers add, newest first, until one is taken down.
 - An added doc is not shown to raiders until a night pins it. Each doc on the Strategy page says which nights pin it.
 - Share the doc in Drive with the raiders ("Anyone in the guild's group" or "Anyone with the link"); the hub cannot see
   whether they can open it.
