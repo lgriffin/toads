@@ -50,6 +50,17 @@
   </section>
 {/snippet}
 
+{#snippet strategyLink()}
+  <section class="card comp-link" aria-labelledby="strategy-link-h">
+    <h2 id="strategy-link-h">Strategy</h2>
+    <p class="muted">
+      One pinned Google Doc per raid, from MC to Naxx. Pick the raid your night is running and its raiders see that doc on
+      their Raid page.
+    </p>
+    <a class="btn primary" href="{base}/officers/strategy/">Open strategy docs</a>
+  </section>
+{/snippet}
+
 {#snippet calendarLink()}
   <section class="card comp-link" aria-labelledby="calendar-link-h">
     <h2 id="calendar-link-h">Calendar</h2>
@@ -67,6 +78,7 @@
 </p>
 <OfficerNights {raidDays} />
 {@render calendarLink()}
+{@render strategyLink()}
 {@render compLink()}
 <ReferenceCard />
 {#if globalTier}<AwardsDesk backend={hub} />{/if}

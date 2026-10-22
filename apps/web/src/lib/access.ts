@@ -131,6 +131,7 @@ export const APPS: readonly App[] = [
           { text: 'Next raid from Discord events' },
           { text: 'Officer posts on the hub' },
           { text: 'Your role for the night from the officers’ Drive sheet' },
+          { text: 'Your night’s raid strategy doc on the Raid page', permission: 'view_guild_raids' },
           { text: 'Submit highlight reels', permission: 'submit_highlight' },
           { text: 'Upload screenshots', permission: 'upload_screenshots' }
         ]
@@ -141,7 +142,8 @@ export const APPS: readonly App[] = [
           { text: 'Curate posts both ways', permission: 'manage_posts' },
           { text: 'Review highlights and spotlights', permission: 'manage_highlights' },
           { text: 'Interview rooms and recruiting needs', permission: 'manage_recruitment' },
-          { text: 'Write the strategy and role sheets in Google Drive' }
+          { text: 'Write the strategy and role sheets in Google Drive' },
+          { text: 'Pin one strategy doc per raid and pick your night’s raid', permission: 'manage_strategy' }
         ]
       }
     ]

@@ -33,9 +33,9 @@ export const INTEGRATIONS: readonly Integration[] = [
   },
   {
     title: 'Google Drive',
-    body: 'Officers keep raid strategy and role sheets in Google Drive and share them in Discord. The hub does not link them yet.',
-    href: ADMIN_GUIDE,
-    action: 'Admin guide'
+    body: 'Officers keep raid strategy and role sheets in Google Drive. Officers pin one strategy doc per raid on the hub, and each night’s Raid page links the one for its raid.',
+    href: '/officers/strategy',
+    action: 'Strategy docs'
   }
 ];
 
