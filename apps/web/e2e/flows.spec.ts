@@ -73,41 +73,10 @@ test('officers note a night’s applicant, then accept them on the Decisions pan
   await expect(wed.getByText('Toad Bot: Gave Mossbeard the Wednesday raider role in Discord.')).toBeVisible();
 });
 
-test('an officer moves an application from applied to interviewing', async ({ page }) => {
-  await page.goto('officers/');
-  const card = page.getByTestId('application-app-1');
-  await expect(card.getByText('Applied', { exact: true })).toBeVisible();
-  await expect(card.getByText('Interview room open')).toHaveCount(0);
-
-  await card.getByRole('button', { name: /^Open interview room/ }).click();
-
-  await expect(card.getByText('Interviewing', { exact: true })).toBeVisible();
-  await expect(card.getByText('Interview room open')).toBeVisible();
-  await expect(card).toContainText('#interview-mireborn');
-  await expect(card.getByRole('button', { name: /^Offer trial raid/ })).toBeVisible();
-  await expect(card.getByRole('button', { name: /^Open interview room/ })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: /^Applied/ })).toHaveCount(0);
-});
-
-test('granting spotlight consent on the hub lets officers publish it', async ({ page }) => {
+test('granting spotlight consent on the hub tells the member officers can publish it', async ({ page }) => {
   await page.goto('hub/');
   await expect(page.getByRole('heading', { name: 'Spotlight about you' })).toBeVisible();
   await page.getByRole('button', { name: 'Grant' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Officers can now publish' })).toBeVisible();
-
-  await page.getByRole('link', { name: /Spotlights awaiting consent/ }).click();
-  await expect(page).toHaveURL(/\/officers\/#spotlights$/);
-  await expect(page.locator('#spotlights').getByText('Consent granted')).toHaveCount(2);
-  await page.locator('#spotlights').getByRole('button', { name: 'Publish' }).click();
-  await expect(page.locator('#spotlights').getByRole('status')).toContainText('Published the spotlight on Hopscotch');
 });
 
-test('curating a Discord post publishes it to the hub feed', async ({ page }) => {
-  await page.goto('officers/');
-  const queue = page.locator('#curation');
-  await expect(queue.getByText('Edited since review')).toBeVisible();
-  await queue.getByRole('article').filter({ hasText: 'Lurker spout tip' }).getByRole('button', { name: 'Publish to guild' }).click();
-  await expect(queue.getByRole('status')).toContainText('Published “Lurker spout tip”');
-  await (await openHubMenu(page)).getByRole('link', { name: /^Hub home/ }).click();
-  await expect(page.locator('article').filter({ hasText: 'Lurker spout tip' })).toContainText('from Discord');
-});

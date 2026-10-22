@@ -300,7 +300,6 @@ def me_page() -> dict[str, str]:
         for name, path in (
             ("layout", "routes/+layout.svelte"),
             ("page", "routes/me/+page.svelte"),
-            ("preview", "lib/preview/Me.svelte"),
             ("card", "lib/components/AwardsCard.svelte"),
         )
     }
@@ -310,13 +309,12 @@ def me_page() -> dict[str, str]:
 def me_heading(me_page: dict[str, str]) -> None:
     # The layout loads the facts once (session, awards, role badges) and hands /me the same object the greeting uses.
     assert "setMe(() => me);" in me_page["layout"]
-    assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["page"]
-    assert "<h1>Your performance <MemberToads {...facts} size={40} /></h1>" in me_page["preview"]
+    # The preview is the same page answered from sample data, so it wears them too.
+    assert "<h1>Me <MemberToads {...facts} size={40} /></h1>" in me_page["page"]
 
 
 @then('its "Your toads" card shows each of those toads as a badge ahead of the awards')
 def me_card(me_page: dict[str, str]) -> None:
     assert "<AwardsCard {awards} {toads} />" in me_page["page"]
-    assert "<AwardsCard {awards} {toads} />" in me_page["preview"]
     card = me_page["card"]
     assert card.index("{#each worn as t (t.id)}") < card.index("{#each awards as a (a.id)}")

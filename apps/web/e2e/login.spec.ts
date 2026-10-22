@@ -49,7 +49,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await (await openOfficersMenu(page)).getByRole('link', { name: /^Officer console/ }).click();
   await expect(page).toHaveURL(/\/toads\/officers\/$/);
   await page.reload();
-  await expect(page.getByTestId('application-app-1')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Officer console', level: 1 })).toBeVisible();
 
   await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
