@@ -27,8 +27,9 @@
   }
 </script>
 
-<section class="card" aria-labelledby="redeem-h">
-  <h2 id="redeem-h">Redeem an officer token</h2>
+<!-- Few members ever hold a token, so it waits behind a disclosure rather than sitting in every raider's way. -->
+<details class="card redeem">
+  <summary><h2 id="redeem-h">Have an officer token?</h2></summary>
   <p class="muted">A super admin may give you a token to help run the bank. Paste it here, or use <code>/bank redeem</code> in Discord.</p>
   <p class="notice" role="status" aria-live="polite">{message}</p>
   <form class="form" onsubmit={redeem}>
@@ -38,9 +39,12 @@
     </div>
     <p class="actions"><button class="btn primary" type="submit" disabled={busy || !token.trim()}>Redeem</button></p>
   </form>
-</section>
+</details>
 
 <style>
+  .redeem { display: grid; gap: 0.75rem; }
+  .redeem summary { cursor: pointer; }
+  .redeem h2 { display: inline; font-size: 1.1rem; margin: 0; }
   .notice:empty { display: none; }
   .form { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); align-items: end; }
   .actions { display: flex; gap: 0.5rem; margin: 0; }

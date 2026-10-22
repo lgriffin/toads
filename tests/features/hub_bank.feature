@@ -60,7 +60,7 @@ Feature: HUB BANK
   Scenario: REQ-HUB-BANK-020 When a global officer registers a bank source (bank guild, realm, capturing character, raid day), the hub shall accept snapshots for it only from a session that has claimed that character or from a global officer
 
   @ears_ubiquitous @member @phase_2_6
-  Scenario: REQ-HUB-BANK-021 The Bank page shall show each bank source the member may see with its freshness and observation age, and an inventory of observed, pending outgoing, raid held, reserved and available counts with the capture-time range (TB-GM-02, TB-GM-03)
+  Scenario: REQ-HUB-BANK-021 The Bank page shall show each bank source the member may see with its freshness and observation age, and an inventory of observed and available counts (with pending outgoing, raid held and reserved counts for an officer of a bank day) and the capture-time range (TB-GM-02, TB-GM-03)
     Given the guild bank is set up with one captured bank
     When a member opens the bank
     Then they see "Toads main bank" marked fresh with its observation time

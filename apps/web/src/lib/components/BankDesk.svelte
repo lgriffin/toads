@@ -20,7 +20,10 @@
   // The bank request desk (docs/bank-desk.md): what members asked for with the Toad Bot's /bankrequest or here, for
   // officers to approve or deny with a message the Toad Bot DMs back. Everyone sees their own requests and can ask
   // here too. The API checks every permission (manage_bank on the route's raid day); this desk only shows itself.
-  let { backend }: { backend: BankDeskBackend } = $props();
+  // `own` false leaves out the member's own requests and the ask form, for the bank page, where the member asks and
+  // reads their requests once for both the desk and the bank's stock (BankLive); everyone else then sees nothing here.
+  // `onChange` tells the page an answer went out, so BankLive can refresh the member's list too.
+  let { backend, own = true, onChange }: { backend: BankDeskBackend; own?: boolean; onChange?: () => void } = $props();
 
   let day = $state<string | null>(null);
   let rows = $state<BankRequest[]>([]);
@@ -65,7 +68,7 @@
 
   /** Both lists; each keeps its own error, shown beside a retry. */
   async function refresh() {
-    await Promise.all([loadDesk(), loadMine()]);
+    await Promise.all([loadDesk(), own ? loadMine() : null]);
   }
 
   async function load() {
@@ -75,6 +78,11 @@
   $effect(() => {
     load();
   });
+
+  /** For the bank page: a member asked the desk through BankLive's form. */
+  export function reloadDesk() {
+    return loadDesk();
+  }
 
   function open(r: BankRequest) {
     answering = answering === r.id ? null : r.id;
@@ -92,6 +100,7 @@
       failed = true;
     }
     await refresh();
+    onChange?.();
     try {
       if (historyOf && day) historyOf = { ...historyOf, rows: await backend.history(day, historyOf.id) };
     } catch (e) {
@@ -144,14 +153,21 @@
   {#if r.notice}<span class="small" class:bad={r.notice === 'failed'} class:muted={r.notice !== 'failed'}>{noticeLabel(r, own)}</span>{/if}
 {/snippet}
 
+<!-- Without the member's own part, only an officer with a day to manage sees the desk; nobody sees it flash up. -->
+{#if own || day}
 <section class="card desk" aria-labelledby="bank-desk-h">
   <div class="head">
     <h2 id="bank-desk-h">Bank requests</h2>
     {#if day}<span class="pill">{waiting} waiting</span>{/if}
   </div>
   <p class="muted lede">
-    Ask the guild bank with <code>/bankrequest</code> in Discord, giving the item and how many, or below.
-    {#if day}Officers answer here; the Toad Bot DMs each member the answer and your message.{/if}
+    {#if own}
+      Ask the guild bank with <code>/bankrequest</code> in Discord, giving the item and how many, or below.
+      {#if day}Officers answer here; the Toad Bot DMs each member the answer and your message.{/if}
+    {:else}
+      What members asked for with <code>/bankrequest</code> in Discord, or here for something the bank's stock list does
+      not hold. Answer here; the Toad Bot DMs each member the answer and your message.
+    {/if}
   </p>
 
   {#if !loaded}
@@ -263,6 +279,7 @@
       {/if}
     {/if}
 
+    {#if own}
     <div class="own">
       <h3>Your requests</h3>
       {#if mineError}
@@ -285,10 +302,12 @@
         </button>
       </form>
     </div>
+    {/if}
 
     {#if message}<p class={failed ? 'err' : 'ok'} role="status">{message}</p>{/if}
   {/if}
 </section>
+{/if}
 
 {#snippet list(items: BankRequest[], own = false)}
   <ul class="asks">

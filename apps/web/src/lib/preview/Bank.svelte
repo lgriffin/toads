@@ -27,8 +27,9 @@
 
 <!-- Switching views reloads the page as that view, as signing in again would. -->
 {#key previewSession.role}
-  <BankDesk backend={previewBankDesk(hasOfficerPowers(previewSession.role))} />
-  <BankLive />
+  {@const desk = previewBankDesk(hasOfficerPowers(previewSession.role))}
+  <BankDesk backend={desk} own={false} />
+  <BankLive {desk} />
 {/key}
 
 <style>
