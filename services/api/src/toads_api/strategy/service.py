@@ -1,5 +1,6 @@
-"""Rules for raid strategy docs. No RBAC, web framework or storage imports: the routes decide who may call (the global
-officers pin docs and say which raid their night is running) and the repository decides where rows live.
+"""Rules for raid strategy docs. No RBAC, web framework or storage imports: the routes decide who may call (every
+officer pins docs, a night's officers through its path and the global tier through /api/admin; a night's officers or
+the global tier say which raid the night is running) and the repository decides where rows live.
 """
 
 from __future__ import annotations
