@@ -172,15 +172,13 @@ export function storyFromApi(s: ApiPublicStory): PublicStory {
 export interface DeskLine {
   label: string;
   count: number;
-  /** Anchor on the officers page. */
-  href: string;
 }
 
 export function deskLines(d: DeskSummary): DeskLine[] {
   return [
-    { label: 'Applications waiting', count: d.applications_waiting, href: '#applications' },
-    { label: 'Discord posts to curate', count: d.posts_to_curate, href: '#curation' },
-    { label: 'Highlight submissions', count: d.highlights_to_review, href: '#highlights' },
-    { label: 'Spotlights awaiting consent', count: d.spotlights_awaiting_consent, href: '#spotlights' }
+    { label: 'Applications waiting', count: d.applications_waiting },
+    { label: 'Discord posts to curate', count: d.posts_to_curate },
+    { label: 'Highlight submissions', count: d.highlights_to_review },
+    { label: 'Spotlights awaiting consent', count: d.spotlights_awaiting_consent }
   ];
 }

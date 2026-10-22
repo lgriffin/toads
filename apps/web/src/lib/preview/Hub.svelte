@@ -95,7 +95,7 @@
     {:else if id === 'officer_desk'}
       <section class="card" aria-labelledby="desk-h">
         <h2 id="desk-h">Raid leader desk</h2>
-        <DeskList lines={desk} linked={false} />
+        <DeskList lines={desk} />
         <p class="muted small">
           Next raid role gaps:
           {#if gaps.length}
