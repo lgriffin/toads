@@ -385,11 +385,13 @@
   .item { display: grid; gap: 0.1rem; min-width: 0; }
   .item a { font-weight: 700; text-decoration: none; overflow-wrap: anywhere; color: var(--cream); }
   .item a:hover { text-decoration: underline; }
-  /* The game's quality colours, blended toward the text colour so they read on both themes. */
-  .q2 a { color: color-mix(in srgb, #1eff00 55%, var(--cream)); }
-  .q3 a { color: color-mix(in srgb, #0070dd 70%, var(--cream)); }
-  .q4 a { color: color-mix(in srgb, #a335ee 75%, var(--cream)); }
-  .q5 a, .q6 a { color: color-mix(in srgb, #ff8000 75%, var(--cream)); }
+  /* The game's quality colour as a bar beside the name; the name itself stays in the text colour so it reads on both
+     themes at any quality. */
+  .item { border-left: 3px solid var(--line); padding-left: 0.5rem; }
+  .q2 { border-left-color: #1eff00; }
+  .q3 { border-left-color: #0070dd; }
+  .q4 { border-left-color: #a335ee; }
+  .q5, .q6 { border-left-color: #ff8000; }
   .facts { font-size: 0.8rem; color: var(--muted); }
   .entries { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; }
   .entry {
