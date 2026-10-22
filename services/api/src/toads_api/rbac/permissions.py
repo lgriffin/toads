@@ -57,11 +57,13 @@ class Permission(enum.StrEnum):
     # Members' professions and the guild's crafters (docs/professions.md): a night's officers see their night's
     # professions and name its members guild crafters; the global tier sees and names across the guild.
     MANAGE_CRAFTERS = "manage_crafters"
+    # Super admins only (docs/admin.md "View as"): see the hub, read only, as one raid night's raider or officer.
+    VIEW_AS = "view_as"
 
 
 # Held by super admins alone, above every Discord role; never by an officer role or a grant.
 SUPER_ADMIN_ONLY = frozenset(
-    {Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_BADGES, Permission.MANAGE_OFFICER_GRANTS}
+    {Permission.MANAGE_GRANTS, Permission.MANAGE_ROLE_BADGES, Permission.MANAGE_OFFICER_GRANTS, Permission.VIEW_AS}
 )
 
 
@@ -84,6 +86,17 @@ ROLE_PERMISSIONS: dict[HubRole, frozenset[Permission]] = {
     HubRole.RAIDER: _RAIDER,
     HubRole.OFFICER: _OFFICER,
 }
+
+
+@dataclass(frozen=True)
+class ViewAs:
+    """A super admin seeing the hub as one raid night's raider or officer (docs/admin.md "View as"). Kept in their
+    server-side session; it never changes who they are, only the standing their requests carry, and it is read only."""
+
+    role: HubRole
+    raid_day: str
+    # The break-glass admin is viewing: their going back is still audited as a break-glass change.
+    break_glass: bool = False
 
 
 @dataclass(frozen=True)
@@ -111,6 +124,9 @@ class Principal:
     # Made a super admin by TOADS_BREAK_GLASS_ADMIN_ID, whatever their roles or the super admin list say. Shown in
     # /api/session and on the bank page, and every mutating call they make is audit-logged as "break_glass".
     break_glass: bool = False
+    # Set while a super admin views the hub as a raider or officer (docs/admin.md "View as"): the standing above is then
+    # that role's alone, nothing but going back may change anything, and only a super admin can be in this state.
+    viewing_as: ViewAs | None = None
 
     def __post_init__(self) -> None:
         if self.break_glass and not self.super_admin:
@@ -150,7 +166,8 @@ class Principal:
 
 def can(principal: Principal, permission: Permission, raid_day: str | None = None) -> bool:
     if permission in SUPER_ADMIN_ONLY:
-        return principal.super_admin
+        # A super admin viewing the hub as someone else keeps one power of theirs: going back (docs/admin.md "View as").
+        return principal.super_admin or (permission is Permission.VIEW_AS and principal.viewing_as is not None)
     if permission in ROLE_PERMISSIONS[principal.role_for(raid_day)]:
         return True
     # Officers inherit every grantable permission through their role; a grant adds it for one more member, and only

@@ -171,6 +171,9 @@ class Hub:
     def post(self, path: str, session_id: str | None, json: object = None) -> httpx.Response:
         return self.client.post(path, headers=self.as_(session_id), json=json)
 
+    def put(self, path: str, session_id: str | None, json: object = None) -> httpx.Response:
+        return self.client.put(path, headers=self.as_(session_id), json=json)
+
     def delete(self, path: str, session_id: str | None) -> httpx.Response:
         return self.client.delete(path, headers=self.as_(session_id))
 

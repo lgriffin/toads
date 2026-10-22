@@ -232,7 +232,9 @@ async def _notify(services: Services, claims: list[ClaimOut]) -> None:
 
 @router.get("/api/me/setup")
 async def my_setup(principal: Claimant, services: Hub) -> SetupOut:
-    await _notify(services, await anyio.to_thread.run_sync(_resolve, services, principal))
+    # Viewing the hub as another role is read only (docs/admin.md "View as"): show the setup, settle nothing.
+    if principal.viewing_as is None:
+        await _notify(services, await anyio.to_thread.run_sync(_resolve, services, principal))
     return await anyio.to_thread.run_sync(_state, services, principal)
 
 

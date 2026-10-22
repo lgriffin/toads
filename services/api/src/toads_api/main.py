@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from toads_api import audit, auth, claims, main_swaps, members, setup
+from toads_api import audit, auth, claims, main_swaps, members, setup, view_as
 from toads_api.absences.routes import include_absences
 from toads_api.account.routes import router as account_router
 from toads_api.awards.routes import include_awards
@@ -120,6 +120,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(setup.router)
     app.include_router(members.router)
     app.include_router(account_router)
+    app.include_router(view_as.router)
     include_awards(app)
     include_absences(app)
     include_logs(app)

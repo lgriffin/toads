@@ -7,6 +7,7 @@ import {
   ApiError,
   call,
   createClaim,
+  isViewAsRefusal,
   listClaims,
   searchCharacters,
   unclaim,
@@ -127,7 +128,7 @@ export function setupError(e: unknown): string {
     case 401:
       return 'Sign in with Discord to set up your profile.';
     case 403:
-      return 'Setup needs a trial or raider role on a raid night.';
+      return isViewAsRefusal(e) ? e.message : 'Setup needs a trial or raider role on a raid night.';
     case 404:
       return 'Claim that character first.';
     case 409:

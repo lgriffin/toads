@@ -19,6 +19,7 @@ import type { AnalyzerPage } from "./home-payload";
 import type { NextRaidAnswer } from "./next-raid";
 import type { MyPerformance } from "./performance";
 import type { RaidHeadline, RaidSheets, RaidSummary } from "./sheets";
+import type { ViewAs } from "./view-as";
 
 export interface Session {
   member_id: number;
@@ -39,6 +40,8 @@ export interface Session {
   day_names?: Record<string, string>;
   /** A trial or raider who has not finished the first sign-in setup (/setup). Missing from an older hub. */
   needs_setup?: boolean;
+  /** A super admin viewing the hub as a raid night's raider or officer; everything above is then that role's. */
+  view_as?: ViewAs | null;
 }
 
 export interface MemberEntry {
@@ -152,6 +155,11 @@ export const unclaim = (claimId: number, f: Fetch = fetch) =>
     method: "DELETE",
   });
 
+/** The hub refusing a change because a super admin is viewing it as another role (docs/admin.md "View as"). */
+export function isViewAsRefusal(e: unknown): e is ApiError {
+  return e instanceof ApiError && e.status === 403 && e.message.includes("read only");
+}
+
 /** What to tell a member when a claim call fails. */
 export function claimError(e: unknown): string {
   if (!(e instanceof ApiError)) return "Something went wrong; try again.";
@@ -159,7 +167,7 @@ export function claimError(e: unknown): string {
     case 401:
       return "Sign in with Discord to claim characters.";
     case 403:
-      return "Claiming needs a trial or raider role on a raid day.";
+      return isViewAsRefusal(e) ? e.message : "Claiming needs a trial or raider role on a raid day.";
     case 404:
       return "That character has not appeared in the guild’s logs.";
     case 409:

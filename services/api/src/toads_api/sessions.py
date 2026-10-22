@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 
 from redis.asyncio import Redis
 
@@ -32,6 +32,10 @@ class SessionData:
     refreshed_at: float
     # The Discord username (account handle). Defaulted so sessions written before it was stored still load.
     discord_username: str = ""
+    # A super admin viewing the hub as a raid night's raider or officer (docs/admin.md "View as"): "raider" or
+    # "officer", and the raid day's id. Empty when they are themselves; a role refresh keeps it.
+    view_as_role: str = ""
+    view_as_day: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,9 @@ class SessionStore:
         raw = await self._redis.get(_key("session", session_id))
         if raw is None:
             return None
-        return SessionData(**json.loads(raw))
+        # Only the fields this build knows, so a session written by a newer build still loads after a rollback.
+        known = {f.name for f in fields(SessionData)}
+        return SessionData(**{k: v for k, v in json.loads(raw).items() if k in known})
 
     async def save(self, session_id: str, data: SessionData) -> None:
         # xx: never resurrect a session deleted meanwhile; keepttl: refreshing does not extend it.
