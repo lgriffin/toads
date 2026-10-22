@@ -246,7 +246,7 @@ def bank_page() -> dict[str, str]:
 def one_ask_form(bank_page: dict[str, str]) -> None:
     live = bank_page["live"]
     assert live.count("<form") == 1 and "Ask the bank" in live
-    assert "let chosen = $derived(stockedItem(inventory.items, itemText));" in live
+    assert "let chosen = $derived(stockedItem(inventory.items, itemText, picked));" in live
     assert "askDesk(typed, quantity)" in live and "send({ sourceId, itemId: chosen.itemId" in live
 
 
@@ -259,9 +259,12 @@ def one_request_list(bank_page: dict[str, str]) -> None:
 
 @then("the request desk on it shows only officers' answering, not a second ask form or list")
 def desk_answers_only(bank_page: dict[str, str]) -> None:
-    assert "<BankDesk backend={desk} own={false} />" in bank_page["page"]
-    assert "<BankLive {desk} />" in bank_page["page"]
+    page = bank_page["page"]
+    assert "backend={desk} own={false} onChange={() => live?.reloadDeskMine()}" in page
+    assert "<BankLive bind:this={live} {desk} onAsked={() => deskCard?.reloadDesk()} />" in page
     assert '{#if own}\n    <div class="own">' in bank_page["desk"]
+    # Without the member's part only an officer with a day to manage sees it; it never flashes up for others.
+    assert "{#if own || day}" in bank_page["desk"]
 
 
 @then("the officer token waits behind a disclosure")

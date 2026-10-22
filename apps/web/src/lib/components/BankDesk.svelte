@@ -22,7 +22,8 @@
   // here too. The API checks every permission (manage_bank on the route's raid day); this desk only shows itself.
   // `own` false leaves out the member's own requests and the ask form, for the bank page, where the member asks and
   // reads their requests once for both the desk and the bank's stock (BankLive); everyone else then sees nothing here.
-  let { backend, own = true }: { backend: BankDeskBackend; own?: boolean } = $props();
+  // `onChange` tells the page an answer went out, so BankLive can refresh the member's list too.
+  let { backend, own = true, onChange }: { backend: BankDeskBackend; own?: boolean; onChange?: () => void } = $props();
 
   let day = $state<string | null>(null);
   let rows = $state<BankRequest[]>([]);
@@ -78,6 +79,11 @@
     load();
   });
 
+  /** For the bank page: a member asked the desk through BankLive's form. */
+  export function reloadDesk() {
+    return loadDesk();
+  }
+
   function open(r: BankRequest) {
     answering = answering === r.id ? null : r.id;
     note = '';
@@ -94,6 +100,7 @@
       failed = true;
     }
     await refresh();
+    onChange?.();
     try {
       if (historyOf && day) historyOf = { ...historyOf, rows: await backend.history(day, historyOf.id) };
     } catch (e) {
@@ -146,7 +153,8 @@
   {#if r.notice}<span class="small" class:bad={r.notice === 'failed'} class:muted={r.notice !== 'failed'}>{noticeLabel(r, own)}</span>{/if}
 {/snippet}
 
-{#if own || !loaded || day || deskError}
+<!-- Without the member's own part, only an officer with a day to manage sees the desk; nobody sees it flash up. -->
+{#if own || day}
 <section class="card desk" aria-labelledby="bank-desk-h">
   <div class="head">
     <h2 id="bank-desk-h">Bank requests</h2>

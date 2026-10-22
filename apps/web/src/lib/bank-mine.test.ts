@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BankRequest as StockRequest, InventoryItem } from './bank';
 import type { BankRequest as DeskRequest } from './bank-desk';
-import { myRequestRows, stockedItem } from './bank-mine';
+import { myRequestRows, stockMatches, stockedItem } from './bank-mine';
 
 const stock = (over: Partial<StockRequest> = {}): StockRequest => ({
   id: 's1',
@@ -73,5 +73,12 @@ describe('what the ask form sends where', () => {
   it('leaves anything else for the request desk', () => {
     expect(stockedItem(items, 'Primal Fire')).toBeNull();
     expect(stockedItem(items, '   ')).toBeNull();
+  });
+  it('never guesses between two items that share a name', () => {
+    const twins = [...items, { itemId: 2, name: 'Super Mana Potion' }] as InventoryItem[];
+    expect(stockMatches(twins, 'super mana potion')).toHaveLength(2);
+    expect(stockedItem(twins, 'super mana potion')).toBeNull();
+    expect(stockedItem(twins, 'super mana potion', 2)?.itemId).toBe(2);
+    expect(stockedItem(twins, 'Primal Fire', 2)).toBeNull();
   });
 });

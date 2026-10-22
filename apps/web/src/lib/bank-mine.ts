@@ -77,9 +77,19 @@ export function myRequestRows(
   return [...stock.map((r) => stockRow(r, bankName)), ...desk.map(deskRow)].sort((a, b) => b.at - a.at);
 }
 
-/** The stocked item the member typed, by name (any case, extra spaces ignored); null for anything else. */
-export function stockedItem(items: InventoryItem[], typed: string): InventoryItem | null {
+/** Every stocked item with the name the member typed (any case, extra spaces ignored); two item ids can share a name. */
+export function stockMatches(items: InventoryItem[], typed: string): InventoryItem[] {
   const name = typed.trim().split(/\s+/).join(' ').toLocaleLowerCase();
-  if (!name) return null;
-  return items.find((i) => i.name.toLocaleLowerCase() === name) ?? null;
+  if (!name) return [];
+  return items.filter((i) => i.name.toLocaleLowerCase() === name);
+}
+
+/**
+ * The stocked item the member means: the one they picked (an inventory row's Ask) if its name still matches, else the
+ * only item with that name. Null for anything the bank does not hold, and also while two items share the name and
+ * none is picked, so the form asks which one rather than reserving the first.
+ */
+export function stockedItem(items: InventoryItem[], typed: string, picked: number | null = null): InventoryItem | null {
+  const matches = stockMatches(items, typed);
+  return matches.find((i) => i.itemId === picked) ?? (matches.length === 1 ? matches[0] : null);
 }

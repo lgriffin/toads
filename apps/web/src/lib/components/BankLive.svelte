@@ -35,7 +35,7 @@
     type Replica
   } from '$lib/bank';
   import { bankDeskError, MAX_QUANTITY, type BankDeskBackend, type BankRequest as DeskRequest } from '$lib/bank-desk';
-  import { myRequestRows, stockedItem } from '$lib/bank-mine';
+  import { myRequestRows, stockMatches, stockedItem } from '$lib/bank-mine';
   import { shortDate } from '$lib/format';
   import BankCounter from './BankCounter.svelte';
   import BankGrants from './BankGrants.svelte';
@@ -50,8 +50,9 @@
     | { kind: 'ready' };
 
   // The hub's request desk (docs/bank-desk.md): it takes what the bank's stock list does not hold, so a member has one
-  // way to ask and one list of their requests whichever service answers.
-  let { desk }: { desk: BankDeskBackend } = $props();
+  // way to ask and one list of their requests whichever service answers. `onAsked` tells the officers' desk on the same
+  // page that a desk request came in.
+  let { desk, onAsked }: { desk: BankDeskBackend; onAsked?: () => void } = $props();
 
   let view = $state<View>({ kind: 'loading' });
   let me = $state<BankMe | null>(null);
@@ -71,6 +72,8 @@
   // The ask form. A stocked item goes to ToadsBank, set aside at once; anything else goes to the desk for an officer.
   // A key per stock submission: a retry after a lost answer is not a second request.
   let itemText = $state('');
+  // The item id an inventory row's Ask picked, or the member chose when two stocked items share a name.
+  let picked = $state<number | null>(null);
   let sourcePick = $state('');
   let quantity = $state(1);
   let character = $state('');
@@ -80,14 +83,19 @@
   let offer = $state<{ body: NewRequest; available: number } | null>(null);
 
   let shown = $derived(filterItems(inventory.items, search));
-  let chosen = $derived(stockedItem(inventory.items, itemText));
+  let matches = $derived(stockMatches(inventory.items, itemText));
+  let chosen = $derived(stockedItem(inventory.items, itemText, picked));
+  // Two stocked items share the typed name and none is picked: the member says which, never the desk.
+  let twins = $derived(!chosen && matches.length > 1);
+  // ToadsBank's requests are only known once the stock loaded, or when the bank is off (there are none).
+  let stockKnown = $derived(view.kind === 'ready' || view.kind === 'off');
   let sourceId = $derived(
     chosen ? (chosen.sources.some((s) => s.sourceId === sourcePick) ? sourcePick : (bestSource(chosen)?.sourceId ?? '')) : ''
   );
   let sourceName = $derived(new Map(sources.map((s) => [s.id, s.name])));
   let rows = $derived(myRequestRows(mine, deskMine, (id) => sourceName.get(id) ?? id));
   let canAsk = $derived(
-    !busy && !!itemText.trim() && quantity >= 1 && quantity <= (chosen ? 10000 : MAX_QUANTITY) && (!chosen || (!!sourceId && !!character.trim()))
+    !busy && !twins && !!itemText.trim() && quantity >= 1 && quantity <= (chosen ? 10000 : MAX_QUANTITY) && (!chosen || (!!sourceId && !!character.trim()))
   );
   let days = $derived(me ? bankDays(me) : { imports: [], manage: [], all: [] });
   let officerDay = $derived(days.all[0] ?? null);
@@ -135,6 +143,11 @@
 
   onMount(load);
 
+  /** For the officers' desk on the same page: an answer there changes one of these rows. */
+  export function reloadDeskMine() {
+    return loadDeskMine();
+  }
+
   /** After a redemption: the member's standing changed, so the import and queue days may have too. */
   async function reloadMe() {
     try {
@@ -149,6 +162,7 @@
     const item = inventory.items.find((i) => i.itemId === id);
     if (!item) return;
     itemText = item.name;
+    picked = item.itemId;
     sourcePick = bestSource(item)?.sourceId ?? '';
     offer = null;
     document.getElementById('req-item')?.focus();
@@ -164,7 +178,7 @@
       pending = null;
       offer = null;
       notice = `Request for ${created.quantity} × ${created.itemName}: ${requestStatusLabel(created).toLowerCase()}.`;
-      [itemText, quantity, note] = ['', 1, ''];
+      [itemText, quantity, note, picked] = ['', 1, '', null];
       await refresh();
     } catch (e) {
       if (outcomeKnown(e)) pending = null;
@@ -182,7 +196,8 @@
     try {
       await desk.ask(item, n);
       notice = `Asked for ${item} x${n}. An officer will answer, and the Toad Bot will DM you.`;
-      [itemText, quantity, note] = ['', 1, ''];
+      [itemText, quantity, note, picked] = ['', 1, '', null];
+      onAsked?.();
       await loadDeskMine();
     } catch (e) {
       notice = bankDeskError(e);
@@ -195,6 +210,7 @@
     event.preventDefault();
     const typed = itemText.trim().split(/\s+/).join(' ');
     if (!typed) return;
+    if (twins) return;
     if (!chosen) {
       askDesk(typed, quantity);
       return;
@@ -250,7 +266,9 @@
           {#each filterItems(inventory.items, '') as item (item.itemId)}<option value={item.name}></option>{/each}
         </datalist>
         <p id="req-how" class="muted small how">
-          {#if chosen}
+          {#if twins}
+            The bank holds more than one item by this name. Pick which one below.
+          {:else if chosen}
             The bank holds this: {chosen.available} free to ask for. It is set aside for you as soon as you ask.
           {:else if itemText.trim()}
             Not in the bank's stock list, so an officer will read it and the Toad Bot will DM you the answer.
@@ -259,6 +277,17 @@
           {/if}
         </p>
       </div>
+      {#if twins}
+        <div class="field">
+          <label for="req-which">Which one</label>
+          <select id="req-which" required onchange={(e) => (picked = Number(e.currentTarget.value) || null)}>
+            <option value="">Choose…</option>
+            {#each matches as m (m.itemId)}
+              <option value={m.itemId}>{m.name} (item {m.itemId}, {m.available} free)</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
       <div class="field">
         <label for="req-qty">How many</label>
         <input id="req-qty" type="number" min="1" max={chosen ? 10000 : MAX_QUANTITY} required bind:value={quantity} />
@@ -305,8 +334,13 @@
         <button class="btn small" type="button" onclick={loadDeskMine}>Try again</button>
       </p>
     {/if}
-    {#if rows.length === 0}
+    {#if !stockKnown}
+      <p class="warn">Your requests for the bank's stock did not load, so only the others show here.</p>
+    {/if}
+    {#if rows.length === 0 && stockKnown && !deskError}
       <p class="muted">You have not asked the bank for anything yet.</p>
+    {:else if rows.length === 0}
+      <p class="muted">Nothing to show yet.</p>
     {:else}
       <div class="scroll" use:scrollable>
         <table class="mine">
