@@ -39,6 +39,17 @@ def sunday_officer(hub: Hub, people: dict[str, Any]) -> None:
     people["sunday_officer"] = hub.login(hub.user(("sun", "officer"), nick="Bogwort"))
 
 
+@given(parsers.parse('a Sunday raider who lists "{profession}"'))
+def sunday_raider(hub: Hub, people: dict[str, Any], profession: str) -> None:
+    people["sunday_raider"] = hub.login(hub.user(("sun", "raider"), nick="Ribbit"))
+    assert _put_mine(hub, people["sunday_raider"], [{"profession": profession}]).status_code == 200
+
+
+@given("a Wednesday trial")
+def wednesday_trial(hub: Hub, people: dict[str, Any]) -> None:
+    people["trial"] = hub.login(hub.user(("wed", "trial"), nick="Tadpole"))
+
+
 def _put_mine(hub: Hub, sid: str, professions: list[dict[str, Any]]) -> Any:
     return hub.client.put("/api/me/professions", headers=hub.as_(sid), json={"professions": professions})
 
@@ -68,6 +79,31 @@ def _name(hub: Hub, sid: str, day: str, profession: str, member_id: int, note: s
 def officer_names(hub: Hub, people: dict[str, Any], profession: str, note: str) -> None:
     r = _name(hub, people["officer"], "wed", profession, _raider_id(hub, people), note)
     assert r.status_code == 200, r.text
+
+
+@when(parsers.parse('a global officer names the Sunday raider the guild\'s "{profession}" crafter'))
+def global_names(hub: Hub, people: dict[str, Any], profession: str) -> None:
+    chief = hub.login(hub.user(("global", "officer"), nick="Kingtoad"))
+    members = hub.get("/api/admin/professions", chief).json()["members"]
+    ribbit = next(m["member_id"] for m in members if m["name"] == "Ribbit")
+    path = f"/api/admin/crafters/{profession}/{ribbit}"
+    assert hub.client.put(path, headers=hub.as_(chief), json={}).status_code == 200
+
+
+@then(parsers.parse('the Wednesday trial sees the raider as Wednesday\'s "{profession}" crafter for "{note}"'))
+def trial_sees(hub: Hub, people: dict[str, Any], profession: str, note: str) -> None:
+    crafters = hub.get("/api/days/wed/crafters", people["trial"]).json()
+    assert [(c["member_name"], c["profession"], c["note"]) for c in crafters] == [("Lilypadd", profession, note)]
+
+
+@then("the Wednesday trial does not see the Sunday raider among Wednesday's crafters")
+def trial_misses_sunday(hub: Hub, people: dict[str, Any]) -> None:
+    assert "Ribbit" not in {c["member_name"] for c in hub.get("/api/days/wed/crafters", people["trial"]).json()}
+
+
+@then(parsers.parse('the raider picking "{profession}" at {skill:d} is refused'))
+def over_cap_refused(hub: Hub, people: dict[str, Any], profession: str, skill: int) -> None:
+    assert _put_mine(hub, people["raider"], [{"profession": profession, "skill": skill}]).status_code == 422
 
 
 @then(parsers.parse('their professions read back as "{first}" at {skill:d} as "{spec}" and "{second}"'))

@@ -10,7 +10,7 @@ import httpx
 import pytest
 from hub_db import AuditEntry
 from sqlalchemy import select
-from toads_api.professions.catalog import PROFESSIONS
+from toads_api.professions.catalog import MAX_SKILL, PROFESSIONS
 from toads_api.professions.repository import InMemoryProfessionRepository, ProfessionRecord
 from toads_api.professions.service import ProfessionError, ProfessionService
 
@@ -35,14 +35,14 @@ def _p(profession: str, skill: int | None = None, spec: str | None = None) -> Pr
 
 def test_professions_are_known_listed_once_with_a_skill_in_range_and_their_own_specialisation() -> None:
     svc = _service()
-    mine, gone = svc.set_mine(1, [_p("tailoring", 375, "spellfire"), _p("alchemy"), _p("cooking", 300)])
+    mine, gone = svc.set_mine(1, [_p("tailoring", 300, "spellfire"), _p("alchemy"), _p("cooking", 300)])
     assert [(r.member_id, r.profession) for r in mine.professions] == [(1, "alchemy"), (1, "cooking"), (1, "tailoring")]
     assert gone == []
     for bad in (
         [_p("archaeology")],
         [_p("alchemy"), _p("alchemy", 10)],
         [_p("alchemy", 0)],
-        [_p("alchemy", 376)],
+        [_p("alchemy", 301)],
         [_p("alchemy", 300, "spellfire")],
         [_p("enchanting", 300, "anything")],
     ):
@@ -55,7 +55,7 @@ def test_professions_are_known_listed_once_with_a_skill_in_range_and_their_own_s
 
 def test_officers_name_crafters_only_for_professions_the_member_lists() -> None:
     svc = _service()
-    svc.set_mine(2, [_p("alchemy", 375, "transmute")])
+    svc.set_mine(2, [_p("alchemy", 300, "transmute")])
     with pytest.raises(ProfessionError) as info:
         svc.designate("tailoring", 2, None, by=1)
     assert info.value.status == 422
@@ -65,7 +65,7 @@ def test_officers_name_crafters_only_for_professions_the_member_lists() -> None:
     view = svc.designate("alchemy", 2, "  Flasks   and transmutes ", by=1)
     assert (view.member_name, view.skill, view.specialisation, view.note, view.designated_by) == (
         "Lilypadd",
-        375,
+        300,
         "transmute",
         "Flasks and transmutes",
         "Hopscotch",
@@ -84,7 +84,7 @@ def test_dropping_a_profession_ends_its_crafter_naming() -> None:
     svc.set_mine(2, [_p("alchemy"), _p("enchanting")])
     svc.designate("alchemy", 2, None, by=1)
     svc.designate("enchanting", 2, None, by=1)
-    mine, gone = svc.set_mine(2, [_p("enchanting", 375)])
+    mine, gone = svc.set_mine(2, [_p("enchanting", 300)])
     assert gone == ["alchemy"]
     assert [n.profession for n in mine.crafter_for] == ["enchanting"]
 
@@ -93,7 +93,7 @@ def test_a_nights_officers_reach_only_that_nights_members() -> None:
     repo = InMemoryProfessionRepository(raid_days={1: ["wed"], 2: ["wed"], 3: ["sun"]})
     svc = _service(repo)
     svc.set_mine(3, [_p("mining")])
-    svc.set_mine(2, [_p("enchanting", 375)])
+    svc.set_mine(2, [_p("enchanting", 300)])
     assert [(m.name, len(m.professions)) for m in svc.roster("wed")] == [("Hopscotch", 0), ("Lilypadd", 1)]
     with pytest.raises(ProfessionError) as info:
         svc.designate("mining", 3, None, by=1, raid_day="wed")
@@ -116,6 +116,7 @@ def test_catalogue_matches_the_web_app() -> None:
     assert [(i, n, s == "true") for i, n, s, _ in web] == [(p.id, p.name, p.secondary) for p in PROFESSIONS.values()]
     for (pid, _, _, specs), p in zip(web, PROFESSIONS.values(), strict=True):
         assert re.findall(r"\['([a-z-]+)', '([^']+)'\]", specs) == list(p.specialisations), pid
+    assert f"export const MAX_SKILL = {MAX_SKILL};" in ts
 
 
 # ---------------------------------------------------------------- routes
@@ -129,12 +130,12 @@ def test_a_member_sets_and_reads_their_professions(hub: Hub) -> None:
     sid = hub.login(hub.user(("wed", "raider")))
     assert hub.get("/api/me/professions", sid).json() == {"professions": [], "crafter_for": [], "unnamed": []}
     body = {
-        "professions": [{"profession": "alchemy", "skill": 375, "specialisation": "elixir"}, {"profession": "fishing"}]
+        "professions": [{"profession": "alchemy", "skill": 300, "specialisation": "elixir"}, {"profession": "fishing"}]
     }
     r = _put(hub, "/api/me/professions", sid, body)
     assert r.status_code == 200, r.text
     assert hub.get("/api/me/professions", sid).json()["professions"] == [
-        {"profession": "alchemy", "skill": 375, "specialisation": "elixir"},
+        {"profession": "alchemy", "skill": 300, "specialisation": "elixir"},
         {"profession": "fishing", "skill": None, "specialisation": None},
     ]
     assert (
@@ -150,7 +151,7 @@ def test_a_nights_officer_sees_its_professions_and_names_crafters(hub: Hub) -> N
     hub.user(("wed", "trial"), nick="Tadpole")
     officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
     sunday = hub.login(hub.user(("sun", "officer"), nick="Bogwort"))
-    _put(hub, "/api/me/professions", lily, {"professions": [{"profession": "alchemy", "skill": 375}]})
+    _put(hub, "/api/me/professions", lily, {"professions": [{"profession": "alchemy", "skill": 300}]})
     _put(hub, "/api/me/professions", ribbit, {"professions": [{"profession": "tailoring"}]})
 
     night = hub.get("/api/days/wed/professions", officer)
@@ -189,7 +190,7 @@ def test_the_global_tier_sees_everyone_and_names_anyone(hub: Hub) -> None:
     hub.login(hub.user(("sun", "raider"), nick="Ribbit"))
     chief = hub.login(hub.user(("global", "officer"), nick="Kingtoad"))
     officer = hub.login(hub.user(("wed", "officer"), nick="Croak"))
-    _put(hub, "/api/me/professions", lily, {"professions": [{"profession": "enchanting", "skill": 375}]})
+    _put(hub, "/api/me/professions", lily, {"professions": [{"profession": "enchanting", "skill": 300}]})
 
     overview = hub.get("/api/admin/professions", chief)
     assert overview.status_code == 200, overview.text
@@ -209,3 +210,32 @@ def test_the_global_tier_sees_everyone_and_names_anyone(hub: Hub) -> None:
         )
     assert hub.get("/api/admin/professions", chief).json() == {"members": [], "crafters": []}
     assert hub.delete(f"/api/admin/crafters/enchanting/{lily_id}", chief).status_code == 404
+
+
+def test_a_nights_raiders_see_its_guild_crafters(hub: Hub) -> None:
+    lily = hub.login(hub.user(("wed", "raider"), nick="Lilypadd"))
+    ribbit = hub.login(hub.user(("sun", "raider"), nick="Ribbit"))
+    tadpole = hub.login(hub.user(("wed", "trial"), nick="Tadpole"))
+    chief = hub.login(hub.user(("global", "officer"), nick="Kingtoad"))
+    _put(hub, "/api/me/professions", lily, {"professions": [{"profession": "alchemy", "skill": 300}]})
+    _put(hub, "/api/me/professions", ribbit, {"professions": [{"profession": "tailoring", "skill": 290}]})
+    ids = {m["name"]: m["member_id"] for m in hub.get("/api/admin/professions", chief).json()["members"]}
+    _put(hub, f"/api/admin/crafters/alchemy/{ids['Lilypadd']}", chief, {"note": "Flasks"})
+    _put(hub, f"/api/admin/crafters/tailoring/{ids['Ribbit']}", chief, {})
+
+    wed = hub.get("/api/days/wed/crafters", tadpole)
+    assert wed.status_code == 200, wed.text
+    # Only the night's own crafters, and not who named them.
+    assert wed.json() == [
+        {
+            "profession": "alchemy",
+            "member_id": ids["Lilypadd"],
+            "member_name": "Lilypadd",
+            "skill": 300,
+            "specialisation": None,
+            "note": "Flasks",
+        }
+    ]
+    assert [c["member_name"] for c in hub.get("/api/days/sun/crafters", ribbit).json()] == ["Ribbit"]
+    assert hub.get("/api/days/nope/crafters", lily).status_code == 404
+    assert hub.get("/api/days/wed/crafters", None).status_code == 401
