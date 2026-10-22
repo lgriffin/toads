@@ -20,6 +20,25 @@ test('a raid night officer goes from the officer desk to their night\'s own sect
   await expect(page.getByRole('region', { name: 'Wednesday interview panel' })).toBeVisible();
 });
 
+test('a night\'s officer sees tonight first and pins and unpins a Drive link', async ({ page }) => {
+  await signIn(page, 'officer');
+  await page.goto('officers/nights/wed/');
+  const tonight = page.getByRole('region', { name: /^Next Wednesday/ });
+  await expect(tonight.getByRole('group', { name: 'Who is away' }).getByText('Lilypadd')).toBeVisible();
+  const links = tonight.getByRole('group', { name: 'Strategy and roles' });
+  await expect(links.getByRole('link', { name: 'Kael’thas strategy' })).toHaveAttribute('target', '_blank');
+  await links.getByLabel('Name').fill('Vashj roles');
+  await links.getByLabel('Link').fill('http://example.com/roles');
+  await links.getByRole('button', { name: 'Pin link' }).click();
+  await expect(links.getByRole('status')).toContainText('https');
+  await links.getByLabel('Link').fill('https://docs.google.com/spreadsheets/d/vashj');
+  await links.getByRole('button', { name: 'Pin link' }).click();
+  await expect(links.getByRole('link', { name: 'Vashj roles' })).toBeVisible();
+  await links.getByRole('button', { name: 'Unpin Vashj roles' }).click();
+  await expect(links.getByRole('link', { name: 'Vashj roles' })).toHaveCount(0);
+  await expect(links.getByRole('status')).toHaveText('Unpinned “Vashj roles”.');
+});
+
 test('a night\'s officers see only their own night\'s section', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('officers/');

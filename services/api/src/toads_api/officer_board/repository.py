@@ -30,6 +30,19 @@ class Card:
     updated_at: datetime
 
 
+@dataclass(frozen=True)
+class NightLink:
+    """A link pinned to a raid day's officer section."""
+
+    id: int
+    raid_day: str
+    position: int
+    label: str
+    url: str
+    created_by: int | None
+    created_at: datetime
+
+
 class BoardRepository(Protocol):
     def cards(self, raid_day: str) -> list[Card]:
         """Every card on the day's board, by lane, then position."""
@@ -47,6 +60,16 @@ class BoardRepository(Protocol):
 
     def remove(self, raid_day: str, card_id: int, by: int) -> bool: ...
 
+    def links(self, raid_day: str) -> list[NightLink]:
+        """The day's pinned links, in the order they were added."""
+        ...
+
+    def add_link(self, raid_day: str, label: str, url: str, by: int, limit: int) -> NightLink | None:
+        """Pin a link unless the night already holds `limit`; None when it does. Counting and pinning are one step."""
+        ...
+
+    def remove_link(self, raid_day: str, link_id: int, by: int) -> bool: ...
+
 
 @dataclass
 class InMemoryBoardRepository:
@@ -54,6 +77,7 @@ class InMemoryBoardRepository:
 
     rows: list[Card] = field(default_factory=list)
     next_id: int = 1
+    pinned: list[NightLink] = field(default_factory=list)
 
     def cards(self, raid_day: str) -> list[Card]:
         return sorted((c for c in self.rows if c.raid_day == raid_day), key=lambda c: (c.lane, c.position, c.id))
@@ -93,3 +117,19 @@ class InMemoryBoardRepository:
             return False
         del self.rows[i]
         return True
+
+    def links(self, raid_day: str) -> list[NightLink]:
+        return sorted((x for x in self.pinned if x.raid_day == raid_day), key=lambda x: (x.position, x.id))
+
+    def add_link(self, raid_day: str, label: str, url: str, by: int, limit: int) -> NightLink | None:
+        if len(self.links(raid_day)) >= limit:
+            return None
+        link = NightLink(self.next_id, raid_day, len(self.links(raid_day)), label, url, by, datetime.now(UTC))
+        self.next_id += 1
+        self.pinned.append(link)
+        return link
+
+    def remove_link(self, raid_day: str, link_id: int, by: int) -> bool:
+        before = len(self.pinned)
+        self.pinned = [x for x in self.pinned if (x.raid_day, x.id) != (raid_day, link_id)]
+        return len(self.pinned) < before
