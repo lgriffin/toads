@@ -291,7 +291,7 @@
                   <span class="who">{r.name || 'Former member'}</span>
                   {#if r.next_up}<span class="tag">Next up</span>{/if}
                   {#if r.received_at}<span class="tag done">Received</span>{/if}
-                  <span class="spacer"></span>
+                  <span class="acts">
                   <button
                     class="step"
                     type="button"
@@ -326,6 +326,7 @@
                       )}
                     aria-label="Take {r.name} out of line"
                   >✕</button>
+                  </span>
                 </li>
               {/each}
             </ol>
@@ -415,7 +416,7 @@
   .who { color: var(--cream); }
   .tag { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; background: color-mix(in srgb, var(--teal) 25%, transparent); color: var(--cream); }
   .tag.done { background: color-mix(in srgb, var(--muted) 25%, transparent); }
-  .spacer { flex: 1; }
+  .acts { display: flex; gap: 0.3rem; margin-left: auto; }
   .step {
     background: none;
     border: 1px solid var(--line);
