@@ -18,13 +18,12 @@ export const MAX_SKILL = 300;
 export const NOTE_LIMIT = 200;
 
 export const PROFESSIONS: Profession[] = [
-  { id: 'alchemy', name: 'Alchemy', secondary: false, specialisations: [['elixir', 'Elixir Master'], ['potion', 'Potion Master'], ['transmute', 'Transmutation Master']] },
+  { id: 'alchemy', name: 'Alchemy', secondary: false, specialisations: [] },
   { id: 'blacksmithing', name: 'Blacksmithing', secondary: false, specialisations: [['armorsmith', 'Armorsmith'], ['weaponsmith', 'Weaponsmith'], ['axesmith', 'Master Axesmith'], ['hammersmith', 'Master Hammersmith'], ['swordsmith', 'Master Swordsmith']] },
   { id: 'enchanting', name: 'Enchanting', secondary: false, specialisations: [] },
   { id: 'engineering', name: 'Engineering', secondary: false, specialisations: [['gnomish', 'Gnomish'], ['goblin', 'Goblin']] },
-  { id: 'jewelcrafting', name: 'Jewelcrafting', secondary: false, specialisations: [] },
   { id: 'leatherworking', name: 'Leatherworking', secondary: false, specialisations: [['dragonscale', 'Dragonscale'], ['elemental', 'Elemental'], ['tribal', 'Tribal']] },
-  { id: 'tailoring', name: 'Tailoring', secondary: false, specialisations: [['mooncloth', 'Mooncloth'], ['shadoweave', 'Shadoweave'], ['spellfire', 'Spellfire']] },
+  { id: 'tailoring', name: 'Tailoring', secondary: false, specialisations: [] },
   { id: 'herbalism', name: 'Herbalism', secondary: false, specialisations: [] },
   { id: 'mining', name: 'Mining', secondary: false, specialisations: [] },
   { id: 'skinning', name: 'Skinning', secondary: false, specialisations: [] },
@@ -82,7 +81,7 @@ export interface Overview {
   crafters: Crafter[];
 }
 
-/** "Alchemy 300, Transmutation Master": what a member's line in a list says about one profession. */
+/** "Engineering 300, Gnomish": what a member's line in a list says about one profession. */
 export function describe(h: Pick<HeldProfession, 'profession' | 'skill' | 'specialisation'>): string {
   const p = professionOf(h.profession);
   const spec = h.specialisation ? p?.specialisations.find(([id]) => id === h.specialisation)?.[1] : undefined;

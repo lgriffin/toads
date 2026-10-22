@@ -7,11 +7,14 @@ profession's top end recipes to.
 ## Members' professions
 
 Any signed-in member picks the professions they have, on their main or their alts, each with an optional skill (1 to
-300, the Classic Forever cap; migration 0037 brought any skill saved above it down to 300) and, where the profession has them, a specialisation such as Transmutation Master or Spellfire Tailoring
-(`GET`/`PUT /api/me/professions`, always the caller's own; a `PUT` replaces the whole list). Primary professions and the
-secondary skills (Cooking, First Aid, Fishing) are listed apart; there is no cap on how many a member lists, since they
-cover alts too. The list is `toads_api.professions.catalog`, mirrored in `apps/web/src/lib/professions.ts`;
-`test_professions.py` keeps the two in step. Ids are stored, so never rename one.
+300, the Classic Forever cap; migration 0037 brought any skill saved above it down to 300) and, where the profession has
+them, a specialisation (Armorsmith or Weaponsmith and its masteries, Gnomish or Goblin Engineering, Dragonscale,
+Elemental or Tribal Leatherworking) (`GET`/`PUT /api/me/professions`, always the caller's own; a `PUT` replaces the
+whole list). Primary professions and the secondary skills (Cooking, First Aid, Fishing) are listed apart; there is no
+cap on how many a member lists, since they cover alts too. The list is the Classic Forever set: no Jewelcrafting, and no
+Alchemy or Tailoring specialisations, which arrive with TBC (migration 0038 took them out of what members had listed).
+It is `toads_api.professions.catalog`, mirrored in `apps/web/src/lib/professions.ts`; `test_professions.py` keeps the
+two in step. Ids are stored, so never rename one.
 
 ## Guild crafters
 
