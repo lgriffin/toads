@@ -1,87 +1,79 @@
-# Raid strategy docs (docs/strategy.md): officers keep raid strategy in Google Drive. The hub pins Google Docs per
-# classic raid, for every night or for one raid night, and each raid night's Raid page shows the doc for each raid it is
-# running.
+# Raid strategy docs (docs/strategy.md): officers keep raid strategy in Google Drive. Officers add Google Docs to each
+# classic raid, then each raid night pins the docs its raiders see on the night's Raid page.
 Feature: HUB STRAT
 
   @ears_event_driven @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-001 When a global officer or super admin pins a Google Doc to a classic raid for every night, the hub shall make it that raid's pinned strategy doc, keep the doc it replaced listed below it, and record it on the audit log
+  Scenario: REQ-HUB-STRAT-001 When an officer adds a Google Doc to a classic raid, the hub shall list it under that raid, newest first, keep it from raiders until a night pins it, and record it on the audit log
     Given a global officer
-    When the global officer pins "https://docs.google.com/document/d/naxx-v1" to "naxx"
-    And the global officer pins "https://docs.google.com/document/d/naxx-v2" to "naxx" as "Naxx full clear"
-    Then the "naxx" strategy is "Naxx full clear" at "https://docs.google.com/document/d/naxx-v2"
-    And the "naxx" strategy lists "https://docs.google.com/document/d/naxx-v1" as replaced
-    And the audit log records "strategy.pin"
+    When the global officer adds "https://docs.google.com/document/d/naxx-v1" to "naxx"
+    And the global officer adds "https://docs.google.com/document/d/naxx-v2" to "naxx" as "Naxx full clear"
+    Then the "naxx" docs are "Naxx full clear" then "Naxxramas strategy"
+    And the audit log records "strategy.add"
+    And Wednesday's Raid page shows no docs
     And every raid from MC to Naxx, and a raid to be decided, can hold a doc
 
   @ears_unwanted_behavior @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-002 If a pinned link is not a Google Docs or Drive https link, or names no listed raid or raid night, or a raider or an officer of another night tries to pin a doc through a night, then the hub shall refuse it and change nothing
+  Scenario: REQ-HUB-STRAT-002 If an added link is not a Google Docs or Drive https link, or names no listed raid, or a raider or an officer of another night tries to add a doc through a night, then the hub shall refuse it and change nothing
     Given a global officer
-    When the global officer pins "https://docs.google.com/document/d/naxx-v1" to "naxx"
-    Then pinning "https://example.com/naxx" to "naxx" is refused
-    And pinning "http://docs.google.com/document/d/x" to "naxx" is refused
-    And pinning "https://docs.google.com/document/d/x" to "kara" is refused
-    And pinning "https://docs.google.com/document/d/x" to "naxx" for night "fri" is refused
-    And a Wednesday officer cannot pin a doc through Sunday
-    And a Wednesday raider cannot pin a doc
-    And the "naxx" strategy is "Naxxramas strategy" at "https://docs.google.com/document/d/naxx-v1"
+    When the global officer adds "https://docs.google.com/document/d/naxx-v1" to "naxx"
+    Then adding "https://example.com/naxx" to "naxx" is refused
+    And adding "http://docs.google.com/document/d/x" to "naxx" is refused
+    And adding "https://docs.google.com/document/d/x" to "kara" is refused
+    And a Wednesday officer cannot add a doc through Sunday
+    And a Wednesday raider cannot add a doc
+    And the "naxx" docs are "Naxxramas strategy"
 
   @ears_event_driven @raid_leader @member @phase_2_7
-  Scenario: REQ-HUB-STRAT-003 When a raid night's officer says which raids the night is running, the hub shall show each raid's pinned doc on the night's Raid page to its members
+  Scenario: REQ-HUB-STRAT-003 When a raid night's officer pins docs for the night's raiders, the hub shall show them on the night's Raid page to its members, in the order pinned, and record it on the audit log
     Given a global officer
-    And the global officer pins "https://docs.google.com/document/d/bwl" to "bwl"
-    When a Wednesday officer says Wednesday is running "bwl"
-    Then a Wednesday raider sees "Blackwing Lair" with "https://docs.google.com/document/d/bwl" on Wednesday's Raid page
+    And the global officer adds "https://docs.google.com/document/d/bwl" to "bwl"
+    And the global officer adds "https://docs.google.com/document/d/zg" to "zg"
+    When a Wednesday officer pins "https://docs.google.com/document/d/zg" then "https://docs.google.com/document/d/bwl" for Wednesday
+    Then a Wednesday raider sees "zg" at "https://docs.google.com/document/d/zg" then "bwl" at "https://docs.google.com/document/d/bwl"
     And the audit log records "strategy.night" for Wednesday
-    And when the global officer pins "https://docs.google.com/document/d/bwl-v2" to "bwl" the raider sees "https://docs.google.com/document/d/bwl-v2"
-    And Sunday's Raid page shows no raid
+    And the "bwl" doc lists Wednesday as pinning it
+    And Sunday's Raid page shows no docs
 
   @ears_unwanted_behavior @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-004 If a raider or another raid night's officer tries to say which raids a night is running, then the hub shall refuse it
+  Scenario: REQ-HUB-STRAT-004 If a raider or another raid night's officer tries to pin a night's docs, or a pin names a doc not listed, then the hub shall refuse it
     Given a global officer
-    When a Wednesday officer says Wednesday is running "bwl"
-    Then a Sunday officer cannot change Wednesday's raids
-    And a Wednesday raider cannot change Wednesday's raids
-    And the global officer can say Sunday is running "aq40"
-    And the global officer can clear Sunday's raids
+    And the global officer adds "https://docs.google.com/document/d/aq40" to "aq40"
+    When a Wednesday officer pins "https://docs.google.com/document/d/aq40" for Wednesday
+    Then a Sunday officer cannot pin Wednesday's docs
+    And a Wednesday raider cannot pin Wednesday's docs
+    And pinning a doc that is not listed for Wednesday is refused
+    And the global officer can pin "https://docs.google.com/document/d/aq40" for Sunday
+    And the global officer can clear Sunday's docs
 
-  @ears_event_driven @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-005 When an officer takes down a pinned doc, the hub shall pin the doc it replaced again
+  @ears_event_driven @raid_leader @member @phase_2_7
+  Scenario: REQ-HUB-STRAT-005 When an officer takes a doc down, the hub shall remove it from the raid and from every night that pins it
     Given a global officer
-    When the global officer pins "https://docs.google.com/document/d/mc-v1" to "mc"
-    And the global officer pins "https://docs.google.com/document/d/mc-v2" to "mc"
-    And the global officer takes down the "mc" pinned doc
-    Then the "mc" strategy is "Molten Core strategy" at "https://docs.google.com/document/d/mc-v1"
+    And the global officer adds "https://docs.google.com/document/d/mc" to "mc"
+    When a Wednesday officer pins "https://docs.google.com/document/d/mc" for Wednesday
+    And the global officer takes down "https://docs.google.com/document/d/mc"
+    Then Wednesday's Raid page shows no docs
+    And the "mc" docs are empty
 
   @ears_ubiquitous @member @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-006 The Raid page shall show each raid the night is running with its strategy doc, and the officers' Strategy page shall let every officer pin docs for every night or their own night and pick one or more raids for each night they run
+  Scenario: REQ-HUB-STRAT-006 The officers' Strategy page shall let every officer add docs to each raid, and the Raid page shall show the night's pinned docs and let its officers pin them from the raids' docs
     Given the Raid page and the Strategy page
-    Then the Raid page shows the night's strategy docs
-    And the Strategy page lists the raids, pins docs for every night or one night and picks each night's raids
+    Then the Raid page shows the night's pinned docs and lets its officers pin them
+    And the Strategy page adds docs to each raid and pins each night's docs
 
-  @ears_event_driven @raid_leader @member @phase_2_7
-  Scenario: REQ-HUB-STRAT-007 When a raid night's officer pins a doc to a raid for their own night, the hub shall add the raid to that night's raids and show that doc on its Raid page in place of the every-night doc, and leave other nights on the every-night doc
+  @ears_event_driven @raid_leader @phase_2_7
+  Scenario: REQ-HUB-STRAT-007 When a raid night's officer adds a doc through their night, the hub shall list it under the raid for every night's officers to pin, and record the night on the audit log
     Given a global officer
-    And the global officer pins "https://docs.google.com/document/d/aq40-guild" to "aq40"
-    And the global officer can say Sunday is running "aq40"
-    When a Wednesday officer pins "https://docs.google.com/document/d/aq40-wed" to "aq40" through Wednesday
-    Then a Wednesday raider sees "Temple of Ahn'Qiraj" with "https://docs.google.com/document/d/aq40-wed" on Wednesday's Raid page
-    And a Sunday raider sees "Temple of Ahn'Qiraj" with "https://docs.google.com/document/d/aq40-guild" on Sunday's Raid page
-    And the "aq40" strategy for Wednesday is "https://docs.google.com/document/d/aq40-wed"
-    And the audit log records "strategy.pin" for Wednesday
-    And when the Wednesday officer takes down the "aq40" Wednesday doc a Wednesday raider sees "https://docs.google.com/document/d/aq40-guild"
-
-  @ears_state_driven @raid_leader @member @phase_2_7
-  Scenario: REQ-HUB-STRAT-008 While a raid night is running more than one raid, its Raid page shall show each raid's doc, in the order the night runs them
-    Given a global officer
-    And the global officer pins "https://docs.google.com/document/d/zg" to "zg"
-    And the global officer pins "https://docs.google.com/document/d/aq20" to "aq20"
-    When a Wednesday officer says Wednesday is running "aq20" then "zg" then "mc"
-    Then Wednesday's Raid page shows "aq20" at "https://docs.google.com/document/d/aq20", "zg" at "https://docs.google.com/document/d/zg" and "mc" with no doc
+    When a Wednesday officer adds "https://docs.google.com/document/d/aq20-wed" to "aq20" through Wednesday
+    Then the "aq20" docs are "Ruins of Ahn'Qiraj strategy"
+    And the audit log records "strategy.add" for Wednesday
+    And a Sunday officer can pin "https://docs.google.com/document/d/aq20-wed" for Sunday
 
   @ears_unwanted_behavior @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-009 If a raid night's officer takes down another night's doc, then the hub shall refuse it; a night's officer may pin and take down every-night docs
+  Scenario: REQ-HUB-STRAT-008 If a raid night's officer tries to take down a doc another night pins, then the hub shall refuse it; they may take down a doc no other night pins
     Given a global officer
-    When the global officer pins "https://docs.google.com/document/d/naxx-sun" to "naxx" for night "sun"
-    And a Wednesday officer pins "https://docs.google.com/document/d/naxx-all" to "naxx" for every night through Wednesday
-    Then the Wednesday officer cannot take down Sunday's "naxx" doc
-    And the Wednesday officer can take down the every-night "naxx" doc
+    And the global officer adds "https://docs.google.com/document/d/naxx-sun" to "naxx"
+    And the global officer can pin "https://docs.google.com/document/d/naxx-sun" for Sunday
+    When a Wednesday officer adds "https://docs.google.com/document/d/naxx-wed" to "naxx" through Wednesday
+    And a Wednesday officer pins "https://docs.google.com/document/d/naxx-wed" for Wednesday
+    Then the Wednesday officer cannot take down "https://docs.google.com/document/d/naxx-sun"
+    And the Wednesday officer can take down "https://docs.google.com/document/d/naxx-wed"

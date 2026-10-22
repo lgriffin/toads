@@ -263,15 +263,12 @@ test("a raider sees no officers’ board", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("a raider opens the strategy doc for each raid their night is running", async ({
+test("a raider opens the strategy docs their night pinned", async ({
   page,
 }) => {
   await signIn(page, "member");
   await page.goto("raid/");
   const strategy = page.getByRole("region", { name: "Strategy" });
-  await expect(strategy).toContainText(
-    "Wednesday is running Zul'Gurub then Blackwing Lair",
-  );
   const zg = strategy.getByRole("link", { name: "Open the ZG strategy" });
   await expect(zg).toHaveAttribute(
     "href",
@@ -284,66 +281,91 @@ test("a raider opens the strategy doc for each raid their night is running", asy
   );
   await expect(bwl).toHaveAttribute("target", "_blank");
   await expect(
-    strategy.getByRole("group", { name: "Raids Wednesday is running" }),
+    strategy.getByRole("group", { name: "Docs pinned for Wednesday" }),
   ).toHaveCount(0);
 });
 
-test("a night's officer adds a raid to the night and pins a doc for that night alone", async ({
+test("an officer adds a doc to a raid, then pins it for their night's raiders", async ({
   page,
 }) => {
   await signIn(page, "officer");
   await page.goto("raid/");
   const strategy = page.getByRole("region", { name: "Strategy" });
-  await strategy.locator("summary").click();
-  const picker = strategy.getByRole("group", {
-    name: "Raids Wednesday is running",
-  });
-  await picker.getByRole("checkbox", { name: /Naxxramas/ }).check();
-  await expect(strategy).toContainText(
-    "Wednesday is running Zul'Gurub then Blackwing Lair then Naxxramas",
-  );
-  await expect(strategy).toContainText(
-    "No strategy doc is pinned for Naxxramas yet.",
-  );
-  await picker.getByRole("checkbox", { name: /Zul'Gurub/ }).uncheck();
-  await expect(strategy).toContainText(
-    "Wednesday is running Blackwing Lair then Naxxramas",
-  );
-  await page.keyboard.press("Escape");
-  await strategy
-    .getByRole("link", { name: "Strategy docs for every raid" })
-    .click();
+  await strategy.getByRole("link", { name: "Add docs to a raid" }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Strategy" }),
   ).toBeVisible();
-  const form = page.getByRole("form", { name: "Pin a strategy doc" });
+  const form = page.getByRole("form", { name: "Add a doc to a raid" });
+  await form.getByRole("button", { name: "Add the doc" }).click();
+  // The reason shows beside the button, where the officer is looking.
+  await expect(form.getByRole("alert")).toHaveText(
+    "Pick the raid the doc is for.",
+  );
   await form.getByLabel("Raid").selectOption("aq40");
-  await form.getByLabel("For").selectOption("wed");
   await form.getByLabel("Google Doc link").fill("https://example.com/aq40");
-  await form.getByRole("button", { name: "Pin the strategy doc" }).click();
-  await expect(page.getByRole("alert")).toContainText("docs.google.com");
+  await form.getByRole("button", { name: "Add the doc" }).click();
+  await expect(form.getByRole("alert")).toContainText("docs.google.com");
   await form
     .getByLabel("Google Doc link")
-    .fill("https://docs.google.com/document/d/aq40-wed");
-  await form.getByLabel("Name").fill("AQ40 Wednesday");
-  await form.getByRole("button", { name: "Pin the strategy doc" }).click();
-  await expect(form.getByRole("status")).toHaveText(
-    "Pinned “AQ40 Wednesday” as the AQ40 strategy for Wednesday.",
+    .fill("https://docs.google.com/document/d/aq40");
+  await form.getByLabel("Name").fill("AQ40 trash and bosses");
+  await form.getByRole("button", { name: "Add the doc" }).click();
+  await expect(form.getByRole("status")).toContainText(
+    "Added “AQ40 trash and bosses” to AQ40.",
   );
-  const slot = page.getByRole("region", { name: "AQ40 Wednesday" });
+  const aq40 = page.getByRole("list", { name: "AQ40 docs" });
   await expect(
-    slot.getByRole("link", { name: "AQ40 Wednesday" }),
-  ).toHaveAttribute("href", "https://docs.google.com/document/d/aq40-wed");
-  // Pinning for Wednesday added AQ40 to the raids Wednesday is running.
+    aq40.getByRole("link", { name: "AQ40 trash and bosses" }),
+  ).toHaveAttribute("href", "https://docs.google.com/document/d/aq40");
+  await expect(aq40).toContainText("Not pinned for any night");
+
+  // Back on the Raid page, the night's officer pins it for Wednesday's raiders.
+  // Back without a reload, so the preview keeps the doc just added.
+  await page.goBack();
+  const band = page.getByRole("region", { name: "Strategy" });
+  await band.locator("summary").click();
+  const picker = band.getByRole("group", { name: "Docs pinned for Wednesday" });
+  await picker.getByRole("checkbox", { name: /BWL full clear/ }).uncheck();
   await expect(
-    page
-      .getByRole("region", { name: "What each night is running" })
-      .locator("summary")
-      .first(),
-  ).toHaveText("BWL then Naxx then AQ40");
-  const nights = page.getByRole("region", { name: "What each night is running" });
-  await nights.locator("summary").first().click();
-  await nights.getByRole("checkbox", { name: /Naxxramas/ }).uncheck();
-  await expect(nights.locator("summary").first()).toHaveText("BWL then AQ40");
-  await expect(nights.getByRole("checkbox", { name: /Naxxramas/ })).not.toBeChecked();
+    band.getByRole("link", { name: "Open the BWL strategy" }),
+  ).toHaveCount(0);
+  await picker.getByRole("checkbox", { name: /AQ40 trash and bosses/ }).check();
+  await expect(
+    band.getByRole("link", { name: "Open the AQ40 strategy" }),
+  ).toHaveAttribute("href", "https://docs.google.com/document/d/aq40");
+  await expect(
+    band.getByRole("link", { name: "Open the ZG strategy" }),
+  ).toBeVisible();
+});
+
+test("an officer pins a night's docs from the Strategy page", async ({
+  page,
+}) => {
+  await signIn(page, "officer");
+  await page.goto("officers/strategy/");
+  const nights = page.getByRole("region", {
+    name: "What each night’s raiders see",
+  });
+  await expect(nights.locator("summary")).toHaveText(
+    "ZG: Zul'Gurub strategy, BWL: BWL full clear",
+  );
+  await nights.locator("summary").click();
+  await nights.getByRole("checkbox", { name: /Molten Core strategy/ }).check();
+  await expect(nights.locator("summary")).toHaveText(
+    "ZG: Zul'Gurub strategy, BWL: BWL full clear, MC: Molten Core strategy",
+  );
+  await nights.getByRole("checkbox", { name: /Zul'Gurub strategy/ }).uncheck();
+  await expect(nights.locator("summary")).toHaveText(
+    "BWL: BWL full clear, MC: Molten Core strategy",
+  );
+  const mc = page.getByRole("list", { name: "MC docs" }).getByRole("listitem");
+  await expect(mc.filter({ hasText: "Molten Core strategy" })).toContainText(
+    "Pinned for Wednesday",
+  );
+  // Sunday pins its own MC doc, so a Wednesday officer cannot take it down.
+  const sunday = mc.filter({ hasText: "Sunday MC" });
+  await expect(sunday).toContainText("Pinned for Sunday");
+  await expect(sunday.getByRole("button", { name: "Take down" })).toHaveCount(
+    0,
+  );
 });

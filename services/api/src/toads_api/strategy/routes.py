@@ -1,18 +1,16 @@
 """Raid strategy docs (docs/strategy.md).
 
-- GET    /api/strategy                            every raid's docs, for every night and each night's own, and the
-                                                  raids each night is running (any signed-in member)
-- POST   /api/admin/strategy                      pin a Google Doc to a raid for one night or every night (global
-                                                  officers and super admins)
-- DELETE /api/admin/strategy/{doc_id}             take a doc down
-- POST   /api/days/{day}/strategy/docs            pin a doc for that night, or every night, as one of its officers
-- DELETE /api/days/{day}/strategy/docs/{doc_id}   take down a doc pinned for that night or every night
-- GET    /api/days/{day}/strategy                 the raids the night is running, each with its doc (its Raid page)
-- PUT    /api/days/{day}/strategy                 say which raids the night is running (that night's officers)
+- GET    /api/strategy                            every raid's docs and the docs each night pins (any signed-in member)
+- POST   /api/admin/strategy                      add a Google Doc to a raid (global officers and super admins)
+- DELETE /api/admin/strategy/{doc_id}             take a doc down, off every night that pins it
+- POST   /api/days/{day}/strategy/docs            add a doc to a raid, as one of that night's officers
+- DELETE /api/days/{day}/strategy/docs/{doc_id}   take down a doc no other night pins
+- GET    /api/days/{day}/strategy                 the docs the night pins for its raiders (its Raid page)
+- PUT    /api/days/{day}/strategy                 pin the night's docs, in order (that night's officers)
 
-Every officer may pin and replace docs (Leigh, 2026-10-22): a night's officers through their night's path, for that
-night or for every night, which keeps officer powers scoped to a raid day in the URL; the global tier through /api/admin
-for any night. Each night may keep its own doc for a raid, which its Raid page shows before the every-night one.
+Every officer may add docs (Leigh, 2026-10-22): a night's officers through their night's path, which keeps officer
+powers scoped to a raid day in the URL; the global tier through /api/admin. A doc shows to raiders only once a night
+pins it, and only that night's officers (or the global tier) pin its docs.
 """
 
 from __future__ import annotations
@@ -25,10 +23,11 @@ import structlog
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, Field
 
-from toads_api.rbac import Permission, Principal
+from toads_api.rbac import HubRole, Permission, Principal
 from toads_api.rbac.deps import get_services, require
 from toads_api.services import Services
 from toads_api.strategy.service import (
+    NIGHT_LIMIT,
     RAIDS,
     TITLE_LIMIT,
     URL_LIMIT,
@@ -66,67 +65,52 @@ class RaidOut(BaseModel):
 class DocOut(BaseModel):
     id: int
     raid: str
-    # The night it is pinned for; None for every night.
-    raid_day: str | None
     title: str
     url: str
     added_by: str | None
     added_at: datetime
 
 
-class SlotOut(BaseModel):
-    raid_day: str | None
-    # "Every night", or the night's name.
-    name: str
-    pinned: DocOut
-    replaced: list[DocOut]
+class LibraryDocOut(DocOut):
+    # The raid days that pin it for their raiders, in config order.
+    nights: list[str]
 
 
-class RaidStrategyOut(BaseModel):
+class RaidDocsOut(BaseModel):
     raid: RaidOut
-    slots: list[SlotOut]
+    docs: list[LibraryDocOut]
 
 
-class NightRaidsOut(BaseModel):
+class NightDocsOut(BaseModel):
     raid_day: str
     name: str
-    raids: list[str]
+    docs: list[int]
 
 
 class LibraryOut(BaseModel):
-    raids: list[RaidStrategyOut]
-    nights: list[NightRaidsOut]
+    raids: list[RaidDocsOut]
+    nights: list[NightDocsOut]
 
 
-class NightRaidDocOut(BaseModel):
+class NightDocOut(BaseModel):
     raid: RaidOut
-    pinned: DocOut | None
+    doc: DocOut
 
 
 class NightStrategyOut(BaseModel):
     raid_day: str
-    raids: list[NightRaidDocOut]
+    docs: list[NightDocOut]
 
 
-class PinIn(BaseModel):
+class AddIn(BaseModel):
     raid: str = Field(pattern=RAID)
     url: str = Field(min_length=1, max_length=URL_LIMIT)
     title: str = Field(default="", max_length=TITLE_LIMIT)
 
 
-class AdminPinIn(PinIn):
-    # The night it is for; None for every night.
-    raid_day: str | None = Field(default=None, max_length=32)
-
-
-class NightPinIn(PinIn):
-    # Pin it for every night instead of only the night in the path.
-    every_night: bool = False
-
-
-class NightRaidsIn(BaseModel):
-    # In the order the night runs them; [] while the night has not settled on any.
-    raids: list[str] = Field(default_factory=list, max_length=len(RAIDS))
+class NightDocsIn(BaseModel):
+    # In the order the Raid page lists them; [] pins none.
+    docs: list[Annotated[int, Field(gt=0, lt=2**31)]] = Field(default_factory=list, max_length=NIGHT_LIMIT * 2)
 
 
 def _raid(r: Raid) -> RaidOut:
@@ -135,16 +119,11 @@ def _raid(r: Raid) -> RaidOut:
 
 def _doc(v: DocView) -> DocOut:
     d = v.doc
-    return DocOut(
-        id=d.id, raid=d.raid, raid_day=d.raid_day, title=d.title, url=d.url, added_by=v.added_by, added_at=d.created_at
-    )
+    return DocOut(id=d.id, raid=d.raid, title=d.title, url=d.url, added_by=v.added_by, added_at=d.created_at)
 
 
 def _night(day: str, n: NightStrategy) -> NightStrategyOut:
-    return NightStrategyOut(
-        raid_day=day,
-        raids=[NightRaidDocOut(raid=_raid(r.raid), pinned=_doc(r.pinned) if r.pinned else None) for r in n.raids],
-    )
+    return NightStrategyOut(raid_day=day, docs=[NightDocOut(raid=_raid(d.raid), doc=_doc(d.doc)) for d in n.docs])
 
 
 def _refused(exc: StrategyError) -> HTTPException:
@@ -153,23 +132,18 @@ def _refused(exc: StrategyError) -> HTTPException:
 
 def _library(strategy: StrategyService, services: Services) -> LibraryOut:
     names = {d.id: d.name for d in services.raid_days.raid_days}
+    pinned = strategy.night_docs()
     raids = [
-        RaidStrategyOut(
+        RaidDocsOut(
             raid=_raid(r.raid),
-            slots=[
-                SlotOut(
-                    raid_day=s.raid_day,
-                    name="Every night" if s.raid_day is None else names.get(s.raid_day, s.raid_day),
-                    pinned=_doc(s.pinned),
-                    replaced=[_doc(v) for v in s.replaced],
-                )
-                for s in r.slots
+            docs=[
+                LibraryDocOut(**_doc(v).model_dump(), nights=[d for d in names if v.doc.id in pinned.get(d, [])])
+                for v in r.docs
             ],
         )
-        for r in strategy.library(names)
+        for r in strategy.library()
     ]
-    chosen = strategy.night_raids()
-    nights = [NightRaidsOut(raid_day=d, name=n, raids=chosen.get(d, [])) for d, n in names.items()]
+    nights = [NightDocsOut(raid_day=d, name=n, docs=pinned.get(d, [])) for d, n in names.items()]
     return LibraryOut(raids=raids, nights=nights)
 
 
@@ -178,56 +152,50 @@ async def strategy_library(principal: SignedIn, strategy: Strategy, services: Hu
     return await anyio.to_thread.run_sync(_library, strategy, services)
 
 
-@router.post("/api/admin/strategy", status_code=status.HTTP_201_CREATED)
-async def pin_strategy(body: AdminPinIn, principal: GlobalOfficer, strategy: Strategy, services: Hub) -> DocOut:
-    if body.raid_day is not None and services.raid_days.day(body.raid_day) is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown raid night")
+async def _add(strategy: StrategyService, body: AddIn, principal: Principal, through: str | None) -> DocOut:
     try:
         view = await anyio.to_thread.run_sync(
-            lambda: strategy.pin(
-                body.raid, url=body.url, title=body.title, by=principal.member_id, raid_day=body.raid_day
-            )
+            lambda: strategy.add(body.raid, url=body.url, title=body.title, by=principal.member_id, through=through)
         )
     except StrategyError as exc:
         raise _refused(exc) from None
-    log.info("strategy.pinned", by=principal.member_id, raid=body.raid, doc=view.doc.id)
+    log.info("strategy.added", by=principal.member_id, day=through, raid=body.raid, doc=view.doc.id)
     return _doc(view)
+
+
+async def _remove(strategy: StrategyService, doc_id: int, principal: Principal, through: str | None) -> Response:
+    # A night's officers take down only docs no night they don't run pins; the global tier any doc.
+    runs = None
+    if through is not None and not principal.global_officer:
+        runs = frozenset(d for d, role in principal.day_roles.items() if role is HubRole.OFFICER)
+    try:
+        await anyio.to_thread.run_sync(
+            lambda: strategy.remove(doc_id, principal.member_id, through=through, nights=runs)
+        )
+    except StrategyError as exc:
+        raise _refused(exc) from None
+    log.info("strategy.removed", by=principal.member_id, day=through, doc=doc_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/api/admin/strategy", status_code=status.HTTP_201_CREATED)
+async def add_strategy(body: AddIn, principal: GlobalOfficer, strategy: Strategy) -> DocOut:
+    return await _add(strategy, body, principal, None)
 
 
 @router.delete("/api/admin/strategy/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_strategy(doc_id: DocId, principal: GlobalOfficer, strategy: Strategy) -> Response:
-    try:
-        await anyio.to_thread.run_sync(strategy.remove, doc_id, principal.member_id)
-    except StrategyError as exc:
-        raise _refused(exc) from None
-    log.info("strategy.removed", by=principal.member_id, doc=doc_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return await _remove(strategy, doc_id, principal, None)
 
 
 @router.post("/api/days/{day}/strategy/docs", status_code=status.HTTP_201_CREATED)
-async def night_pin_strategy(day: str, body: NightPinIn, principal: DayOfficer, strategy: Strategy) -> DocOut:
-    night = None if body.every_night else day
-    try:
-        view = await anyio.to_thread.run_sync(
-            lambda: strategy.pin(
-                body.raid, url=body.url, title=body.title, by=principal.member_id, raid_day=night, through=day
-            )
-        )
-    except StrategyError as exc:
-        raise _refused(exc) from None
-    log.info("strategy.pinned", by=principal.member_id, day=day, raid=body.raid, doc=view.doc.id)
-    return _doc(view)
+async def night_add_strategy(day: str, body: AddIn, principal: DayOfficer, strategy: Strategy) -> DocOut:
+    return await _add(strategy, body, principal, day)
 
 
 @router.delete("/api/days/{day}/strategy/docs/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def night_remove_strategy(day: str, doc_id: DocId, principal: DayOfficer, strategy: Strategy) -> Response:
-    try:
-        # A night's officers take down that night's docs and the every-night ones, never another night's.
-        await anyio.to_thread.run_sync(strategy.remove, doc_id, principal.member_id, frozenset({day, None}), day)
-    except StrategyError as exc:
-        raise _refused(exc) from None
-    log.info("strategy.removed", by=principal.member_id, day=day, doc=doc_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return await _remove(strategy, doc_id, principal, day)
 
 
 @router.get("/api/days/{day}/strategy")
@@ -236,12 +204,12 @@ async def night_strategy(day: str, principal: DayViewer, strategy: Strategy) -> 
 
 
 @router.put("/api/days/{day}/strategy")
-async def set_night_raids(day: str, body: NightRaidsIn, principal: DayOfficer, strategy: Strategy) -> NightStrategyOut:
+async def pin_night_docs(day: str, body: NightDocsIn, principal: DayOfficer, strategy: Strategy) -> NightStrategyOut:
     try:
-        night = await anyio.to_thread.run_sync(strategy.set_night, day, body.raids, principal.member_id)
+        night = await anyio.to_thread.run_sync(strategy.set_night, day, body.docs, principal.member_id)
     except StrategyError as exc:
         raise _refused(exc) from None
-    log.info("strategy.night_set", by=principal.member_id, day=day, raids=body.raids)
+    log.info("strategy.night_pinned", by=principal.member_id, day=day, docs=body.docs)
     return _night(day, night)
 
 

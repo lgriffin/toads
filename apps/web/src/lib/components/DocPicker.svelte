@@ -1,27 +1,38 @@
 <script lang="ts">
-  import type { Raid } from '$lib/strategy';
-
-  // Picks the raids a night is running (docs/strategy.md): a dropdown of ticks, so a night that runs two raids picks
-  // both. The night runs them in the order they were ticked; unticking one keeps the others' order.
+  // Picks the strategy docs a night pins for its raiders (docs/strategy.md): a dropdown of ticks, raid by raid, so a
+  // night running two raids pins a doc for each. The Raid page lists them in the order they were ticked; unticking one
+  // keeps the others' order.
+  type Option = { id: string; short: string; name: string };
   let {
     label,
-    raids,
+    options,
     chosen,
     disabled = false,
+    empty = 'No docs pinned',
     onchange
-  }: { label: string; raids: Raid[]; chosen: string[]; disabled?: boolean; onchange: (raids: string[]) => void } =
-    $props();
+  }: {
+    label: string;
+    options: Option[];
+    chosen: string[];
+    disabled?: boolean;
+    empty?: string;
+    /** Saves the new list; false when the save failed, so the tick goes back. */
+    onchange: (chosen: string[]) => Promise<boolean>;
+  } = $props();
 
   let box = $state<HTMLDetailsElement | null>(null);
-  const shorts = $derived(chosen.map((id) => raids.find((r) => r.id === id)?.short ?? id));
-  const summary = $derived(shorts.length ? shorts.join(' then ') : 'Not decided yet');
+  const summary = $derived(
+    chosen
+      .flatMap((id) => options.filter((o) => o.id === id))
+      .map((o) => `${o.short}: ${o.name}`)
+      .join(', ') || empty
+  );
 
-  function toggle(box: HTMLInputElement, id: string) {
+  async function toggle(box: HTMLInputElement, id: string) {
     const on = box.checked;
-    // The ticks show what the night is saved as running: this one changes once `chosen` does, and stays put if the
-    // save fails.
-    box.checked = chosen.includes(id);
-    onchange(on ? [...chosen.filter((r) => r !== id), id] : chosen.filter((r) => r !== id));
+    const saved = await onchange(on ? [...chosen.filter((r) => r !== id), id] : chosen.filter((r) => r !== id));
+    // A failed save leaves `chosen` as it was, so put this tick back to match it.
+    if (!saved) box.checked = chosen.includes(id);
   }
   function away(e: MouseEvent) {
     if (box?.open && !box.contains(e.target as Node)) box.open = false;
@@ -40,20 +51,22 @@
   <summary aria-label="{label}: {summary}" class:disabled>{summary}</summary>
   <fieldset {disabled}>
     <legend>{label}</legend>
-    {#each raids as r (r.id)}
+    {#each options as o (o.id)}
       <label>
         <input
           type="checkbox"
-          checked={chosen.includes(r.id)}
-          onchange={(e) => toggle(e.currentTarget as HTMLInputElement, r.id)}
+          checked={chosen.includes(o.id)}
+          onchange={(e) => toggle(e.currentTarget as HTMLInputElement, o.id)}
         />
-        <span><strong>{r.short}</strong> {r.name}</span>
-        {#if chosen.includes(r.id) && chosen.length > 1}
-          <span class="nth muted">{chosen.indexOf(r.id) + 1}</span>
+        <span><strong>{o.short}</strong> {o.name}</span>
+        {#if chosen.includes(o.id) && chosen.length > 1}
+          <span class="nth muted">{chosen.indexOf(o.id) + 1}</span>
         {/if}
       </label>
+    {:else}
+      <p class="muted">No docs added yet.</p>
     {/each}
-    <p class="muted">Tick one or more, in the order the night runs them.</p>
+    {#if options.length}<p class="muted">Tick one or more, in the order raiders should open them.</p>{/if}
   </fieldset>
 </details>
 
@@ -61,6 +74,7 @@
   .picker { display: inline-block; max-width: 100%; vertical-align: top; }
   summary {
     cursor: pointer; list-style: none; padding: 0.35rem 2rem 0.35rem 0.6rem; border-radius: 6px; min-width: 12rem;
+    overflow-wrap: anywhere;
     border: 1px solid var(--line); background: var(--surface); position: relative;
   }
   summary::-webkit-details-marker { display: none; }
@@ -69,7 +83,7 @@
   summary.disabled { opacity: 0.6; }
   /* It opens in the flow, below its summary, so the band after it never covers it. */
   fieldset {
-    margin: 0.25rem 0 0; min-width: min(100%, 17rem); box-sizing: border-box;
+    margin: 0.25rem 0 0; min-width: min(100%, 20rem); box-sizing: border-box;
     display: grid; gap: 0.15rem; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--line);
     background: var(--menu-bg); box-shadow: 0 12px 28px var(--shadow);
   }

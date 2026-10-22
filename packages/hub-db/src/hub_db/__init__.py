@@ -50,7 +50,7 @@ from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
 from hub_db.setup import DeclaredCharacter
-from hub_db.strategy import NightRaid, StrategyDoc
+from hub_db.strategy import NightDoc, StrategyDoc
 
 __all__ = [
     "EVERY_DAY",
@@ -93,9 +93,9 @@ __all__ = [
     "MemberHomeLayout",
     "MemberProfession",
     "MemberSpec",
+    "NightDoc",
     "NightHomePage",
     "NightLink",
-    "NightRaid",
     "OfficerBoardCard",
     "OfficerGrant",
     "PhotoOfTheWeek",

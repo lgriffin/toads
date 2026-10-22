@@ -413,17 +413,14 @@ Rules worth knowing:
   item data is LibItemDB's (MIT), bundled with the API: Forever's items with Classic's filling in the raid loot
   Forever's beta data lacks; refresh it with `scripts/import_items.py` (docs/loot.md "Item data"). Audited as
   `loot.add`, `loot.note`, `loot.line`, `loot.received`, `loot.unreceived` and `loot.remove`.
-- **Raid strategy docs** ([docs/strategy.md](docs/strategy.md)): **Officers > Strategy** (`/officers/strategy`)
-  pins Google Docs to the classic raids (MC, BWL, ZG, AQ20, AQ40, Naxx, and TBD for a raid not listed yet), for every
-  night or for one night. Every officer (any night's, global officers and super admins) pins a doc by picking the raid,
-  "Every night" or one of their nights, and pasting its `https://docs.google.com` or `drive.google.com` link; a new doc
-  replaces the one pinned in the same place, and the last few it replaced stay listed below it (`MANAGE_STRATEGY`: a
-  night's officers through their night's path, for that night or every night; the global tier through
-  `/api/admin/strategy`, for any night). Each night's officers tick the raids their night is running (one or more, in
-  order), there or on the night's Raid page (`MANAGE_STRATEGY`, scoped to the night in the URL); pinning a doc for a
-  night also adds its raid to that night. The night's Raid page shows each raid's doc, the night's own before the
-  every-night one. The hub only links the doc: share it in Drive with the raiders. Nothing to set up. Audited as
-  `strategy.pin`, `strategy.remove` and `strategy.night`.
+- **Raid strategy docs** ([docs/strategy.md](docs/strategy.md)): every officer adds Google Docs to the classic raids
+  (MC, BWL, ZG, AQ20, AQ40, Naxx, and TBD for a raid not listed yet) on **Officers > Strategy** (`/officers/strategy`),
+  pasting a `https://docs.google.com` or `drive.google.com` link (`MANAGE_STRATEGY`: a night's officers through their
+  night's path, the global tier through `/api/admin/strategy`). Raiders see a doc only once their night pins it: each
+  night's officers tick the docs for their night on its Raid page or on the Strategy page (`MANAGE_STRATEGY`, scoped to
+  the night in the URL). Taking a doc down takes it off every night; a night's officers can take down only docs no other
+  night pins. The hub only links the doc: share it in Drive with the raiders. Nothing to set up. Audited as
+  `strategy.add`, `strategy.remove` and `strategy.night`.
 - **Professions and guild crafters** ([docs/professions.md](docs/professions.md)): members pick their professions on Me;
   officers see their night's on `/officers/professions` and name the guild's crafters, the members we send a profession's
   top end recipes to (`MANAGE_CRAFTERS`). A night's officers name only members of their night; global officers and super
