@@ -120,6 +120,11 @@ The Toad Bot also takes members' guild bank requests (`/bankrequest <item> <quan
 and DMs each member the officers' answer. That needs no extra permission, but a member who has turned off "Direct
 Messages" from server members will not get the DM: the Bank page's request desk shows it as failed, with Discord's reason.
 
+It also fills the Highlights page ([docs/highlights.md](docs/highlights.md)): `/highlight` posts a photo (48 hours in the
+carousel, then the archive), `/stream start`/`/stream end` show a member's Twitch stream, and `/clip` shares a clip for
+review. These need the bot's **Send Messages** in the channels members use them in, since `/stream start` announces the
+stream there. Global officers pick the photo of the week and take photos down on the page itself.
+
 The hub checks, when someone presses "Send application", that their Discord account is in the server (a bot-token
 member lookup, which needs no extra permission); someone who is not gets a link to `discord_invite` instead.
 
@@ -238,6 +243,8 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_BANK_BOT_TOKEN` | no | empty | The bank bot's token for acting as a member. Empty: the bank bot's commands are refused. Secret. |
 | `TOADS_BANK_CHANNEL_ID` | no | empty | Where accepted snapshots are posted when a bank's raid day has no `bank_requests` channel. |
 | `TOADS_BANK_FALLBACK_CHANNEL_ID` | no | empty | Where the bot reports a manager it could not DM. Empty: the bank channel. |
+| `TOADS_TWITCH_CLIENT_ID` | no | empty | A Twitch application (https://dev.twitch.tv/console, no redirect) so Highlights shows a `/stream` only while it is live. Empty: a stream shows until ended or 12 hours pass. [docs/highlights.md](docs/highlights.md) |
+| `TOADS_TWITCH_CLIENT_SECRET` | no | empty | Its secret. Secret. |
 
 ### Worker and scheduler (`services/worker/.env`)
 
@@ -269,6 +276,7 @@ The bank bot's token must differ from the hub service token: only the bank bot m
 | `TOADS_DISCORD_GUILD_ID` | yes | | The Toads server id. |
 | `TOADS_HUB_API_URL` | yes | | The API, e.g. `http://api:8000`. |
 | `TOADS_HUB_SERVICE_TOKEN` | yes | | The shared service token. Secret. |
+| `TOADS_HUB_PUBLIC_URL` | no | empty | The hub's address for members (`https://toads.gg`), linked from `/highlight` and `/stream` replies. |
 | `TOADS_POST_TO_CHANNELS` | no | `false` | Whether officer posts marked "also post to Discord" are really posted. |
 | `TOADS_MIRROR_CHANNEL_IDS` | no | `[]` | JSON list of channels offered to the hub for curation. The API keeps its own allowlist (`mirrored_channels`). |
 

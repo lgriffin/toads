@@ -34,9 +34,12 @@ BREAK_GLASS_ACTION = "break_glass"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # The routes a bot may call on a member's behalf: the bank's for the bank bot (docs/bank.md), nothing else.
 ACTING_PATHS = re.compile(r"^/api/(days/[a-z0-9_-]{1,32}/)?bank/(?!events$)")
-# And the Toad Bot's `/raidhelper import` (docs/comps.md) and `/bankrequest` (docs/bank-desk.md), with the hub service
-# token. Asking only: answering a bank request stays on the site.
-TOAD_BOT_ACTING_PATHS = re.compile(r"^/api/(days/[a-z0-9_-]{1,32}/comps/raid-helper|bank-desk/requests)$")
+# And the Toad Bot's `/raidhelper import` (docs/comps.md), `/bankrequest` (docs/bank-desk.md), and `/highlight`,
+# `/stream` and `/clip` (docs/highlights.md), with the hub service token. Asking and posting only: answering a bank
+# request, reviewing a clip or taking a photo down stays on the site.
+TOAD_BOT_ACTING_PATHS = re.compile(
+    r"^/api/(days/[a-z0-9_-]{1,32}/comps/raid-helper|bank-desk/requests|gallery/photos|gallery/streams(/end)?|highlights)$"
+)
 
 
 def _bearer_is(request: Request, secret: str) -> bool:

@@ -24,6 +24,7 @@ from hub_db.credentials import (
     WclCredential,
     WclCredentialStatus,
 )
+from hub_db.gallery import GalleryPhoto, GalleryPhotoFile, LiveStream, PhotoOfTheWeek
 from hub_db.logs import LogIndex, LogRaid
 from hub_db.models import (
     AnalyzerBadgePage,
@@ -73,9 +74,12 @@ __all__ = [
     "CredentialDecryptError",
     "DeclaredCharacter",
     "DiscordRoleBadge",
+    "GalleryPhoto",
+    "GalleryPhotoFile",
     "GuildCrafter",
     "Highlight",
     "InterviewPanelist",
+    "LiveStream",
     "LogIndex",
     "LogRaid",
     "MainSwapRequest",
@@ -89,6 +93,7 @@ __all__ = [
     "NightLink",
     "OfficerBoardCard",
     "OfficerGrant",
+    "PhotoOfTheWeek",
     "RaidComp",
     "RaidSheetSnapshot",
     "RecruitmentNeed",

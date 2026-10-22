@@ -34,6 +34,9 @@ from toads_api.community.sql_repository import SqlCommunityRepository
 from toads_api.comps.service import CompService
 from toads_api.comps.sql import SqlCompRepository
 from toads_api.discord_api import DiscordAPI, HttpDiscord, MismatchedDiscordApplicationError
+from toads_api.gallery.service import GalleryService
+from toads_api.gallery.sql import SqlGalleryRepository
+from toads_api.gallery.twitch import TwitchLive
 from toads_api.home.badges import BadgeService
 from toads_api.home.characters import CharacterPageService
 from toads_api.home.next_raid import NextRaidService, RaidSlot, parse_start
@@ -104,6 +107,8 @@ class Services:
     officer_grants: OfficerGrantService = field(init=False)
     # Item requests members send from Discord or the site, and officers' answers (docs/bank-desk.md).
     bank_desk: BankDeskService = field(init=False)
+    # The Highlights page's photos, photo of the week and live streams (docs/highlights.md).
+    gallery: GalleryService = field(init=False)
 
     def principal_for(
         self,
@@ -157,6 +162,14 @@ class Services:
         )
         self.bank_desk = BankDeskService(
             SqlBankDeskRepository(self.db), clock=lambda: datetime.fromtimestamp(self.clock(), UTC)
+        )
+        twitch_secret = self.settings.twitch_client_secret.get_secret_value()
+        self.gallery = GalleryService(
+            SqlGalleryRepository(self.db),
+            clock=lambda: datetime.fromtimestamp(self.clock(), UTC),
+            live=TwitchLive(self.settings.twitch_client_id, twitch_secret)
+            if self.settings.twitch_client_id and twitch_secret
+            else None,
         )
         cipher = CredentialCipher.from_setting(self.settings.credentials_keys.get_secret_value())
         self.account = AccountService(SqlAccountRepository(self.db, cipher))

@@ -12,6 +12,8 @@ bot (docs/bank.md) is a separate application only because ToadsBank owns the ban
 | Officer posts | Posts officer announcements marked "also post to Discord" (`TOADS_POST_TO_CHANNELS`) | Automatic |
 | Mirrored channels | Offers messages in chosen channels to the hub for officers to curate (`TOADS_MIRROR_CHANNEL_IDS`) | Automatic |
 | Raid-Helper sign-ups | `/raidhelper import`: pre-fills members' specs and badges from a Raid-Helper export | That night's officers |
+| Bank requests | `/bankrequest`: asks the guild bank for an item (docs/bank-desk.md) | Members |
+| Highlights | `/highlight` posts a photo, `/stream start`/`end` shows a Twitch stream, `/clip` shares a clip (docs/highlights.md) | Raiders and officers |
 
 Setup (invite link, permissions, intents, env) is in ADMIN_GUIDE.md, "Getting the Toad Bot onto the server" and
 "Toad Bot". `/raidhelper` needs nothing more: slash commands come with the `applications.commands` scope the invite

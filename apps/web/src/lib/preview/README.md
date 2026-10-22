@@ -24,6 +24,9 @@ Sample-data versions of the hub pages, rendered only in the static preview build
   super admin view also sees grants, officer tokens and the break-glass notice, and a token minted there can be
   redeemed in the raider view. The state lasts until the page reloads. Above it, the hub's own request desk (`$lib/components/BankDesk.svelte`, docs/bank-desk.md) is answered by
   `bank-desk-fake.ts`: sample `/bankrequest` asks that the officer and super admin views answer.
+- `Highlights` is the real Highlights page (`$lib/components/HighlightsPage.svelte`, docs/highlights.md) answered by
+  `gallery-fake.ts`: sample photos drawn as SVG, a photo of the week, a live stream and the mock community's clips. The
+  super admin view (a global officer) picks the photo of the week and reviews clips; the state lasts until reload.
 - `state.svelte.ts` holds in-memory copies of the community data and the preview visitor's home layout. Officer actions, spotlight consent and the compose
   form change only that state (kept across client-side navigation, reset on reload); nothing is sent anywhere, and the
   recruit form only shows its success message.

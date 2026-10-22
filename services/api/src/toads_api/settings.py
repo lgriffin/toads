@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # roles or TOADS_SUPER_ADMIN_IDS say. Shown on the bank page and in /api/session, and every change they make is
     # audit-logged as "break_glass". Empty: none.
     break_glass_admin_id: int | None = Field(default=None, gt=0)
+    # A Twitch application (dev.twitch.tv/console, client credentials only) so the Highlights page shows a `/stream`
+    # only while its channel is live (docs/highlights.md). Empty: streams show until ended or 12 hours pass.
+    twitch_client_id: str = ""
+    twitch_client_secret: SecretStr = SecretStr("")
     session_ttl_seconds: int = Field(default=7 * 24 * 3600, gt=0)
     # REQ-HUB-RBAC-002: Discord roles are re-read at least this often.
     role_refresh_seconds: int = Field(default=15 * 60, gt=0, le=15 * 60)

@@ -97,7 +97,7 @@ export const TAB_PURPOSE: Record<string, string> = {
   '/hub': 'The raid leader desk, the officers’ posts and each member’s hub home.',
   '/raid': 'Each raid night’s home: your role, sign-ups and prep, with an officer desk for the night’s officers.',
   '/logs': 'Every logged raid with guild totals, role medians and reference comparisons.',
-  '/highlights': 'Highlight reels and consent-gated spotlights from raid night.',
+  '/highlights': 'Raid night photos with a photo of the week, members’ live streams, and clips.',
   '/bank': 'Bank requests, imports and each raid night’s stock.',
   '/me': 'Each member’s own numbers, badges, character claims and the raid nights they will miss.',
   '/officers': 'Character claims, applications, the badge roster, log syncs and each team’s absences.',

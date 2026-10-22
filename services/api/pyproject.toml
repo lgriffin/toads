@@ -16,6 +16,8 @@ dependencies = [
     # Hands reference comparison jobs to the worker's queue.
     "rq>=1.16",
     "psycopg[binary]>=3.2",
+    # Re-encodes Discord photos for the Highlights page: strips EXIF (phone GPS) and makes the web and thumbnail sizes.
+    "pillow>=11",
 ]
 
 [build-system]

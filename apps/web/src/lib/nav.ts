@@ -51,7 +51,7 @@ export const HUB_MENU: readonly NavItem[] = [
   { href: '/hub', label: 'Hub home', hint: 'Posts, your next raid and how you did' },
   { href: '/raid', label: 'Raid', hint: 'Your raid night: role, sign-ups and prep' },
   { href: '/logs', label: 'Logs', hint: 'Every raid we logged, fight by fight' },
-  { href: '/highlights', label: 'Highlights', hint: 'Clips and spotlights from raid night' },
+  { href: '/highlights', label: 'Highlights', hint: 'Photos, live streams and clips from raid night' },
   { href: '/bank', label: 'Bank', hint: 'Ask the guild bank for flasks and mats' }
 ];
 

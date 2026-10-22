@@ -7,6 +7,7 @@ from discord.ext import commands
 
 from toads_bot.cogs.bank_desk import BankDesk
 from toads_bot.cogs.community import Community
+from toads_bot.cogs.highlights import Highlights
 from toads_bot.cogs.raid_helper import RaidHelper
 from toads_bot.hub import HubClient
 from toads_bot.settings import Settings
@@ -34,6 +35,7 @@ def create_bot(settings: Settings) -> commands.Bot:
         )
         await bot.add_cog(RaidHelper(hub))
         await bot.add_cog(BankDesk(hub))
+        await bot.add_cog(Highlights(hub, settings.hub_public_url))
         bot.tree.copy_global_to(guild=guild)
         await bot.tree.sync(guild=guild)
 
