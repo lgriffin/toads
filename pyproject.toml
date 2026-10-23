@@ -79,6 +79,7 @@ markers = [
     "member: guild member persona",
     "raid_leader: raid leader persona",
     "maintainer: developer / maintainer persona",
+    "pending: a scenario written ahead of its code; skipped at collection by the root conftest.py",
 ]
 
 # The floor `scripts/dev.py test` holds the four packages to. It only goes up (scripts/ratchet.py).

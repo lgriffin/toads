@@ -6,6 +6,7 @@ No network and no real Discord credentials: the API's Discord client talks to
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -263,3 +264,35 @@ def sql_community_repository() -> object:
         for member_id, card in MEMBERS.items():
             s.add(Member(id=member_id, discord_user_id=card.discord_user_id, display_name=card.display_name))
     return SqlCommunityRepository(db, progression_list=list(DEMO_PROGRESSION))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--scenario-bindings",
+        metavar="PATH",
+        help="write the feature scenarios the collected tests bind to PATH as JSON (tests/test_requirements.py)",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip @pending scenarios: `scenarios()` binds them too, and one with no steps would pass while checking nothing.
+
+    With --scenario-bindings, also write each bound scenario's title, tags and step count.
+    """
+    bindings = []
+    for item in items:
+        scenario = getattr(getattr(item, "obj", None), "__scenario__", None)
+        if scenario is None:
+            continue
+        if "pending" in scenario.tags:
+            item.add_marker(pytest.mark.skip(reason="pending: written ahead of its code"))
+        bindings.append(
+            {
+                "name": scenario.name,
+                "tags": sorted(scenario.tags),
+                "steps": len(scenario.steps),
+            }
+        )
+    path = config.getoption("--scenario-bindings")
+    if path:
+        Path(path).write_text(json.dumps(bindings), encoding="utf-8")

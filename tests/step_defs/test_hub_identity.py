@@ -107,6 +107,11 @@ def test_claim_005() -> None:
     pass
 
 
+@_bind("hub_claim.feature", 6)
+def test_claim_006() -> None:
+    pass
+
+
 @_bind("hub_priv.feature", 3)
 def test_priv_003() -> None:
     pass
