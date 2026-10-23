@@ -3,8 +3,9 @@
 The Toads guild's web hub: log in with Discord, see how each raid went for you against the guild's
 median for your role, browse raids and screenshots, and request items from the guild bank.
 
-Built on the WCL Analyzer (`lgriffin/warcraftlogs_project`): the worker runs `wcl-core` analysis and
-the API reads through `wcl-store`, the same code the desktop app and CLI use.
+Built on the WCL Analyzer (`lgriffin/warcraftlogs_project`): the worker runs `wcl-core` analysis and stores it
+through `wcl-store`, the same code the desktop app and CLI use. Only the worker imports the analyzer; the API will read
+wcl-store's tables (see Next).
 
 ```mermaid
 flowchart LR

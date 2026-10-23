@@ -2,8 +2,10 @@
 
 Discord-authenticated web app for the Toads guild (Spineshatter EU). It unifies Warcraft Logs reports,
 the WCL Analyzer's analysis, raid signups, screenshots and the guild bank, and gives each member a
-private performance page (/me). Analysis is not re-implemented here: the worker uses `wcl-core` and
-the API reads through `wcl-store`, both published from `lgriffin/warcraftlogs_project`.
+private performance page (/me). Analysis is not re-implemented here: the worker uses `wcl-core`, `wcl-store` and
+`wcl-app`, published from `lgriffin/warcraftlogs_project`, and stores what the API serves. The API, bot and hub-db import
+none of them (`lint-imports`); the API reading wcl-store's tables is planned (README, Next), and that change updates
+the contract and this sentence together.
 
 ## Layout
 
