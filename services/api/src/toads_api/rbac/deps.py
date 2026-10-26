@@ -14,7 +14,7 @@ from fastapi.routing import APIRoute
 from starlette.routing import BaseRoute
 
 from toads_api import audit
-from toads_api.identity import DiscordUnavailableError, NotAMemberError, acting_principal, refresh
+from toads_api.identity import DiscordUnavailableError, NotAMemberError, acting_principal, refresh, refresh_raid_rosters
 from toads_api.rbac.permissions import GRANTABLE, HubRole, Permission, Principal, ViewAs, can
 from toads_api.services import Services
 from toads_api.sessions import SESSION_COOKIE, SessionData
@@ -158,6 +158,9 @@ async def _session_principal(request: Request, services: Services) -> tuple[Prin
         if refreshed is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended; sign in again")
         data = refreshed
+    # Other members' Discord names (and the night rosters) follow Discord within the same 15 minutes, whoever is
+    # renamed (REQ-HUB-AUTH-004); at most one server read per interval across the hub.
+    await refresh_raid_rosters(services)
     # Off the event loop: the night badges' roles come from the database.
     principal = await anyio.to_thread.run_sync(
         services.principal_for,

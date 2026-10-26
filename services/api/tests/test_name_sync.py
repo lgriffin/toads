@@ -29,6 +29,7 @@ def test_a_rename_reaches_the_member_row_on_the_role_refresh(hub: Hub) -> None:
 def test_no_rename_before_the_refresh_is_due(hub: Hub) -> None:
     user = hub.user(("wed", "raider"), nick="Before")
     sid = hub.login(user)
+    hub.get("/api/session", sid)  # the hub's first server read
     user.nick = "After"
     hub.pass_time(hub.services.settings.role_refresh_seconds - 1)
     assert hub.get("/api/session", sid).json()["display_name"] == "Before"
@@ -53,3 +54,13 @@ def test_the_roster_sync_renames_members_without_a_raid_night(hub: Hub) -> None:
     assert sync_raid_rosters(hub.services, members) == 1
     assert _row(hub, raider.user_id)[0] == "Raider Renamed"
     assert _row(hub, visitor.user_id)[0] == "Visitor Renamed"
+
+
+def test_another_member_sees_a_rename_within_the_interval(hub: Hub) -> None:
+    renamed = hub.user(("wed", "raider"), nick="Old Name")
+    hub.login(renamed)
+    viewer = hub.login(hub.user(("sun", "raider"), nick="Viewer"))
+    renamed.nick = "New Name"
+    hub.pass_time(hub.services.settings.role_refresh_seconds)
+    names = [m["display_name"] for m in hub.get("/api/members", viewer).json()]
+    assert "New Name" in names and "Old Name" not in names
