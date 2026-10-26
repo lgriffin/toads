@@ -22,3 +22,12 @@ Feature: HUB AUTH
     When the API starts
     Then the API is up
     And it logs an error naming TOADS_DISCORD_CLIENT_ID and TOADS_DISCORD_BOT_TOKEN
+
+  # Every name the hub shows from Discord follows the member: the session re-reads them with the roles, and the
+  # officers' roster sync re-reads the whole server. A chosen character name (REQ-HUB-PRIV-005) still wins.
+  @ears_event_driven @member @phase_2_2
+  Scenario: REQ-HUB-AUTH-004 When a member changes their Discord name, the hub shall show the new name within 15 minutes and on their next sign-in, whichever is sooner
+    Given a Wednesday raider signed in with server nickname "Hopscotch"
+    When they change their server nickname to "Lilypad" in Discord
+    And 15 minutes pass
+    Then the members list and their session show "Lilypad"
