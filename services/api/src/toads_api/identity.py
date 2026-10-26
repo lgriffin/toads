@@ -46,9 +46,7 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
         raise DiscordUnavailableError from exc
     if member is None or roles_removed(services, data, member):
         # Off the old nights' rosters straight away: a member who left the server never signs in again.
-        await anyio.to_thread.run_sync(
-            record_raid_days, services, data.member_id, () if member is None else member.role_ids
-        )
+        await anyio.to_thread.run_sync(record_member, services, data.member_id, member)
         await services.sessions.delete(session_id)
         log.info("session.ended_on_refresh", member_id=data.member_id, left_server=member is None)
         return None
@@ -60,7 +58,7 @@ async def refresh(services: Services, session_id: str, data: SessionData) -> Ses
         refreshed_at=services.clock(),
     )
     await services.sessions.save(session_id, updated)
-    await anyio.to_thread.run_sync(record_raid_days, services, data.member_id, member.role_ids)
+    await anyio.to_thread.run_sync(record_member, services, data.member_id, member)
     return updated
 
 
@@ -69,13 +67,26 @@ def raid_days_of(services: Services, role_ids: Collection[int]) -> list[str]:
     return list(services.principal_for(0, role_ids).day_roles)
 
 
-def record_raid_days(services: Services, member_id: int, role_ids: Collection[int]) -> None:
-    """Keep the member row's raid days in step with their roles, for the comp builder's roster (docs/comps.md)."""
-    days = raid_days_of(services, role_ids)
+def record_member(services: Services, member_id: int, member: GuildMember | None) -> None:
+    """Keep the member row in step with what Discord says now: their raid days for the comp builder's roster
+    (docs/comps.md), and their server name and username, so a rename in Discord shows on the hub (REQ-HUB-AUTH-004).
+    `member` is None once they have left the server: they lose every night and keep their last name."""
+    days = raid_days_of(services, () if member is None else member.role_ids)
     with services.db.begin() as db:
         row = db.get(Member, member_id)
-        if row is not None and row.raid_days != days:
+        if row is None:
+            return
+        if row.raid_days != days:
             row.raid_days = days
+        if member is not None:
+            _record_names(row, member)
+
+
+def _record_names(row: Member, member: GuildMember) -> None:
+    if row.display_name != member.server_name:
+        row.display_name = member.server_name
+    if row.discord_username != member.username:
+        row.discord_username = member.username
 
 
 def upsert_member(services: Services, member: GuildMember, *, signing_in: bool = False) -> int:
@@ -112,12 +123,15 @@ ROSTERS_SYNCED_KEY = "comps:rosters:synced"
 def sync_raid_rosters(services: Services, members: Iterable[GuildMember]) -> int:
     """Put every Discord member holding a raid night's roles on that night's comp roster, signed in or not, and take
     everyone else off; `members` is the whole server. Returns how many hold a night. The rows it creates carry no
-    sign-in, so the comp builder marks them (docs/comps.md). Never a source of permissions."""
+    sign-in, so the comp builder marks them (docs/comps.md). Never a source of permissions. Every known member still
+    in the server, raid night or not, also takes their current Discord names (REQ-HUB-AUTH-004)."""
+    in_server: dict[int, GuildMember] = {}
     holders: dict[int, tuple[GuildMember, list[str]]] = {}
     # The same reading of roles as a sign-in, badge ties included. Each reading queries the ties, and most members
     # share a handful of role sets, so each set is read once.
     nights_of: dict[frozenset[int], list[str]] = {}
     for m in members:
+        in_server[m.user_id] = m
         if m.role_ids not in nights_of:
             nights_of[m.role_ids] = raid_days_of(services, m.role_ids)
         if days := nights_of[m.role_ids]:
@@ -127,6 +141,8 @@ def sync_raid_rosters(services: Services, members: Iterable[GuildMember]) -> int
         for user_id, row in rows.items():
             if user_id not in holders and row.raid_days:
                 row.raid_days = []
+            if (seen := in_server.get(user_id)) is not None:
+                _record_names(row, seen)
         for user_id, (m, days) in holders.items():
             known = rows.get(user_id)
             if known is None:
@@ -136,7 +152,6 @@ def sync_raid_rosters(services: Services, members: Iterable[GuildMember]) -> int
                     )
                 )
                 continue
-            known.display_name, known.discord_username = m.server_name, m.username
             if known.raid_days != days:
                 known.raid_days = days
     return len(holders)

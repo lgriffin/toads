@@ -67,6 +67,11 @@ def test_auth_003() -> None:
     pass
 
 
+@_bind("hub_auth.feature", 4)
+def test_auth_004() -> None:
+    pass
+
+
 @_bind("hub_rbac.feature", 1)
 def test_rbac_001() -> None:
     pass
@@ -447,6 +452,11 @@ def gain_role(ctx: dict[str, Any]) -> None:
 @when("their Wednesday officer role is removed in Discord")
 def lose_role(ctx: dict[str, Any]) -> None:
     ctx["officer_user"].roles.discard(12)
+
+
+@when(parsers.parse('they change their server nickname to "{nick}" in Discord'))
+def rename(ctx: dict[str, Any], nick: str) -> None:
+    ctx["user"].nick = nick
 
 
 @when("15 minutes pass")
