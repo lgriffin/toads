@@ -1,12 +1,13 @@
 // Starts the built app (dist/main.cjs) against a fake hub and checks what a unit test cannot: the window opens the hub,
 // links to other sites go to the browser, sign-in's cookie reaches the main process's requests, the menus become an
-// officer's, new desk work raises a notification, and the offline page retries by itself. Run with `npm run smoke` (on
-// Linux CI under xvfb-run).
+// officer's from the live site's /desktop.json, new desk work raises a notification, the window takes the site's theme,
+// Log out signs the member out, and the offline page retries by itself. Run with `npm run smoke` (on Linux CI under
+// xvfb-run).
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
-const { app, Menu, Notification, shell } = require('electron');
+const { app, Menu, Notification, nativeTheme, shell } = require('electron');
 const { start } = require('./fake-hub.cjs');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -50,7 +51,8 @@ async function run() {
   const win = require('electron').BrowserWindow.getAllWindows()[0];
   const contents = win.webContents;
   await until('the hub page', () => contents.getURL() === `${origin}/hub` && !contents.isLoading());
-  await until('the visitor menus', () => submenu('Me').includes('Sign in with Discord'));
+  await until('the visitor menus', () => submenu('Me').includes('Log in with Discord'));
+  await until("the site's theme", () => nativeTheme.themeSource === 'dark');
   assert.ok(!labels().includes('Officers'), 'a visitor has no Officers menu');
 
   const click = (id) => contents.executeJavaScript(`document.getElementById('${id}').click()`);
@@ -72,11 +74,32 @@ async function run() {
   assert.ok(!submenu('Officers').includes('Sunday officers'), 'only the nights this officer runs');
   assert.ok(!submenu('Officers').includes('Admin console'));
   assert.ok(submenu('Me').includes('Me'));
+  assert.ok(submenu('Hub').includes('Raid toolkit'), "the live site's lists win over the bundled ones");
+  assert.ok(submenu('Me').includes('Log out'));
+
+  // A reader who picked the light theme on the site: the app's theme follows, and is remembered for the next launch.
+  await contents.loadURL(`${origin}/light`);
+  await until('the light theme', () => nativeTheme.themeSource === 'light');
+  await until('the remembered theme', () => {
+    const prefs = path.join(app.getPath('userData'), 'prefs.json');
+    return fs.existsSync(prefs) && JSON.parse(fs.readFileSync(prefs, 'utf-8')).theme === 'light';
+  });
+  await contents.loadURL(`${origin}/hub`);
 
   // Another full page load looks at the desk again; the fake desk has one more application each time.
   contents.reload();
   await until('a desk notification', () => notes.length === 1);
-  assert.match(notes[0], /Applications waiting: 2 \(1 new\)/);
+  assert.match(notes[0], /Applications waiting: \d+ \(1 new\)/);
+
+  // Log out from the Me menu posts to the hub as the site does; the menus go back to a visitor's.
+  await contents.executeJavaScript("sessionStorage.setItem('toads:recruit-draft', 'answers')");
+  Menu.getApplicationMenu().items.find((i) => i.label === 'Me').submenu.items.find((i) => i.label === 'Log out').click();
+  await until('signed out', () => submenu('Me').includes('Log in with Discord'));
+  assert.ok(!labels().includes('Officers'));
+  assert.equal(contents.getURL(), `${origin}/`, "Log out lands on the hub's front page");
+  await until('the recruit draft forgotten', async () =>
+    (await contents.executeJavaScript("sessionStorage.getItem('toads:recruit-draft')")) === null
+  );
 
   // With the hub gone, the window shows the offline page, whose Try again link goes back to the page that failed.
   hub.close();
@@ -85,7 +108,7 @@ async function run() {
   await until('the offline page', () => contents.getURL().startsWith('file:') && !contents.isLoading());
   assert.equal(
     await contents.executeJavaScript("document.getElementById('retry').href"),
-    `${origin}/hub`
+    `${origin}/`
   );
   // It wears the site's mark (copied in by the build, allowed by its CSP) and counts down to trying by itself.
   await until('the mark', () => contents.executeJavaScript("document.querySelector('.brand img').naturalWidth > 0"));

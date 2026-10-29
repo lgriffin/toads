@@ -109,7 +109,7 @@ def offers_both_views(login: str) -> None:
     assert "role: 'officer'" in login
     layout = _read("routes/+layout.svelte")
     assert "Switch to officer view" in layout
-    assert "Log out" in layout
+    assert "{SIGN_OUT.label}" in layout and "label: 'Log out'" in _read("lib/nav.ts")
 
 
 @then("the preview asks a signed-out visitor to sign in for member pages and keeps raiders out of the officer console")

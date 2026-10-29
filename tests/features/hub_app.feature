@@ -34,3 +34,11 @@ Feature: HUB APP
     Given the desktop workflow
     Then it builds on Windows, macOS and Linux, checks the tag against the app's version, and publishes the installers on a tag only
     And CI's desktop job runs the app's types, tests, smoke run, packaging and audit on every PR
+
+  @ears_ubiquitous @raid_leader @member @phase_2_7
+  Scenario: REQ-HUB-APP-006 The desktop app shall stay consistent with the website it shows: the live site's top bar lists and launch hold, its account menu and Log out, and the reader's theme
+    Given the desktop app
+    Then it reads the site's /desktop.json after every page load and draws its menus from it, keeping the bundled lists only until the site answers
+    And its Me menu is the site's account menu, with the site's sign-in wording and a Log out that posts to the hub as the site does
+    And it takes the reader's theme from the site's theme-color tag for its window, title bar and offline page, and remembers it for the next launch
+    And the web app's tests hold every top bar link to a page on the site and the theme-color values to theme.css's page colours

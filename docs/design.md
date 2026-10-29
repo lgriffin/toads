@@ -44,7 +44,9 @@ to CI. Machine-local choices live in `.impeccable/config.local.json`, which is g
 - **Easier reading.** The display settings (in the account menu, or the Display menu for visitors) offer Dark, Light
   or Match my device, and Easier reading: bigger text, roomier lines, one plain typeface without capitals-only
   lettering, and underlined links. `static/display.js` applies the saved choice before the first paint (a file, so the
-  CSP's `script-src 'self'` allows it); `$lib/display.ts` changes it afterwards. Keep their keys in step.
+  CSP's `script-src 'self'` allows it); `$lib/display.ts` changes it afterwards. Keep their keys in step. Both also write a `theme-color` tag (the page
+  colour of a picked theme, none for Match my device), which browsers tint their bars with and the desktop app follows
+  (docs/desktop.md).
 - **Checks.** The e2e suite runs axe on every page in the dark theme, and again in the light theme with easier reading,
   plus on each open top bar menu in both themes.
 

@@ -5,7 +5,7 @@
  * still checks its own permission. Lift it by setting LAUNCH_HOLD to false.
  */
 import type { Tier } from './access';
-import { MEMBER_EXTRA, MEMBER_NAV, type NavItem } from './nav';
+import { ACCOUNT_MENU, MEMBER_EXTRA, MEMBER_NAV, type NavItem } from './nav';
 
 /** The real site holds; the static preview keeps the full sample-data demo unless built with LAUNCH_HOLD=1. */
 export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;
@@ -60,6 +60,11 @@ export function launchHold(path: string, tier: Tier, hold = LAUNCH_HOLD): Hold {
 export function heldNav(nav: NavItem[], tier: Tier, hold = LAUNCH_HOLD): NavItem[] {
   const open = [...OPEN_TO_MEMBERS, ...OPEN_TO_MEMBERS_EXACT];
   return hold && tier === 'raider' ? nav.filter((i) => i.href === '/hub' || open.includes(i.href)) : nav;
+}
+
+/** The account menu's pages this tier may open: during the hold a raider's settings page stays shut. */
+export function accountMenu(tier: Tier, hold = LAUNCH_HOLD, items: readonly NavItem[] = ACCOUNT_MENU): NavItem[] {
+  return items.filter((i) => launchHold(i.href, tier, hold) === 'open');
 }
 
 export interface Upcoming {

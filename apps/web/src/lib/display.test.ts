@@ -1,6 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DISPLAY, READING_KEY, THEME_KEY, loadDisplay, parseTheme, resolveTheme, saveDisplay } from './display';
+import {
+  DEFAULT_DISPLAY,
+  READING_KEY,
+  THEME_COLOR,
+  THEME_KEY,
+  loadDisplay,
+  parseTheme,
+  resolveTheme,
+  saveDisplay,
+  themeColor
+} from './display';
 
 function memory(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -46,5 +56,22 @@ describe('display settings', () => {
     expect(early).toContain(`'${READING_KEY}'`);
     const html = readFileSync(new URL('../app.html', import.meta.url), 'utf8');
     expect(html).toContain('%sveltekit.assets%/display.js');
+  });
+
+  it('tags the page colour of a picked theme, and nothing for a reader who follows their device', () => {
+    expect(themeColor('dark', true)).toBe(THEME_COLOR.dark);
+    expect(themeColor('light', false)).toBe(THEME_COLOR.light);
+    expect(themeColor('system', true)).toBeNull();
+    expect(themeColor('system', false)).toBeNull();
+  });
+
+  it("keeps the theme-color values on theme.css's page colour, in both themes and in the early script", () => {
+    const css = readFileSync(new URL('./theme.css', import.meta.url), 'utf8');
+    const ink = (block: RegExp) => css.match(block)?.[1].match(/--ink:\s*(#[0-9a-f]{6})/i)?.[1];
+    expect(ink(/:root,\s*\.always-dusk\s*\{([^}]*)\}/)).toBe(THEME_COLOR.dark);
+    expect(ink(/:root\[data-theme='light'\]\s*\{([^}]*)\}/)).toBe(THEME_COLOR.light);
+    const early = readFileSync(new URL('../../static/display.js', import.meta.url), 'utf8');
+    expect(early).toContain(`dark: '${THEME_COLOR.dark}'`);
+    expect(early).toContain(`light: '${THEME_COLOR.light}'`);
   });
 });

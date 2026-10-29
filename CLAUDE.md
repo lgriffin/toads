@@ -10,8 +10,8 @@ the contract and this sentence together.
 ## Layout
 
 - `apps/web/` SvelteKit + TypeScript. Talks only to the API.
-- `apps/desktop/` Electron app for officers: the live hub in a window with native menus (built from `apps/web`'s nav),
-  a tray and desk alerts. See `docs/desktop.md`.
+- `apps/desktop/` Electron app for officers: the live hub in a window with native menus (`apps/web`'s nav rules, lists from
+  the site's `/desktop.json`), a tray and desk alerts; it follows the site's theme. See `docs/desktop.md`.
 - `services/api/` FastAPI: auth, RBAC (`toads_api/rbac/`), routes. `toads_api.bank` is the adapter to ToadsBank
   (lgriffin/ToadsBank), which owns the guild bank's data; `toads_api.testing.fake_bank` stands in for it in dev and
   tests. See `docs/bank.md`.

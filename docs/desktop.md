@@ -19,13 +19,15 @@ Requirements: `tests/features/hub_app.feature` (REQ-HUB-APP-001..005). Code: `ap
 The warnings are there because the builds are not yet signed with a paid Apple or Windows certificate (see
 [Signing](#signing)). If macOS says the app "is damaged", run `xattr -cr "/Applications/Toads Hub.app"` once.
 
-**Sign in.** Choose **Me → Sign in with Discord**. Discord's own page opens inside the app; sign in there as you would
-in a browser, or scan the QR code with the Discord app on your phone. The app keeps you signed in between launches until you log out from the account menu on the site.
+**Sign in.** Choose **Me → Log in with Discord**. Discord's own page opens inside the app; sign in there as you would
+in a browser, or scan the QR code with the Discord app on your phone. The app keeps you signed in between launches
+until you choose **Me → Log out** (or Log out in the site's account menu).
 
 **What the app adds to the site:**
 
-- **Menus.** Hub, Me and Officers are the site's own top bar menus, so you see exactly the pages the site shows you,
-  and only the raid nights you run. Shortcuts: Ctrl+1… (⌘1… on a Mac) for the Hub pages, Ctrl+Shift+1… for the officer
+- **Menus.** Hub, Me and Officers are the site's own top bar and account menus, so you see exactly the pages the site
+  shows you, and only the raid nights you run. They come from the live site, so a new page or the end of the launch
+  hold shows up in the app as soon as the site has it, without a new install. Shortcuts: Ctrl+1… (⌘1… on a Mac) for the Hub pages, Ctrl+Shift+1… for the officer
   tools, Ctrl+0 for Me, Alt+← and Alt+→ (⌘[ and ⌘]) for back and forward.
 - **Desk alerts.** For officers, the app checks your raid leader desk (applications, Discord posts to curate, highlights
   and spotlights waiting on you) every two minutes and whenever you switch to it. The count shows on the dock or
@@ -38,6 +40,8 @@ in a browser, or scan the QR code with the Discord app on your phone. The app ke
   you keep your own Google sign-in there. Right-click a link for **Open link in browser** or **Copy link address**, and
   anywhere else on a page for **Back**, **Forward** and **Reload**.
 - **Help.** **Help → Desktop app guide** opens this page; **Open Toads Hub in your browser** opens the site there.
+- **Theme.** The app follows the theme you pick on the site (Display, in the account menu): Dark, Light or Match my
+  device. The title bar, the window while a page loads and the offline page match it, and it opens in it next time.
 - **Window.** It reopens where you left it. If the hub can't be reached it says so and tries again by itself (after
   10 seconds, then 20, 40 and every 2 minutes, and at once when you're back online), or now with **Try again now**. Opening the app again brings the open window forward instead of starting a second copy.
 
@@ -55,8 +59,20 @@ https, or plain http to localhost.
 
 **How it is built.** `src/main.ts` is the Electron main process; the rest of `src/` is plain logic with vitest tests.
 `build.mjs` bundles it with esbuild, and the menus import `apps/web/src/lib/nav.ts`, `launch.ts`, `access.ts` and
-`absences.ts` directly, so a change to the site's top bar or the launch hold reaches the app on its next build. The
-desk lines come from the site's `deskLines`. The bundle sets `__LAUNCH_HOLD__` as the real site's build does.
+`absences.ts` directly, so the rules are the site's own. The desk lines come from the site's `deskLines`.
+
+**Staying in step with the site.** The app takes everything that changes with a site deploy from the live site, and
+bundles only the rules and a fallback:
+
+| What | From the site | In the app |
+| --- | --- | --- |
+| Top bar and account menu lists, launch hold | `GET /desktop.json` (`apps/web/src/lib/desktop.ts`, prerendered with each build) | Read after every page load alongside `/api/session`; the bundled copy (`BUNDLED_SITE`) is used only until the site answers, and a contract it does not know keeps the last good lists |
+| Sign-in and Log out | `SIGN_IN`, `SIGN_OUT`, `ACCOUNT_MENU` in `nav.ts` | The Me menu uses the same labels; Log out posts to `/auth/logout` as the site's form does |
+| Theme | The `theme-color` tag (`display.ts` `themeColor`, `static/display.js`): the page colour of a picked theme, none for Match my device | `did-change-theme-color` and each page load set `nativeTheme.themeSource` and the window colour (`src/theme.ts`), remembered in `prefs.json` |
+
+Change a field of `/desktop.json` in a way an older app would misread only with a new `DESKTOP_CONTRACT`. The web
+app's tests hold every top bar link to a real page (`desktop.test.ts`) and the theme-color values to `theme.css`'s
+`--ink` (`display.test.ts`); the smoke run checks the live lists, the theme and Log out against the fake hub.
 
 **Look.** The app's own surfaces wear the site's design. `static/offline.html` uses the colour tokens of
 `apps/web/src/lib/theme.css` for both themes (picked by `prefers-color-scheme`, which follows the app's native theme)
@@ -89,8 +105,8 @@ app and audits the dependencies.
 Every PR that changes `apps/desktop` builds the same installers as workflow artifacts, so they can be tried before
 merge. The app does not update itself yet: officers download the new installer from the release.
 
-When the launch hold is lifted in `apps/web/src/lib/launch.ts`, release the desktop app too, so raiders' menus open up
-in the app as they do on the site.
+When the launch hold is lifted in `apps/web/src/lib/launch.ts`, the app's menus open up for raiders with the site's
+deploy, through `/desktop.json`; a desktop release then only refreshes the bundled fallback.
 
 ### Signing
 

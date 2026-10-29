@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, absencesOnly, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, absencesOnly, accountMenu, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import type { Tier } from './access';
 
 describe('launch hold', () => {
   it('gives raiders the coming-soon page on every member page', () => {
@@ -82,5 +83,14 @@ describe('launch hold', () => {
     expect(bank.sections.flatMap((s) => s.items).length).toBeGreaterThanOrEqual(4);
     expect(bank.mockup).toBe('bank');
     expect(bank.sections.map((s) => s.title)).toContain('For bankers, and visible to officers');
+  });
+});
+
+describe('accountMenu', () => {
+  const hrefs = (tier: Tier, hold: boolean) => accountMenu(tier, hold).map((i) => i.href);
+  it("keeps a raider's settings shut during the hold, and opens everything once it lifts", () => {
+    expect(hrefs('raider', true)).toEqual(['/setup', '/features']);
+    expect(hrefs('officer', true)).toEqual(['/me/settings', '/setup', '/features']);
+    expect(hrefs('raider', false)).toEqual(['/me/settings', '/setup', '/features']);
   });
 });

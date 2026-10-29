@@ -13,10 +13,10 @@
   import { ROLE_BADGES_CHANGED, myRoleBadges } from '$lib/role-badges';
   import type { Title } from '$lib/toads';
   import { forgetRecruitDraft } from '$lib/application';
-  import { PUBLIC_NAV, currentIn, hubMenu, inMenu, isActive, memberNav, officerMenu, type NavGroup } from '$lib/nav';
+  import { PUBLIC_NAV, SIGN_IN, SIGN_OUT, currentIn, hubMenu, inMenu, isActive, memberNav, officerMenu, type NavGroup } from '$lib/nav';
   import { TIER_LABEL, tierOf, type Tier } from '$lib/access';
   import { hasOfficerPowers, previewGate, type PreviewRole } from '$lib/preview/gate';
-  import { LAUNCH_HOLD, heldNav, isMemberPath, launchHold } from '$lib/launch';
+  import { LAUNCH_HOLD, accountMenu, heldNav, isMemberPath, launchHold } from '$lib/launch';
   import { setMe } from '$lib/me-context';
   import { stopViewAs, viewAsLabel } from '$lib/view-as';
   import { dayName, raidDaysOf } from '$lib/absences';
@@ -86,7 +86,8 @@
     )
   );
   let meOpen = $derived(members.some((i) => i.href === '/me'));
-  let settingsOpen = $derived(launchHold('/me/settings', tier) === 'open');
+  // The account menu's pages, shared with the desktop app's Me menu (src/lib/nav.ts ACCOUNT_MENU).
+  let account = $derived(accountMenu(tier));
   let displayName = $derived(__PREVIEW__ ? 'Hopscotch' : (session?.display_name ?? ''));
   // Everything past the public pages opens on login, so the member links show only to a signed-in member.
   let signedIn = $derived(__PREVIEW__ ? previewSession.role !== null : !!session);
@@ -200,11 +201,9 @@
           <span class="pill">{TIER_LABEL[tier]}</span>
         </div>
         <ul>
-          {#if settingsOpen}
-            <li><a href="{base}/me/settings/"><span class="name">Account settings</span><span class="hint">Your name and Warcraft Logs key</span></a></li>
-          {/if}
-          <li><a href="{base}/setup/"><span class="name">Your setup</span><span class="hint">Your main, specs and alts</span></a></li>
-          <li><a href="{base}/features/"><span class="name">What you can do</span><span class="hint">What your rank opens in the hub</span></a></li>
+          {#each account as item (item.href)}
+            <li><a href="{base}{item.href}/"><span class="name">{item.label}</span><span class="hint">{item.hint}</span></a></li>
+          {/each}
         </ul>
         <DisplaySettings />
         {#if __PREVIEW__}
@@ -212,22 +211,22 @@
           {#each VIEWS.filter((v) => v.role !== previewSession.role) as v (v.role)}
             <button class="item" type="button" onclick={() => switchView(v.role)}>{v.label}</button>
           {/each}
-          <button class="item out" type="button" onclick={logOut}>Log out</button>
+          <button class="item out" type="button" onclick={logOut}>{SIGN_OUT.label}</button>
         {:else}
           {#if viewAs}
             <button class="item" type="button" onclick={backToSuperAdmin} disabled={leaving}>Back to super admin</button>
           {/if}
-          <form method="post" action="/auth/logout" onsubmit={forgetRecruitDraft}>
-            <button class="item out" type="submit">Log out</button>
+          <form method="post" action={SIGN_OUT.href} onsubmit={forgetRecruitDraft}>
+            <button class="item out" type="submit">{SIGN_OUT.label}</button>
           </form>
         {/if}
       </NavMenu>
     {:else}
       <NavMenu id="menu-display" label="Display" align="end"><DisplaySettings /></NavMenu>
       {#if __PREVIEW__}
-        <a class="login" href="{base}/login/">Log in with Discord</a>
+        <a class="login" href="{base}/login/">{SIGN_IN.label}</a>
       {:else if session === null}
-        <a class="login" href="/auth/login" data-sveltekit-reload>Log in with Discord</a>
+        <a class="login" href={SIGN_IN.href} data-sveltekit-reload>{SIGN_IN.label}</a>
       {/if}
     {/if}
   </div>

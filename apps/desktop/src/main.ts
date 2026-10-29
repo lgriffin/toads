@@ -15,6 +15,7 @@ import {
   clipboard,
   dialog,
   nativeImage,
+  nativeTheme,
   screen,
   session as sessions,
   shell,
@@ -24,11 +25,15 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 
+import { RECRUIT_DRAFT_KEY } from '../../web/src/lib/application';
+import { DESKTOP_PATH, parseDesktopSite } from '../../web/src/lib/desktop';
+import { SIGN_OUT } from '../../web/src/lib/nav';
 import { badgeIcon, newWork, parseDesk, trayDesk, trayLines, waiting, type Desk } from './desk';
 import { hubUrl, resolveHub } from './hub';
 import { destination, permissionAllowed } from './links';
-import { menusFor, parseSession, type Link, type Menus } from './menus';
+import { BUNDLED_SITE, menusFor, parseSession, type Link, type Menus } from './menus';
 import { DEFAULT_PREFS, jsonFile, parsePrefs, type Prefs } from './prefs';
+import { themeFromColor, windowBackground, type ThemeSource } from './theme';
 import { plainChrome } from './useragent';
 import { MIN_SIZE, parseState, restore } from './window-state';
 
@@ -38,11 +43,11 @@ const PARTITION = 'persist:toads';
 const START_PATH = '/hub';
 const DESK_POLL_MS = 2 * 60 * 1000;
 const FOCUS_REFRESH_MS = 15 * 1000;
+// A hub request that has not answered by then counts as no answer, so one stalled request never holds the menus.
+const REQUEST_TIMEOUT_MS = 10 * 1000;
 // A slow hub must not leave the app looking dead: the window shows by then even if the page has not painted yet.
 const SHOW_BY_MS = 1000;
 const GUIDE = 'https://github.com/lgriffin/toads/blob/main/docs/desktop.md#for-officers';
-// The hub's dark background (--ink in apps/web/src/lib/theme.css), so the window never flashes white while loading.
-const BACKGROUND = '#120f33';
 // ERR_ABORTED: a navigation the app itself cancelled (a link sent to the browser), not a failure to show offline for.
 const ABORTED = -3;
 
@@ -53,10 +58,16 @@ let hub = '';
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
-let menus: Menus = menusFor(null);
+// The site's top bar lists and launch hold, from its /desktop.json; the bundled copy until it first answers.
+let site = BUNDLED_SITE;
+let menus: Menus = menusFor(null, site);
 let desk: Desk | null = null;
 let lastRefresh = 0;
 let refreshing: Promise<void> | null = null;
+// Bumped by Log out, so a refresh that started while still signed in never draws the signed-in menus afterwards.
+let epoch = 0;
+// Set by Log out: the next hub page forgets an unfinished application, as the site's Log out form does.
+let forgetDraft = false;
 const prefsFile = () => jsonFile(app.getPath('userData'), 'prefs.json');
 let prefs: Prefs = DEFAULT_PREFS;
 
@@ -127,7 +138,7 @@ function createWindow(): BrowserWindow {
     minHeight: MIN_SIZE.height,
     show: false,
     title: 'Toads Hub',
-    backgroundColor: BACKGROUND,
+    backgroundColor: windowBackground(prefs.theme, nativeTheme.shouldUseDarkColors),
     icon: resources('icon.png'),
     webPreferences: {
       partition: PARTITION,
@@ -175,6 +186,21 @@ function createWindow(): BrowserWindow {
   });
   // A full page load is where sign-in and sign-out land, so the menus follow who is signed in.
   contents.on('did-navigate', () => void refresh());
+  // The reader's theme on the site (its theme-color tag) becomes the app's: on each hub page, and when they change it.
+  contents.on('did-change-theme-color', (_event, color) => onHub(contents) && setTheme(themeFromColor(color)));
+  contents.on('did-finish-load', () => {
+    if (!onHub(contents)) return;
+    const page = contents.getURL();
+    if (forgetDraft) {
+      forgetDraft = false;
+      void contents.executeJavaScript(`sessionStorage.removeItem(${JSON.stringify(RECRUIT_DRAFT_KEY)})`).catch(() => undefined);
+    }
+    contents
+      .executeJavaScript(`document.querySelector('meta[name="theme-color"]')?.content ?? null`)
+      // Only while the same page is showing: a later page's own theme wins.
+      .then((color: unknown) => contents.getURL() === page && setTheme(themeFromColor(typeof color === 'string' ? color : null)))
+      .catch(() => undefined);
+  });
   contents.on('context-menu', (_event, params) => {
     const items: MenuItemConstructorOptions[] = [];
     for (const word of params.dictionarySuggestions.slice(0, 4)) {
@@ -200,13 +226,28 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+/** True while the window shows a hub page (not Discord's sign-in, not the offline page). */
+function onHub(contents: WebContents): boolean {
+  return contents.getURL().startsWith(`${hub}/`);
+}
+
+/** Take on the site's theme: Electron's theme source (title bar, menus, the offline page) and the window colour. */
+function setTheme(theme: ThemeSource): void {
+  if (nativeTheme.themeSource !== theme) nativeTheme.themeSource = theme;
+  win?.setBackgroundColor(windowBackground(theme, nativeTheme.shouldUseDarkColors));
+  if (prefs.theme === theme) return;
+  prefs = { ...prefs, theme };
+  prefsFile().write(prefs);
+}
+
 // ------------------------------------------------------------------------------------------------ session and desk
 
 async function getJson(path: string): Promise<unknown> {
   try {
     const response = await hubSession().fetch(hubUrl(hub, path), {
       credentials: 'include',
-      headers: { accept: 'application/json' }
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
     return response.ok ? await response.json() : null;
   } catch {
@@ -218,10 +259,16 @@ async function getJson(path: string): Promise<unknown> {
 function refresh(): Promise<void> {
   refreshing ??= (async () => {
     lastRefresh = Date.now();
-    menus = menusFor(parseSession(await getJson('/api/session')));
+    const started = epoch;
+    const [answer, siteAnswer] = await Promise.all([getJson('/api/session'), getJson(DESKTOP_PATH)]);
+    if (started !== epoch) return;
+    // An older hub, or one that does not answer, keeps the last good lists (the bundled ones at first).
+    site = parseDesktopSite(siteAnswer) ?? site;
+    menus = menusFor(parseSession(answer), site);
     const officer = menus.tier === 'officer' || menus.tier === 'admin';
     const before = desk;
     desk = officer ? parseDesk(await getJson('/api/desk')) : null;
+    if (started !== epoch) return;
     const news = newWork(before, desk);
     if (news && prefs.deskNotifications) notify(news);
     drawMenus();
@@ -230,6 +277,30 @@ function refresh(): Promise<void> {
     refreshing = null;
   });
   return refreshing;
+}
+
+/** Log out as the site's account menu does (POST /auth/logout), then show the hub's front page signed out. */
+async function signOut(): Promise<void> {
+  try {
+    await hubSession().fetch(hubUrl(hub, SIGN_OUT.href), {
+      method: 'POST',
+      credentials: 'include',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+  } catch {
+    // Judged below by asking the hub who is signed in, not by the page the logout redirects to.
+  }
+  if (parseSession(await getJson('/api/session'))) {
+    dialog.showErrorBox('Toads Hub', 'The hub did not answer, so you are still signed in. Try again.');
+    return;
+  }
+  // Drop any refresh that began while signed in, and draw a visitor's menus at once.
+  epoch += 1;
+  refreshing = null;
+  desk = null;
+  forgetDraft = true;
+  go('/');
+  await refresh();
 }
 
 function notify(body: string): void {
@@ -254,7 +325,11 @@ function drawBadge(): void {
 function linkItems(groups: Link[][]): MenuItemConstructorOptions[] {
   return groups.flatMap((group, i) => [
     ...(i ? [{ type: 'separator' as const }] : []),
-    ...group.map((link) => ({ label: link.label, accelerator: link.accelerator, click: () => go(link.path) }))
+    ...group.map((link) => ({
+      label: link.label,
+      accelerator: link.accelerator,
+      click: () => (link.signOut ? void signOut() : go(link.path))
+    }))
   ]);
 }
 
@@ -426,6 +501,9 @@ function start(): void {
 
   void app.whenReady().then(() => {
     prefs = parsePrefs(prefsFile().read());
+    nativeTheme.themeSource = prefs.theme;
+    // A reader who follows their device: keep the window colour with it when it turns from day to night.
+    nativeTheme.on('updated', () => win?.setBackgroundColor(windowBackground(prefs.theme, nativeTheme.shouldUseDarkColors)));
     secureSession(hubSession());
     drawMenus();
     win = createWindow();

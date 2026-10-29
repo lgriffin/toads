@@ -6,7 +6,14 @@ import { DEFAULT_PREFS, jsonFile, parsePrefs } from '../src/prefs';
 
 it('parsePrefs keeps what is valid and defaults the rest', () => {
   expect(parsePrefs(undefined)).toEqual(DEFAULT_PREFS);
-  expect(parsePrefs({ keepInTray: true, deskNotifications: 'no' })).toEqual({ keepInTray: true, deskNotifications: true });
+  expect(parsePrefs({ keepInTray: true, deskNotifications: 'no' })).toEqual({
+    keepInTray: true,
+    deskNotifications: true,
+    theme: 'dark'
+  });
+  expect(parsePrefs({ theme: 'light' }).theme).toBe('light');
+  expect(parsePrefs({ theme: 'system' }).theme).toBe('system');
+  expect(parsePrefs({ theme: 'sepia' }).theme).toBe('dark');
 });
 
 it('jsonFile round-trips, and a missing or corrupt file reads as nothing', () => {

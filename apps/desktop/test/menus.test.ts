@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Session } from '../../web/src/lib/api';
-import { OFFICER_MENU } from '../../web/src/lib/nav';
-import { menusFor, parseSession, type Menus } from '../src/menus';
+import { desktopSite } from '../../web/src/lib/desktop';
+import { ACCOUNT_MENU, NAV, OFFICER_MENU, SIGN_IN, SIGN_OUT } from '../../web/src/lib/nav';
+import { BUNDLED_SITE, menusFor, parseSession, type Menus } from '../src/menus';
 
 const NAMES = { wednesday: 'Wednesday', sunday: 'Sunday' };
 
@@ -30,7 +31,7 @@ describe('menusFor', () => {
     expect(m.tier).toBe('visitor');
     expect(m.menus.map((x) => x.label)).toEqual(['Hub', 'Me']);
     expect(labels(m, 'Hub')).toEqual([['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']]);
-    expect(labels(m, 'Me')).toEqual([['Sign in with Discord'], ['What you can do']]);
+    expect(labels(m, 'Me')).toEqual([[SIGN_IN.label], ['What you can do']]);
     expect(paths(m, 'Me')[0]).toBe('/auth/login');
     expect(m.officerQuickLinks).toEqual([]);
   });
@@ -39,7 +40,7 @@ describe('menusFor', () => {
     const m = menusFor(session());
     expect(m.tier).toBe('raider');
     expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid']);
-    expect(labels(m, 'Me')).toEqual([['Me'], ['Your setup', 'What you can do']]);
+    expect(labels(m, 'Me')).toEqual([['Me'], ['Your setup', 'What you can do'], [SIGN_OUT.label]]);
     expect(labels(m, 'Officers')).toBeNull();
   });
 
@@ -85,4 +86,42 @@ it('parseSession accepts a session and nothing else', () => {
   expect(parseSession({ detail: 'Not signed in' })).toBeNull();
   expect(parseSession(null)).toBeNull();
   expect(parseSession({ member_id: '1', officer_days: [], raid_days: [] })).toBeNull();
+});
+
+describe("the live site's lists and launch hold (/desktop.json)", () => {
+  const raider = session();
+
+  it('bundles the site as this build knows it', () => {
+    expect(BUNDLED_SITE).toEqual(desktopSite());
+    expect(menusFor(raider, BUNDLED_SITE)).toEqual(menusFor(raider));
+  });
+
+  it('opens a raider\'s menus as soon as the site lifts the launch hold, without a new release', () => {
+    const m = menusFor(raider, desktopSite(false));
+    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid', 'Logs', 'Highlights', 'Bank']);
+    expect(labels(m, 'Me')?.[1]).toEqual(ACCOUNT_MENU.map((i) => i.label));
+  });
+
+  it('shows a page the site adds to a menu, and drops one it removes', () => {
+    const nav = {
+      ...NAV,
+      hubMenu: [...NAV.hubMenu.filter((i) => i.href !== '/bank'), { href: '/toolkit', label: 'Toolkit' }],
+      memberNav: [...NAV.memberNav, { href: '/toolkit', label: 'Toolkit' }],
+      officerMenu: [...NAV.officerMenu, { href: '/officers/reference', label: 'Reference raids' }]
+    };
+    const m = menusFor(session({ day_roles: { sunday: 'officer' }, raid_days: ['sunday'], officer_days: ['sunday'] }), {
+      ...desktopSite(false),
+      nav
+    });
+    expect(paths(m, 'Hub')).toContain('/toolkit');
+    expect(paths(m, 'Hub')).not.toContain('/bank');
+    expect(labels(m, 'Officers')?.[0].at(-1)).toBe('Reference raids');
+  });
+
+  it("words the account menu as the site does, with the site's Log out", () => {
+    const m = menusFor(session({ officer_days: ['wednesday'], day_roles: { wednesday: 'officer' } }));
+    const me = m.menus.find((x) => x.label === 'Me')!.groups;
+    expect(me[1].map((l) => [l.label, l.path])).toEqual(ACCOUNT_MENU.map((i) => [i.label, i.href]));
+    expect(me.at(-1)).toEqual([{ label: SIGN_OUT.label, path: SIGN_OUT.href, signOut: true }]);
+  });
 });

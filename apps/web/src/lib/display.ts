@@ -24,6 +24,18 @@ export const THEMES: readonly { id: Theme; label: string }[] = [
   { id: 'system', label: 'Match my device' }
 ];
 
+/** The page colour (--ink in theme.css) of each theme; display.test.ts holds the two files to the same values. */
+export const THEME_COLOR: Record<'dark' | 'light', string> = { dark: '#120f33', light: '#f6f1e5' };
+
+/**
+ * The theme-color meta tag for a theme choice: the page colour when the reader picked dark or light, none when they
+ * follow their device. Browsers tint their own bars with it, and the desktop app reads it to match its window, title
+ * bar and offline page to the site (no tag: it follows the device too). static/display.js writes the same tag.
+ */
+export function themeColor(theme: Theme, prefersLight: boolean): string | null {
+  return theme === 'system' ? null : THEME_COLOR[resolveTheme(theme, prefersLight)];
+}
+
 export function parseTheme(value: string | null | undefined): Theme {
   return value === 'light' || value === 'system' || value === 'dark' ? value : DEFAULT_DISPLAY.theme;
 }
@@ -55,6 +67,17 @@ export function saveDisplay(display: Display, storage: Pick<Storage, 'setItem' |
 export function applyDisplay(display: Display, root: HTMLElement = document.documentElement) {
   const light = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
   root.dataset.theme = resolveTheme(display.theme, light);
+  const color = themeColor(display.theme, light);
+  let meta = root.ownerDocument.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (color === null) meta?.remove();
+  else {
+    if (!meta) {
+      meta = root.ownerDocument.createElement('meta');
+      meta.name = 'theme-color';
+      root.ownerDocument.head.append(meta);
+    }
+    meta.content = color;
+  }
   if (display.easyReading) root.dataset.reading = 'easy';
   else delete root.dataset.reading;
 }
