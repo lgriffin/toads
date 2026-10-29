@@ -15,6 +15,7 @@ import {
   clipboard,
   dialog,
   nativeImage,
+  nativeTheme,
   screen,
   session as sessions,
   shell,
@@ -24,11 +25,14 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 
+import { DESKTOP_PATH, parseDesktopSite } from '../../web/src/lib/desktop';
+import { SIGN_OUT } from '../../web/src/lib/nav';
 import { newWork, parseDesk, trayLines, waiting, type Desk } from './desk';
 import { hubUrl, resolveHub } from './hub';
 import { destination, permissionAllowed } from './links';
-import { menusFor, parseSession, type Link, type Menus } from './menus';
+import { BUNDLED_SITE, menusFor, parseSession, type Link, type Menus } from './menus';
 import { DEFAULT_PREFS, jsonFile, parsePrefs, type Prefs } from './prefs';
+import { themeFromColor, windowBackground, type ThemeSource } from './theme';
 import { plainChrome } from './useragent';
 import { MIN_SIZE, parseState, restore } from './window-state';
 
@@ -38,8 +42,6 @@ const PARTITION = 'persist:toads';
 const START_PATH = '/hub';
 const DESK_POLL_MS = 2 * 60 * 1000;
 const FOCUS_REFRESH_MS = 15 * 1000;
-// The hub's dark background (--ink in apps/web/src/lib/theme.css), so the window never flashes white while loading.
-const BACKGROUND = '#120f33';
 // ERR_ABORTED: a navigation the app itself cancelled (a link sent to the browser), not a failure to show offline for.
 const ABORTED = -3;
 
@@ -50,7 +52,9 @@ let hub = '';
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
-let menus: Menus = menusFor(null);
+// The site's top bar lists and launch hold, from its /desktop.json; the bundled copy until it first answers.
+let site = BUNDLED_SITE;
+let menus: Menus = menusFor(null, site);
 let desk: Desk | null = null;
 let lastRefresh = 0;
 let refreshing: Promise<void> | null = null;
@@ -124,7 +128,7 @@ function createWindow(): BrowserWindow {
     minHeight: MIN_SIZE.height,
     show: false,
     title: 'Toads Hub',
-    backgroundColor: BACKGROUND,
+    backgroundColor: windowBackground(prefs.theme, nativeTheme.shouldUseDarkColors),
     icon: resources('icon.png'),
     webPreferences: {
       partition: PARTITION,
@@ -159,6 +163,15 @@ function createWindow(): BrowserWindow {
   });
   // A full page load is where sign-in and sign-out land, so the menus follow who is signed in.
   contents.on('did-navigate', () => void refresh());
+  // The reader's theme on the site (its theme-color tag) becomes the app's: on each hub page, and when they change it.
+  contents.on('did-change-theme-color', (_event, color) => onHub(contents) && setTheme(themeFromColor(color)));
+  contents.on('did-finish-load', () => {
+    if (!onHub(contents)) return;
+    contents
+      .executeJavaScript(`document.querySelector('meta[name="theme-color"]')?.content ?? null`)
+      .then((color: unknown) => setTheme(themeFromColor(typeof color === 'string' ? color : null)))
+      .catch(() => undefined);
+  });
   contents.on('context-menu', (_event, params) => {
     const items: MenuItemConstructorOptions[] = [];
     for (const word of params.dictionarySuggestions.slice(0, 4)) {
@@ -182,6 +195,20 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+/** True while the window shows a hub page (not Discord's sign-in, not the offline page). */
+function onHub(contents: WebContents): boolean {
+  return contents.getURL().startsWith(`${hub}/`);
+}
+
+/** Take on the site's theme: Electron's theme source (title bar, menus, the offline page) and the window colour. */
+function setTheme(theme: ThemeSource): void {
+  if (nativeTheme.themeSource !== theme) nativeTheme.themeSource = theme;
+  win?.setBackgroundColor(windowBackground(theme, nativeTheme.shouldUseDarkColors));
+  if (prefs.theme === theme) return;
+  prefs = { ...prefs, theme };
+  prefsFile().write(prefs);
+}
+
 // ------------------------------------------------------------------------------------------------ session and desk
 
 async function getJson(path: string): Promise<unknown> {
@@ -200,7 +227,10 @@ async function getJson(path: string): Promise<unknown> {
 function refresh(): Promise<void> {
   refreshing ??= (async () => {
     lastRefresh = Date.now();
-    menus = menusFor(parseSession(await getJson('/api/session')));
+    const [answer, siteAnswer] = await Promise.all([getJson('/api/session'), getJson(DESKTOP_PATH)]);
+    // An older hub, or one that does not answer, keeps the last good lists (the bundled ones at first).
+    site = parseDesktopSite(siteAnswer) ?? site;
+    menus = menusFor(parseSession(answer), site);
     const officer = menus.tier === 'officer' || menus.tier === 'admin';
     const before = desk;
     desk = officer ? parseDesk(await getJson('/api/desk')) : null;
@@ -212,6 +242,18 @@ function refresh(): Promise<void> {
     refreshing = null;
   });
   return refreshing;
+}
+
+/** Log out as the site's account menu does (POST /auth/logout), then show the hub's front page signed out. */
+async function signOut(): Promise<void> {
+  try {
+    const response = await hubSession().fetch(hubUrl(hub, SIGN_OUT.href), { method: 'POST', credentials: 'include' });
+    if (!response.ok) throw new Error(`status ${response.status}`);
+  } catch {
+    dialog.showErrorBox('Toads Hub', 'The hub did not answer, so you are still signed in. Try again.');
+    return;
+  }
+  go('/');
 }
 
 function notify(body: string): void {
@@ -235,7 +277,11 @@ function drawBadge(): void {
 function linkItems(groups: Link[][]): MenuItemConstructorOptions[] {
   return groups.flatMap((group, i) => [
     ...(i ? [{ type: 'separator' as const }] : []),
-    ...group.map((link) => ({ label: link.label, accelerator: link.accelerator, click: () => go(link.path) }))
+    ...group.map((link) => ({
+      label: link.label,
+      accelerator: link.accelerator,
+      click: () => (link.signOut ? void signOut() : go(link.path))
+    }))
   ]);
 }
 
@@ -387,6 +433,9 @@ function start(): void {
 
   void app.whenReady().then(() => {
     prefs = parsePrefs(prefsFile().read());
+    nativeTheme.themeSource = prefs.theme;
+    // A reader who follows their device: keep the window colour with it when it turns from day to night.
+    nativeTheme.on('updated', () => win?.setBackgroundColor(windowBackground(prefs.theme, nativeTheme.shouldUseDarkColors)));
     secureSession(hubSession());
     drawMenus();
     win = createWindow();

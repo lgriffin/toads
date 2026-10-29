@@ -68,6 +68,15 @@ def test_release() -> None:
     pass
 
 
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-APP-006 The desktop app shall stay consistent with the website it shows: the live site's top bar lists "
+    "and launch hold, its account menu and Log out, and the reader's theme",
+)
+def test_consistent_with_the_site() -> None:
+    pass
+
+
 @given("the desktop app", target_fixture="main")
 def main() -> str:
     return _read("src/main.ts")
@@ -126,7 +135,7 @@ def menus_from_the_site() -> None:
 )
 def menus_follow_session(main: str) -> None:
     assert "contents.on('did-navigate', () => void refresh());" in main
-    assert "menusFor(parseSession(await getJson('/api/session')))" in main
+    assert "getJson('/api/session')" in main and "menusFor(parseSession(answer), site)" in main
     menus = _read("src/menus.ts")
     assert "`CmdOrCtrl+${n + 1}`" in menus and "`CmdOrCtrl+Shift+${n + 1}`" in menus
 
@@ -212,3 +221,60 @@ def ci_job() -> None:
     for task in ("desktop-check", "desktop-test", "desktop-smoke", "desktop-pack", "desktop-audit"):
         assert task in runs, task
     assert "desktop" in ci["jobs"]["ci-success"]["needs"]
+
+
+WEB = ROOT / "apps" / "web"
+
+
+def _web(relative: str) -> str:
+    return (WEB / relative).read_text(encoding="utf-8")
+
+
+@then(
+    "it reads the site's /desktop.json after every page load and draws its menus from it, keeping the bundled lists "
+    "only until the site answers"
+)
+def reads_the_site(main: str) -> None:
+    assert "export const DESKTOP_PATH = '/desktop.json';" in _web("src/lib/desktop.ts")
+    endpoint = _web("src/routes/desktop.json/+server.ts")
+    assert "export const prerender = true;" in endpoint and "json(desktopSite())" in endpoint
+    assert "getJson(DESKTOP_PATH)" in main and "site = parseDesktopSite(siteAnswer) ?? site;" in main
+    assert "export const BUNDLED_SITE: DesktopSite = desktopSite();" in _read("src/menus.ts")
+    assert "lifts the launch hold, without a new release" in _read("test/menus.test.ts")
+    assert "the live site's lists win over the bundled ones" in _read("test/smoke/smoke.cjs")
+
+
+@then(
+    "its Me menu is the site's account menu, with the site's sign-in wording and a Log out that posts to the hub as "
+    "the site does"
+)
+def account_menu(main: str) -> None:
+    layout = _web("src/routes/+layout.svelte")
+    assert "accountMenu(tier)" in layout and "{SIGN_IN.label}" in layout and "action={SIGN_OUT.href}" in layout
+    menus = _read("src/menus.ts")
+    assert "accountMenu(tier, site.launch_hold, site.nav.accountMenu)" in menus and "SIGN_IN.label" in menus
+    assert "hubUrl(hub, SIGN_OUT.href), { method: 'POST'" in main
+    assert "await until('signed out'" in _read("test/smoke/smoke.cjs")
+
+
+@then(
+    "it takes the reader's theme from the site's theme-color tag for its window, title bar and offline page, and "
+    "remembers it for the next launch"
+)
+def follows_the_theme(main: str) -> None:
+    assert "contents.on('did-change-theme-color'" in main and "nativeTheme.themeSource = prefs.theme;" in main
+    assert "import { THEME_COLOR } from '../../web/src/lib/display';" in _read("src/theme.ts")
+    assert "theme: ThemeSource;" in _read("src/prefs.ts")
+    assert 'name="theme-color"' in _web("src/lib/display.ts") and "meta.name = 'theme-color';" in _web(
+        "static/display.js"
+    )
+    assert "await until('the remembered theme'" in _read("test/smoke/smoke.cjs")
+
+
+@then(
+    "the web app's tests hold every top bar link to a page on the site and the theme-color values to theme.css's page "
+    "colours"
+)
+def drift_tests() -> None:
+    assert "is a page on the site" in _web("src/lib/desktop.test.ts")
+    assert "keeps the theme-color values on theme.css's page colour" in _web("src/lib/display.test.ts")

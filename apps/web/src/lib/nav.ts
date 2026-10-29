@@ -39,8 +39,8 @@ export const MEMBER_NAV: readonly NavItem[] = [
 /** Member pages outside the nav: the first sign-in checklist and setup (main, specs and alts). */
 export const MEMBER_EXTRA: readonly string[] = ['/welcome', '/setup'];
 
-export function memberNav(officer: boolean, admin = false): NavItem[] {
-  return MEMBER_NAV.filter((i) => (officer || admin || !i.officerOnly) && (admin || !i.adminOnly));
+export function memberNav(officer: boolean, admin = false, nav: readonly NavItem[] = MEMBER_NAV): NavItem[] {
+  return nav.filter((i) => (officer || admin || !i.officerOnly) && (admin || !i.adminOnly));
 }
 
 // The top bar for a signed-in member: Hub (a menu of the pages every member uses), Me, and for officers and super
@@ -67,11 +67,15 @@ export const OFFICER_MENU: readonly NavItem[] = [
 ];
 
 /** The Hub menu: the member pages this member may open, then the public pages under "About the guild". */
-export function hubMenu(members: readonly NavItem[]): NavGroup[] {
+export function hubMenu(
+  members: readonly NavItem[],
+  hub: readonly NavItem[] = HUB_MENU,
+  publicNav: readonly NavItem[] = PUBLIC_NAV
+): NavGroup[] {
   const open = new Set(members.map((i) => i.href));
   return [
-    { label: 'Your hub', items: HUB_MENU.filter((i) => open.has(i.href)) },
-    { label: 'About the guild', items: [...PUBLIC_NAV] }
+    { label: 'Your hub', items: hub.filter((i) => open.has(i.href)) },
+    { label: 'About the guild', items: [...publicNav] }
   ];
 }
 
@@ -82,11 +86,12 @@ export function hubMenu(members: readonly NavItem[]): NavGroup[] {
 export function officerMenu(
   officer: boolean,
   admin: boolean,
-  nights: readonly { day: string; name: string }[] = []
+  nights: readonly { day: string; name: string }[] = [],
+  tools: readonly NavItem[] = OFFICER_MENU
 ): NavGroup[] {
   const groups: NavGroup[] = [];
   if (officer || admin) {
-    groups.push({ label: 'Officer tools', items: [...OFFICER_MENU] });
+    groups.push({ label: 'Officer tools', items: [...tools] });
     if (nights.length) {
       groups.push({
         label: nights.length === 1 ? 'Your raid night' : 'Your raid nights',
@@ -99,6 +104,36 @@ export function officerMenu(
   }
   return groups;
 }
+
+/** The account menu's pages, under the member's name in the top bar (and the desktop app's Me menu). */
+export const ACCOUNT_MENU: readonly NavItem[] = [
+  { href: '/me/settings', label: 'Account settings', hint: 'Your name and Warcraft Logs key' },
+  { href: '/setup', label: 'Your setup', hint: 'Your main, specs and alts' },
+  { href: '/features', label: 'What you can do', hint: 'What your rank opens in the hub' }
+];
+
+/** Discord sign-in, worded the same on the site's top bar and in the desktop app. */
+export const SIGN_IN = { href: '/auth/login', label: 'Log in with Discord' } as const;
+
+/** Signing out, as the account menu words it. The site posts to it; the desktop app does too. */
+export const SIGN_OUT = { href: '/auth/logout', label: 'Log out' } as const;
+
+/** Every list the top bar is drawn from, so the desktop app can take them from the live site (src/lib/desktop.ts). */
+export interface NavLists {
+  publicNav: readonly NavItem[];
+  memberNav: readonly NavItem[];
+  hubMenu: readonly NavItem[];
+  officerMenu: readonly NavItem[];
+  accountMenu: readonly NavItem[];
+}
+
+export const NAV: NavLists = {
+  publicNav: PUBLIC_NAV,
+  memberNav: MEMBER_NAV,
+  hubMenu: HUB_MENU,
+  officerMenu: OFFICER_MENU,
+  accountMenu: ACCOUNT_MENU
+};
 
 /** True when the page is one of the menu's links, so its button can show where the reader is. */
 export function inMenu(pathname: string, groups: readonly NavGroup[]): boolean {

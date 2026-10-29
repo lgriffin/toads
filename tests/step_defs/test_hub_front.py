@@ -125,9 +125,11 @@ def rbac_drift_test() -> None:
 def discoverable() -> None:
     assert "{ href: '/features', label: 'Hub features' }" in _read("lib/nav.ts")
     layout = _read("routes/+layout.svelte")
-    assert '<li><a href="{base}/features/"><span class="name">What you can do</span>' in layout
+    assert "{ href: '/features', label: 'What you can do'" in _read("lib/nav.ts")
+    assert "{#each account as item (item.href)}" in layout
     assert "TIER_LABEL[tier]" in layout
-    assert "{ label: 'About the guild', items: [...PUBLIC_NAV] }" in _read("lib/nav.ts")
+    assert "{ label: 'About the guild', items: [...publicNav] }" in _read("lib/nav.ts")
+    assert "publicNav: readonly NavItem[] = PUBLIC_NAV" in _read("lib/nav.ts")
     assert "goto(`${base}/features/`, { replaceState: true })" in _read("routes/toolkit/+page.svelte")
 
 
