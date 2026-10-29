@@ -108,14 +108,17 @@ def smoke_signs_in() -> None:
 
 
 @then(
-    "the window comes back where it was, shows an offline page with a retry when the hub cannot be reached, and a "
-    "second launch focuses the first"
+    "the window comes back where it was, shows an offline page in the hub's colours that tries again by itself when "
+    "the hub cannot be reached, and a second launch focuses the first"
 )
 def native_window(main: str) -> None:
     assert "restore(" in main and "window-state.json" in main
     assert "loadFile(staticFile('offline.html')" in main
-    assert 'id="retry"' in _read("static/offline.html")
-    assert "await until('the offline page'" in _read("test/smoke/smoke.cjs")
+    offline = _read("static/offline.html")
+    assert 'id="retry"' in offline and "setInterval(tick, 1000)" in offline
+    assert "@media (prefers-color-scheme: light)" in offline and "shared/toads-mark.svg" in offline
+    smoke = _read("test/smoke/smoke.cjs")
+    assert "await until('the offline page'" in smoke and "await until('the mark'" in smoke
     assert "requestSingleInstanceLock()" in main and "app.on('second-instance', showWindow);" in main
 
 
