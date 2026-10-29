@@ -1,5 +1,7 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { newWork, parseDesk, trayLines, waiting, type Desk } from '../src/desk';
+import { badgeIcon, newWork, parseDesk, trayDesk, trayLines, waiting, type Desk } from '../src/desk';
 
 const desk = (a = 0, p = 0, h = 0, s = 0): Desk => ({
   applications_waiting: a,
@@ -42,5 +44,34 @@ describe('newWork', () => {
     expect(newWork(null, desk(5))).toBeNull();
     expect(newWork(desk(3, 2), desk(1, 2))).toBeNull();
     expect(newWork(desk(3), null)).toBeNull();
+  });
+});
+
+describe('trayDesk', () => {
+  it("heads the tray's desk lines with the hub's name for the desk", () => {
+    expect(trayDesk(desk(2, 0, 1))).toEqual(['Raid leader desk', 'Applications waiting: 2', 'Highlight submissions: 1']);
+  });
+
+  it('says a read desk is clear, and shows nothing when there is no desk to read', () => {
+    expect(trayDesk(desk())).toEqual(['Raid leader desk', 'Nothing waiting']);
+    expect(trayDesk(null)).toEqual([]);
+  });
+});
+
+describe('badgeIcon', () => {
+  it('numbers the overlay up to nine, then 9+', () => {
+    expect(badgeIcon(0)).toBeNull();
+    expect(badgeIcon(1)).toBe('badge-1.png');
+    expect(badgeIcon(9)).toBe('badge-9.png');
+    expect(badgeIcon(10)).toBe('badge-9plus.png');
+  });
+
+  it('has an icon, and its 2x, for every count it names', () => {
+    for (let count = 1; count <= 10; count++) {
+      const name = badgeIcon(count) ?? '';
+      for (const file of [name, name.replace('.png', '@2x.png')]) {
+        expect(existsSync(join(__dirname, '..', 'resources', file)), file).toBe(true);
+      }
+    }
   });
 });

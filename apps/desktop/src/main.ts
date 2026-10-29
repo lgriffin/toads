@@ -24,7 +24,7 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 
-import { newWork, parseDesk, trayLines, waiting, type Desk } from './desk';
+import { badgeIcon, newWork, parseDesk, trayDesk, trayLines, waiting, type Desk } from './desk';
 import { hubUrl, resolveHub } from './hub';
 import { destination, permissionAllowed } from './links';
 import { menusFor, parseSession, type Link, type Menus } from './menus';
@@ -38,6 +38,9 @@ const PARTITION = 'persist:toads';
 const START_PATH = '/hub';
 const DESK_POLL_MS = 2 * 60 * 1000;
 const FOCUS_REFRESH_MS = 15 * 1000;
+// A slow hub must not leave the app looking dead: the window shows by then even if the page has not painted yet.
+const SHOW_BY_MS = 1000;
+const GUIDE = 'https://github.com/lgriffin/toads/blob/main/docs/desktop.md#for-officers';
 // The hub's dark background (--ink in apps/web/src/lib/theme.css), so the window never flashes white while loading.
 const BACKGROUND = '#120f33';
 // ERR_ABORTED: a navigation the app itself cancelled (a link sent to the browser), not a failure to show offline for.
@@ -137,6 +140,7 @@ function createWindow(): BrowserWindow {
   });
   if (maximized) window.maximize();
   window.once('ready-to-show', () => window.show());
+  setTimeout(() => !window.isDestroyed() && !window.isVisible() && window.show(), SHOW_BY_MS);
 
   window.on('close', (event) => {
     stateFile.write({ ...window.getNormalBounds(), maximized: window.isMaximized() });
@@ -175,7 +179,9 @@ function createWindow(): BrowserWindow {
     if (params.isEditable) items.push({ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' });
     else if (params.selectionText) items.push({ role: 'copy' });
     while (items.at(-1)?.type === 'separator') items.pop();
-    if (items.length) Menu.buildFromTemplate(items).popup({ window });
+    // On the page itself, a browser's Back, Forward and Reload.
+    if (!items.length) items.push(...navigationItems(true));
+    Menu.buildFromTemplate(items).popup({ window });
   });
 
   void window.loadURL(hubUrl(hub, START_PATH));
@@ -224,8 +230,9 @@ function notify(body: string): void {
 function drawBadge(): void {
   const count = waiting(desk);
   app.setBadgeCount(count);
+  const badge = badgeIcon(count);
   if (process.platform === 'win32' && win) {
-    win.setOverlayIcon(count ? nativeImage.createFromPath(resources('badge.png')) : null, count ? `${count} waiting` : '');
+    win.setOverlayIcon(badge ? nativeImage.createFromPath(resources(badge)) : null, badge ? `${count} waiting` : '');
   }
   tray?.setToolTip(['Toads Hub', ...trayLines(desk)].join('\n'));
 }
@@ -263,8 +270,29 @@ function prefItems(): MenuItemConstructorOptions[] {
   ];
 }
 
+const mac = process.platform === 'darwin';
+
+/** Back, Forward and Reload. `live` greys out a way that is closed, for a menu built at the moment it opens. */
+function navigationItems(live = false): MenuItemConstructorOptions[] {
+  const history = win?.webContents.navigationHistory;
+  return [
+    {
+      label: 'Back',
+      accelerator: mac ? 'Cmd+[' : 'Alt+Left',
+      enabled: !live || (history?.canGoBack() ?? false),
+      click: () => history?.goBack()
+    },
+    {
+      label: 'Forward',
+      accelerator: mac ? 'Cmd+]' : 'Alt+Right',
+      enabled: !live || (history?.canGoForward() ?? false),
+      click: () => history?.goForward()
+    },
+    { role: 'reload' }
+  ];
+}
+
 function drawMenus(): void {
-  const mac = process.platform === 'darwin';
   const page = () => win?.webContents.getURL() ?? '';
   const template: MenuItemConstructorOptions[] = [
     ...(mac ? [{ role: 'appMenu' as const }] : []),
@@ -280,33 +308,24 @@ function drawMenus(): void {
         { type: 'separator' },
         ...prefItems(),
         { type: 'separator' },
-        mac ? { role: 'close' } : { role: 'quit' }
+        { role: 'close' },
+        ...(mac ? [] : [{ role: 'quit' as const }])
       ]
     },
     { role: 'editMenu' },
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Back',
-          accelerator: mac ? 'Cmd+[' : 'Alt+Left',
-          click: () => win?.webContents.navigationHistory.goBack()
-        },
-        {
-          label: 'Forward',
-          accelerator: mac ? 'Cmd+]' : 'Alt+Right',
-          click: () => win?.webContents.navigationHistory.goForward()
-        },
-        { type: 'separator' },
-        { role: 'reload' },
+        ...navigationItems(),
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
-        { role: 'togglefullscreen' }
+        { role: 'togglefullscreen' },
+        { type: 'separator' },
+        { role: 'toggleDevTools' }
       ]
     },
     ...menus.menus.map((m) => ({ label: m.label, submenu: linkItems(m.groups) })),
@@ -314,8 +333,9 @@ function drawMenus(): void {
     {
       role: 'help',
       submenu: [
-        { label: 'Open the hub in your browser', click: () => void shell.openExternal(hubUrl(hub, '/')) },
-        { role: 'about' }
+        { label: 'Desktop app guide', click: () => void shell.openExternal(GUIDE) },
+        { label: 'Open Toads Hub in your browser', click: () => void shell.openExternal(hubUrl(hub, '/')) },
+        ...(mac ? [] : [{ type: 'separator' as const }, { role: 'about' as const, label: 'About Toads Hub' }])
       ]
     }
   ];
@@ -329,11 +349,16 @@ function drawTray(): void {
     tray.setToolTip('Toads Hub');
     tray.on('click', showWindow);
   }
-  const lines = trayLines(desk);
+  // The desk under its heading; each line opens the desk on the hub home.
+  const [heading, ...lines] = trayDesk(desk);
   const template: MenuItemConstructorOptions[] = [
     { label: 'Open Toads Hub', click: showWindow },
-    ...(lines.length
-      ? [{ type: 'separator' as const }, ...lines.map((label) => ({ label, click: () => go(START_PATH) }))]
+    ...(heading
+      ? [
+          { type: 'separator' as const },
+          { label: heading, enabled: false },
+          ...lines.map((label) => ({ label, click: () => go(START_PATH) }))
+        ]
       : []),
     ...(menus.officerQuickLinks.length
       ? [{ type: 'separator' as const }, ...linkItems([menus.officerQuickLinks])]
@@ -372,7 +397,8 @@ function start(): void {
     applicationName: 'Toads Hub',
     applicationVersion: app.getVersion(),
     copyright: 'The Toads of Spineshatter',
-    website: hub
+    website: hub,
+    iconPath: resources('icon.png')
   });
 
   app.on('web-contents-created', (_event, contents) => guardContents(contents));

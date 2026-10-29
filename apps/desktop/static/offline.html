@@ -2,33 +2,171 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src file:; font-src file:"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Toads Hub: can't reach the hub</title>
+    <title>Can't reach the hub · Toads Hub</title>
     <style>
-      :root { color-scheme: dark; --ink: #120f33; --text: #f6f1e5; --muted: #b9b2d6; --gold: #e0b45c; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--ink); color: var(--text);
-        font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-      main { max-width: 32rem; padding: 2rem; text-align: center; }
-      h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
-      p { color: var(--muted); margin: 0 0 1.5rem; }
-      a { display: inline-block; padding: 0.6rem 1.4rem; border-radius: 0.5rem; background: var(--gold); color: var(--ink);
-        font-weight: 600; text-decoration: none; }
-      a:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+      /* The hub's own tokens (apps/web/src/lib/theme.css): the pond at dusk, and the pond by day when the app's theme
+         is light. The app's native theme follows the reader's choice on the site, so prefers-color-scheme follows it
+         here too. build.mjs copies the top bar's mark and the Cinzel wordmark face into static/shared/. */
+      @font-face {
+        font-family: 'Cinzel';
+        font-weight: 700;
+        font-display: swap;
+        src: url('shared/cinzel-latin-700-normal.woff2') format('woff2');
+      }
+      :root {
+        color-scheme: dark;
+        --ink: #120f33;
+        --cream: #f7ecd2;
+        --muted: #c4c0ea;
+        --accent: #3fd6c8;
+        --on-accent: #0d0b28;
+        --bronze: #d9a85a;
+        --on-bronze: #120f33;
+        --line: #3d3d86;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --ink: #f6f1e5;
+          --cream: #1c1942;
+          --muted: #4b4774;
+          --accent: #0a6476;
+          --on-accent: #ffffff;
+          --bronze: #c58f45;
+          --on-bronze: #1c1942;
+          --line: #d3cbe2;
+        }
+      }
+      * { box-sizing: border-box; }
+      ::selection { background: var(--bronze); color: var(--on-bronze); }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--ink);
+        color: var(--cream);
+        font: 1rem/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+      main { width: min(100%, 30rem); padding: 2rem 1.5rem; text-align: center; }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin: 0 0 2.25rem;
+        font-family: 'Cinzel', Georgia, serif;
+        font-weight: 700;
+        font-size: 1.15rem;
+        letter-spacing: 0.08em;
+      }
+      .brand img { width: 2.5rem; height: 2.5rem; }
+      h1 { margin: 0 0 0.5rem; font-size: 1.5rem; line-height: 1.25; text-wrap: balance; }
+      p { margin: 0; color: var(--muted); text-wrap: pretty; }
+      .actions { margin: 1.75rem 0 0.75rem; }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.5rem;
+        padding: 0.5rem 1.1rem;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .btn:hover { filter: brightness(1.08); }
+      .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+      .btn[aria-disabled='true'] { opacity: 0.6; pointer-events: none; }
+      .wait { min-height: 1.5em; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+      .tried {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.85rem;
+        overflow-wrap: anywhere;
+      }
+      .tried:empty { display: none; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+      @media (prefers-reduced-motion: no-preference) {
+        main { animation: rise 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+      }
     </style>
   </head>
   <body>
     <main>
+      <div class="brand"><img src="shared/toads-mark.svg" alt="" />Toads</div>
       <h1>The pond is out of reach</h1>
-      <p>The app can't reach the Toads Hub right now. Check your connection; it tries again by itself once you're back online.</p>
-      <a id="retry" href="#">Try again</a>
+      <p>The app can't reach the Toads Hub right now. Check your connection; the app keeps trying by itself.</p>
+      <div class="actions"><a class="btn" id="retry" href="#">Try again now</a></div>
+      <p class="wait" id="wait" aria-hidden="true"></p>
+      <p class="sr-only" id="status" role="status"></p>
+      <p class="tried" id="tried"></p>
     </main>
     <script>
-      // The page that failed, passed by the app. Only an http(s) address is followed.
+      // The page that failed, passed by the app. Only an http(s) address is followed. The page tries it again by itself,
+      // waiting longer each time the hub is still away (10 s, 20 s, 40 s, then every 2 minutes), and at once when the
+      // computer comes back online. The count of tries lives in sessionStorage, so it survives the reload a failed try
+      // causes but starts again with the app. The countdown is shown, not read aloud: the status line says it once.
       const target = new URLSearchParams(location.search).get('url') || '';
       const retry = document.getElementById('retry');
-      if (/^https?:\/\//.test(target)) retry.href = target;
-      window.addEventListener('online', () => retry.click());
+      const wait = document.getElementById('wait');
+      const status = document.getElementById('status');
+      const WAITS = [10, 20, 40, 120];
+      const KEY = 'toads-offline-tries';
+
+      function tries() {
+        try {
+          return Number(sessionStorage.getItem(KEY)) || 0;
+        } catch {
+          return 0;
+        }
+      }
+
+      function tryNow() {
+        try {
+          sessionStorage.setItem(KEY, String(tries() + 1));
+        } catch {
+          // No storage: every wait is the first one.
+        }
+        wait.textContent = status.textContent = 'Trying again…';
+        retry.setAttribute('aria-disabled', 'true');
+        location.href = target;
+      }
+
+      if (/^https?:\/\//.test(target)) {
+        const page = new URL(target);
+        retry.href = target;
+        document.getElementById('tried').textContent = `Tried ${page.host}${page.pathname === '/' ? '' : page.pathname}`;
+        let left = WAITS[Math.min(tries(), WAITS.length - 1)];
+        status.textContent = `Trying again in ${left} seconds`;
+        let timer;
+        const tick = () => {
+          if (left <= 0) {
+            clearInterval(timer);
+            return tryNow();
+          }
+          wait.textContent = `Trying again in ${left} s`;
+          left -= 1;
+        };
+        tick();
+        timer = setInterval(tick, 1000);
+        const now = (event) => {
+          event?.preventDefault();
+          clearInterval(timer);
+          tryNow();
+        };
+        retry.addEventListener('click', now);
+        window.addEventListener('online', () => now());
+      } else {
+        retry.hidden = true;
+      }
     </script>
   </body>
 </html>
