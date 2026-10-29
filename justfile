@@ -3,10 +3,15 @@ set dotenv-load := false
 default:
     @just --list
 
-# Install Python workspace and web dependencies
+# Install Python workspace, web and desktop app dependencies
 setup:
     uv sync
     cd apps/web && npm ci
+    cd apps/desktop && npm ci
+
+# Run the desktop app against a hub (default: the dev stack), e.g. `just desktop https://toads.gg`
+desktop hub="http://localhost:8080":
+    cd apps/desktop && npm run build && npx electron . --hub={{hub}}
 
 # Start the dev stack (Postgres, Redis, MinIO, API, worker, web, Caddy on :8080)
 up:

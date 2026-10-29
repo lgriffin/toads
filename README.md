@@ -9,6 +9,7 @@ wcl-store's tables (see Next).
 
 ```mermaid
 flowchart LR
+  desktop[Toads Hub desktop<br/>Electron] --> web
   web[Web app<br/>SvelteKit] --> api[Hub API<br/>FastAPI]
   api --> pg[(Postgres<br/>wcl-store + hub-db)]
   api --> redis[(Redis)]
@@ -35,6 +36,12 @@ just up        # http://localhost:8080
 `config/raid_days.yaml`. The API's example env signs in through the fake Discord server on
 http://localhost:8081, so login works with no Discord application; fill in real Discord and Warcraft Logs
 credentials there when you have them.
+
+## Desktop app
+
+`apps/desktop` is an Electron app for officers: the live hub in its own window with the site's menus as native menus,
+a tray icon and alerts when work reaches their raid leader desk. Installers for Windows, macOS and Linux come from a
+`desktop-v<version>` tag. See [docs/desktop.md](docs/desktop.md).
 
 ## Status
 

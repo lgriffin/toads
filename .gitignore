@@ -27,3 +27,5 @@ infra/certs/*.caddy
 infra/certs/*.csr
 .impeccable/config.local.json
 !infra/.env.backup.example
+apps/desktop/dist/
+apps/desktop/release/

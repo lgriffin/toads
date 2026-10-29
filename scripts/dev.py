@@ -22,6 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = "apps/web"
+DESKTOP = "apps/desktop"
 
 # The typed Python sources (mypy strict) and what coverage measures: the four packages and the repo's scripts, so
 # diffcov sees a changed script too. The floor, and the one-off generator it leaves out, are in pyproject.toml.
@@ -107,6 +108,21 @@ TASKS: dict[str, Task] = {
     ),
     "web-audit": task("npm audit (needs network)", ["npm", "audit", "--audit-level=high", "--omit=dev"], cwd=WEB),
     "e2e": task("Playwright end-to-end tests", ["npm", "run", "e2e"], cwd=WEB),
+    # The officers' desktop app (docs/desktop.md). The smoke run starts the built app against a fake hub on a virtual
+    # display; pack builds the unpacked Linux app, so a broken packaging config fails the PR, not the release.
+    "desktop-check": task("desktop app TypeScript check", ["npm", "run", "check"], cwd=DESKTOP),
+    "desktop-test": task("desktop app vitest", ["npm", "test"], cwd=DESKTOP),
+    "desktop-smoke": task(
+        "desktop app smoke run against a fake hub (needs xvfb-run)",
+        ["xvfb-run", "-a", "npm", "run", "smoke"],
+        cwd=DESKTOP,
+    ),
+    "desktop-pack": task("desktop app packaging (unpacked Linux build)", ["npm", "run", "pack"], cwd=DESKTOP),
+    "desktop-audit": task(
+        "npm audit of the desktop app (needs network)",
+        ["npm", "audit", "--audit-level=high", "--omit=dev"],
+        cwd=DESKTOP,
+    ),
 }
 
 # What `check` runs: every CI check that needs no network, Docker or database, cheapest first so it fails fast.
@@ -122,6 +138,8 @@ CHECK = [
     "diffcov",
     "web-check",
     "web-test",
+    "desktop-check",
+    "desktop-test",
 ]
 
 FIX = task("Ruff fixes and formatting", ["ruff", "check", "--fix", "."], ["ruff", "format", "."])
