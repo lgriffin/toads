@@ -170,11 +170,11 @@ function createWindow(): BrowserWindow {
     // The offline page waits longer on each try in a row; reaching the hub again starts the count over.
     void window.loadFile(staticFile('offline.html'), { query: { url, tries: String(offlineTries++) } });
   });
-  // A full page load is where sign-in and sign-out land, so the menus follow who is signed in.
   contents.on('did-navigate', (_event, url) => {
     if (destination(url, hub) === 'app') offlineTries = 0;
-    void refresh();
   });
+  // A full page load is where sign-in and sign-out land, so the menus follow who is signed in.
+  contents.on('did-navigate', () => void refresh());
   contents.on('context-menu', (_event, params) => {
     const items: MenuItemConstructorOptions[] = [];
     for (const word of params.dictionarySuggestions.slice(0, 4)) {
