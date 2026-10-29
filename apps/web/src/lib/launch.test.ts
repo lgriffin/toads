@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memberNav } from './nav';
-import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, absencesOnly, accountMenu, heldNav, isMemberPath, launchHold, tabOf } from './launch';
+import { TAB_PREVIEW, TAB_PURPOSE, UPCOMING, absencesOnly, accountMenu, foreverLive, heldNav, isMemberPath, launchHold, tabOf } from './launch';
 import type { Tier } from './access';
 
 describe('launch hold', () => {
@@ -92,5 +92,17 @@ describe('accountMenu', () => {
     expect(hrefs('raider', true)).toEqual(['/setup', '/features']);
     expect(hrefs('officer', true)).toEqual(['/me/settings', '/setup', '/features']);
     expect(hrefs('raider', false)).toEqual(['/me/settings', '/setup', '/features']);
+  });
+});
+
+describe('foreverLive', () => {
+  it('counts down while the hold is on, and stops when the real site lifts it', () => {
+    expect(foreverLive(true, false, '2026-12-01')).toBe(false);
+    expect(foreverLive(false, false, '2026-10-29')).toBe(true);
+  });
+  it('keeps the static preview counting down until the launch date itself', () => {
+    expect(foreverLive(false, true, '2026-10-29')).toBe(false);
+    expect(foreverLive(false, true, '2026-11-04')).toBe(true);
+    expect(foreverLive(true, true, '2026-11-04')).toBe(false);
   });
 });

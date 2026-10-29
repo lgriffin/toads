@@ -186,7 +186,7 @@ describe('numbers', () => {
   });
   it('shortens big totals', () => {
     expect(compactNumber(6_020_000)).toBe('6.0M');
-    expect(compactNumber(845_300)).toBe('845.3k');
+    expect(compactNumber(845_300)).toBe('845.3K');
     expect(compactNumber(950)).toBe('950');
     expect(compactNumber(null)).toBe('—');
   });

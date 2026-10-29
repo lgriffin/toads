@@ -21,7 +21,7 @@
     type RaidRole,
     type Tier
   } from '$lib/access';
-  import { FOREVER_LAUNCH } from '$lib/launch';
+  import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
   import type { PreviewRole } from '$lib/preview/gate';
   import { previewSession } from '$lib/preview/session.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
@@ -55,7 +55,9 @@
 <div class="pond-page">
   <PondHero
     title="Hub features"
-    line="Opens with World of Warcraft: Forever · {FOREVER_LAUNCH.label}"
+    line={!FOREVER_LIVE
+      ? `Opens with World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`
+      : `Open since World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`}
     lede="The Toads Hub joins up our raid logs, the guild bank and Discord, behind the Discord account you already use with us. Here is what it does for everyone, for raiders and for officers."
     toads={[TOAD.analyzer, TOAD.bank, TOAD.discord]}
   >
@@ -108,12 +110,21 @@
   {/each}
 
   <section class="band close" class:dusk={APPS.length % 2 === 0} aria-labelledby="launch-h">
-    <h2 id="launch-h">Opening with Forever</h2>
-    <p>
-      The raid analyser and the guild bank open to members through the hub once World of Warcraft: Forever releases on
-      <time datetime={FOREVER_LAUNCH.date}>{FOREVER_LAUNCH.label}</time>. Until then, raid times, officer posts and the
-      bank bot run in Discord.
-    </p>
+    <!-- FOREVER_LIVE (src/lib/launch.ts) turns the countdown into an invitation once the hold lifts. -->
+    {#if !FOREVER_LIVE}
+      <h2 id="launch-h">Opening with Forever</h2>
+      <p>
+        The raid analyzer and the guild bank open to members through the hub once World of Warcraft: Forever releases on
+        <time datetime={FOREVER_LAUNCH.date}>{FOREVER_LAUNCH.label}</time>. Until then, raid times, officer posts and the
+        bank bot run in Discord.
+      </p>
+    {:else}
+      <h2 id="launch-h">Open with Forever</h2>
+      <p>
+        The raid analyzer, the guild bank and the raid tools are open to members through the hub, behind the Discord
+        account you already use with us.
+      </p>
+    {/if}
     <div class="actions">
       {#if !signedIn}<a class="medal" href="{base}/recruit/">Apply to raid with us</a>{/if}
       <a class="ghost" href="{base}/story/">Read our story</a>

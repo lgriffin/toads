@@ -220,7 +220,7 @@
   .step { counter-increment: step; display: grid; gap: 0.6rem; }
   .step h2 { margin: 0; }
   .step > h2::before, .embedded > :global(section > h2)::before { content: counter(step) '. '; color: var(--accent); }
-  .step p { margin: 0; }
+  .step p { margin: 0; max-width: 65ch; }
   .embedded { display: block; }
   .embedded > :global(section) { margin-block: 0; }
   .picked { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; }

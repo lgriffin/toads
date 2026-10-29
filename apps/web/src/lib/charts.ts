@@ -44,13 +44,28 @@ export interface ChartPayload {
   empty: string;
 }
 
-/** The drawing area, in SVG user units; the SVG scales to its container. */
+/**
+ * The drawing area, in SVG user units, before the chart knows its card's width (server render, prerender). Once it is
+ * measured the chart is laid out at that width (`viewFor`), one unit to a pixel, so the axis text stays the same size
+ * on a phone and on a wide screen instead of scaling with the card.
+ */
 export const VIEW = { width: 640, height: 260, left: 56, right: 16, top: 14, bottom: 30 } as const;
-const PLOT_W = VIEW.width - VIEW.left - VIEW.right;
-const PLOT_H = VIEW.height - VIEW.top - VIEW.bottom;
+export interface View {
+  width: number;
+  height: number;
+}
 /** At most this many x labels, so they never overlap on a narrow card. */
 export const MAX_X_LABELS = 8;
+/** Room each x label needs, in pixels, so a phone gets fewer labels than a wide screen. */
+const X_LABEL_ROOM = 56;
 const Y_TICKS = 4;
+
+/** The view for a card `width` pixels wide, at exactly that width, a little taller as it widens. */
+export function viewFor(width: number | undefined): View {
+  if (!width || !Number.isFinite(width)) return { width: VIEW.width, height: VIEW.height };
+  const w = Math.round(width);
+  return { width: w, height: Math.round(Math.min(300, Math.max(200, w * 0.32))) };
+}
 
 /** Series colours in order; the emphasised series takes the accent instead. */
 export const PALETTE = ['#c9a42c', '#69ccf0', '#1eff00', '#ff8000', '#a335ee', '#abd473', '#f58cba', '#fff569'];
@@ -100,6 +115,11 @@ export function compact(n: number): string {
   return Math.round(n).toLocaleString('en-GB');
 }
 
+/** An axis tick: `compact` without a trailing ".0", so the axis reads 500K, 1M, 1.5M. */
+export function tick(n: number): string {
+  return compact(n).replace(/\.0(?=[KMB]$)/, '');
+}
+
 /** True when the payload is a chart this hub can draw: its version, and within the limits. */
 export function drawable(chart: ChartPayload | null | undefined): chart is ChartPayload {
   if (!chart || chart.version !== CHART_VERSION) return false;
@@ -118,7 +138,9 @@ function clampValue(v: number, max: number): number {
   return Math.max(0, Math.min(v, max));
 }
 
-export function layout(chart: ChartPayload, accent = 'var(--accent)'): Layout {
+export function layout(chart: ChartPayload, accent = 'var(--accent)', view: View = VIEW): Layout {
+  const PLOT_W = view.width - VIEW.left - VIEW.right;
+  const PLOT_H = view.height - VIEW.top - VIEW.bottom;
   const n = chart.categories.length;
   const max = chart.y_max > 0 ? chart.y_max : 1;
   const band = n ? PLOT_W / n : PLOT_W;
@@ -161,7 +183,8 @@ export function layout(chart: ChartPayload, accent = 'var(--accent)'): Layout {
     });
   }
 
-  const step = Math.max(1, Math.ceil(n / MAX_X_LABELS));
+  const most = Math.max(2, Math.min(MAX_X_LABELS, Math.floor(PLOT_W / X_LABEL_ROOM)));
+  const step = Math.max(1, Math.ceil(n / most));
   // Always label the newest category (the right-most); step back from it.
   const xLabels = chart.categories
     .map((label, i) => ({ x: centre(i), label, i }))
@@ -169,7 +192,7 @@ export function layout(chart: ChartPayload, accent = 'var(--accent)'): Layout {
     .map(({ x, label }) => ({ x, label }));
   const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, k) => {
     const value = (chart.y_max * k) / Y_TICKS;
-    return { y: yOf(value), label: compact(value) };
+    return { y: yOf(value), label: tick(value) };
   });
   return {
     bars,

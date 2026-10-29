@@ -559,3 +559,74 @@ def dm_failure_words(shared_styles: str) -> None:
     assert "We could not DM you on Discord, so the answer is only here" in desk
     assert "their Discord DMs are closed, so tell them in game" in desk
     assert "{@render list(mine, true)}" in _read("lib/components/BankDesk.svelte")
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-013 The hub shall draw every analyzer chart at its card's measured width, so axis text keeps one "
+    "readable size from a phone to a wide screen",
+)
+def test_charts_at_card_width() -> None:
+    pass
+
+
+@given("the hub's chart drawing", target_fixture="chart_drawing")
+def chart_drawing() -> dict[str, str]:
+    return {"component": _read("lib/components/PayloadChart.svelte"), "layout": _read("lib/charts.ts")}
+
+
+@then("a chart is laid out at its card's width, one SVG unit to a pixel, with fewer x labels on a narrow card")
+def chart_width(chart_drawing: dict[str, str]) -> None:
+    component, layout = chart_drawing["component"], chart_drawing["layout"]
+    assert "bind:clientWidth={width}" in component
+    assert 'viewBox="0 0 {view.width} {view.height}"' in component
+    assert "layout(chart, undefined, view)" in component
+    assert "Math.floor(PLOT_W / X_LABEL_ROOM)" in layout
+
+
+@then('axis ticks drop a trailing ".0" and the reference line\'s label keeps a halo where it crosses the bars')
+def chart_ticks(chart_drawing: dict[str, str]) -> None:
+    assert "label: tick(value)" in chart_drawing["layout"]
+    assert "paint-order: stroke" in chart_drawing["component"]
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-FRONT-014 While the launch hold is on, the public pages shall count down to the Forever launch, and once "
+    "it lifts they shall stop",
+)
+def test_countdown_follows_hold() -> None:
+    pass
+
+
+@given("the public homepage and Hub features", target_fixture="public_pages")
+def public_pages() -> dict[str, str]:
+    return {
+        "landing": _read("lib/Landing.svelte"),
+        "homes": _read("lib/landing.ts"),
+        "features": _read("routes/features/+page.svelte"),
+    }
+
+
+@then("the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows until Forever is live")
+def countdown_held(public_pages: dict[str, str]) -> None:
+    landing = public_pages["landing"]
+    assert landing.index("{#if !FOREVER_LIVE}") < landing.index("Once World of Warcraft: Forever releases")
+    features = public_pages["features"]
+    assert features.index("{#if !FOREVER_LIVE}") < features.index("Opening with Forever")
+    assert "!FOREVER_LIVE\n      ? `Opens with World of Warcraft: Forever" in features
+    assert "export function foreverLive(" in _read("lib/launch.ts")
+
+
+@then("with the hold lifted, Forever reads as live since its launch date")
+def forever_live(public_pages: dict[str, str]) -> None:
+    assert (
+        "FOREVER_LIVE ? `Live since ${FOREVER_LAUNCH.label}` : `Launching ${FOREVER_LAUNCH.label}`"
+        in public_pages["homes"]
+    )
+    assert "FOREVER_LIVE ? 'Come and find us" in public_pages["homes"]
+
+
+@then("the static preview, which runs without the hold, keeps counting down until the launch date itself")
+def preview_counts_down() -> None:
+    assert "return !hold && (!preview || today >= FOREVER_LAUNCH.date);" in _read("lib/launch.ts")

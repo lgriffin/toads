@@ -18,6 +18,11 @@ export function dayMonth(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
+/** "30 Sept 2026". */
+export function dayMonthYear(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 export function dateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
     weekday: 'long',

@@ -6,7 +6,7 @@
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
-  import { FOREVER_LAUNCH } from '$lib/launch';
+  import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
   import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
   import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
   import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
@@ -115,7 +115,7 @@
                 <a class="time" href={reportUrl(r.code)} rel="noopener noreferrer" target="_blank"
                   >{clearClock(r.ms)}<span class="sr-only"> on Warcraft Logs, {shortMonth(r.date)}</span></a
                 >
-                <time class="when" datetime={r.date}>{shortMonth(r.date)}</time>
+                <time class="rec-when" datetime={r.date}>{shortMonth(r.date)}</time>
               </li>
             {/each}
           </ol>
@@ -218,10 +218,13 @@
       <h2 id="apps-h">What opens when you join</h2>
       <p>Sign in with the Discord account you use in the Toads server. Officers get more on top.</p>
     </div>
-    <p class="opens">
-      Once World of Warcraft: Forever releases on {FOREVER_LAUNCH.label}, our raid analyser and guild bank open to
-      members through the hub.
-    </p>
+    <!-- Until Forever is live (FOREVER_LIVE in src/lib/launch.ts), which lifting the launch hold sets. -->
+    {#if !FOREVER_LIVE}
+      <p class="opens">
+        Once World of Warcraft: Forever releases on {FOREVER_LAUNCH.label}, our raid analyzer and guild bank open to
+        members through the hub.
+      </p>
+    {/if}
     <ul class="apps">
       {#each MEMBER_APPS as app (app.title)}
         <li><h3>{app.title}</h3><p>{app.body}</p></li>
@@ -305,7 +308,7 @@
   .hero h1 { font-size: clamp(3rem, 12vw, 6rem); color: var(--cream); letter-spacing: 0.12em; text-shadow: 0 2px 18px rgb(5 3 30 / 0.7); }
   .line { font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bronze-hi); font-size: 0.95rem; }
   .tagline { font-size: 1.3rem; text-shadow: 0 1px 10px rgb(5 3 30 / 0.8); text-wrap: balance; }
-  .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.8rem; }
+  .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.8rem; max-width: none; }
   .welcome { color: var(--muted); }
 
   .medal, .ghost {
@@ -360,7 +363,7 @@
   .raid { font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.03em; }
   .pond .time { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--bronze-hi); text-decoration: none; }
   .pond .time:hover { color: var(--teal); text-decoration: underline; }
-  .when { color: var(--muted); text-align: right; font-size: 0.95rem; }
+  .rec-when { color: var(--muted); text-align: right; font-size: 0.95rem; }
 
   /* Recruiting */
   .roles { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); align-items: start; }
@@ -375,7 +378,7 @@
   .classes { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0; }
   .classes li { display: grid; grid-template-columns: 3rem 1fr; grid-template-areas: 'i n' 'i s'; column-gap: 0.7rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--line); }
   .classes img { grid-area: i; width: 3rem; height: auto; }
-  .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) var(--class-mix), var(--cream)); border-bottom: 2px solid var(--c); justify-self: start; line-height: 1.2; }
+  .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) var(--class-mix), var(--cream)); border-bottom: 2px solid color-mix(in srgb, var(--c) 60%, var(--cream)); justify-self: start; line-height: 1.2; }
   .specs { grid-area: s; color: var(--muted); font-size: 0.95rem; }
   .cta.left { justify-content: flex-start; }
   .apply-how { max-width: 60ch; margin: 1.5rem 0 0; color: var(--muted); }

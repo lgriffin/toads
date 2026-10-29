@@ -85,3 +85,16 @@ Feature: HUB FRONT
     Given the hub's shared styles
     Then on a coarse pointer every button is at least 2.75rem tall, and placeholders use the muted colour
     And a bank answer the Toad Bot could not DM tells the member it is only on the site, and tells officers when the member's DMs are closed
+
+  @ears_ubiquitous @member @raid_leader @phase_2_5
+  Scenario: REQ-HUB-FRONT-013 The hub shall draw every analyzer chart at its card's measured width, so axis text keeps one readable size from a phone to a wide screen
+    Given the hub's chart drawing
+    Then a chart is laid out at its card's width, one SVG unit to a pixel, with fewer x labels on a narrow card
+    And axis ticks drop a trailing ".0" and the reference line's label keeps a halo where it crosses the bars
+
+  @ears_state_driven @member @phase_2_5
+  Scenario: REQ-HUB-FRONT-014 While the launch hold is on, the public pages shall count down to the Forever launch, and once it lifts they shall stop
+    Given the public homepage and Hub features
+    Then the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows until Forever is live
+    And with the hold lifted, Forever reads as live since its launch date
+    And the static preview, which runs without the hold, keeps counting down until the launch date itself
