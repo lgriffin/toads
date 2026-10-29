@@ -139,12 +139,19 @@ function createWindow(): BrowserWindow {
     }
   });
   if (maximized) window.maximize();
-  window.once('ready-to-show', () => window.show());
-  setTimeout(() => !window.isDestroyed() && !window.isVisible() && window.show(), SHOW_BY_MS);
+  // The first paint, or SHOW_BY_MS, whichever comes first; never after the window was closed to the tray meanwhile.
+  let shown = false;
+  const firstShow = () => {
+    if (!shown && !window.isDestroyed()) window.show();
+    shown = true;
+  };
+  window.once('ready-to-show', firstShow);
+  setTimeout(firstShow, SHOW_BY_MS);
 
   window.on('close', (event) => {
     stateFile.write({ ...window.getNormalBounds(), maximized: window.isMaximized() });
     if (prefs.keepInTray && !quitting) {
+      shown = true;
       event.preventDefault();
       window.hide();
     }
@@ -157,12 +164,17 @@ function createWindow(): BrowserWindow {
   });
 
   const contents = window.webContents;
+  let offlineTries = 0;
   contents.on('did-fail-load', (_event, code, _description, url, isMainFrame) => {
     if (!isMainFrame || code === ABORTED || destination(url, hub) !== 'app') return;
-    void window.loadFile(staticFile('offline.html'), { query: { url } });
+    // The offline page waits longer on each try in a row; reaching the hub again starts the count over.
+    void window.loadFile(staticFile('offline.html'), { query: { url, tries: String(offlineTries++) } });
   });
   // A full page load is where sign-in and sign-out land, so the menus follow who is signed in.
-  contents.on('did-navigate', () => void refresh());
+  contents.on('did-navigate', (_event, url) => {
+    if (destination(url, hub) === 'app') offlineTries = 0;
+    void refresh();
+  });
   contents.on('context-menu', (_event, params) => {
     const items: MenuItemConstructorOptions[] = [];
     for (const word of params.dictionarySuggestions.slice(0, 4)) {
@@ -274,19 +286,20 @@ const mac = process.platform === 'darwin';
 
 /** Back, Forward and Reload. `live` greys out a way that is closed, for a menu built at the moment it opens. */
 function navigationItems(live = false): MenuItemConstructorOptions[] {
-  const history = win?.webContents.navigationHistory;
+  // Looked up on each use: the app menu is built before the window exists and outlives a closed one.
+  const history = () => win?.webContents.navigationHistory;
   return [
     {
       label: 'Back',
       accelerator: mac ? 'Cmd+[' : 'Alt+Left',
-      enabled: !live || (history?.canGoBack() ?? false),
-      click: () => history?.goBack()
+      enabled: !live || (history()?.canGoBack() ?? false),
+      click: () => history()?.goBack()
     },
     {
       label: 'Forward',
       accelerator: mac ? 'Cmd+]' : 'Alt+Right',
-      enabled: !live || (history?.canGoForward() ?? false),
-      click: () => history?.goForward()
+      enabled: !live || (history()?.canGoForward() ?? false),
+      click: () => history()?.goForward()
     },
     { role: 'reload' }
   ];

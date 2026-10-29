@@ -112,29 +112,17 @@
     <script>
       // The page that failed, passed by the app. Only an http(s) address is followed. The page tries it again by itself,
       // waiting longer each time the hub is still away (10 s, 20 s, 40 s, then every 2 minutes), and at once when the
-      // computer comes back online. The count of tries lives in sessionStorage, so it survives the reload a failed try
-      // causes but starts again with the app. The countdown is shown, not read aloud: the status line says it once.
-      const target = new URLSearchParams(location.search).get('url') || '';
+      // computer comes back online. The app passes how many tries in a row have failed (`tries`) and starts that count
+      // over once the hub loads. The countdown is shown, not read aloud: the status line says it once.
+      const query = new URLSearchParams(location.search);
+      const target = query.get('url') || '';
+      const tries = Math.max(0, Number(query.get('tries')) || 0);
       const retry = document.getElementById('retry');
       const wait = document.getElementById('wait');
       const status = document.getElementById('status');
       const WAITS = [10, 20, 40, 120];
-      const KEY = 'toads-offline-tries';
-
-      function tries() {
-        try {
-          return Number(sessionStorage.getItem(KEY)) || 0;
-        } catch {
-          return 0;
-        }
-      }
 
       function tryNow() {
-        try {
-          sessionStorage.setItem(KEY, String(tries() + 1));
-        } catch {
-          // No storage: every wait is the first one.
-        }
         wait.textContent = status.textContent = 'Trying again…';
         retry.setAttribute('aria-disabled', 'true');
         location.href = target;
@@ -144,7 +132,7 @@
         const page = new URL(target);
         retry.href = target;
         document.getElementById('tried').textContent = `Tried ${page.host}${page.pathname === '/' ? '' : page.pathname}`;
-        let left = WAITS[Math.min(tries(), WAITS.length - 1)];
+        let left = WAITS[Math.min(tries, WAITS.length - 1)];
         status.textContent = `Trying again in ${left} seconds`;
         let timer;
         const tick = () => {
