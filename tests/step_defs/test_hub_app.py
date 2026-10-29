@@ -256,7 +256,8 @@ def account_menu(main: str) -> None:
     assert "accountMenu(tier)" in layout and "{SIGN_IN.label}" in layout and "action={SIGN_OUT.href}" in layout
     menus = _read("src/menus.ts")
     assert "accountMenu(tier, site.launch_hold, site.nav.accountMenu)" in menus and "SIGN_IN.label" in menus
-    assert "hubUrl(hub, SIGN_OUT.href), { method: 'POST'" in main
+    assert "hubUrl(hub, SIGN_OUT.href), {" in main and "method: 'POST'," in main
+    assert "sessionStorage.removeItem(${JSON.stringify(RECRUIT_DRAFT_KEY)})" in main
     assert "await until('signed out'" in _read("test/smoke/smoke.cjs")
 
 

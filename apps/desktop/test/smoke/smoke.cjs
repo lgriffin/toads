@@ -92,10 +92,14 @@ async function run() {
   assert.match(notes[0], /Applications waiting: \d+ \(1 new\)/);
 
   // Log out from the Me menu posts to the hub as the site does; the menus go back to a visitor's.
+  await contents.executeJavaScript("sessionStorage.setItem('toads:recruit-draft', 'answers')");
   Menu.getApplicationMenu().items.find((i) => i.label === 'Me').submenu.items.find((i) => i.label === 'Log out').click();
   await until('signed out', () => submenu('Me').includes('Log in with Discord'));
   assert.ok(!labels().includes('Officers'));
   assert.equal(contents.getURL(), `${origin}/`, "Log out lands on the hub's front page");
+  await until('the recruit draft forgotten', async () =>
+    (await contents.executeJavaScript("sessionStorage.getItem('toads:recruit-draft')")) === null
+  );
 
   // With the hub gone, the window shows the offline page, whose Try again link goes back to the page that failed.
   hub.close();

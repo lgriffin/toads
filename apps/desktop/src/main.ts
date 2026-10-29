@@ -25,6 +25,7 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 
+import { RECRUIT_DRAFT_KEY } from '../../web/src/lib/application';
 import { DESKTOP_PATH, parseDesktopSite } from '../../web/src/lib/desktop';
 import { SIGN_OUT } from '../../web/src/lib/nav';
 import { badgeIcon, newWork, parseDesk, trayDesk, trayLines, waiting, type Desk } from './desk';
@@ -42,6 +43,8 @@ const PARTITION = 'persist:toads';
 const START_PATH = '/hub';
 const DESK_POLL_MS = 2 * 60 * 1000;
 const FOCUS_REFRESH_MS = 15 * 1000;
+// A hub request that has not answered by then counts as no answer, so one stalled request never holds the menus.
+const REQUEST_TIMEOUT_MS = 10 * 1000;
 // A slow hub must not leave the app looking dead: the window shows by then even if the page has not painted yet.
 const SHOW_BY_MS = 1000;
 const GUIDE = 'https://github.com/lgriffin/toads/blob/main/docs/desktop.md#for-officers';
@@ -61,6 +64,10 @@ let menus: Menus = menusFor(null, site);
 let desk: Desk | null = null;
 let lastRefresh = 0;
 let refreshing: Promise<void> | null = null;
+// Bumped by Log out, so a refresh that started while still signed in never draws the signed-in menus afterwards.
+let epoch = 0;
+// Set by Log out: the next hub page forgets an unfinished application, as the site's Log out form does.
+let forgetDraft = false;
 const prefsFile = () => jsonFile(app.getPath('userData'), 'prefs.json');
 let prefs: Prefs = DEFAULT_PREFS;
 
@@ -183,9 +190,15 @@ function createWindow(): BrowserWindow {
   contents.on('did-change-theme-color', (_event, color) => onHub(contents) && setTheme(themeFromColor(color)));
   contents.on('did-finish-load', () => {
     if (!onHub(contents)) return;
+    const page = contents.getURL();
+    if (forgetDraft) {
+      forgetDraft = false;
+      void contents.executeJavaScript(`sessionStorage.removeItem(${JSON.stringify(RECRUIT_DRAFT_KEY)})`).catch(() => undefined);
+    }
     contents
       .executeJavaScript(`document.querySelector('meta[name="theme-color"]')?.content ?? null`)
-      .then((color: unknown) => setTheme(themeFromColor(typeof color === 'string' ? color : null)))
+      // Only while the same page is showing: a later page's own theme wins.
+      .then((color: unknown) => contents.getURL() === page && setTheme(themeFromColor(typeof color === 'string' ? color : null)))
       .catch(() => undefined);
   });
   contents.on('context-menu', (_event, params) => {
@@ -233,7 +246,8 @@ async function getJson(path: string): Promise<unknown> {
   try {
     const response = await hubSession().fetch(hubUrl(hub, path), {
       credentials: 'include',
-      headers: { accept: 'application/json' }
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
     return response.ok ? await response.json() : null;
   } catch {
@@ -245,13 +259,16 @@ async function getJson(path: string): Promise<unknown> {
 function refresh(): Promise<void> {
   refreshing ??= (async () => {
     lastRefresh = Date.now();
+    const started = epoch;
     const [answer, siteAnswer] = await Promise.all([getJson('/api/session'), getJson(DESKTOP_PATH)]);
+    if (started !== epoch) return;
     // An older hub, or one that does not answer, keeps the last good lists (the bundled ones at first).
     site = parseDesktopSite(siteAnswer) ?? site;
     menus = menusFor(parseSession(answer), site);
     const officer = menus.tier === 'officer' || menus.tier === 'admin';
     const before = desk;
     desk = officer ? parseDesk(await getJson('/api/desk')) : null;
+    if (started !== epoch) return;
     const news = newWork(before, desk);
     if (news && prefs.deskNotifications) notify(news);
     drawMenus();
@@ -265,13 +282,25 @@ function refresh(): Promise<void> {
 /** Log out as the site's account menu does (POST /auth/logout), then show the hub's front page signed out. */
 async function signOut(): Promise<void> {
   try {
-    const response = await hubSession().fetch(hubUrl(hub, SIGN_OUT.href), { method: 'POST', credentials: 'include' });
-    if (!response.ok) throw new Error(`status ${response.status}`);
+    await hubSession().fetch(hubUrl(hub, SIGN_OUT.href), {
+      method: 'POST',
+      credentials: 'include',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
   } catch {
+    // Judged below by asking the hub who is signed in, not by the page the logout redirects to.
+  }
+  if (parseSession(await getJson('/api/session'))) {
     dialog.showErrorBox('Toads Hub', 'The hub did not answer, so you are still signed in. Try again.');
     return;
   }
+  // Drop any refresh that began while signed in, and draw a visitor's menus at once.
+  epoch += 1;
+  refreshing = null;
+  desk = null;
+  forgetDraft = true;
   go('/');
+  await refresh();
 }
 
 function notify(body: string): void {
