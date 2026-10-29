@@ -4,7 +4,8 @@
  * The window shows the website itself, so every page, permission and launch hold rule is the site's. What the app adds
  * is native: the Hub, Me and Officers menus with keyboard shortcuts, a remembered window, a tray icon, and for officers
  * a desk count on the dock or taskbar with a notification when new work arrives. Discord sign-in runs inside the
- * window and its session cookie is kept between launches. Pages from any other site open in the default browser.
+ * window and its session cookie is kept between launches. Pages from any other site open in the default browser. A
+ * new release installs itself on restart (src/update.ts).
  */
 import {
   BrowserWindow,
@@ -23,6 +24,7 @@ import {
   type Session,
   type WebContents
 } from 'electron';
+import { autoUpdater, type UpdateInfo } from 'electron-updater';
 import { join } from 'node:path';
 
 import { RECRUIT_DRAFT_KEY } from '../../web/src/lib/application';
@@ -34,6 +36,16 @@ import { destination, permissionAllowed } from './links';
 import { BUNDLED_SITE, menusFor, parseSession, type Link, type Menus } from './menus';
 import { DEFAULT_PREFS, jsonFile, parsePrefs, type Prefs } from './prefs';
 import { themeFromColor, windowBackground, type ThemeSource } from './theme';
+import {
+  CHECK_EVERY_MS,
+  FIRST_CHECK_MS,
+  Offers,
+  downloadPrompt,
+  readyPrompt,
+  releasePage,
+  updateMode,
+  type Prompt
+} from './update';
 import { plainChrome } from './useragent';
 import { MIN_SIZE, parseState, restore } from './window-state';
 
@@ -423,6 +435,7 @@ function drawMenus(): void {
       submenu: [
         { label: 'Desktop app guide', click: () => void shell.openExternal(GUIDE) },
         { label: 'Open Toads Hub in your browser', click: () => void shell.openExternal(hubUrl(hub, '/')) },
+        { label: 'Check for updates…', click: () => void checkForUpdates(true) },
         ...(mac ? [] : [{ type: 'separator' as const }, { role: 'about' as const, label: 'About Toads Hub' }])
       ]
     }
@@ -463,6 +476,81 @@ function drawTray(): void {
     }
   ];
   tray.setContextMenu(Menu.buildFromTemplate(template));
+}
+
+// ------------------------------------------------------------------------------------------------ updates
+
+// Set by the release build when it signs the Mac app (build.mjs); an ad-hoc signed Mac app cannot install updates.
+const UPDATES = updateMode(process.platform, __MAC_SIGNED__);
+const offers = new Offers();
+// The version waiting to install on restart, once downloaded.
+let downloaded: string | null = null;
+// Set when a check the reader asked for said a download had started, so a failed download is reported too.
+let announced = false;
+
+async function ask(prompt: Prompt): Promise<boolean> {
+  const options = { type: 'info' as const, ...prompt, defaultId: 0, cancelId: 1 };
+  const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
+  return response === 0;
+}
+
+function tell(message: string, detail: string): void {
+  const options = { type: 'info' as const, message, detail, buttons: ['OK'] };
+  void (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+}
+
+async function updateReady(info: UpdateInfo): Promise<void> {
+  downloaded = info.version;
+  announced = false;
+  if (!offers.shouldOffer(info.version)) return;
+  if (!(await ask(readyPrompt(info.version, app.getVersion())))) return;
+  quitting = true; // past the keep-in-tray close
+  autoUpdater.quitAndInstall();
+}
+
+async function updateOut(info: UpdateInfo): Promise<void> {
+  if (UPDATES !== 'notify' || !offers.shouldOffer(info.version)) return;
+  if (await ask(downloadPrompt(info.version, app.getVersion()))) void shell.openExternal(releasePage(info.version));
+}
+
+/** Look for a newer release; `manual` (Help → Check for updates…) also says when there is none or the check failed. */
+async function checkForUpdates(manual = false): Promise<void> {
+  if (!app.isPackaged) {
+    if (manual) tell('Updates come with the installed app', 'This copy runs from source, so it does not update itself.');
+    return;
+  }
+  // Asked for: offer again even a version the reader put off.
+  if (manual) offers.forget();
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    if (!manual) return;
+    const version = result?.updateInfo.version;
+    if (!result?.isUpdateAvailable) tell('Toads Hub is up to date', `You have the latest version, ${app.getVersion()}.`);
+    else if (UPDATES === 'install' && version !== downloaded) {
+      announced = true;
+      tell(`Downloading Toads Hub ${version}`, 'It downloads in the background and asks you to restart when it is ready.');
+    }
+  } catch (error) {
+    if (manual) tell('Could not check for updates', error instanceof Error ? error.message : String(error));
+  }
+}
+
+function startUpdates(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = UPDATES === 'install';
+  autoUpdater.autoInstallOnAppQuit = UPDATES === 'install';
+  autoUpdater.on('update-available', (info) => void updateOut(info));
+  autoUpdater.on('update-downloaded', (info) => void updateReady(info));
+  // electron-updater logs every failure to the console. A background check or download that fails (offline, no
+  // release yet) tries again at the next check; checkForUpdates reports a failed check the reader asked for, and here a
+  // failed download it announced.
+  autoUpdater.on('error', (error) => {
+    if (!announced) return;
+    announced = false;
+    tell('Could not download the update', `${error.message} Toads Hub tries again later, or use Help → Check for updates….`);
+  });
+  setTimeout(() => void checkForUpdates(), FIRST_CHECK_MS);
+  setInterval(() => void checkForUpdates(), CHECK_EVERY_MS);
 }
 
 // ------------------------------------------------------------------------------------------------ start
@@ -508,6 +596,7 @@ function start(): void {
     drawMenus();
     win = createWindow();
     setInterval(() => void refresh(), DESK_POLL_MS);
+    startUpdates();
   });
 }
 

@@ -282,3 +282,61 @@ def follows_the_theme(main: str) -> None:
 def drift_tests() -> None:
     assert "is a page on the site" in _web("src/lib/desktop.test.ts")
     assert "keeps the theme-color values on theme.css's page colour" in _web("src/lib/display.test.ts")
+
+
+@scenario(
+    str(FEATURE),
+    "REQ-HUB-APP-007 When a newer desktop release is published, the installed desktop app shall update itself without "
+    "a reinstall, downloading it in the background and installing it on restart, and on an unsigned Mac build shall "
+    "instead link its release page",
+)
+def test_updates() -> None:
+    pass
+
+
+@then(
+    "it checks the latest desktop-v release's update feed shortly after starting, every six hours and from Help, Check "
+    "for updates"
+)
+def checks_for_updates(main: str) -> None:
+    update = _read("src/update.ts")
+    assert "export const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;" in update
+    assert "setTimeout(() => void checkForUpdates(), FIRST_CHECK_MS);" in main
+    assert "setInterval(() => void checkForUpdates(), CHECK_EVERY_MS);" in main
+    assert "label: 'Check for updates…', click: () => void checkForUpdates(true)" in main
+    publish = json.loads(_read("package.json"))["build"]["publish"]
+    assert publish == [{"provider": "github", "owner": "lgriffin", "repo": "toads", "releaseType": "release"}]
+
+
+@then(
+    "on Windows, Linux and a signed Mac it downloads a newer version in the background and asks once to restart into "
+    "it, or installs it when the app quits"
+)
+def installs_on_restart(main: str) -> None:
+    assert "autoUpdater.autoDownload = UPDATES === 'install';" in main
+    assert "autoUpdater.autoInstallOnAppQuit = UPDATES === 'install';" in main
+    assert "autoUpdater.on('update-downloaded'" in main and "autoUpdater.quitAndInstall();" in main
+    assert "offers each version once" in _read("test/update.test.ts")
+
+
+@then(
+    "an unsigned Mac build, which macOS will not let install an update, says the new version is out and opens its "
+    "release page"
+)
+def mac_links_the_release(main: str) -> None:
+    assert "return platform === 'darwin' && !macSigned ? 'notify' : 'install';" in _read("src/update.ts")
+    assert "__MAC_SIGNED__: JSON.stringify(process.platform === 'darwin' && Boolean(process.env.CSC_LINK))" in _read(
+        "build.mjs"
+    )
+    assert "shell.openExternal(releasePage(info.version))" in main
+
+
+@then("each desktop release carries the update feeds, blockmaps and Mac zips beside the installers")
+def release_carries_feeds() -> None:
+    workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "desktop.yml").read_text(encoding="utf-8"))
+    upload = next(s for s in workflow["jobs"]["build"]["steps"] if s.get("uses", "").startswith("actions/upload"))
+    for pattern in ("release/latest*.yml", "release/*.blockmap", "release/*.zip"):
+        assert f"apps/desktop/{pattern}" in upload["with"]["path"], pattern
+    mac = json.loads(_read("package.json"))["build"]["mac"]["target"]
+    assert {t["target"] for t in mac} == {"dmg", "zip"}
+    assert "--latest" in workflow["jobs"]["release"]["steps"][-1]["run"]

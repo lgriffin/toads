@@ -644,8 +644,10 @@ Migrations are numbered Alembic revisions; they run forwards only in normal oper
 The officers' desktop app (`apps/desktop`) is the live hub in its own window, so a site deploy needs no app release.
 Release it when the app itself changes, or after the launch hold is lifted: bump `version` in
 `apps/desktop/package.json` in a PR, merge, then push a `desktop-v<version>` tag. The **Desktop app** workflow
-publishes the Windows, macOS and Linux installers as a GitHub release. Install steps, signing secrets and the rest:
-[docs/desktop.md](docs/desktop.md).
+publishes the Windows, macOS and Linux installers as a GitHub release, and installed apps on Windows and Linux update
+themselves to it (Macs do too once the app is signed; until then they are told it is out). Never mark another release
+in the repository as Latest: the apps read their updates from the latest release. Install steps, updates, signing
+secrets and the rest: [docs/desktop.md](docs/desktop.md).
 
 ### Bumping the analyzer
 

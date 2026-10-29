@@ -3,6 +3,9 @@ name: Desktop app
 # Builds the officers' desktop app (apps/desktop, docs/desktop.md) for Windows, macOS and Linux. A `desktop-v<version>`
 # tag, matching apps/desktop/package.json, publishes the installers as a GitHub release; running the workflow by hand
 # builds them as workflow artifacts only, as does a PR that changes the app, so its installers can be tried before merge.
+# Each release also carries electron-builder's update feeds (latest*.yml), blockmaps and the Mac zips: the installed app
+# reads them from the latest release to update itself (apps/desktop/src/update.ts), so every other release in this
+# repository must be published with --latest=false.
 # CI's `desktop` job checks the app on every PR.
 
 on:
@@ -68,6 +71,9 @@ jobs:
             apps/desktop/release/*.dmg
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
           if-no-files-found: error
           retention-days: 30
 
@@ -86,6 +92,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" installers/* --repo "$GITHUB_REPOSITORY" \
+          gh release create "$GITHUB_REF_NAME" installers/* --repo "$GITHUB_REPOSITORY" --latest \
             --title "Toads Hub desktop ${GITHUB_REF_NAME#desktop-v}" \
-            --notes "Installers for the Toads Hub desktop app. Install steps: docs/desktop.md."
+            --notes "Installers for the Toads Hub desktop app. Install steps: docs/desktop.md. Installed apps update themselves; the .yml, .blockmap and .zip files are their update feeds."

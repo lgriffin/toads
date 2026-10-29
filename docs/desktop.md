@@ -3,7 +3,7 @@
 The desktop app is the Toads Hub in its own window, for officers in particular: the live site (<https://toads.gg>)
 with native menus, a tray icon and desk alerts around it. Every page, permission and launch hold rule is still the
 site's, so nothing ships in the app that the site does not already do, and a site deploy reaches the app at once.
-Requirements: `tests/features/hub_app.feature` (REQ-HUB-APP-001..005). Code: `apps/desktop/`.
+Requirements: `tests/features/hub_app.feature` (REQ-HUB-APP-001..007). Code: `apps/desktop/`.
 
 ## For officers
 
@@ -40,10 +40,26 @@ until you choose **Me → Log out** (or Log out in the site's account menu).
   you keep your own Google sign-in there. Right-click a link for **Open link in browser** or **Copy link address**, and
   anywhere else on a page for **Back**, **Forward** and **Reload**.
 - **Help.** **Help → Desktop app guide** opens this page; **Open Toads Hub in your browser** opens the site there.
+- **Updates.** See [Updates](#updates) below: install once, and new versions arrive by themselves.
 - **Theme.** The app follows the theme you pick on the site (Display, in the account menu): Dark, Light or Match my
   device. The title bar, the window while a page loads and the offline page match it, and it opens in it next time.
 - **Window.** It reopens where you left it. If the hub can't be reached it says so and tries again by itself (after
   10 seconds, then 20, 40 and every 2 minutes, and at once when you're back online), or now with **Try again now**. Opening the app again brings the open window forward instead of starting a second copy.
+
+### Updates
+
+You install the app once. After that it looks for a new version shortly after it starts, every six hours while it
+runs, and whenever you choose **Help → Check for updates…**.
+
+- **Windows and Linux.** A new version downloads in the background. When it is ready the app asks to **Restart now**;
+  choose **Later** and it installs the next time you quit the app. The AppImage replaces itself; the `.deb` asks for
+  your password to install, as any package does.
+- **Mac.** Until the app is signed with an Apple Developer ID (see [Signing](#signing)), macOS does not let it replace
+  itself. Instead it tells you a new version is out and **Open release page** takes you to the download: drag the new
+  Toads Hub into Applications over the old one. Your sign-in and settings are kept. Once the app is signed, Macs update
+  like Windows.
+
+Most changes need no update at all: the window shows the live site, and the menus come from it.
 
 ## For maintainers
 
@@ -103,7 +119,22 @@ app and audits the dependencies.
    and Linux installers and publishes them as a GitHub release. It fails if the tag and the version differ.
 
 Every PR that changes `apps/desktop` builds the same installers as workflow artifacts, so they can be tried before
-merge. The app does not update itself yet: officers download the new installer from the release.
+merge.
+
+**Updates.** electron-builder's `publish` setting (`package.json`, GitHub, `lgriffin/toads`) makes every build write
+the update feeds `latest.yml` (Windows), `latest-mac.yml` and `latest-linux.yml` (AppImage and deb), and bakes
+`app-update.yml` into the app. The release carries them with the blockmaps (for downloading only what changed) and
+the Mac zips that Squirrel.Mac installs from. The installed app (`src/update.ts`, electron-updater) reads the feed from
+the repository's **latest** release, so a release of anything else in this repository must be published with
+`--latest=false` or every app stops finding its updates. A copy run from source (`just desktop`) never updates.
+
+| Platform | Unsigned (today) | Signed |
+| --- | --- | --- |
+| Windows (NSIS) | Updates itself. electron-updater checks the publisher only when the running app was signed. | Updates itself, and checks the new installer is signed by the same publisher. |
+| Linux AppImage / deb | Updates itself (Linux has no signing to check). The deb asks for a password through `pkexec`. | Same. |
+| macOS | Cannot: Squirrel.Mac only installs an update signed by the running app's Developer ID, which an ad-hoc signature never matches. The app says a version is out and links its release page. | Updates itself. `build.mjs` turns this on when `CSC_LINK` is set for the Mac build. |
+
+The first release with updates is the one that has to be installed by hand: a copy from before it has no updater.
 
 When the launch hold is lifted in `apps/web/src/lib/launch.ts`, the app's menus open up for raiders with the site's
 deploy, through `/desktop.json`; a desktop release then only refreshes the bundled fallback.
@@ -118,4 +149,16 @@ electron-builder, which signs (and on macOS notarizes) when they are set:
 | `DESKTOP_CSC_LINK`, `DESKTOP_CSC_KEY_PASSWORD` | The code-signing certificate (base64 .p12) and its password. On macOS a "Developer ID Application" certificate from an Apple Developer account; on Windows an OV or EV code-signing certificate. |
 | `DESKTOP_APPLE_ID`, `DESKTOP_APPLE_APP_SPECIFIC_PASSWORD`, `DESKTOP_APPLE_TEAM_ID` | For notarizing the Mac app. |
 
-Without them, the Mac app is ad-hoc signed so that it starts on Apple silicon at all.
+Without them, the Mac app is ad-hoc signed so that it starts on Apple silicon at all, and does not update itself.
+
+What each costs and buys:
+
+- **macOS: an Apple Developer Program membership** (US$99 a year, apple.com/developer). It gives the Developer ID
+  Application certificate (export it as a .p12 for `DESKTOP_CSC_LINK`) and notarization (`DESKTOP_APPLE_*`, with an
+  app-specific password from appleid.apple.com). This is what turns on Mac auto-updates and removes the "right-click →
+  Open" and "is damaged" steps.
+- **Windows: a code-signing certificate** (OV or EV, from a certificate authority, typically a few hundred dollars a
+  year). Since 2023 the key has to live on a hardware token or a cloud HSM, so it cannot go in `DESKTOP_CSC_LINK`
+  as a file; signing in CI then means a cloud signing service such as Azure Trusted Signing (a few dollars a month)
+  and a change to desktop.yml. It only quiets SmartScreen: Windows updates already work unsigned.
+- **Linux:** nothing to buy.
