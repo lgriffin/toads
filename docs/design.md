@@ -60,8 +60,9 @@ to CI. Machine-local choices live in `.impeccable/config.local.json`, which is g
 - **Charts.** `PayloadChart.svelte` measures its card and lays the chart out at that width (`viewFor` in
   `$lib/charts.ts`), so axis text stays 13px on a phone and on a wide screen; narrow cards get fewer x labels. Ticks
   read 500K, 1M, 1.5M. REQ-HUB-FRONT-013.
-- **Launch copy.** The public pages' countdown to the Forever launch sits behind `LAUNCH_HOLD`, so lifting the hold
-  also takes it down and Forever reads as live. REQ-HUB-FRONT-014.
+- **Launch copy.** The public pages' countdown to the Forever launch follows `FOREVER_LIVE` (`$lib/launch.ts`):
+  lifting `LAUNCH_HOLD` takes it down and Forever reads as live. The static preview, which runs without the hold,
+  keeps counting down until the launch date. REQ-HUB-FRONT-014.
 - **Wide tables.** Put `use:scrollable` (`$lib/scrollable.ts`) on a `.scroll` box: it joins the tab order only while
   its table overflows, so keyboard users can scroll it.
 

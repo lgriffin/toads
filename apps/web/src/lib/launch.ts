@@ -12,6 +12,16 @@ export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;
 
 export const FOREVER_LAUNCH = { date: '2026-11-04', label: '4 November 2026' } as const;
 
+/**
+ * True once the public pages should stop counting down to Forever: when the hold is lifted on the real site. The
+ * static preview runs without the hold to show the full demo, so it also waits for the launch date itself.
+ */
+export function foreverLive(hold = LAUNCH_HOLD, preview = __PREVIEW__, today = new Date().toISOString().slice(0, 10)): boolean {
+  return !hold && (!preview || today >= FOREVER_LAUNCH.date);
+}
+
+export const FOREVER_LIVE: boolean = foreverLive();
+
 export type Hold = 'open' | 'coming-soon' | 'forever-notice';
 
 // The admin console is super admins' only and never held; it keeps its own refusal for everyone else.

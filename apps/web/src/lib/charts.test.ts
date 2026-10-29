@@ -127,10 +127,11 @@ it('writes axis ticks without a trailing .0', () => {
 });
 
 describe('charts at their card width', () => {
-  it('keeps the default view until the card is measured, and a floor for the narrowest card', () => {
+  it('keeps the default view until the card is measured, then matches even the narrowest card', () => {
     expect(viewFor(undefined)).toEqual({ width: VIEW.width, height: VIEW.height });
     expect(viewFor(0)).toEqual({ width: VIEW.width, height: VIEW.height });
-    expect(viewFor(100).width).toBe(240);
+    expect(viewFor(200).width).toBe(200);
+    expect(layout(chart(), 'gold', viewFor(200)).xLabels.length).toBeGreaterThanOrEqual(2);
   });
   it('grows a little taller on a wide card, within bounds', () => {
     expect(viewFor(320).height).toBe(200);

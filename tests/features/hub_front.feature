@@ -95,5 +95,6 @@ Feature: HUB FRONT
   @ears_state_driven @member @phase_2_5
   Scenario: REQ-HUB-FRONT-014 While the launch hold is on, the public pages shall count down to the Forever launch, and once it lifts they shall stop
     Given the public homepage and Hub features
-    Then the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows while LAUNCH_HOLD is on
+    Then the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows until Forever is live
     And with the hold lifted, Forever reads as live since its launch date
+    And the static preview, which runs without the hold, keeps counting down until the launch date itself

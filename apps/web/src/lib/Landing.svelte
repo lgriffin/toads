@@ -6,7 +6,7 @@
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
-  import { FOREVER_LAUNCH, LAUNCH_HOLD } from '$lib/launch';
+  import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
   import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
   import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
   import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
@@ -218,8 +218,8 @@
       <h2 id="apps-h">What opens when you join</h2>
       <p>Sign in with the Discord account you use in the Toads server. Officers get more on top.</p>
     </div>
-    <!-- Until the launch hold lifts (src/lib/launch.ts); the same flag takes this notice down. -->
-    {#if LAUNCH_HOLD}
+    <!-- Until Forever is live (FOREVER_LIVE in src/lib/launch.ts), which lifting the launch hold sets. -->
+    {#if !FOREVER_LIVE}
       <p class="opens">
         Once World of Warcraft: Forever releases on {FOREVER_LAUNCH.label}, our raid analyzer and guild bank open to
         members through the hub.

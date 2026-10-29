@@ -60,10 +60,10 @@ export const MAX_X_LABELS = 8;
 const X_LABEL_ROOM = 56;
 const Y_TICKS = 4;
 
-/** The view for a card `width` pixels wide: no narrower than a small phone's card, a little taller as it widens. */
+/** The view for a card `width` pixels wide, at exactly that width, a little taller as it widens. */
 export function viewFor(width: number | undefined): View {
   if (!width || !Number.isFinite(width)) return { width: VIEW.width, height: VIEW.height };
-  const w = Math.max(240, Math.round(width));
+  const w = Math.round(width);
   return { width: w, height: Math.round(Math.min(300, Math.max(200, w * 0.32))) };
 }
 

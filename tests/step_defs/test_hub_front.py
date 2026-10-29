@@ -608,18 +608,25 @@ def public_pages() -> dict[str, str]:
     }
 
 
-@then("the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows while LAUNCH_HOLD is on")
+@then("the countdown copy (Launching, Once Forever releases, Opening with Forever) only shows until Forever is live")
 def countdown_held(public_pages: dict[str, str]) -> None:
     landing = public_pages["landing"]
-    assert landing.index("{#if LAUNCH_HOLD}") < landing.index("Once World of Warcraft: Forever releases")
+    assert landing.index("{#if !FOREVER_LIVE}") < landing.index("Once World of Warcraft: Forever releases")
     features = public_pages["features"]
-    assert features.index("{#if LAUNCH_HOLD}") < features.index("Opening with Forever")
-    assert "LAUNCH_HOLD\n      ? `Opens with World of Warcraft: Forever" in features
+    assert features.index("{#if !FOREVER_LIVE}") < features.index("Opening with Forever")
+    assert "!FOREVER_LIVE\n      ? `Opens with World of Warcraft: Forever" in features
+    assert "export function foreverLive(" in _read("lib/launch.ts")
 
 
 @then("with the hold lifted, Forever reads as live since its launch date")
 def forever_live(public_pages: dict[str, str]) -> None:
     assert (
-        "LAUNCH_HOLD ? `Launching ${FOREVER_LAUNCH.label}` : `Live since ${FOREVER_LAUNCH.label}`"
+        "FOREVER_LIVE ? `Live since ${FOREVER_LAUNCH.label}` : `Launching ${FOREVER_LAUNCH.label}`"
         in public_pages["homes"]
     )
+    assert "FOREVER_LIVE ? 'Come and find us" in public_pages["homes"]
+
+
+@then("the static preview, which runs without the hold, keeps counting down until the launch date itself")
+def preview_counts_down() -> None:
+    assert "return !hold && (!preview || today >= FOREVER_LAUNCH.date);" in _read("lib/launch.ts")

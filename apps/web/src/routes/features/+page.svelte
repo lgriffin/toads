@@ -21,7 +21,7 @@
     type RaidRole,
     type Tier
   } from '$lib/access';
-  import { FOREVER_LAUNCH, LAUNCH_HOLD } from '$lib/launch';
+  import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
   import type { PreviewRole } from '$lib/preview/gate';
   import { previewSession } from '$lib/preview/session.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
@@ -55,7 +55,7 @@
 <div class="pond-page">
   <PondHero
     title="Hub features"
-    line={LAUNCH_HOLD
+    line={!FOREVER_LIVE
       ? `Opens with World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`
       : `Open since World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`}
     lede="The Toads Hub joins up our raid logs, the guild bank and Discord, behind the Discord account you already use with us. Here is what it does for everyone, for raiders and for officers."
@@ -110,8 +110,8 @@
   {/each}
 
   <section class="band close" class:dusk={APPS.length % 2 === 0} aria-labelledby="launch-h">
-    <!-- The launch hold's flag (src/lib/launch.ts) turns the countdown into an invitation. -->
-    {#if LAUNCH_HOLD}
+    <!-- FOREVER_LIVE (src/lib/launch.ts) turns the countdown into an invitation once the hold lifts. -->
+    {#if !FOREVER_LIVE}
       <h2 id="launch-h">Opening with Forever</h2>
       <p>
         The raid analyzer and the guild bank open to members through the hub once World of Warcraft: Forever releases on
