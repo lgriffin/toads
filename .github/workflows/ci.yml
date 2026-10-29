@@ -112,6 +112,23 @@ jobs:
             apps/web/test-results
           retention-days: 7
 
+  desktop:
+    # The officers' desktop app (apps/desktop, docs/desktop.md): types, unit tests, a smoke run of the built app against
+    # a fake hub on a virtual display, and the Linux packaging. desktop.yml builds the installers on a release tag.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: python3 ../../scripts/dev.py desktop-check desktop-test desktop-smoke desktop-pack desktop-audit
+
   images:
     runs-on: ubuntu-latest
     strategy:
@@ -147,7 +164,7 @@ jobs:
     # The one required check: it needs every other job and fails if any failed, was cancelled or was skipped, so a
     # renamed or dropped job turns the PR red instead of silently passing (REQ-DEV-CI-001, scripts/ci_gate.py).
     if: always()
-    needs: [python, postgres, backup, security, web, e2e, images]
+    needs: [python, postgres, backup, security, web, e2e, desktop, images]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

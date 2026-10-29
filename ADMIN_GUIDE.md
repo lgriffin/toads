@@ -639,6 +639,14 @@ restart whenever a file in `config/` changed since the last deploy, since they r
 changing an env file, or from Actions → Deploy → Run workflow to roll back ([docs/deploy.md](docs/deploy.md#8-day-to-day)).
 Migrations are numbered Alembic revisions; they run forwards only in normal operation.
 
+### Release the desktop app
+
+The officers' desktop app (`apps/desktop`) is the live hub in its own window, so a site deploy needs no app release.
+Release it when the app itself changes, or after the launch hold is lifted: bump `version` in
+`apps/desktop/package.json` in a PR, merge, then push a `desktop-v<version>` tag. The **Desktop app** workflow
+publishes the Windows, macOS and Linux installers as a GitHub release. Install steps, signing secrets and the rest:
+[docs/desktop.md](docs/desktop.md).
+
 ### Bumping the analyzer
 
 Getting the analysis running on the server the first time: [docs/logs-analysis.md](docs/logs-analysis.md).

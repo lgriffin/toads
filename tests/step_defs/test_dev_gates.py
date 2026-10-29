@@ -28,6 +28,7 @@ JOB_TASKS = {
     "security": {"security", "audit"},
     "web": {"web-check", "web-test", "web-build", "web-audit"},
     "e2e": {"e2e"},
+    "desktop": {"desktop-check", "desktop-test", "desktop-smoke", "desktop-pack", "desktop-audit"},
 }
 # CI jobs that run no scripts/dev.py task, each with the reason a local `check` cannot run it.
 OUTSIDE_DEV = {

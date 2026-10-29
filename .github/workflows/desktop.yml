@@ -1,0 +1,91 @@
+name: Desktop app
+
+# Builds the officers' desktop app (apps/desktop, docs/desktop.md) for Windows, macOS and Linux. A `desktop-v<version>`
+# tag, matching apps/desktop/package.json, publishes the installers as a GitHub release; running the workflow by hand
+# builds them as workflow artifacts only, as does a PR that changes the app, so its installers can be tried before merge.
+# CI's `desktop` job checks the app on every PR.
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  pull_request:
+    paths: ["apps/desktop/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, platform: win }
+          - { os: macos-latest, platform: mac }
+          - { os: ubuntu-latest, platform: linux }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: apps/desktop
+        shell: bash
+    env:
+      # Code signing is optional: with these secrets set, electron-builder signs (and on macOS notarizes) the builds;
+      # without them the Windows installer is unsigned and the Mac app is ad-hoc signed (docs/desktop.md).
+      CSC_LINK: ${{ secrets.DESKTOP_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.DESKTOP_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.DESKTOP_APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.DESKTOP_APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.DESKTOP_APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: The tag matches the app's version
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [ "${GITHUB_REF_NAME}" = "desktop-v${version}" ] || { echo "tag ${GITHUB_REF_NAME} is not desktop-v${version}"; exit 1; }
+      - run: npm ci
+      - run: npm test
+      - name: Build the installers
+        run: |
+          extra=()
+          if [ "${{ matrix.platform }}" = mac ] && [ -z "$CSC_LINK" ]; then
+            extra+=(-c.mac.identity=-)  # ad-hoc: an unsigned Apple Silicon app will not start at all
+          fi
+          [ -n "$CSC_LINK" ] || export CSC_IDENTITY_AUTO_DISCOVERY=false
+          npm run build
+          npx electron-builder --${{ matrix.platform }} --publish never "${extra[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toads-hub-${{ matrix.platform }}
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # creates the release and uploads the installers
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" installers/* --repo "$GITHUB_REPOSITORY" \
+            --title "Toads Hub desktop ${GITHUB_REF_NAME#desktop-v}" \
+            --notes "Installers for the Toads Hub desktop app. Install steps: docs/desktop.md."

@@ -1,0 +1,92 @@
+{
+  "name": "toads-hub-desktop",
+  "productName": "Toads Hub",
+  "version": "0.1.0",
+  "description": "The Toads Hub in its own window, for officers and raiders",
+  "private": true,
+  "author": "Toads",
+  "license": "UNLICENSED",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "pack": "node build.mjs && electron-builder --dir",
+    "dist": "node build.mjs && electron-builder",
+    "smoke": "node build.mjs && electron --no-sandbox test/smoke/smoke.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "build": {
+    "appId": "gg.toads.hub",
+    "productName": "Toads Hub",
+    "artifactName": "Toads-Hub-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "dist/main.cjs",
+      "resources/**",
+      "static/**",
+      "package.json"
+    ],
+    "publish": null,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "resources/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Toads Hub"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "resources/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Network",
+      "icon": "resources/icon.png",
+      "maintainer": "Toads <toads@toads.gg>"
+    }
+  }
+}
