@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_X_LABELS, PALETTE, VIEW, colours, compact, drawable, layout, type ChartPayload } from './charts';
+import { MAX_X_LABELS, PALETTE, VIEW, colours, compact, drawable, layout, tick, viewFor, type ChartPayload } from './charts';
 
 function chart(overrides: Partial<ChartPayload> = {}): ChartPayload {
   return {
@@ -65,7 +65,7 @@ describe('bar layout', () => {
     expect(l.references[0].display).toBe('1.0M');
   });
   it('labels the y axis from 0 to y_max', () => {
-    expect(l.yTicks.map((t) => t.label)).toEqual(['0', '500.0K', '1.0M', '1.5M', '2.0M']);
+    expect(l.yTicks.map((t) => t.label)).toEqual(['0', '500K', '1M', '1.5M', '2M']);
   });
 });
 
@@ -120,4 +120,34 @@ describe('colours', () => {
 
 it('formats axis numbers like the analyzer', () => {
   expect([0, 950, 4_500, 12_345_678, 2e9].map(compact)).toEqual(['0', '950', '4.5K', '12.3M', '2.0B']);
+});
+
+it('writes axis ticks without a trailing .0', () => {
+  expect([0, 950, 500_000, 1_000_000, 1_500_000, 2e9].map(tick)).toEqual(['0', '950', '500K', '1M', '1.5M', '2B']);
+});
+
+describe('charts at their card width', () => {
+  it('keeps the default view until the card is measured, and a floor for the narrowest card', () => {
+    expect(viewFor(undefined)).toEqual({ width: VIEW.width, height: VIEW.height });
+    expect(viewFor(0)).toEqual({ width: VIEW.width, height: VIEW.height });
+    expect(viewFor(100).width).toBe(240);
+  });
+  it('grows a little taller on a wide card, within bounds', () => {
+    expect(viewFor(320).height).toBe(200);
+    expect(viewFor(800).height).toBe(256);
+    expect(viewFor(1400).height).toBe(300);
+  });
+  it('lays the plot out across the measured width', () => {
+    const wide = layout(chart(), 'gold', viewFor(1100));
+    expect(wide.references[0].y).toBeCloseTo((VIEW.top + viewFor(1100).height - VIEW.bottom) / 2);
+    expect(Math.max(...wide.bars.map((b) => b.x + b.width))).toBeLessThanOrEqual(1100 - VIEW.right);
+  });
+  it('labels fewer categories on a phone than on a wide screen', () => {
+    const categories = Array.from({ length: 12 }, (_, i) => `w${i}`);
+    const c = chart({ categories, series: [], references: [] });
+    const phone = layout(c, 'gold', viewFor(300)).xLabels;
+    const wide = layout(c, 'gold', viewFor(1100)).xLabels;
+    expect(phone.length).toBeLessThan(wide.length);
+    expect(phone.at(-1)?.label).toBe('w11');
+  });
 });

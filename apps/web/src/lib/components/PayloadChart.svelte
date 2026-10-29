@@ -1,14 +1,17 @@
 <script lang="ts">
-  import { VIEW, drawable, layout, type ChartPayload } from '$lib/charts';
+  import { VIEW, drawable, layout, viewFor, type ChartPayload } from '$lib/charts';
 
   // Draws one analyzer chart payload (guides/charts.md). Labels come from logs, so they are only ever text nodes,
   // never {@html}. A table of the same numbers follows for screen readers.
   let { chart }: { chart: ChartPayload | null } = $props();
 
+  // Laid out at the card's measured width, so axis text keeps its size on every screen (charts.ts, viewFor).
+  let width = $state<number | undefined>(undefined);
+  const view = $derived(viewFor(width));
   const ok = $derived(drawable(chart));
-  const l = $derived(ok && chart ? layout(chart) : null);
-  const plotRight = VIEW.width - VIEW.right;
-  const plotBottom = VIEW.height - VIEW.bottom;
+  const l = $derived(ok && chart ? layout(chart, undefined, view) : null);
+  const plotRight = $derived(view.width - VIEW.right);
+  const plotBottom = $derived(view.height - VIEW.bottom);
 </script>
 
 {#if chart?.empty}
@@ -16,8 +19,8 @@
 {:else if !chart || !ok || !l}
   <p class="muted">This chart could not be drawn.</p>
 {:else}
-  <figure class="chart">
-    <svg viewBox="0 0 {VIEW.width} {VIEW.height}" role="img" aria-label="{chart.title}: {chart.y_label} by {chart.x_label}">
+  <figure class="chart" bind:clientWidth={width}>
+    <svg viewBox="0 0 {view.width} {view.height}" role="img" aria-label="{chart.title}: {chart.y_label} by {chart.x_label}">
       {#each l.yTicks as t, i (i)}
         <line class="grid" x1={VIEW.left} x2={plotRight} y1={t.y} y2={t.y} />
         <text class="tick" x={VIEW.left - 6} y={t.y} text-anchor="end" dominant-baseline="middle">{t.label}</text>
@@ -83,9 +86,13 @@
   svg { display: block; width: 100%; height: auto; overflow: visible; }
   .grid { stroke: var(--line); stroke-width: 1; }
   .axis { stroke: var(--muted, currentColor); stroke-width: 1; }
-  .tick { fill: var(--muted, currentColor); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tick { fill: var(--muted, currentColor); font-size: 13px; font-variant-numeric: tabular-nums; }
   .ref { stroke: var(--text, currentColor); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: 0.8; }
-  .ref-label { fill: var(--text, currentColor); font-size: 11px; }
+  /* A halo in the card's colour keeps the label readable where it crosses a bar or a line. */
+  .ref-label {
+    fill: var(--text, currentColor); font-size: 13px; font-variant-numeric: tabular-nums;
+    paint-order: stroke; stroke: var(--surface, var(--ink)); stroke-width: 4px; stroke-linejoin: round;
+  }
   .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; list-style: none; margin: 0.5rem 0 0; padding: 0; font-size: 0.85rem; }
   .swatch { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 2px; margin-right: 0.35rem; vertical-align: -1px; }
   figcaption p { margin: 0.35rem 0 0; font-size: 0.9rem; }

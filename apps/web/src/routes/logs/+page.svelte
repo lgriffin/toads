@@ -81,7 +81,7 @@
 <div class="logs">
   <h1>Logs</h1>
   <p class="lede muted">
-    Every raid the guild has logged, with the analyser's breakdown. Logs opens on your raid night; pick another night,
+    Every raid the guild has logged, with the analyzer's breakdown. Logs opens on your raid night; pick another night,
     or every raid, to compare.
   </p>
   {#if night !== undefined}

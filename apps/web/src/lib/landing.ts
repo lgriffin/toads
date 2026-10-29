@@ -6,6 +6,7 @@
 import { CLASSES, CLASS_SPECS } from './application';
 import type { Role } from './mock/data';
 import { NIGHTS_IN_WORDS, TEAM_COUNT } from './nights';
+import { FOREVER_LAUNCH, LAUNCH_HOLD } from './launch';
 
 export interface Value {
   title: string;
@@ -119,7 +120,7 @@ export const HOMES: readonly Home[] = [
   {
     id: 'forever',
     title: 'World of Warcraft: Forever',
-    status: 'Launching 4 November 2026',
+    status: LAUNCH_HOLD ? `Launching ${FOREVER_LAUNCH.label}` : `Live since ${FOREVER_LAUNCH.label}`,
     line: 'Horde · PvP · EU',
     body: 'Our new home. We are rolling together on the PvP side in the EU region, raiding as a guild and defending the pond in the open world. Reserve your names early and tell us who you are bringing.',
     logo: { src: 'brand/wow-forever.png', alt: 'World of Warcraft: Forever' }

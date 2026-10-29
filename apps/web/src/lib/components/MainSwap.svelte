@@ -75,7 +75,7 @@
     {/if}
     {#if unraided.length}
       <p class="muted small">
-        No guild raids yet:
+        Alts with no guild raids yet:
         {#each unraided as a (a.character_id)}
           {#if sameName(pending?.character_name, a.character_name)}
             <span class="alt">{a.character_name} (asked for main)</span>

@@ -3,6 +3,7 @@
   import { base } from '$app/paths';
   import type { Snippet } from 'svelte';
   import { characterLabel } from '$lib/main-swap';
+  import { dayMonthYear, shortDate } from '$lib/format';
   import {
     placeLabel,
     rolesLabel,
@@ -50,7 +51,7 @@
     {/if}
     {@render main?.(page.name)}
     <p class="muted sub">
-      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}{` since ${page.first_raid.slice(0, 10)}`}{/if}. {rolesLabel(page.role_counts)}
+      {page.name}, {page.player_class}: {page.raids} guild {page.raids === 1 ? 'raid' : 'raids'}{#if page.first_raid}{` since ${dayMonthYear(page.first_raid.slice(0, 10))}`}{/if}. {rolesLabel(page.role_counts)}
     </p>
 
     {#if showTrends(page)}
@@ -70,7 +71,7 @@
           <li>
             <strong>{b.display}</strong>
             <span class="muted small">{b.metric} as {ROLE_NAMES[b.role as keyof typeof ROLE_NAMES]?.toLowerCase() ?? b.role}</span>
-            <a class="small" href={raidHref(b.report_id)}>{b.raid_date.slice(0, 10)}</a>
+            <a class="small" href={raidHref(b.report_id)}>{shortDate(b.raid_date.slice(0, 10))}</a>
           </li>
         {/each}
       </ul>
@@ -95,7 +96,7 @@
             <tr>
               <td>
                 <a href={raidHref(r.report_id)}>{r.title || r.zone}</a>
-                <span class="muted small">{r.raid_date.slice(0, 10)}</span>
+                <span class="muted small">{shortDate(r.raid_date.slice(0, 10))}</span>
               </td>
               <td>{ROLE_NAMES[r.role]}</td>
               <td class="num">
