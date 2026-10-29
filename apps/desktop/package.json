@@ -3,6 +3,7 @@
   "productName": "Toads Hub",
   "version": "0.1.0",
   "description": "The Toads Hub in its own window, for officers and raiders",
+  "homepage": "https://toads.gg",
   "private": true,
   "author": "Toads",
   "license": "UNLICENSED",
@@ -86,7 +87,9 @@
       ],
       "category": "Network",
       "icon": "resources/icon.png",
-      "maintainer": "Toads <toads@toads.gg>"
+      "maintainer": "Toads <toads@toads.gg>",
+      "syncDesktopName": true
     }
-  }
+  },
+  "desktopName": "toads-hub.desktop"
 }

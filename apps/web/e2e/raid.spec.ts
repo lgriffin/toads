@@ -144,6 +144,8 @@ test("a raider adds a raid night they will miss on Me, changes it and deletes it
   await signIn(page, "member");
   await page.goto("me/");
   const absences = page.getByRole("region", { name: "Your absences" });
+  // Next month always has Wednesdays to come; late in a month this one may have none left.
+  await absences.getByRole("button", { name: "Next month" }).click();
   const first = absences
     .getByRole("button", { name: /Wednesday raid\. Report an absence$/ })
     .last();
