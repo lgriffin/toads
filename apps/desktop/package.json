@@ -40,7 +40,14 @@
       "static/**",
       "package.json"
     ],
-    "publish": null,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lgriffin",
+        "repo": "toads",
+        "releaseType": "release"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -62,6 +69,13 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64",
             "x64"
@@ -92,5 +106,8 @@
       "syncDesktopName": true
     }
   },
-  "desktopName": "toads-hub.desktop"
+  "desktopName": "toads-hub.desktop",
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
 }

@@ -42,3 +42,11 @@ Feature: HUB APP
     And its Me menu is the site's account menu, with the site's sign-in wording and a Log out that posts to the hub as the site does
     And it takes the reader's theme from the site's theme-color tag for its window, title bar and offline page, and remembers it for the next launch
     And the web app's tests hold every top bar link to a page on the site and the theme-color values to theme.css's page colours
+
+  @ears_event_driven @raid_leader @member @phase_2_7
+  Scenario: REQ-HUB-APP-007 When a newer desktop release is published, the installed desktop app shall update itself without a reinstall, downloading it in the background and installing it on restart, and on an unsigned Mac build shall instead link its release page
+    Given the desktop app
+    Then it checks the latest desktop-v release's update feed shortly after starting, every six hours and from Help, Check for updates
+    And on Windows, Linux and a signed Mac it downloads a newer version in the background and asks once to restart into it, or installs it when the app quits
+    And an unsigned Mac build, which macOS will not let install an update, says the new version is out and opens its release page
+    And each desktop release carries the update feeds, blockmaps and Mac zips beside the installers

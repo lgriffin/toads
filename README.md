@@ -41,7 +41,7 @@ credentials there when you have them.
 
 `apps/desktop` is an Electron app for officers: the live hub in its own window with the site's menus as native menus,
 a tray icon and alerts when work reaches their raid leader desk. Installers for Windows, macOS and Linux come from a
-`desktop-v<version>` tag. See [docs/desktop.md](docs/desktop.md).
+`desktop-v<version>` tag, and installed apps update themselves from those releases. See [docs/desktop.md](docs/desktop.md).
 
 ## Status
 
