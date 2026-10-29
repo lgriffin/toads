@@ -485,6 +485,8 @@ const UPDATES = updateMode(process.platform, __MAC_SIGNED__);
 const offers = new Offers();
 // The version waiting to install on restart, once downloaded.
 let downloaded: string | null = null;
+// Set when a check the reader asked for said a download had started, so a failed download is reported too.
+let announced = false;
 
 async function ask(prompt: Prompt): Promise<boolean> {
   const options = { type: 'info' as const, ...prompt, defaultId: 0, cancelId: 1 };
@@ -499,6 +501,7 @@ function tell(message: string, detail: string): void {
 
 async function updateReady(info: UpdateInfo): Promise<void> {
   downloaded = info.version;
+  announced = false;
   if (!offers.shouldOffer(info.version)) return;
   if (!(await ask(readyPrompt(info.version, app.getVersion())))) return;
   quitting = true; // past the keep-in-tray close
@@ -524,6 +527,7 @@ async function checkForUpdates(manual = false): Promise<void> {
     const version = result?.updateInfo.version;
     if (!result?.isUpdateAvailable) tell('Toads Hub is up to date', `You have the latest version, ${app.getVersion()}.`);
     else if (UPDATES === 'install' && version !== downloaded) {
+      announced = true;
       tell(`Downloading Toads Hub ${version}`, 'It downloads in the background and asks you to restart when it is ready.');
     }
   } catch (error) {
@@ -537,8 +541,14 @@ function startUpdates(): void {
   autoUpdater.autoInstallOnAppQuit = UPDATES === 'install';
   autoUpdater.on('update-available', (info) => void updateOut(info));
   autoUpdater.on('update-downloaded', (info) => void updateReady(info));
-  // A background check that fails (offline, no release yet) tries again at the next one; checkForUpdates reports it.
-  autoUpdater.on('error', () => undefined);
+  // electron-updater logs every failure to the console. A background check or download that fails (offline, no
+  // release yet) tries again at the next check; checkForUpdates reports a failed check the reader asked for, and here a
+  // failed download it announced.
+  autoUpdater.on('error', (error) => {
+    if (!announced) return;
+    announced = false;
+    tell('Could not download the update', `${error.message} Toads Hub tries again later, or use Help → Check for updates….`);
+  });
   setTimeout(() => void checkForUpdates(), FIRST_CHECK_MS);
   setInterval(() => void checkForUpdates(), CHECK_EVERY_MS);
 }
