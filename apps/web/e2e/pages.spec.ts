@@ -235,7 +235,7 @@ test('raid leaders see the roster\'s badges on Logs and members their own on Me'
 test('Me shows a member their own raids against the role median, and switches character', async ({ page }) => {
   await page.goto('me/');
   const raids = page.getByRole('region', { name: 'Your raids' });
-  await expect(raids.getByText(/^Hopscotch, Rogue: 5 guild raids since \d{4}-/)).toBeVisible();
+  await expect(raids.getByText(/^Hopscotch, Rogue: 5 guild raids since \d{1,2} [A-Z][a-z]+ \d{4}\./)).toBeVisible();
   await expect(raids.getByRole('img', { name: /^Damage as melee/ })).toBeVisible();
   await expect(raids.getByRole('columnheader', { name: 'Role median' })).toBeVisible();
   const pick = raids.getByLabel('Character');
