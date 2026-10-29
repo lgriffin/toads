@@ -8,7 +8,7 @@ Feature: HUB APP
     Then it opens https://toads.gg, or a hub given with --hub or TOADS_HUB_URL that is https or plain http to localhost
     And Discord's authorize and login pages stay in the window and the hub's session lives in one persistent partition
     And a smoke run of the built app signs in against a fake hub and its own requests carry the session cookie
-    And the window comes back where it was, shows an offline page with a retry when the hub cannot be reached, and a second launch focuses the first
+    And the window comes back where it was, shows an offline page in the hub's colours that tries again by itself when the hub cannot be reached, and a second launch focuses the first
 
   @ears_ubiquitous @raid_leader @member @phase_2_7
   Scenario: REQ-HUB-APP-002 The desktop app's Hub, Me and Officers menus shall be the website's own top bar for the signed-in member, so an officer sees only the raid nights they run and a raider sees what the launch hold shows them

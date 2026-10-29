@@ -45,3 +45,20 @@ export function newWork(before: Desk | null, after: Desk | null): string | null 
     .map((l) => `${l.label}: ${l.count} (${l.added} new)`);
   return grew.length ? grew.join('\n') : null;
 }
+
+/**
+ * The tray's desk section for an officer, under the hub's heading for it: what waits, or that nothing does. Empty when
+ * there is no desk to show (a raider, a visitor, or the hub out of reach), so the tray never claims a clear desk it
+ * could not read.
+ */
+export function trayDesk(desk: Desk | null): string[] {
+  if (!desk) return [];
+  const lines = trayLines(desk);
+  return ['Raid leader desk', ...(lines.length ? lines : ['Nothing waiting'])];
+}
+
+/** The Windows taskbar overlay for a count: badge-1 to badge-9, then badge-9plus; null for none. */
+export function badgeIcon(count: number): string | null {
+  if (count <= 0) return null;
+  return count > 9 ? 'badge-9plus.png' : `badge-${count}.png`;
+}

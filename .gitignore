@@ -29,3 +29,4 @@ infra/certs/*.csr
 !infra/.env.backup.example
 apps/desktop/dist/
 apps/desktop/release/
+apps/desktop/static/shared/

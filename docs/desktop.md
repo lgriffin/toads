@@ -29,14 +29,17 @@ in a browser, or scan the QR code with the Discord app on your phone. The app ke
   tools, Ctrl+0 for Me, Alt+← and Alt+→ (⌘[ and ⌘]) for back and forward.
 - **Desk alerts.** For officers, the app checks your raid leader desk (applications, Discord posts to curate, highlights
   and spotlights waiting on you) every two minutes and whenever you switch to it. The count shows on the dock or
-  taskbar icon, the tray menu lists it, and a notification pops up when something new arrives. Turn the alerts off
+  taskbar icon (on Windows as a number, up to 9+), the tray menu lists it under **Raid leader desk** or says nothing
+  is waiting, and a notification pops up when something new arrives. Turn the alerts off
   under **File → Notify me about new desk work**.
 - **Tray.** The tray icon opens the hub, shows your desk and has shortcuts to the officer console and your nights.
   **File → Keep running in the tray when closed** keeps the alerts coming after you close the window.
 - **Links out.** Google Docs, Warcraft Logs, Discord channels and every other site open in your normal browser, so
-  you keep your own Google sign-in there. Right-click a link for **Open link in browser** or **Copy link address**.
-- **Window.** It reopens where you left it. If the hub can't be reached it says so and retries when you're back
-  online. Opening the app again brings the open window forward instead of starting a second copy.
+  you keep your own Google sign-in there. Right-click a link for **Open link in browser** or **Copy link address**, and
+  anywhere else on a page for **Back**, **Forward** and **Reload**.
+- **Help.** **Help → Desktop app guide** opens this page; **Open Toads Hub in your browser** opens the site there.
+- **Window.** It reopens where you left it. If the hub can't be reached it says so and tries again by itself (after
+  10 seconds, then 20, 40 and every 2 minutes, and at once when you're back online), or now with **Try again now**. Opening the app again brings the open window forward instead of starting a second copy.
 
 ## For maintainers
 
@@ -55,6 +58,13 @@ https, or plain http to localhost.
 `absences.ts` directly, so a change to the site's top bar or the launch hold reaches the app on its next build. The
 desk lines come from the site's `deskLines`. The bundle sets `__LAUNCH_HOLD__` as the real site's build does.
 
+**Look.** The app's own surfaces wear the site's design. `static/offline.html` uses the colour tokens of
+`apps/web/src/lib/theme.css` for both themes (picked by `prefers-color-scheme`, which follows the app's native theme)
+and the top bar's mark and Cinzel wordmark, which `build.mjs` copies into `static/shared/` (not committed). In
+`resources/`, `icon.png` is the Windows and Linux icon and `icon-mac.png` the same art inset on Apple's icon grid for the
+Dock; `tray.png` is 16 px with `@2x` and `@3x`, so it sits right in the macOS menu bar and a Windows tray at any
+scaling; `badge-1.png` to `badge-9plus.png` (each with `@2x`) are the numbered Windows taskbar overlays.
+
 **Security.** The window is sandboxed with context isolation, no Node integration, no preload and no webviews. Only
 the hub's origin and Discord's sign-in pages (`/oauth2/authorize`, `/login`, `/register`) load in it; other http(s),
 `mailto:` and `discord:` links go to the default browser and every other scheme is refused. The hub may ask for
@@ -65,8 +75,8 @@ portal: the window loads toads.gg itself, so the redirect URI stays `https://toa
 **Tests.** `test/*.test.ts` cover the hub address, link and permission rules, the menus for each tier, the desk, the
 window position and settings. `test/smoke/smoke.cjs` starts the built app against a fake hub (`fake-hub.cjs`) and
 checks the window, links to the browser, sign-in reaching the main process's requests, the officer menus, a desk
-notification and the offline page. CI's `desktop` job runs all of them, packs the Linux app and audits the
-dependencies.
+notification and the offline page with its mark and countdown. CI's `desktop` job runs all of them, packs the Linux
+app and audits the dependencies.
 
 ### Releasing
 

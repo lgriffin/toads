@@ -1,6 +1,7 @@
 // Starts the built app (dist/main.cjs) against a fake hub and checks what a unit test cannot: the window opens the hub,
 // links to other sites go to the browser, sign-in's cookie reaches the main process's requests, the menus become an
-// officer's, and new desk work raises a notification. Run with `npm run smoke` (on Linux CI under xvfb-run).
+// officer's, new desk work raises a notification, and the offline page retries by itself. Run with `npm run smoke` (on
+// Linux CI under xvfb-run).
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const os = require('node:os');
@@ -86,6 +87,9 @@ async function run() {
     await contents.executeJavaScript("document.getElementById('retry').href"),
     `${origin}/hub`
   );
+  // It wears the site's mark (copied in by the build, allowed by its CSP) and counts down to trying by itself.
+  await until('the mark', () => contents.executeJavaScript("document.querySelector('.brand img').naturalWidth > 0"));
+  assert.match(await contents.executeJavaScript("document.getElementById('wait').textContent"), /^Trying again in \d+ s$/);
 
   console.log('desktop smoke: ok');
   app.exit(0);
