@@ -3,8 +3,6 @@
  * words show in the static preview and on the live hub. Officers edit it here, in a PR.
  */
 
-import { CLASSES, CLASS_SPECS } from './application';
-import type { Role } from './mock/data';
 import { NIGHTS_IN_WORDS, TEAM_COUNT } from './nights';
 import { FOREVER_LAUNCH, FOREVER_LIVE } from './launch';
 
@@ -41,53 +39,18 @@ export const LANDING = {
   ] satisfies Value[]
 };
 
-export interface Recruiting {
-  id: 'healer' | 'damage' | 'tank';
-  title: string;
-  open: boolean;
-  /** One line under the status. */
-  note: string;
-  /** Classes (with the specs that fill the role) we are looking for; empty when the role is full. */
-  classes: { name: string; specs: string[] }[];
-}
-
-/** The roles of a spec list in the order the page shows them. */
-function classesFor(roles: readonly Role[]): { name: string; specs: string[] }[] {
-  return CLASSES.map((name) => ({
-    name,
-    specs: Object.entries(CLASS_SPECS[name])
-      .filter(([, r]) => r.some((x) => roles.includes(x)))
-      .map(([spec]) => spec)
-  })).filter((c) => c.specs.length > 0);
-}
-
 /**
- * What we are recruiting right now. Officers change `open` here, in a PR, when a role fills or a spot comes up. The
- * classes follow application.ts, so the page and the application form always agree on who can fill a role.
+ * The words around the homepage's recruiting section. What each night is recruiting is not site text: each night's
+ * officers pick it on Officers > Recruitment (lib/recruiting.ts).
  */
-export const RECRUITING: readonly Recruiting[] = [
-  {
-    id: 'healer',
-    title: 'Healers',
-    open: true,
-    note: 'We are recruiting healers. Every class that heals is welcome.',
-    classes: classesFor(['Healer'])
-  },
-  {
-    id: 'damage',
-    title: 'Damage',
-    open: true,
-    note: 'We are recruiting damage dealers, melee and ranged, of every class.',
-    classes: classesFor(['Melee', 'Ranged'])
-  },
-  {
-    id: 'tank',
-    title: 'Tanks',
-    open: false,
-    note: 'Full for now. This page changes when a spot opens.',
-    classes: []
-  }
-];
+export const RECRUITING_COPY = {
+  intro: 'Each raid night recruits for itself. Pick a night to see what its officers are looking for.',
+  full: 'Full for now. This changes when a spot opens.',
+  open: 'These are the primary specs the officers want first.',
+  unavailable: 'We could not load what each night is recruiting just now. Ask us in Discord.',
+  social:
+    'Not after a raid spot? Poke any member of Toads in game for a social invite and come to the pond: everyone is welcome.'
+};
 
 export const SOCIAL = {
   title: 'More pond than raid',

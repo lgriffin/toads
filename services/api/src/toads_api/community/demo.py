@@ -61,5 +61,5 @@ def demo_service(clock: Callable[[], datetime], repo: CommunityRepository | None
     )
     if repo is None:
         repo = InMemoryCommunityRepository(members=dict(MEMBERS), progression_list=list(DEMO_PROGRESSION))
-    repo.set_needs(list(DEMO_NEEDS))
+    repo.set_night_needs("wed", list(DEMO_NEEDS))
     return CommunityService(repo=repo, config=config, raid_days=directory, clock=clock)

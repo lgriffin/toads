@@ -34,6 +34,9 @@ from toads_api.community.schemas import (
     HighlightStatus,
     Interviewer,
     InterviewPanel,
+    NeedPick,
+    NightNeed,
+    NightNeeds,
     OutboxAck,
     OutboxJob,
     OutboxKind,
@@ -50,6 +53,7 @@ from toads_api.community.schemas import (
     SpotlightStatus,
     Visibility,
 )
+from toads_api.comps.catalog import CLASSES, SPECS
 
 
 class CommunityError(Exception):
@@ -811,14 +815,55 @@ class CommunityService:
     # ------------------------------------------------------------ recruitment
 
     def needs(self) -> list[RecruitmentNeed]:
-        return self.repo.needs()
+        """Every night's needs as the homepage shows them: in raid-night order, each night's in its officers' order.
+        Only what a night's officers can see and change is shown: a row for one configured night, naming a spec the
+        comp catalogue knows, once (older guild-wide rows and repeats from two saves at once are left out)."""
+        order = list(self.raid_days.day_names) or sorted(self.raid_days.day_ids)
+        stored = self.repo.needs()
+        shown = []
+        for day in order:
+            seen: set[str] = set()
+            for n in stored:
+                spec = recruitment.spec_for(n.class_name, n.spec)
+                if n.raid_days == [day] and spec is not None and spec.id not in seen:
+                    seen.add(spec.id)
+                    shown.append(n)
+        return shown
 
-    def set_needs(self, actor_id: int, needs: list[RecruitmentNeed]) -> list[RecruitmentNeed]:
-        if {d for n in needs for d in n.raid_days} - self.raid_days.day_ids:
-            raise Invalid("Unknown raid day")
-        self.repo.set_needs(needs)
-        self._audit(actor_id, "recruitment.needs", f"{len(needs)} needs", None)
-        return self.repo.needs()
+    def night_needs(self, scope: str) -> NightNeeds:
+        """What one night is recruiting, as its officers listed it (see `needs` for what is left out)."""
+        day = self._night(scope)
+        return NightNeeds(
+            raid_day=day,
+            needs=[
+                NightNeed(spec_id=spec.id, class_name=n.class_name, spec=n.spec, role=n.role, priority=n.priority)
+                for n in self.needs()
+                if n.raid_days == [day] and (spec := recruitment.spec_for(n.class_name, n.spec)) is not None
+            ],
+        )
+
+    def set_night_needs(self, actor_id: int, scope: str, picks: list[NeedPick]) -> NightNeeds:
+        """Replace a night's needs with these primary specs, in this order. An empty list says the night is full."""
+        day = self._night(scope)
+        if len({p.spec_id for p in picks}) != len(picks):
+            raise Invalid("A spec is listed twice")
+        needs = []
+        for pick in picks:
+            spec = SPECS.get(pick.spec_id)
+            if spec is None:
+                raise Invalid(f"No spec has the id {pick.spec_id}")
+            needs.append(
+                RecruitmentNeed(
+                    class_name=CLASSES[spec.wow_class],
+                    spec=spec.name,
+                    role=recruitment.NEED_ROLES[spec.role],
+                    priority=pick.priority,
+                    raid_days=[day],
+                )
+            )
+        self.repo.set_night_needs(day, needs)
+        self._audit(actor_id, "recruitment.needs", f"{len(needs)} needs", day)
+        return self.night_needs(day)
 
     # ------------------------------------------------------------------ views
 
@@ -830,7 +875,7 @@ class CommunityService:
             story=list(story.STORY),
             discord_invite=self.config.discord_invite,
             progression=self.repo.progression(),
-            needs=self.repo.needs(),
+            needs=self.needs(),
             posts=self.feed(PUBLIC_AUDIENCE),
             highlights=self.highlights_for(PUBLIC_AUDIENCE),
             spotlights=self.published_spotlights(),

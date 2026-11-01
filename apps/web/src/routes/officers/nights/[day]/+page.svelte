@@ -20,10 +20,13 @@
   import { previewLinks } from '$lib/preview/links-fake';
   import { previewLoot } from '$lib/preview/loot-fake';
   import { previewPanels } from '$lib/preview/panels-fake';
+  import { previewNeeds } from '$lib/preview/needs-fake';
+  import { hubNeeds } from '$lib/recruiting';
   import { previewSession } from '$lib/preview/session.svelte';
   import ClaimsQueue from '$lib/components/ClaimsQueue.svelte';
   import NightTonight from '$lib/components/NightTonight.svelte';
   import InterviewPanelCard from '$lib/components/InterviewPanelCard.svelte';
+  import RecruitmentNeedsCard from '$lib/components/RecruitmentNeedsCard.svelte';
   import LootPriority from '$lib/components/LootPriority.svelte';
   import OfficerBoard from '$lib/components/OfficerBoard.svelte';
   import PondHero from '$lib/components/PondHero.svelte';
@@ -46,6 +49,7 @@
   const absences = __PREVIEW__ ? previewAbsences : hubAbsences;
   const board = __PREVIEW__ ? previewBoard : hubBoard();
   const panels = __PREVIEW__ ? previewPanels() : hubPanels();
+  const needs = __PREVIEW__ ? previewNeeds() : hubNeeds();
   const claims = __PREVIEW__ ? previewClaims : hubClaims();
   const comps = __PREVIEW__ ? previewComps : hubComps();
   const links = __PREVIEW__ ? previewLinks : hubLinks();
@@ -91,6 +95,8 @@
     <div class="band dusk"><LootPriority backend={loot} {day} dayName={name} /></div>
 
     <div class="band"><InterviewPanelCard backend={panels} {day} night={name} /></div>
+
+    <div class="band dusk"><RecruitmentNeedsCard backend={needs} {day} night={name} /></div>
   </div>
   {/key}
 {/if}

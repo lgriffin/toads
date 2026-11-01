@@ -6,6 +6,9 @@ from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from toads_api.community.schemas import ApplicationStatus as S
+from toads_api.community.schemas import Role
+from toads_api.comps.catalog import CLASSES, SPECS, Spec
+from toads_api.comps.catalog import Role as SeatRole
 
 TRANSITIONS: dict[S, frozenset[S]] = {
     # Officers may accept straight from the Decisions panel; a trial raid is an optional step before it.
@@ -35,6 +38,21 @@ DECIDED_WINDOW_DAYS = 14
 
 # A raid night's interview panel (docs/recruitment.md): enough for every officer, small enough to fit one room.
 PANEL_LIMIT = 10
+
+# Recruitment needs are picked from the comp builder's specs; the homepage groups them under the community roles.
+NEED_ROLES: dict[SeatRole, Role] = {
+    SeatRole.TANK: Role.TANK,
+    SeatRole.HEALER: Role.HEALER,
+    SeatRole.MELEE: Role.MELEE,
+    SeatRole.RANGED: Role.RANGED,
+}
+_SPEC_BY_NAME = {(CLASSES[s.wow_class], s.name): s for s in SPECS.values()}
+
+
+def spec_for(class_name: str, spec: str) -> Spec | None:
+    """The catalogue spec a stored need names ("Shaman", "Restoration"), or None for one the catalogue lacks."""
+    return _SPEC_BY_NAME.get((class_name, spec))
+
 
 # Discord ids are snowflakes: the top 42 bits are milliseconds since this epoch, so an id says when the account began.
 DISCORD_EPOCH_MS = 1_420_070_400_000

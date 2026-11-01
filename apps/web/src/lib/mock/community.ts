@@ -15,13 +15,17 @@ export const viewer: Viewer = {
   globalOfficer: false
 };
 
+// Each night's officers list their own needs (Officers > Recruitment). Thursday lists no tanks, so the homepage shows
+// its tanks as full for now.
 export const needs: RecruitmentNeed[] = [
   { className: 'Warrior', spec: 'Protection', role: 'Tank', priority: 'high', raidDays: ['Sunday'] },
-  { className: 'Shaman', spec: 'Restoration', role: 'Healer', priority: 'high', raidDays: ['Wednesday', 'Sunday'] },
+  { className: 'Shaman', spec: 'Restoration', role: 'Healer', priority: 'high', raidDays: ['Wednesday'] },
+  { className: 'Shaman', spec: 'Restoration', role: 'Healer', priority: 'medium', raidDays: ['Sunday'] },
   { className: 'Priest', spec: 'Shadow', role: 'Ranged', priority: 'medium', raidDays: ['Wednesday'] },
-  { className: 'Hunter', spec: 'Beast Mastery', role: 'Ranged', priority: 'medium', raidDays: [] },
+  { className: 'Hunter', spec: 'Beast Mastery', role: 'Ranged', priority: 'medium', raidDays: ['Thursday'] },
   { className: 'Paladin', spec: 'Holy', role: 'Healer', priority: 'low', raidDays: ['Sunday'] },
-  { className: 'Rogue', spec: 'Combat', role: 'Melee', priority: 'low', raidDays: [] }
+  { className: 'Druid', spec: 'Guardian', role: 'Tank', priority: 'medium', raidDays: ['Wednesday'] },
+  { className: 'Rogue', spec: 'Combat', role: 'Melee', priority: 'low', raidDays: ['Thursday'] }
 ];
 
 export const posts: Post[] = [

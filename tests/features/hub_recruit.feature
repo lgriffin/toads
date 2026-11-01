@@ -170,3 +170,18 @@ Feature: HUB RECRUIT
     When the Wednesday officer accepts the application on the Decisions panel
     Then the Decisions panel notes that no Discord role is set for Wednesday raiders
     And the bot is not asked to give any role
+
+  @ears_event_driven @raid_leader @member @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-022 When a raid night's officer lists the primary specs the night is recruiting, the hub shall show visitors who pick that night on the homepage those specs, without a login, and leave every other night's list as it was
+    Given the demo guild
+    When the Sunday officer lists Guardian Druid at high priority and Shadow Priest for Sunday
+    Then a visitor sees Guardian Druid and Shadow Priest as Sunday's needs, in that order
+    And Wednesday's needs are unchanged
+    And the change is on the audit log for Sunday
+
+  @ears_unwanted_behavior @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-023 If someone who is not one of a night's officers or the global tier tries to set its recruitment needs, or lists a spec the hub does not know or lists one twice, then the hub shall refuse it and keep the night's list
+    Given the demo guild
+    Then the Wednesday officer cannot set Sunday's recruitment needs
+    And a spec the hub does not know, or the same spec twice, is refused for Sunday
+    And Sunday's needs are still empty

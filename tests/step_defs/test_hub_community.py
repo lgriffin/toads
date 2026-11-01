@@ -1034,3 +1034,54 @@ def no_role_note(world: World) -> None:
 @then("the bot is not asked to give any role")
 def no_welcome_job(world: World) -> None:
     assert jobs(world, OutboxKind.WELCOME_RECRUIT) == []
+
+
+# ------------------------------------------------------------------ recruitment needs
+
+
+@when("the Sunday officer lists Guardian Druid at high priority and Shadow Priest for Sunday")
+def sunday_lists_needs(world: World) -> None:
+    body = {"needs": [{"spec_id": "druid-guardian", "priority": "high"}, {"spec_id": "priest-shadow"}]}
+    assert world.client("Sunday officer").put("/api/days/sun/admin/recruitment-needs", json=body).status_code == 200
+
+
+def _night_needs(world: World, day: str) -> list[tuple[str, str, str]]:
+    return [(n.class_name, n.spec, n.priority.value) for n in world.store.needs() if n.raid_days == [day]]
+
+
+@then("a visitor sees Guardian Druid and Shadow Priest as Sunday's needs, in that order")
+def visitor_sees_sunday(world: World) -> None:
+    from conftest import community_client
+
+    public = community_client(world.store).get("/api/public/recruitment").json()
+    sunday = [(n["class_name"], n["spec"], n["role"], n["priority"]) for n in public if n["raid_days"] == ["sun"]]
+    assert sunday == [("Druid", "Guardian", "Tank", "high"), ("Priest", "Shadow", "Ranged", "medium")]
+
+
+@then("Wednesday's needs are unchanged")
+def wednesday_unchanged(world: World) -> None:
+    assert _night_needs(world, "wed") == [("Shaman", "Restoration", "high")]
+
+
+@then("the change is on the audit log for Sunday")
+def needs_audited(world: World) -> None:
+    [record] = [r for r in world.store.repo.audit() if r.action == "recruitment.needs"]
+    assert (record.raid_day, record.target) == ("sun", "2 needs")
+
+
+@then("the Wednesday officer cannot set Sunday's recruitment needs")
+def wed_cannot_set_sunday(world: World) -> None:
+    body = {"needs": [{"spec_id": "mage-fire"}]}
+    assert world.client("Wednesday officer").put("/api/days/sun/admin/recruitment-needs", json=body).status_code == 403
+
+
+@then("a spec the hub does not know, or the same spec twice, is refused for Sunday")
+def bad_specs_refused(world: World) -> None:
+    officer = world.client("Sunday officer")
+    for needs in ([{"spec_id": "druid-moonkin"}], [{"spec_id": "mage-fire"}, {"spec_id": "mage-fire"}]):
+        assert officer.put("/api/days/sun/admin/recruitment-needs", json={"needs": needs}).status_code == 422
+
+
+@then("Sunday's needs are still empty")
+def sunday_still_empty(world: World) -> None:
+    assert _night_needs(world, "sun") == []

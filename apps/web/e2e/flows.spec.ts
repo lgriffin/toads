@@ -80,3 +80,29 @@ test('granting spotlight consent on the hub tells the member officers can publis
   await expect(page.getByRole('status').filter({ hasText: 'Officers can now publish' })).toBeVisible();
 });
 
+
+test('a night’s officers pick its recruitment needs', async ({ page }) => {
+  await page.goto('officers/recruitment/');
+  const wed = page.getByRole('region', { name: 'Wednesday recruitment needs' });
+  await expect(wed.getByText('Restoration Shaman', { exact: true })).toBeVisible();
+  await wed.getByLabel('Add a primary spec').fill('holy pal');
+  await wed.getByLabel('Priority', { exact: true }).selectOption('high');
+  await wed.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(wed.getByRole('status')).toContainText('Wednesday is now recruiting Holy Paladin.');
+  await wed.getByRole('button', { name: 'Remove Guardian Druid from Wednesday' }).click();
+  await expect(wed.getByRole('status')).toContainText('Guardian Druid is off the Wednesday list.');
+  // A Wednesday officer has no Sunday list to change.
+  await expect(page.getByRole('region', { name: 'Sunday recruitment needs' })).toHaveCount(0);
+});
+
+test('visitors pick a night on the homepage to see what its officers are recruiting', async ({ page }) => {
+  await page.goto('');
+  const recruit = page.getByRole('region', { name: 'Who we are looking for' });
+  await expect(recruit.getByRole('radio', { name: 'Wednesday' })).toBeChecked();
+  await recruit.getByRole('radio', { name: 'Thursday' }).check();
+  await expect(recruit.getByText('Thursday is recruiting damage dealers.')).toBeVisible();
+  await expect(recruit.getByRole('region', { name: 'Tanks' })).toContainText('Full for now');
+  await recruit.getByRole('radio', { name: 'Sunday' }).check();
+  await expect(recruit.getByRole('region', { name: 'Tanks' })).toContainText('Protection');
+  await expect(recruit.getByText(/Poke any member of Toads in game for a social invite/)).toBeVisible();
+});

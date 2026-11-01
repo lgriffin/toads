@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { RecruitmentNeed } from '$lib/community';
+  import { raidNight } from '$lib/nights';
 
   let { needs }: { needs: RecruitmentNeed[] } = $props();
   const ORDER = { high: 0, medium: 1, low: 2 } as const;
@@ -7,11 +8,11 @@
 </script>
 
 <ul class="needs">
-  {#each sorted as n (n.className + n.spec)}
+  {#each sorted as n (`${n.className} ${n.spec} ${n.raidDays.join()}`)}
     <li>
       <span><strong>{n.spec} {n.className}</strong> <span class="muted">{n.role}</span></span>
       <span class="right">
-        <span class="muted small">{n.raidDays.length ? n.raidDays.join(' & ') : 'Either night'}</span>
+        <span class="muted small">{n.raidDays.length ? n.raidDays.map((d) => raidNight(d)?.name ?? d).join(' & ') : 'Any night'}</span>
         <span class="pill prio-{n.priority}">{n.priority} priority</span>
       </span>
     </li>

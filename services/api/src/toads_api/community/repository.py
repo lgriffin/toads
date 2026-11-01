@@ -67,8 +67,13 @@ class CommunityRepository(Protocol):
     def get_spotlight(self, sp_id: int) -> Spotlight | None: ...
     def spotlights(self) -> list[Spotlight]: ...
 
-    def needs(self) -> list[RecruitmentNeed]: ...
-    def set_needs(self, needs: list[RecruitmentNeed]) -> None: ...
+    def needs(self) -> list[RecruitmentNeed]:
+        """Every night's needs: by night, then in the order its officers listed them."""
+        ...
+
+    def set_night_needs(self, raid_day: str, needs: list[RecruitmentNeed]) -> None:
+        """Replace one night's needs (those whose raid_days is exactly that night), leaving other nights' alone."""
+        ...
 
     def interview_panel(self, raid_day: str) -> list[Interviewer]:
         """The night's interview panel, in the order officers added them."""
@@ -158,8 +163,9 @@ class InMemoryCommunityRepository:
     def needs(self) -> list[RecruitmentNeed]:
         return list(self.needs_list)
 
-    def set_needs(self, needs: list[RecruitmentNeed]) -> None:
-        self.needs_list = list(needs)
+    def set_night_needs(self, raid_day: str, needs: list[RecruitmentNeed]) -> None:
+        kept = [n for n in self.needs_list if n.raid_days != [raid_day]]
+        self.needs_list = [*kept, *(n.model_copy(update={"raid_days": [raid_day]}) for n in needs)]
 
     def interview_panel(self, raid_day: str) -> list[Interviewer]:
         return list(self._panels.get(raid_day, []))

@@ -5,11 +5,14 @@
   import { hubPanels } from '$lib/interview-panels';
   import DecisionsCard from '$lib/components/DecisionsCard.svelte';
   import InterviewPanelCard from '$lib/components/InterviewPanelCard.svelte';
+  import RecruitmentNeedsCard from '$lib/components/RecruitmentNeedsCard.svelte';
   import { hubDecisions } from '$lib/decisions';
   import { NIGHT_IDS, NIGHT_NAMES } from '$lib/nights';
   import { previewDecisions } from '$lib/preview/decisions-fake';
+  import { previewNeeds } from '$lib/preview/needs-fake';
   import { previewPanels } from '$lib/preview/panels-fake';
   import { previewSession } from '$lib/preview/session.svelte';
+  import { hubNeeds } from '$lib/recruiting';
 
   // Each raid night's officers pick its interview panel; global officers and super admins see every night. The API
   // checks it per night.
@@ -26,6 +29,7 @@
   const names = $derived(__PREVIEW__ ? NIGHT_NAMES : (session?.day_names ?? {}));
   const backend = __PREVIEW__ ? previewPanels() : hubPanels();
   const decisions = __PREVIEW__ ? previewDecisions() : hubDecisions();
+  const needs = __PREVIEW__ ? previewNeeds() : hubNeeds();
 </script>
 
 <svelte:head><title>Recruitment · Toads</title></svelte:head>
@@ -35,12 +39,23 @@
 {#if !loaded}
   <p class="muted" role="status">Loading…</p>
 {:else if days.length === 0}
-  <p class="muted">Decisions and interview panels belong to the officers of each raid night.</p>
+  <p class="muted">Recruitment needs, decisions and interview panels belong to the officers of each raid night.</p>
 {:else}
   <p class="lede">
     Applicants pick their raid night on the recruit page. The Toad Bot opens their interview room with that night's
     panel the moment they apply.
   </p>
+
+  <h2 class="section">What we are recruiting</h2>
+  <p class="lede">
+    The homepage shows visitors what the night they pick is recruiting. List the primary specs you want; tanks,
+    healers or damage with nothing listed show as full for now.
+  </p>
+  <div class="nights">
+    {#each days as day (day)}
+      <RecruitmentNeedsCard backend={needs} {day} night={names[day] ?? day} />
+    {/each}
+  </div>
 
   <h2 class="section">Decisions</h2>
   <p class="lede">

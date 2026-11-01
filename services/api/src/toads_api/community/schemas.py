@@ -230,6 +230,38 @@ class RecruitmentNeed(BaseModel):
     raid_days: list[DayId] = Field(default_factory=list, max_length=7)
 
 
+class NeedPick(BaseModel):
+    """One spec a night's officers are recruiting, by the comp catalogue's spec id ("shaman-restoration")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spec_id: Annotated[str, StringConstraints(pattern=r"^[a-z]+-[a-z-]+$", max_length=40)]
+    priority: Priority = Priority.MEDIUM
+
+
+class NightNeedsIn(BaseModel):
+    """A night's whole needs list, in the order the homepage shows it. Empty: the night is full."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    needs: list[NeedPick] = Field(default_factory=list, max_length=30)
+
+
+class NightNeed(BaseModel):
+    spec_id: str
+    class_name: str
+    spec: str
+    role: Role
+    priority: Priority
+
+
+class NightNeeds(BaseModel):
+    """What one raid night is recruiting (docs/recruitment.md "Recruitment needs")."""
+
+    raid_day: str
+    needs: list[NightNeed]
+
+
 class RaidNight(BaseModel):
     """A raid day an applicant can apply for, as the recruit page offers it."""
 
