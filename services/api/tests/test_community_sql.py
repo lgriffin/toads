@@ -15,6 +15,8 @@ from toads_api.community.schemas import (
     HighlightCreate,
     OutboxKind,
     PostCreate,
+    Priority,
+    RecruitmentNeed,
     Role,
     SpotlightCreate,
     Visibility,
@@ -136,12 +138,14 @@ def test_spotlight_consent_and_outbox_round_trip() -> None:
     assert stored.payload == {"channel_id": 333, "post_id": 1}
 
 
-def test_needs_are_replaced_as_a_whole() -> None:
+def test_each_night_s_needs_are_replaced_on_their_own() -> None:
     repo = _repo()
     demo_service(lambda: NOW, repo)
-    assert [n.class_name for n in repo.needs()] == ["Shaman"]
-    repo.set_needs([])
-    assert _fresh(repo).needs() == []
+    assert [(n.class_name, n.raid_days) for n in repo.needs()] == [("Shaman", ["wed"])]
+    tank = RecruitmentNeed(class_name="Warrior", spec="Protection", role=Role.TANK, priority=Priority.HIGH)
+    repo.set_night_needs("sun", [tank])
+    repo.set_night_needs("wed", [])
+    assert [(n.class_name, n.raid_days) for n in _fresh(repo).needs()] == [("Warrior", ["sun"])]
 
 
 def test_audit_rows_are_kept() -> None:

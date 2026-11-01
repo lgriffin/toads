@@ -338,7 +338,7 @@ day), `interview_category_id` and `interviewers` (who interviews applicants for 
 Discord user ids, or usernames such as `[_gallagher, hadur117]`; prefer ids, since a username someone gives up can be
 claimed by another member). Each night's panel is set by its officers on Officers > Recruitment, not here
 (docs/recruitment.md). The homepage's own words are site text, not configuration: they live in `apps/web/src/lib/landing.ts` and
-change through a PR.
+change through a PR. What each night is recruiting is neither: its officers set it on Officers > Recruitment.
 
 **`config/raid_sheets.yaml`** (worker, API): the CBA and RPB spreadsheets, which tabs to keep, `follows: cba` for RPB,
 and `weekdays` per raid day. Sheets must be shared "Anyone with the link: Viewer". Setup tabs (Instructions, `trans`,
@@ -515,7 +515,8 @@ consent-gated spotlights, and the public pages (`/` landing, `/story`, `/recruit
   applications through their states either way, and the room is locked (never deleted) when one closes.
 - **Highlights**: raiders submit clips (YouTube, Twitch and Streamable only, loaded on click); global officers review
   them. **Spotlights** need the member's consent before they are published.
-- **Recruitment needs** are set by global officers.
+- **Recruitment needs** are set per night by that night's officers (and the global tier) on Officers > Recruitment:
+  the primary specs the night wants, which the homepage shows visitors who pick that night (docs/recruitment.md).
 - Posting to Discord needs both `post_channels` in `config/community.yaml` and `TOADS_POST_TO_CHANNELS=true` on the
   Toad Bot.
 

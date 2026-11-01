@@ -3,7 +3,8 @@
 - /api/public/*                 the outward story, no login
 - /api/posts, /api/highlights,
   /api/applications, /api/me/*  signed-in members
-- /api/days/{day}/admin/*       that raid day's officers (and the global tier)
+- /api/days/{day}/admin/*       that raid day's officers (and the global tier), including the night's
+                                recruitment needs the homepage shows
 - /api/admin/*                  the global tier only: Principal.role_for(None) never yields officer for a day officer
 - /api/bot/*                    the bot, with its service token
 """
@@ -45,6 +46,8 @@ from toads_api.community.schemas import (
     Interviewer,
     InterviewerAdd,
     InterviewPanel,
+    NightNeeds,
+    NightNeedsIn,
     OutboxAck,
     OutboxJob,
     Post,
@@ -299,6 +302,22 @@ async def remove_interviewer(
     return svc.remove_interviewer(p.member_id, str(scope_of(request)), discord_user_id)
 
 
+# ------------------------------------------ one raid night's recruitment needs (docs/recruitment.md)
+
+
+@day_admin.get("/recruitment-needs")
+async def night_needs(request: Request, svc: CommunityService = S, _: Principal = _panel) -> NightNeeds:
+    return svc.night_needs(str(scope_of(request)))
+
+
+@day_admin.put("/recruitment-needs")
+async def set_night_needs(
+    request: Request, body: NightNeedsIn, svc: CommunityService = S, p: Principal = _panel
+) -> NightNeeds:
+    """Replace what the night is recruiting; the homepage shows it to visitors who pick this night."""
+    return svc.set_night_needs(p.member_id, str(scope_of(request)), body.needs)
+
+
 # ------------------------------------------ one raid night's Decisions panel (docs/recruitment.md)
 
 
@@ -330,14 +349,6 @@ async def decide(
 
 
 _highlights = Depends(require(Permission.MANAGE_HIGHLIGHTS))
-_recruitment = Depends(require(Permission.MANAGE_RECRUITMENT))
-
-
-@global_admin.put("/recruitment/needs")
-async def set_needs(
-    body: list[RecruitmentNeed], svc: CommunityService = S, p: Principal = _recruitment
-) -> list[RecruitmentNeed]:
-    return svc.set_needs(p.member_id, body)
 
 
 @global_admin.get("/highlights")

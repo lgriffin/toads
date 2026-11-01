@@ -34,6 +34,9 @@ from toads_api.community.schemas import (
     HighlightStatus,
     Interviewer,
     InterviewPanel,
+    NeedPick,
+    NightNeed,
+    NightNeeds,
     OutboxAck,
     OutboxJob,
     OutboxKind,
@@ -50,6 +53,7 @@ from toads_api.community.schemas import (
     SpotlightStatus,
     Visibility,
 )
+from toads_api.comps.catalog import CLASSES, SPECS
 
 
 class CommunityError(Exception):
@@ -813,12 +817,43 @@ class CommunityService:
     def needs(self) -> list[RecruitmentNeed]:
         return self.repo.needs()
 
-    def set_needs(self, actor_id: int, needs: list[RecruitmentNeed]) -> list[RecruitmentNeed]:
-        if {d for n in needs for d in n.raid_days} - self.raid_days.day_ids:
-            raise Invalid("Unknown raid day")
-        self.repo.set_needs(needs)
-        self._audit(actor_id, "recruitment.needs", f"{len(needs)} needs", None)
-        return self.repo.needs()
+    def night_needs(self, scope: str) -> NightNeeds:
+        """What one night is recruiting, as its officers listed it. A spec the comp catalogue no longer knows is
+        left out, so the editor only ever offers what it can save back."""
+        day = self._night(scope)
+        listed = [n for n in self.repo.needs() if n.raid_days == [day]]
+        picked = [(n, recruitment.spec_for(n.class_name, n.spec)) for n in listed]
+        return NightNeeds(
+            raid_day=day,
+            needs=[
+                NightNeed(spec_id=spec.id, class_name=n.class_name, spec=n.spec, role=n.role, priority=n.priority)
+                for n, spec in picked
+                if spec is not None
+            ],
+        )
+
+    def set_night_needs(self, actor_id: int, scope: str, picks: list[NeedPick]) -> NightNeeds:
+        """Replace a night's needs with these primary specs, in this order. An empty list says the night is full."""
+        day = self._night(scope)
+        if len({p.spec_id for p in picks}) != len(picks):
+            raise Invalid("A spec is listed twice")
+        needs = []
+        for pick in picks:
+            spec = SPECS.get(pick.spec_id)
+            if spec is None:
+                raise Invalid(f"No spec has the id {pick.spec_id}")
+            needs.append(
+                RecruitmentNeed(
+                    class_name=CLASSES[spec.wow_class],
+                    spec=spec.name,
+                    role=recruitment.NEED_ROLES[spec.role],
+                    priority=pick.priority,
+                    raid_days=[day],
+                )
+            )
+        self.repo.set_night_needs(day, needs)
+        self._audit(actor_id, "recruitment.needs", f"{len(needs)} needs", day)
+        return self.night_needs(day)
 
     # ------------------------------------------------------------------ views
 

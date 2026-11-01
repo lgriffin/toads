@@ -1,4 +1,4 @@
-# Recruitment: raid nights, interview panels and decisions
+# Recruitment: raid nights, needs, interview panels and decisions
 
 Applicants pick the night they want to raid (Wednesday, Thursday or Sunday) on the `/recruit` page. The choices
 are the raid days in `config/raid_days.yaml`, so a new night shows up once it is configured, with no code change. Each night's
@@ -6,7 +6,25 @@ officers choose that night's interview panel from the members of the Toads Disco
 (`/officers/recruitment`). When someone applies for Sunday, the Toad Bot opens their private interview room straight
 away with the applicant, the Sunday panel and the bot in it, and posts their answers there.
 
-## Who interviews whom
+## Recruitment needs
+
+The homepage's "Who we are looking for" section is the officers' to run. A visitor picks a night (Wednesday, Thursday
+or Sunday: the nights in `config/raid_days.yaml`) and sees three groups, Tanks, Healers and Damage, with the primary
+specs that night's officers listed, by class. A group with nothing listed for the night shows **Full for now**; a night
+with nothing listed at all says it is full and to apply anyway. Under it the page invites anyone who only wants to be
+social to poke any member of Toads in game for a social invite and come to the pond.
+
+- Each night's officers, global officers and super admins (`MANAGE_RECRUITMENT`, scoped to the raid day in the URL)
+  set the list on **Officers > Recruitment**, or in the night's own section (`/officers/nights/{day}`). Another night's
+  officers get 403.
+- Type to search ("resto sha", "guardian") or pick from the list: the specs are the comp builder's
+  (`toads_api/comps/catalog.py`), so a Feral cat and a Guardian bear are separate picks. Each spec is listed once.
+- Each spec has a priority. **High** shows as "most wanted" on the homepage; medium and low only order the officers'
+  own thinking for now.
+- A change shows on the homepage straight away and is on the audit log as `recruitment.needs` with the raid day.
+- The `/recruit` page's "What we need right now" card lists the same needs, with the night each is for.
+
+
 
 1. The panel of the night the applicant chose.
 2. If that night has no panel yet (or the application names no night, as from an older client), the `interviewers`
@@ -103,6 +121,14 @@ cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml l
 - `POST /api/days/{day}/admin/interview-panel` with `{discord_user_id}`: add someone (201 with the panel; 409 if they
   are already on it or it is full; 422 if they are not in the server; 503 if Discord does not answer).
 - `DELETE /api/days/{day}/admin/interview-panel/{discord_user_id}`: take someone off (404 if they are not on it).
+
+- `GET /api/public/recruitment`: every night's needs, no login: `[{class_name, spec, role, priority, raid_days}]`,
+  where `raid_days` is the one night the need is for, by night and then in the order its officers listed them.
+- `GET /api/days/{day}/admin/recruitment-needs`: `{raid_day, needs: [{spec_id, class_name, spec, role, priority}]}`.
+- `PUT /api/days/{day}/admin/recruitment-needs` with `{needs: [{spec_id, priority}]}`: replace the night's list, in
+  that order (422 for an unknown or repeated spec; an empty list says the night is full). Other nights' lists are
+  untouched. Needs live in the hub database's `recruitment_needs` table, one row per need with its night in
+  `raid_days`. The old guild-wide `PUT /api/admin/recruitment/needs` is gone.
 
 - `GET /api/days/{day}/admin/decisions`: `{raid_day, waiting, decided}`, each a list of `{application, notes,
   decided_at}`; `notes` are `{id, application_id, author_name, body, at}`, with `author_name` null for the Toad Bot.

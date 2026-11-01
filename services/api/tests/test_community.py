@@ -90,7 +90,6 @@ ROUTES: list[tuple[str, str, Permission]] = (
         ("GET", "/api/me/spotlights", Permission.VIEW_GUILD_RAIDS),
         ("POST", "/api/me/spotlights/{sp_id}/consent", Permission.VIEW_GUILD_RAIDS),
         ("GET", "/api/desk", Permission.VIEW_GUILD_RAIDS),
-        ("PUT", "/api/admin/recruitment/needs", Permission.MANAGE_RECRUITMENT),
         ("GET", "/api/admin/highlights", Permission.MANAGE_HIGHLIGHTS),
         ("POST", "/api/admin/highlights/{hl_id}/review", Permission.MANAGE_HIGHLIGHTS),
         ("GET", "/api/admin/spotlights", Permission.MANAGE_HIGHLIGHTS),
@@ -121,6 +120,9 @@ ROUTES: list[tuple[str, str, Permission]] = (
         ("GET", "/api/days/{day}/admin/decisions", Permission.MANAGE_RECRUITMENT),
         ("POST", "/api/days/{day}/admin/applications/{app_id}/notes", Permission.MANAGE_RECRUITMENT),
         ("POST", "/api/days/{day}/admin/applications/{app_id}/decision", Permission.MANAGE_RECRUITMENT),
+        # And what it is recruiting: the homepage shows each night's needs on their own.
+        ("GET", "/api/days/{day}/admin/recruitment-needs", Permission.MANAGE_RECRUITMENT),
+        ("PUT", "/api/days/{day}/admin/recruitment-needs", Permission.MANAGE_RECRUITMENT),
     ]
 )
 PUBLIC = {("GET", "/api/public/story"), ("GET", "/api/public/recruitment"), ("GET", "/api/public/raid-nights")}
@@ -682,13 +684,59 @@ def test_desk_counts_only_the_officers_days(as_: Any) -> None:
     assert set(as_("Wednesday raider").get("/api/desk").json().values()) == {0}
 
 
-def test_recruitment_needs_are_global_only(as_: Any) -> None:
-    needs = [{"class_name": "Druid", "spec": "Feral", "role": "Tank", "priority": "medium", "raid_days": ["sun"]}]
-    assert as_("Sunday officer").put("/api/admin/recruitment/needs", json=needs).status_code == 403
-    assert as_("global officer").put("/api/admin/recruitment/needs", json=needs).status_code == 200
-    assert as_(None).get("/api/public/recruitment").json()[0]["spec"] == "Feral"
-    bad = [{**needs[0], "raid_days": ["fri"]}]
-    assert as_("global officer").put("/api/admin/recruitment/needs", json=bad).status_code == 422
+def test_each_night_s_officers_set_its_recruitment_needs(as_: Any) -> None:
+    needs = {"needs": [{"spec_id": "druid-guardian", "priority": "high"}, {"spec_id": "priest-shadow"}]}
+    assert as_("Wednesday officer").put("/api/days/sun/admin/recruitment-needs", json=needs).status_code == 403
+    assert as_("Wednesday raider").put("/api/days/wed/admin/recruitment-needs", json=needs).status_code == 403
+    saved = as_("Sunday officer").put("/api/days/sun/admin/recruitment-needs", json=needs)
+    assert saved.status_code == 200
+    assert saved.json() == {
+        "raid_day": "sun",
+        "needs": [
+            {
+                "spec_id": "druid-guardian",
+                "class_name": "Druid",
+                "spec": "Guardian",
+                "role": "Tank",
+                "priority": "high",
+            },
+            {
+                "spec_id": "priest-shadow",
+                "class_name": "Priest",
+                "spec": "Shadow",
+                "role": "Ranged",
+                "priority": "medium",
+            },
+        ],
+    }
+    assert as_("global officer").get("/api/days/sun/admin/recruitment-needs").json() == saved.json()
+    # Wednesday's demo need is untouched, and the homepage reads every night's at once without a login.
+    public = as_(None).get("/api/public/recruitment").json()
+    assert [(n["spec"], n["raid_days"]) for n in public] == [
+        ("Restoration", ["wed"]),
+        ("Guardian", ["sun"]),
+        ("Shadow", ["sun"]),
+    ]
+    # An empty list says the night is full.
+    assert as_("Sunday officer").put("/api/days/sun/admin/recruitment-needs", json={"needs": []}).json()["needs"] == []
+    assert [n["raid_days"] for n in as_(None).get("/api/public/recruitment").json()] == [["wed"]]
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ({"needs": [{"spec_id": "druid-moonkin"}]}, 422),
+        ({"needs": [{"spec_id": "mage-fire"}, {"spec_id": "mage-fire"}]}, 422),
+        ({"needs": [{"spec_id": "mage-fire", "priority": "urgent"}]}, 422),
+        ({"needs": [{"spec_id": "mage-fire", "raid_days": ["wed"]}]}, 422),
+    ],
+)
+def test_bad_recruitment_needs_are_refused(as_: Any, body: dict[str, Any], status: int) -> None:
+    assert as_("global officer").put("/api/days/wed/admin/recruitment-needs", json=body).status_code == status
+
+
+def test_recruitment_needs_need_a_real_night(as_: Any) -> None:
+    assert as_("global officer").get("/api/days/fri/admin/recruitment-needs").status_code == 404
 
 
 # --------------------------------------------------------- decisions panel

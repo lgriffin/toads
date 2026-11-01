@@ -7,7 +7,10 @@
   import { base } from '$app/paths';
   import { DISCORD_INVITE } from '$lib/application';
   import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
-  import { HOMES, LANDING, MEMBER_APPS, RECRUITING, SOCIAL } from '$lib/landing';
+  import { HOMES, LANDING, MEMBER_APPS, RECRUITING_COPY, SOCIAL } from '$lib/landing';
+  import { RAID_NIGHTS } from '$lib/nights';
+  import { nightGroups, nightSummary } from '$lib/recruiting';
+  import type { RecruitmentNeed } from '$lib/community';
   import { RECORD_GROUPS, clearClock, reportUrl } from '$lib/records';
   import { CLASS_COLOUR, classToad, roleToad, toadSrc } from '$lib/toads';
   import type { GuildPulse as Pulse } from '$lib/pulse';
@@ -20,11 +23,28 @@
   // null: signed out; a name: signed in. The page is the same for both apart from the calls to action.
   // loginHref: /auth/login on the real site, the preview's pretend sign-in on GitHub Pages.
   // pulse: guild-level facts (next raid, progression, clear times); left out until there is data to show.
+  // needs: every night's recruitment needs as the officers set them; null while loading. needsFailed: the hub did not
+  // answer, so the page says to ask in Discord instead of calling every group full.
+  // nights: the raid nights to pick from (the hub's, or the site's own list).
   let {
     member,
     loginHref = '/auth/login',
-    pulse = null
-  }: { member: string | null; loginHref?: string; pulse?: Pulse | null } = $props();
+    pulse = null,
+    needs = null,
+    needsFailed = false,
+    nights = RAID_NIGHTS.map(({ id, name }) => ({ id, name }))
+  }: {
+    member: string | null;
+    loginHref?: string;
+    pulse?: Pulse | null;
+    needs?: RecruitmentNeed[] | null;
+    needsFailed?: boolean;
+    nights?: { id: string; name: string }[];
+  } = $props();
+  let picked = $state('');
+  const night = $derived(nights.some((n) => n.id === picked) ? picked : (nights[0]?.id ?? ''));
+  const nightName = $derived(nights.find((n) => n.id === night)?.name ?? 'This night');
+  const groups = $derived(nightGroups(needs ?? [], night));
   const reload = $derived(loginHref === '/auth/login' ? '' : 'off');
 
   // Horde key art from Blizzard's press kit, saved by the guild as static/art/horde-key-art.jpg. Without the file the
@@ -127,35 +147,56 @@
   <section class="recruit band" aria-labelledby="recruit-h">
     <div class="head">
       <h2 id="recruit-h">Who we are looking for</h2>
-      <p>Healers and damage dealers of every class are welcome. Tanks are full for now.</p>
+      <p>{RECRUITING_COPY.intro}</p>
     </div>
-    <div class="roles">
-      {#each RECRUITING as role (role.id)}
-        {@const toad = roleToad(role.id === 'damage' ? 'Melee' : role.id === 'healer' ? 'Healer' : 'Tank')}
-        <section class="role" class:full={!role.open} aria-labelledby="role-{role.id}">
-          <div class="role-head">
-            {#if toad}<img src={toadSrc(base, toad, true)} alt="" width="110" height="132" loading="lazy" />{/if}
-            <div>
-              <h3 id="role-{role.id}">{role.title}</h3>
-              <p class="state" class:open={role.open}>{role.open ? 'Recruiting' : 'Full for now'}</p>
+    {#if nights.length}
+      <div class="night-pick" role="radiogroup" aria-label="Raid night">
+        {#each nights as n (n.id)}
+          <label class="night" class:on={n.id === night}>
+            <input type="radio" name="recruit-night" value={n.id} bind:group={picked} />
+            {n.name}
+          </label>
+        {/each}
+      </div>
+    {/if}
+    {#if needs === null}
+      <p class="note" role="status">Loading what each night is recruiting…</p>
+    {:else if needsFailed}
+      <p class="note">{RECRUITING_COPY.unavailable}</p>
+    {:else}
+      <p class="summary" aria-live="polite">{nightSummary(groups, nightName)}</p>
+      <div class="roles">
+        {#each groups as group (group.id)}
+          {@const toad = roleToad(group.id === 'damage' ? 'Melee' : group.id === 'healer' ? 'Healer' : 'Tank')}
+          <section class="role" class:full={!group.open} aria-labelledby="role-{group.id}">
+            <div class="role-head">
+              {#if toad}<img src={toadSrc(base, toad, true)} alt="" width="110" height="132" loading="lazy" />{/if}
+              <div>
+                <h3 id="role-{group.id}">{group.title}</h3>
+                <p class="state" class:open={group.open}>{group.open ? 'Recruiting' : 'Full for now'}</p>
+              </div>
             </div>
-          </div>
-          <p class="note">{role.note}</p>
-          {#if role.classes.length}
-            <ul class="classes">
-              {#each role.classes as c (c.name)}
-                {@const ct = classToad(c.name)}
-                <li style="--c: {CLASS_COLOUR[c.name.toLowerCase()]}">
-                  {#if ct}<img src={toadSrc(base, ct)} alt="" width="48" height="42" loading="lazy" />{/if}
-                  <span class="cname">{c.name}</span>
-                  <span class="specs">{c.specs.join(', ')}</span>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
-      {/each}
-    </div>
+            <p class="note">{group.open ? RECRUITING_COPY.open : RECRUITING_COPY.full}</p>
+            {#if group.classes.length}
+              <ul class="classes">
+                {#each group.classes as c (c.name)}
+                  {@const ct = classToad(c.name)}
+                  <li style="--c: {CLASS_COLOUR[c.name.toLowerCase()]}">
+                    {#if ct}<img src={toadSrc(base, ct)} alt="" width="48" height="42" loading="lazy" />{/if}
+                    <span class="cname">{c.name}</span>
+                    <span class="specs">
+                      {#each c.specs as s, i (s.name)}{i ? ', ' : ''}{s.name}{#if s.priority === 'high'}<span
+                            class="hot">most wanted</span
+                          >{/if}{/each}
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+        {/each}
+      </div>
+    {/if}
     <p class="apply-how">
       Applying is six questions. Join our Discord first: the moment you send them, the Toad Bot opens a private
       interview room there for you and our recruitment officers.
@@ -167,6 +208,7 @@
       >
       <a class="ghost" href="{base}/how-we-raid/">See what we expect</a>
     </p>
+    <p class="social-invite">{RECRUITING_COPY.social}</p>
   </section>
 
   {#if pulse}<div class="band pulse"><GuildPulse {pulse} /></div>{/if}
@@ -380,6 +422,14 @@
   .classes img { grid-area: i; width: 3rem; height: auto; }
   .cname { grid-area: n; font-family: 'Cinzel', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) var(--class-mix), var(--cream)); border-bottom: 2px solid color-mix(in srgb, var(--c) 60%, var(--cream)); justify-self: start; line-height: 1.2; }
   .specs { grid-area: s; color: var(--muted); font-size: 0.95rem; }
+  .night-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; }
+  .night { position: relative; padding: 0.45rem 1.1rem; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); }
+  .night input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .night.on { color: var(--cream); border-color: var(--teal); background: color-mix(in srgb, var(--teal) 18%, transparent); }
+  .night:has(input:focus-visible) { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .summary { margin: 0 0 1.25rem; font-size: 1.1rem; }
+  .hot { margin-left: 0.4em; padding: 0 0.45em; border-radius: 999px; font-size: 0.75rem; font-weight: 700; color: var(--teal); border: 1px solid currentColor; white-space: nowrap; }
+  .social-invite { max-width: 60ch; margin: 1rem 0 0; }
   .cta.left { justify-content: flex-start; }
   .apply-how { max-width: 60ch; margin: 1.5rem 0 0; color: var(--muted); }
 

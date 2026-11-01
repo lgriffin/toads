@@ -388,16 +388,21 @@ class SqlCommunityRepository:
                 for r in rows
             ]
 
-    def set_needs(self, needs: list[RecruitmentNeed]) -> None:
+    def set_night_needs(self, raid_day: str, needs: list[RecruitmentNeed]) -> None:
         with self.db.begin() as db:
-            db.execute(delete(hub_db.RecruitmentNeed))
+            # raid_days is JSON, which each backend filters differently; the table is a few rows a night, so the
+            # night's own rows are picked out here instead.
+            rows = db.scalars(select(hub_db.RecruitmentNeed)).all()
+            gone = [r.id for r in rows if list(r.raid_days) == [raid_day]]
+            if gone:
+                db.execute(delete(hub_db.RecruitmentNeed).where(hub_db.RecruitmentNeed.id.in_(gone)))
             db.add_all(
                 hub_db.RecruitmentNeed(
                     class_name=n.class_name,
                     spec=n.spec,
                     role=n.role.value,
                     priority=n.priority.value,
-                    raid_days=list(n.raid_days),
+                    raid_days=[raid_day],
                 )
                 for n in needs
             )
