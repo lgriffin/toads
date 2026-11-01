@@ -5,6 +5,7 @@
   import '@fontsource/alegreya-sans/500.css';
   import '@fontsource/alegreya-sans/700.css';
   import { base } from '$app/paths';
+  import { pushState } from '$app/navigation';
   import { DISCORD_INVITE } from '$lib/application';
   import { FOREVER_LAUNCH, FOREVER_LIVE } from '$lib/launch';
   import { HOMES, LANDING, MEMBER_APPS, RECRUITING_COPY, SOCIAL } from '$lib/landing';
@@ -58,13 +59,16 @@
   // "Join us" hops down to Recruitment: smoothly, unless the visitor asked for less motion. The link still works
   // without script, as a plain jump to #recruitment.
   function joinUs(event: MouseEvent) {
+    // A modified or middle click keeps the browser's own behaviour (a new tab or window).
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = document.getElementById('recruitment');
     if (!target) return;
     event.preventDefault();
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     target.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
     target.querySelector<HTMLElement>('#recruit-h')?.focus({ preventScroll: true });
-    history.replaceState(history.state, '', '#recruitment');
+    // Its own history entry, as a plain anchor would make, so Back returns to the top of the page.
+    pushState('#recruitment', {});
   }
   $effect(() => {
     mounted = true;
@@ -390,7 +394,8 @@
   .join:hover :global(svg), .join:focus-visible :global(svg) { animation-play-state: paused; }
   .join span::after { content: ' ↓'; }
   #recruitment { scroll-margin-top: 4.5rem; }
-  #recruitment h2:focus { outline: none; }
+  #recruitment h2:focus:not(:focus-visible) { outline: none; }
+  #recruitment h2:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; border-radius: 4px; }
 
   .medal, .ghost {
     display: inline-block;

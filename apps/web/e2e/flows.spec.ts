@@ -102,6 +102,12 @@ test('visitors pick a night on the homepage to see what its officers are recruit
   await expect(page).toHaveURL(/#recruitment$/);
   const recruit = page.getByRole('region', { name: 'Recruitment', exact: true });
   await expect(recruit).toBeInViewport();
+  await expect(recruit.getByRole('heading', { name: 'Recruitment' })).toBeFocused();
+  // Back returns to the page as it was before the hop, then forward again.
+  await page.goBack();
+  await expect(page).not.toHaveURL(/#recruitment$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#recruitment$/);
   const recruitTop = (await recruit.boundingBox())?.y ?? 0;
   const recordsTop = (await page.getByRole('heading', { name: 'Our fastest clears' }).boundingBox())?.y ?? 0;
   expect(recruitTop).toBeLessThan(recordsTop);
