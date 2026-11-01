@@ -97,7 +97,20 @@ test('a night’s officers pick its recruitment needs', async ({ page }) => {
 
 test('visitors pick a night on the homepage to see what its officers are recruiting', async ({ page }) => {
   await page.goto('');
-  const recruit = page.getByRole('region', { name: 'Who we are looking for' });
+  // The hero's "Join us" hops down to Recruitment, which comes before the fastest clears.
+  await page.getByRole('link', { name: /Join us/ }).click();
+  await expect(page).toHaveURL(/#recruitment$/);
+  const recruit = page.getByRole('region', { name: 'Recruitment', exact: true });
+  await expect(recruit).toBeInViewport();
+  await expect(recruit.getByRole('heading', { name: 'Recruitment' })).toBeFocused();
+  // Back returns to the page as it was before the hop, then forward again.
+  await page.goBack();
+  await expect(page).not.toHaveURL(/#recruitment$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#recruitment$/);
+  const recruitTop = (await recruit.boundingBox())?.y ?? 0;
+  const recordsTop = (await page.getByRole('heading', { name: 'Our fastest clears' }).boundingBox())?.y ?? 0;
+  expect(recruitTop).toBeLessThan(recordsTop);
   await expect(recruit.getByRole('radio', { name: 'Wednesday' })).toBeChecked();
   await recruit.getByRole('radio', { name: 'Thursday' }).check();
   await expect(recruit.getByText('Thursday is recruiting damage dealers.')).toBeVisible();

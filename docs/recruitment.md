@@ -8,7 +8,8 @@ away with the applicant, the Sunday panel and the bot in it, and posts their ans
 
 ## Recruitment needs
 
-The homepage's "Who we are looking for" section is the officers' to run. A visitor picks a night (Wednesday, Thursday
+The homepage's **Recruitment** section (above the fastest clears; the hero's "Join us" button scrolls to it) is the
+officers' to run. A visitor picks a night (Wednesday, Thursday
 or Sunday: the nights in `config/raid_days.yaml`) and sees three groups, Tanks, Healers and Damage, with the primary
 specs that night's officers listed, by class. A group with nothing listed for the night shows **Full for now**; a night
 with nothing listed at all says it is full and to apply anyway. Under it the page invites anyone who only wants to be
