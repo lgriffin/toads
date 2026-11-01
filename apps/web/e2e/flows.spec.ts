@@ -98,6 +98,7 @@ test('a night’s officers pick its recruitment needs', async ({ page }) => {
 test('visitors pick a night on the homepage to see what its officers are recruiting', async ({ page }) => {
   await page.goto('');
   const recruit = page.getByRole('region', { name: 'Who we are looking for' });
+  await expect(recruit.getByRole('radio', { name: 'Wednesday' })).toBeChecked();
   await recruit.getByRole('radio', { name: 'Thursday' }).check();
   await expect(recruit.getByText('Thursday is recruiting damage dealers.')).toBeVisible();
   await expect(recruit.getByRole('region', { name: 'Tanks' })).toContainText('Full for now');

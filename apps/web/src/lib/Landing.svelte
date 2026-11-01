@@ -153,7 +153,13 @@
       <div class="night-pick" role="radiogroup" aria-label="Raid night">
         {#each nights as n (n.id)}
           <label class="night" class:on={n.id === night}>
-            <input type="radio" name="recruit-night" value={n.id} bind:group={picked} />
+            <input
+              type="radio"
+              name="recruit-night"
+              value={n.id}
+              checked={n.id === night}
+              onchange={() => (picked = n.id)}
+            />
             {n.name}
           </label>
         {/each}

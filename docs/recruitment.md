@@ -123,7 +123,9 @@ cd /opt/toads && sudo -u toads docker compose -f infra/docker-compose.prod.yml l
 - `DELETE /api/days/{day}/admin/interview-panel/{discord_user_id}`: take someone off (404 if they are not on it).
 
 - `GET /api/public/recruitment`: every night's needs, no login: `[{class_name, spec, role, priority, raid_days}]`,
-  where `raid_days` is the one night the need is for, by night and then in the order its officers listed them.
+  where `raid_days` is the one night the need is for, in `config/raid_days.yaml` night order and then in the order its
+  officers listed them. Rows no night's officers can edit (older guild-wide ones, or a spec the comp catalogue lacks)
+  are left out.
 - `GET /api/days/{day}/admin/recruitment-needs`: `{raid_day, needs: [{spec_id, class_name, spec, role, priority}]}`.
 - `PUT /api/days/{day}/admin/recruitment-needs` with `{needs: [{spec_id, priority}]}`: replace the night's list, in
   that order (422 for an unknown or repeated spec; an empty list says the night is full). Other nights' lists are

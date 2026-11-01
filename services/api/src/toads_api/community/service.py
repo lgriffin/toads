@@ -815,20 +815,30 @@ class CommunityService:
     # ------------------------------------------------------------ recruitment
 
     def needs(self) -> list[RecruitmentNeed]:
-        return self.repo.needs()
+        """Every night's needs as the homepage shows them: in raid-night order, each night's in its officers' order.
+        Only what a night's officers can see and change is shown: a row for one configured night, naming a spec the
+        comp catalogue knows, once (older guild-wide rows and repeats from two saves at once are left out)."""
+        order = list(self.raid_days.day_names) or sorted(self.raid_days.day_ids)
+        stored = self.repo.needs()
+        shown = []
+        for day in order:
+            seen: set[str] = set()
+            for n in stored:
+                spec = recruitment.spec_for(n.class_name, n.spec)
+                if n.raid_days == [day] and spec is not None and spec.id not in seen:
+                    seen.add(spec.id)
+                    shown.append(n)
+        return shown
 
     def night_needs(self, scope: str) -> NightNeeds:
-        """What one night is recruiting, as its officers listed it. A spec the comp catalogue no longer knows is
-        left out, so the editor only ever offers what it can save back."""
+        """What one night is recruiting, as its officers listed it (see `needs` for what is left out)."""
         day = self._night(scope)
-        listed = [n for n in self.repo.needs() if n.raid_days == [day]]
-        picked = [(n, recruitment.spec_for(n.class_name, n.spec)) for n in listed]
         return NightNeeds(
             raid_day=day,
             needs=[
                 NightNeed(spec_id=spec.id, class_name=n.class_name, spec=n.spec, role=n.role, priority=n.priority)
-                for n, spec in picked
-                if spec is not None
+                for n in self.needs()
+                if n.raid_days == [day] and (spec := recruitment.spec_for(n.class_name, n.spec)) is not None
             ],
         )
 
@@ -865,7 +875,7 @@ class CommunityService:
             story=list(story.STORY),
             discord_invite=self.config.discord_invite,
             progression=self.repo.progression(),
-            needs=self.repo.needs(),
+            needs=self.needs(),
             posts=self.feed(PUBLIC_AUDIENCE),
             highlights=self.highlights_for(PUBLIC_AUDIENCE),
             spotlights=self.published_spotlights(),

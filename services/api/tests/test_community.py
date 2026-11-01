@@ -735,6 +735,24 @@ def test_bad_recruitment_needs_are_refused(as_: Any, body: dict[str, Any], statu
     assert as_("global officer").put("/api/days/wed/admin/recruitment-needs", json=body).status_code == status
 
 
+def test_public_needs_follow_night_order_and_leave_out_what_officers_cannot_edit() -> None:
+    from toads_api.community.demo import MEMBERS, demo_service
+    from toads_api.community.repository import InMemoryCommunityRepository
+    from toads_api.community.schemas import NeedPick, Priority, RecruitmentNeed, Role
+
+    repo = InMemoryCommunityRepository(members=dict(MEMBERS))
+    svc = demo_service(lambda: datetime(2026, 11, 1, tzinfo=UTC), repo)
+    tank = RecruitmentNeed(class_name="Warrior", spec="Protection", role=Role.TANK, priority=Priority.HIGH)
+    odd = RecruitmentNeed(class_name="Druid", spec="Moonkin", role=Role.RANGED, priority=Priority.LOW)
+    repo.set_night_needs("sun", [tank, tank, odd])
+    # An older guild-wide row, for every night: no night's officers can see or change it, so it is not shown.
+    repo.needs_list.append(tank.model_copy(update={"raid_days": []}))
+    # Wednesday is saved after Sunday, yet comes first: nights in config order.
+    svc.set_night_needs(1, "wed", [NeedPick(spec_id="mage-fire")])
+    assert [(n.spec, n.raid_days) for n in svc.needs()] == [("Fire", ["wed"]), ("Protection", ["sun"])]
+    assert [n.spec_id for n in svc.night_needs("sun").needs] == ["warrior-protection"]
+
+
 def test_recruitment_needs_need_a_real_night(as_: Any) -> None:
     assert as_("global officer").get("/api/days/fri/admin/recruitment-needs").status_code == 404
 
