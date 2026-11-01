@@ -16,6 +16,7 @@
   import type { GuildPulse as Pulse } from '$lib/pulse';
   import BrandLogo from './components/BrandLogo.svelte';
   import GuildPulse from './components/GuildPulse.svelte';
+  import LilyPad from './components/LilyPad.svelte';
   import ModelPillars from './components/ModelPillars.svelte';
   import PondScene from './components/PondScene.svelte';
   import ToadsMark from './components/ToadsMark.svelte';
@@ -54,6 +55,17 @@
   let logoFailed = $state<Record<string, boolean>>({ forever: false, tbc: false });
   let artFailed = $state(false);
   let mounted = $state(false);
+  // "Join us" hops down to Recruitment: smoothly, unless the visitor asked for less motion. The link still works
+  // without script, as a plain jump to #recruitment.
+  function joinUs(event: MouseEvent) {
+    const target = document.getElementById('recruitment');
+    if (!target) return;
+    event.preventDefault();
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+    target.querySelector<HTMLElement>('#recruit-h')?.focus({ preventScroll: true });
+    history.replaceState(history.state, '', '#recruitment');
+  }
   $effect(() => {
     mounted = true;
   });
@@ -89,6 +101,10 @@
       {/if}
       <a class="ghost" href="{base}/how-we-raid/">See how we raid</a>
     </div>
+    <a class="join" href="#recruitment" onclick={joinUs}>
+      <LilyPad />
+      <span>Join us</span>
+    </a>
     {#if member}
       <p class="welcome">Welcome back, {member}. New here? <a href="{base}/welcome/">Start with the checklist</a>.</p>
     {/if}
@@ -118,35 +134,9 @@
     </ul>
   </section>
 
-  <section class="records band" aria-labelledby="records-h">
+  <section id="recruitment" class="recruit band" aria-labelledby="recruit-h">
     <div class="head">
-      <h2 id="records-h">Our fastest clears</h2>
-      <p>The best full-clear time we have logged in each raid, with the report to prove it.</p>
-    </div>
-    <div class="rec-groups">
-      {#each RECORD_GROUPS as g (g.id)}
-        <section aria-labelledby="rec-{g.id}">
-          <h3 id="rec-{g.id}">{g.title}</h3>
-          <p class="faction">{g.blurb}</p>
-          <ol class="rec">
-            {#each g.records as r (r.raid)}
-              <li>
-                <span class="raid">{r.raid}</span>
-                <a class="time" href={reportUrl(r.code)} rel="noopener noreferrer" target="_blank"
-                  >{clearClock(r.ms)}<span class="sr-only"> on Warcraft Logs, {shortMonth(r.date)}</span></a
-                >
-                <time class="rec-when" datetime={r.date}>{shortMonth(r.date)}</time>
-              </li>
-            {/each}
-          </ol>
-        </section>
-      {/each}
-    </div>
-  </section>
-
-  <section class="recruit band" aria-labelledby="recruit-h">
-    <div class="head">
-      <h2 id="recruit-h">Who we are looking for</h2>
+      <h2 id="recruit-h" tabindex="-1">Recruitment</h2>
       <p>{RECRUITING_COPY.intro}</p>
     </div>
     {#if nights.length}
@@ -215,6 +205,32 @@
       <a class="ghost" href="{base}/how-we-raid/">See what we expect</a>
     </p>
     <p class="social-invite">{RECRUITING_COPY.social}</p>
+  </section>
+
+  <section class="records band" aria-labelledby="records-h">
+    <div class="head">
+      <h2 id="records-h">Our fastest clears</h2>
+      <p>The best full-clear time we have logged in each raid, with the report to prove it.</p>
+    </div>
+    <div class="rec-groups">
+      {#each RECORD_GROUPS as g (g.id)}
+        <section aria-labelledby="rec-{g.id}">
+          <h3 id="rec-{g.id}">{g.title}</h3>
+          <p class="faction">{g.blurb}</p>
+          <ol class="rec">
+            {#each g.records as r (r.raid)}
+              <li>
+                <span class="raid">{r.raid}</span>
+                <a class="time" href={reportUrl(r.code)} rel="noopener noreferrer" target="_blank"
+                  >{clearClock(r.ms)}<span class="sr-only"> on Warcraft Logs, {shortMonth(r.date)}</span></a
+                >
+                <time class="rec-when" datetime={r.date}>{shortMonth(r.date)}</time>
+              </li>
+            {/each}
+          </ol>
+        </section>
+      {/each}
+    </div>
   </section>
 
   {#if pulse}<div class="band pulse"><GuildPulse {pulse} /></div>{/if}
@@ -358,6 +374,23 @@
   .tagline { font-size: 1.3rem; text-shadow: 0 1px 10px rgb(5 3 30 / 0.8); text-wrap: balance; }
   .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.8rem; max-width: none; }
   .welcome { color: var(--muted); }
+  .join {
+    display: inline-flex; align-items: center; gap: 0.6rem; margin-top: 1.75rem; padding: 0.5rem 1.3rem 0.5rem 0.7rem;
+    border-radius: 999px; text-decoration: none; font-family: 'Cinzel', Georgia, serif; font-weight: 700;
+    letter-spacing: 0.08em; font-size: 1.05rem;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s;
+  }
+  .pond a.join {
+    color: var(--cream); border: 1px solid var(--teal);
+    background: color-mix(in srgb, var(--teal) 16%, color-mix(in srgb, var(--ink) 60%, transparent));
+    box-shadow: 0 0 0 4px rgb(63 214 200 / 0.12), 0 4px 14px rgb(5 3 30 / 0.5);
+  }
+  .pond a.join:hover { color: var(--cream); transform: translateY(-2px); background: color-mix(in srgb, var(--teal) 28%, color-mix(in srgb, var(--ink) 60%, transparent)); }
+  .join :global(svg) { width: 2.2rem; height: auto; animation: hop 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+  .join:hover :global(svg), .join:focus-visible :global(svg) { animation-play-state: paused; }
+  .join span::after { content: ' ↓'; }
+  #recruitment { scroll-margin-top: 4.5rem; }
+  #recruitment h2:focus { outline: none; }
 
   .medal, .ghost {
     display: inline-block;
@@ -448,6 +481,10 @@
   .points li { display: grid; gap: 0.15rem; }
   .pond-art { width: 100%; max-width: 18rem; height: auto; justify-self: center; filter: drop-shadow(0 10px 22px rgb(5 3 30 / 0.55)); }
 
+  @keyframes hop {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(6px); }
+  }
   @keyframes ripple {
     from { transform: scale(0.8); opacity: 0.8; }
     to { transform: scale(2.4); opacity: 0; }
@@ -455,5 +492,6 @@
   @media (prefers-reduced-motion: reduce) {
     .ripple { animation: none; }
     .medal { transition: none; }
+    .join, .join :global(svg) { animation: none; transition: none; }
   }
 </style>
