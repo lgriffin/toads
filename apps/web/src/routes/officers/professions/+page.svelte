@@ -35,7 +35,7 @@
   const groups = $derived(crafters ? crafterGroups(crafters) : []);
 </script>
 
-<svelte:head><title>Professions · Officers · Toads</title></svelte:head>
+<svelte:head><title>Professions · Officers · toads</title></svelte:head>
 
 <div class="professions-page">
   <p class="crumb"><a href="{base}/officers/">Officers</a></p>

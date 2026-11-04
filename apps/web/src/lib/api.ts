@@ -233,7 +233,7 @@ export function applicationError(e: unknown): {
     case 403:
       return {
         message:
-          "We can’t find you in the Toads Discord. Join it, then send your application again.",
+          "We can’t find you in the toads Discord. Join it, then send your application again.",
         joinDiscord: true,
       };
     case 409:

@@ -14,7 +14,7 @@
   let { name, ...facts }: MemberFacts & { name: string } = $props();
 </script>
 
-<svelte:head><title>Coming soon · Toads</title></svelte:head>
+<svelte:head><title>Coming soon · toads</title></svelte:head>
 
 <div class="pond-page">
   <PondHero
@@ -23,7 +23,7 @@
     lede="You are signed in and on the list. The members' hub opens on launch day; until then, here is what it is being built to do for you."
     toads={['roles/tank-badge', 'roles/healer-badge', 'roles/damage-badge']}
   >
-    <a class="medal" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the Toads Discord</a>
+    <a class="medal" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the toads Discord</a>
     <a class="ghost" href="{base}/how-we-raid/">See how we raid</a>
   </PondHero>
 
@@ -54,7 +54,7 @@
       <time datetime={FOREVER_LAUNCH.date}>{FOREVER_LAUNCH.label}</time> and tell the officers who you are bringing.
     </p>
     <div class="actions">
-      <a class="ghost" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the Toads Discord</a>
+      <a class="ghost" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Open the toads Discord</a>
       <a class="ghost" href="{base}/story/">Read our story</a>
     </div>
   </section>

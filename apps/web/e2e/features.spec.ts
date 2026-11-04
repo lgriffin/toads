@@ -9,7 +9,7 @@ const step = (page: Page, app: string, tier: string) =>
 
 test('a visitor finds Hub features in the public nav, with only the public column open', async ({ page }) => {
   await page.goto('');
-  await page.getByRole('navigation', { name: 'Guild' }).getByRole('link', { name: 'Hub features' }).click();
+  await page.getByRole('navigation', { name: 'Guild' }).getByRole('link', { name: 'Hub Features' }).click();
   await expect(page).toHaveURL(/\/toads\/features\/$/);
   await expect(page.getByRole('heading', { name: 'Hub features', level: 1 })).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
@@ -53,7 +53,7 @@ test('a super admin sees the officer view, and only they see grants in the bank'
   await expect(step(page, 'Guild bank', 'officer')).toHaveClass(/here/);
   await expect(page.locator('#main').getByText(/super admin/i)).toHaveCount(0);
   // signIn re-applies the view on every load, so move on by link after switching.
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to officer view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to Officer View' }).click();
   await (await openHubMenu(page)).getByRole('link', { name: /^Bank/ }).click();
   await expect(page.getByRole('heading', { name: 'Bank upkeep: requests and imports' })).toBeVisible();
   await expect(page.getByRole('region', { name: /Super admins: who else runs the bank/ })).toHaveCount(0);

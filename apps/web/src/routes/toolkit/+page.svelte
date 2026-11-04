@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-  <title>Hub features · Toads</title>
+  <title>Hub features · toads</title>
   <link rel="canonical" href="{base}/features/" />
   <!-- Redirects without JavaScript too (crawlers, the static preview); goto() above handles the client side. -->
   <meta http-equiv="refresh" content="0; url={base}/features/" />

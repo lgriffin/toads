@@ -135,7 +135,7 @@ describe("applications", () => {
   });
   it("points someone outside the Discord at the invite", () => {
     expect(applicationError(new ApiError(403, "not in the server"))).toEqual({
-      message: expect.stringMatching(/Toads Discord/),
+      message: expect.stringMatching(/toads Discord/),
       joinDiscord: true,
     });
     expect(

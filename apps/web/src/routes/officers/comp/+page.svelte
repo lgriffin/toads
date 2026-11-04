@@ -25,7 +25,7 @@
   const initial = browser ? (new URLSearchParams(location.search).get('day') ?? '') : '';
 </script>
 
-<svelte:head><title>Comp builder · Toads</title></svelte:head>
+<svelte:head><title>Comp builder · toads</title></svelte:head>
 
 <p class="crumbs"><a href="{base}/officers">Officer console</a></p>
 {#if !loaded}

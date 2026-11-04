@@ -7,7 +7,7 @@ test.beforeEach(({ page }) => signIn(page, 'officer'));
 
 test('the recruit form shows field errors, then opens the interview room', async ({ page }) => {
   await page.goto('recruit/');
-  await expect(page.getByRole('link', { name: /Join the Toads Discord/ }).first()).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /Join the toads Discord/ }).first()).toHaveAttribute(
     'href',
     'https://discord.gg/toads'
   );
@@ -34,7 +34,7 @@ test('the recruit form shows field errors, then opens the interview room', async
   await expect(secondary.getByLabel('Healer')).toBeDisabled(); // not the same role twice
   await secondary.getByLabel('Tank').check();
   await page.getByRole('group', { name: 'Raid night' }).getByLabel('Sunday').check();
-  await page.getByLabel('Why Toads?').fill('Healed Kara and Gruul.\nA friend says Sundays are the best nights.');
+  await page.getByLabel('Why toads?').fill('Healed Kara and Gruul.\nA friend says Sundays are the best nights.');
   await page.getByRole('button', { name: 'Send application' }).click();
 
   const done = page.getByRole('status').filter({ hasText: 'interview room is opening' });
@@ -47,7 +47,7 @@ test('an officer puts someone from the Discord on their night’s interview pane
   await page.goto('officers/recruitment/');
   const wed = page.getByRole('region', { name: 'Wednesday interview panel' });
   await expect(wed.getByText('@_gallagher')).toBeVisible();
-  await wed.getByLabel('Add someone from the Toads Discord').fill('hop');
+  await wed.getByLabel('Add someone from the toads Discord').fill('hop');
   await wed.getByRole('button', { name: 'Find' }).click();
   await wed.getByRole('button', { name: 'Add Hopscotch to the Wednesday panel' }).click();
   await expect(wed.getByRole('status')).toContainText('Hopscotch now interviews Wednesday applicants.');
@@ -117,5 +117,5 @@ test('visitors pick a night on the homepage to see what its officers are recruit
   await expect(recruit.getByRole('region', { name: 'Tanks' })).toContainText('Full for now');
   await recruit.getByRole('radio', { name: 'Sunday' }).check();
   await expect(recruit.getByRole('region', { name: 'Tanks' })).toContainText('Protection');
-  await expect(recruit.getByText(/Poke any member of Toads in game for a social invite/)).toBeVisible();
+  await expect(recruit.getByText(/Poke any member of toads in game for a social invite/)).toBeVisible();
 });

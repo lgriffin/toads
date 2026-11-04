@@ -16,7 +16,7 @@
   const TEAMS = TEAM_COUNT.charAt(0).toUpperCase() + TEAM_COUNT.slice(1);
 </script>
 
-<svelte:head><title>How we raid · Toads</title></svelte:head>
+<svelte:head><title>How we raid · toads</title></svelte:head>
 
 <div class="pond-page">
   <PondHero

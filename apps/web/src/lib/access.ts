@@ -120,7 +120,7 @@ export const APPS: readonly App[] = [
   {
     id: 'discord',
     title: 'Discord and Drive',
-    where: 'The Toads server, Toad Bot, the bank bot and the officers’ Google Drive',
+    where: 'The toads server, Toad Bot, the bank bot and the officers’ Google Drive',
     rows: [
       {
         tier: 'visitor',

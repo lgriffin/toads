@@ -84,7 +84,7 @@ test('a super admin makes a member an officer for one night and revokes it', asy
   await page.goto('admin/');
   const desk = page.getByRole('region', { name: 'Officer grants' });
   await expect(desk.getByText('Sunday officer', { exact: true })).toBeVisible();
-  await desk.getByLabel('Find someone in the Toads Discord').fill('rib');
+  await desk.getByLabel('Find someone in the toads Discord').fill('rib');
   await desk.getByRole('button', { name: 'Find' }).click();
   await desk.getByRole('button', { name: 'Choose Ribbit' }).click();
   await expect(desk.getByLabel('Officer of').getByRole('option')).toHaveText([

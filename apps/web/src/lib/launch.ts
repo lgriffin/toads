@@ -146,7 +146,7 @@ export const TAB_PREVIEW: Record<string, TabPreview> = {
       {
         title: 'For every member',
         items: [
-          'See what the bank holds, kept up to date from the bank characters by the Toads bank addon.',
+          'See what the bank holds, kept up to date from the bank characters by the toads bank addon.',
           'Ask for what you need from the site or straight from Discord with /bank request.',
           'Follow your request from asked to handed over, and keep a receipt of everything you have received.'
         ]

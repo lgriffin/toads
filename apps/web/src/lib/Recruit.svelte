@@ -90,7 +90,7 @@
     className: 'Class',
     primaryRole: 'Primary role',
     secondaryRole: 'Secondary role',
-    whyToads: 'Why Toads?',
+    whyToads: 'Why toads?',
     raidDay: 'Raid night'
   };
 
@@ -174,7 +174,7 @@
 
 <div class="pond-page">
 <PondHero
-  title="Raid with the Toads"
+  title="Raid with the toads"
   line="Horde · PvP · EU"
   lede="We raid {nights.length ? nightsList(nights) : 'several'} evenings. Tell us who you play and why you want in, and you will be talking to our officers in a private Discord room within a minute."
   toads={['roles/healer-badge', 'roles/damage-badge']}
@@ -188,7 +188,7 @@
       <h2>Join our Discord</h2>
       <p>The interview happens there, so you need to be in the server before you apply.</p>
       <a class="btn" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">
-        Join the Toads Discord<span class="sr-only"> (opens in a new tab)</span>
+        Join the toads Discord<span class="sr-only"> (opens in a new tab)</span>
       </a>
     </div>
   </li>
@@ -361,7 +361,7 @@
         {/if}
 
         <div class="field">
-          <label for="f-whyToads">Why Toads?</label>
+          <label for="f-whyToads">Why toads?</label>
           <textarea
             id="f-whyToads"
             rows="5"
@@ -381,7 +381,7 @@
             <p>{failure.message}</p>
             {#if failure.joinDiscord}
               <a class="btn" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">
-                Join the Toads Discord<span class="sr-only"> (opens in a new tab)</span>
+                Join the toads Discord<span class="sr-only"> (opens in a new tab)</span>
               </a>
             {:else if failure.signIn}
               <a class="btn" href={loginHref} data-sveltekit-reload>Sign in with Discord again</a>
@@ -397,7 +397,7 @@
             <button class="btn primary" type="submit" disabled={sending || signedIn === null} aria-busy={sending}>
               {sending ? 'Checking Discord…' : 'Send application'}
             </button>
-            <span class="hint">We check you are in the Toads Discord, then open your interview room.</span>
+            <span class="hint">We check you are in the toads Discord, then open your interview room.</span>
           {/if}
         </div>
       </form>

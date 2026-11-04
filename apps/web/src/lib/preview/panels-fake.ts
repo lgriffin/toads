@@ -32,7 +32,7 @@ export function previewPanels(): PanelBackend {
     add: async (day, id) => {
       const panel = (panels[day] ??= []);
       const who = MEMBERS.find((m) => m.discord_user_id === id);
-      if (!who) throw new ApiError(422, 'They are not in the Toads Discord');
+      if (!who) throw new ApiError(422, 'They are not in the toads Discord');
       if (panel.some((m) => m.discord_user_id === id)) {
         throw new ApiError(409, `${who.display_name} is already on this night's panel`);
       }

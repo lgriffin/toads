@@ -110,7 +110,7 @@ export const ANALYZER_WIDGETS: readonly CatalogueEntry[] = [
   analyzer('top_healing', 'Top healing', 'The top five healers in the last raid, with overheal.'),
   analyzer('attendance', 'Attendance', 'Who attended most of the last ten raids.'),
   // The whole roster's badges are for raid leaders; each member sees their own on /me.
-  analyzer('badges', 'Toads badges', "Badges earned by the last raid's roster, most tiers first.", {
+  analyzer('badges', 'toads badges', "Badges earned by the last raid's roster, most tiers first.", {
     officer_only: true
   }),
   analyzer('boss_kills', 'Boss kills', 'Bosses killed in the last raid, in kill order.'),

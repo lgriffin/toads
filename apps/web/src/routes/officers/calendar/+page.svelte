@@ -23,7 +23,7 @@
   const teamDay = $derived(raidDays.officerDays.includes(picked) ? picked : (raidDays.officerDays[0] ?? ''));
 </script>
 
-<svelte:head><title>Calendar · Officers · Toads</title></svelte:head>
+<svelte:head><title>Calendar · Officers · toads</title></svelte:head>
 
 <div class="calendar">
   <p class="crumb"><a href="{base}/officers/">Officers</a></p>

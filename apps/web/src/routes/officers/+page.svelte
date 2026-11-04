@@ -29,7 +29,7 @@
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
 
-<svelte:head><title>Officers · Toads</title></svelte:head>
+<svelte:head><title>Officers · toads</title></svelte:head>
 
 {#snippet compLink()}
   <section class="card comp-link" aria-labelledby="comp-link-h">
@@ -43,7 +43,7 @@
   <section class="card comp-link" aria-labelledby="recruit-link-h">
     <h2 id="recruit-link-h">Recruitment</h2>
     <p class="muted">
-      Note, accept or reject each night's applicants, and pick who from the Toads Discord interviews them. Someone
+      Note, accept or reject each night's applicants, and pick who from the toads Discord interviews them. Someone
       applying for Sunday meets the Sunday panel in their interview room.
     </p>
     <a class="btn primary" href="{base}/officers/recruitment">Open recruitment</a>

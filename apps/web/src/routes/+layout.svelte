@@ -70,9 +70,9 @@
     __PREVIEW__ ? (previewSession.role ? PREVIEW_TIER[previewSession.role] : 'visitor') : tierOf(session)
   );
   const VIEWS: { role: PreviewRole; label: string }[] = [
-    { role: 'member', label: 'Switch to raider view' },
-    { role: 'officer', label: 'Switch to officer view' },
-    { role: 'admin', label: 'Switch to super admin view' }
+    { role: 'member', label: 'Switch to Raider View' },
+    { role: 'officer', label: 'Switch to Officer View' },
+    { role: 'admin', label: 'Switch to Super Admin View' }
   ];
   let members = $derived(heldNav(memberNav(officer, tier === 'admin'), tier));
   // The top bar: a Hub menu, Me, and one Officers menu that lists only the raid nights this officer runs.
@@ -171,7 +171,7 @@
 {/snippet}
 
 <header>
-  <a class="brand" href="{base}/"><ToadsMark size={28} /><span class="brand-name">Toads</span></a>
+  <a class="brand" href="{base}/"><ToadsMark size={28} /><span class="brand-name">toads</span></a>
   {#if signedIn}
     <nav aria-label="Main" class="main">
       <NavMenu id="menu-hub" label="Hub" current={inMenu(path, hubGroups)}>{@render links(hubGroups)}</NavMenu>

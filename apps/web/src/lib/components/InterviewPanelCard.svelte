@@ -101,7 +101,7 @@
 
     <form class="find" onsubmit={search}>
       <div class="field">
-        <label for="panel-{day}-q">Add someone from the Toads Discord</label>
+        <label for="panel-{day}-q">Add someone from the toads Discord</label>
         <input
           id="panel-{day}-q"
           type="search"
@@ -132,7 +132,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="muted">Nobody else in the Toads Discord has a name starting “{searched}”.</p>
+        <p class="muted">Nobody else in the toads Discord has a name starting “{searched}”.</p>
       {/if}
     {/if}
     {#if message}<p class={failed ? 'err' : 'ok'} role="status">{message}</p>{/if}

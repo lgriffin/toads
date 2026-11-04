@@ -74,7 +74,7 @@
 <h1>Claim your characters</h1>
 <p class="muted">
   {#if signedInAs}You're signed in with Discord as <strong>{signedInAs}</strong>, so the hub already knows who you are.{/if}
-  Find your character by its in-game name. One whose name matches your nickname in the Toads Discord is approved at
+  Find your character by its in-game name. One whose name matches your nickname in the toads Discord is approved at
   once; anything else waits for an officer of your raid day. Unclaiming detaches you straight away; the raid history
   stays.
 </p>

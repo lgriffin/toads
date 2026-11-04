@@ -79,7 +79,7 @@
 <section class="card desk" aria-labelledby="role-badges-h">
   <h2 id="role-badges-h">Badges from Discord roles</h2>
   <p class="muted lede">
-    Pick a role from the Toads server and the badge it earns. Everyone holding that role wears the badge on their Me
+    Pick a role from the toads server and the badge it earns. Everyone holding that role wears the badge on their Me
     page, and loses it when the role is taken away in Discord.
   </p>
 

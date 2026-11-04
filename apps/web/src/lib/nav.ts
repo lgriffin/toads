@@ -18,8 +18,8 @@ export interface NavGroup {
 /** The public face: the landing page, how we raid, the hub's features, the outward story and recruitment. No login. */
 export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Home' },
-  { href: '/how-we-raid', label: 'How we raid' },
-  { href: '/features', label: 'Hub features' },
+  { href: '/how-we-raid', label: 'How We Raid' },
+  { href: '/features', label: 'Hub Features' },
   { href: '/story', label: 'Story' },
   { href: '/recruit', label: 'Recruit' }
 ];
@@ -48,7 +48,7 @@ export function memberNav(officer: boolean, admin = false, nav: readonly NavItem
 
 /** The pages under the Hub menu, with what each holds. */
 export const HUB_MENU: readonly NavItem[] = [
-  { href: '/hub', label: 'Hub home', hint: 'Posts, your next raid and how you did' },
+  { href: '/hub', label: 'Hub Home', hint: 'Posts, your next raid and how you did' },
   { href: '/raid', label: 'Raid', hint: 'Your raid night: role, sign-ups and prep' },
   { href: '/logs', label: 'Logs', hint: 'Every raid we logged, fight by fight' },
   { href: '/highlights', label: 'Highlights', hint: 'Photos, live streams and clips from raid night' },
@@ -57,10 +57,10 @@ export const HUB_MENU: readonly NavItem[] = [
 
 /** The officers' shared tools, under the Officers menu. Each page still shows an officer only their own nights. */
 export const OFFICER_MENU: readonly NavItem[] = [
-  { href: '/officers', label: 'Officer console', hint: 'Claims, applications and awards' },
-  { href: '/officers/claims', label: 'Character claims', hint: 'Approve the characters members claim' },
+  { href: '/officers', label: 'Officer Console', hint: 'Claims, applications and awards' },
+  { href: '/officers/claims', label: 'Character Claims', hint: 'Approve the characters members claim' },
   { href: '/officers/calendar', label: 'Calendar', hint: 'Who will miss your raid nights' },
-  { href: '/officers/comp', label: 'Comp builder', hint: 'Plan groups and buffs' },
+  { href: '/officers/comp', label: 'Comp Builder', hint: 'Plan groups and buffs' },
   { href: '/officers/professions', label: 'Professions', hint: 'Who crafts what, and the guild’s crafters' },
   { href: '/officers/recruitment', label: 'Recruitment', hint: 'Needs, decisions and panels for each night' },
   { href: '/officers/strategy', label: 'Strategy', hint: 'The pinned Google Doc for each raid' }
@@ -74,8 +74,8 @@ export function hubMenu(
 ): NavGroup[] {
   const open = new Set(members.map((i) => i.href));
   return [
-    { label: 'Your hub', items: hub.filter((i) => open.has(i.href)) },
-    { label: 'About the guild', items: [...publicNav] }
+    { label: 'Your Hub', items: hub.filter((i) => open.has(i.href)) },
+    { label: 'About the Guild', items: [...publicNav] }
   ];
 }
 
@@ -91,32 +91,32 @@ export function officerMenu(
 ): NavGroup[] {
   const groups: NavGroup[] = [];
   if (officer || admin) {
-    groups.push({ label: 'Officer tools', items: [...tools] });
+    groups.push({ label: 'Officer Tools', items: [...tools] });
     if (nights.length) {
       groups.push({
-        label: nights.length === 1 ? 'Your raid night' : 'Your raid nights',
-        items: nights.map((n) => ({ href: `/officers/nights/${n.day}`, label: `${n.name} officers`, hint: 'Claims, absences, tasks and interviews' }))
+        label: nights.length === 1 ? 'Your Raid Night' : 'Your Raid Nights',
+        items: nights.map((n) => ({ href: `/officers/nights/${n.day}`, label: `${n.name} Officers`, hint: 'Claims, absences, tasks and interviews' }))
       });
     }
   }
   if (admin) {
-    groups.push({ label: 'Super admin', items: [{ href: '/admin', label: 'Admin console', hint: 'Grants, badges and integrations', adminOnly: true }] });
+    groups.push({ label: 'Super Admin', items: [{ href: '/admin', label: 'Admin Console', hint: 'Grants, badges and integrations', adminOnly: true }] });
   }
   return groups;
 }
 
 /** The account menu's pages, under the member's name in the top bar (and the desktop app's Me menu). */
 export const ACCOUNT_MENU: readonly NavItem[] = [
-  { href: '/me/settings', label: 'Account settings', hint: 'Your name and Warcraft Logs key' },
-  { href: '/setup', label: 'Your setup', hint: 'Your main, specs and alts' },
-  { href: '/features', label: 'What you can do', hint: 'What your rank opens in the hub' }
+  { href: '/me/settings', label: 'Account Settings', hint: 'Your name and Warcraft Logs key' },
+  { href: '/setup', label: 'Your Setup', hint: 'Your main, specs and alts' },
+  { href: '/features', label: 'What You Can Do', hint: 'What your rank opens in the hub' }
 ];
 
 /** Discord sign-in, worded the same on the site's top bar and in the desktop app. */
-export const SIGN_IN = { href: '/auth/login', label: 'Log in with Discord' } as const;
+export const SIGN_IN = { href: '/auth/login', label: 'Log In with Discord' } as const;
 
 /** Signing out, as the account menu words it. The site posts to it; the desktop app does too. */
-export const SIGN_OUT = { href: '/auth/logout', label: 'Log out' } as const;
+export const SIGN_OUT = { href: '/auth/logout', label: 'Log Out' } as const;
 
 /** Every list the top bar is drawn from, so the desktop app can take them from the live site (src/lib/desktop.ts). */
 export interface NavLists {

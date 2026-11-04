@@ -46,6 +46,6 @@
   }
 </script>
 
-<svelte:head><title>Apply · Toads</title></svelte:head>
+<svelte:head><title>Apply · toads</title></svelte:head>
 
 <Recruit {signedIn} {needs} {nights} {send} {room} loginHref={__PREVIEW__ ? `${base}/login/` : '/auth/login?next=recruit'} />

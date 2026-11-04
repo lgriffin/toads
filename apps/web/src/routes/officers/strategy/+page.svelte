@@ -111,7 +111,7 @@
   }
 </script>
 
-<svelte:head><title>Strategy · Officers · Toads</title></svelte:head>
+<svelte:head><title>Strategy · Officers · toads</title></svelte:head>
 
 <div class="strategy-page">
   <p class="crumb"><a href="{base}/officers/">Officers</a></p>

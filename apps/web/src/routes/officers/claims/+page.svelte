@@ -27,7 +27,7 @@
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 </script>
 
-<svelte:head><title>Character claims · Officers · Toads</title></svelte:head>
+<svelte:head><title>Character claims · Officers · toads</title></svelte:head>
 
 <div class="claims-page">
   <p class="crumb"><a href="{base}/officers/">Officers</a></p>

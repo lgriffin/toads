@@ -4,7 +4,7 @@
   import Highlights from '$lib/preview/Highlights.svelte';
 </script>
 
-<svelte:head><title>Highlights · Toads</title></svelte:head>
+<svelte:head><title>Highlights · toads</title></svelte:head>
 
 {#if __PREVIEW__}
   <Highlights />
