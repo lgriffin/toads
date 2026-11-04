@@ -36,11 +36,11 @@ describe('menusFor', () => {
     expect(m.officerQuickLinks).toEqual([]);
   });
 
-  it("gives a raider during the launch hold only the site's held top bar", () => {
+  it("gives a raider the site's whole member top bar now the launch hold is lifted", () => {
     const m = menusFor(session());
     expect(m.tier).toBe('raider');
-    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid']);
-    expect(labels(m, 'Me')).toEqual([['Me'], ['Your setup', 'What you can do'], [SIGN_OUT.label]]);
+    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid', 'Logs', 'Highlights', 'Bank']);
+    expect(labels(m, 'Me')?.[1]).toEqual(ACCOUNT_MENU.map((i) => i.label));
     expect(labels(m, 'Officers')).toBeNull();
   });
 
@@ -96,10 +96,10 @@ describe("the live site's lists and launch hold (/desktop.json)", () => {
     expect(menusFor(raider, BUNDLED_SITE)).toEqual(menusFor(raider));
   });
 
-  it('opens a raider\'s menus as soon as the site lifts the launch hold, without a new release', () => {
-    const m = menusFor(raider, desktopSite(false));
-    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid', 'Logs', 'Highlights', 'Bank']);
-    expect(labels(m, 'Me')?.[1]).toEqual(ACCOUNT_MENU.map((i) => i.label));
+  it('holds a raider\'s menus again if the site puts the launch hold back, without a new release', () => {
+    const m = menusFor(raider, desktopSite(true));
+    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid']);
+    expect(labels(m, 'Me')).toEqual([['Me'], ['Your setup', 'What you can do'], [SIGN_OUT.label]]);
   });
 
   it('shows a page the site adds to a menu, and drops one it removes', () => {

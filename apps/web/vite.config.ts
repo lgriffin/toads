@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [sveltekit()],
   define: {
     __PREVIEW__: JSON.stringify(process.env.PREVIEW === '1'),
-    __LAUNCH_HOLD__: JSON.stringify(process.env.PREVIEW !== '1' || process.env.LAUNCH_HOLD === '1')
+    __LAUNCH_HOLD__: JSON.stringify(process.env.LAUNCH_HOLD === '1')
   },
   server: { proxy: { '/api': 'http://localhost:8000', '/auth': 'http://localhost:8000' } },
   test: { include: ['src/**/*.test.ts'] }

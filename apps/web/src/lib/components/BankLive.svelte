@@ -536,6 +536,8 @@
   .status.bad { color: var(--bad-text); }
   .status.wait { color: var(--warn); }
   td { vertical-align: top; }
+  /* On a phone the table scrolls sideways rather than squeezing the request to one word a line. */
+  .mine td:nth-child(2) { min-width: 12rem; }
   .offer { margin-top: 0.75rem; padding: 0.75rem; border: 1px solid var(--warn); border-radius: 6px; }
   .offer p { margin-top: 0; }
   :global(.btn.small) { padding: 0.25rem 0.6rem; font-size: 0.85rem; }

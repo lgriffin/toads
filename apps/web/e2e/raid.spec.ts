@@ -9,7 +9,7 @@ test("a raider sees their own raid night and no officer desk", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Wednesday raid" }),
   ).toBeVisible();
-  await expect(page.getByText("Coming soon", { exact: true })).toBeVisible();
+  await expect(page.getByText("Raid night", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Raid night" })).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Running Wednesday" }),

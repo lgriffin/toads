@@ -231,7 +231,7 @@ def never_held(launch: str) -> None:
 def waits_for_session() -> None:
     layout = _read("routes/+layout.svelte")
     assert "LAUNCH_HOLD && !__PREVIEW__ && isMemberPath(path) && (session === undefined || sessionFailed)" in layout
-    assert "__LAUNCH_HOLD__: JSON.stringify(process.env.PREVIEW !== '1' || process.env.LAUNCH_HOLD === '1')" in (
+    assert "__LAUNCH_HOLD__: JSON.stringify(process.env.LAUNCH_HOLD === '1')" in (
         WEB.parent / "vite.config.ts"
     ).read_text(encoding="utf-8")
 
