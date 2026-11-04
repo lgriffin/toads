@@ -82,6 +82,8 @@
   });
 </script>
 
+<svelte:head><title>Your settings · Toads</title></svelte:head>
+
 <h1>Your settings</h1>
 
 {#if message}<p class="warn" role="status">{message}</p>{/if}
@@ -119,7 +121,7 @@
         shows them again.
       </p>
       <p role="status">{wclKeyLabel(settings)}</p>
-      <form onsubmit={save}>
+      <form class="key" onsubmit={save}>
         <label>
           Client id
           <input autocomplete="off" spellcheck="false" required bind:value={clientId} disabled={busy} />
@@ -128,11 +130,29 @@
           Client secret
           <input type="password" autocomplete="off" required bind:value={clientSecret} disabled={busy} />
         </label>
-        <button type="submit" disabled={busy}>{settings.wcl_key ? 'Replace key' : 'Save key'}</button>
-        {#if settings.wcl_key}
-          <button type="button" onclick={remove} disabled={busy}>Remove key</button>
-        {/if}
+        <div class="actions">
+          <button class="btn primary" type="submit" disabled={busy}>{settings.wcl_key ? 'Replace key' : 'Save key'}</button>
+          {#if settings.wcl_key}
+            <button class="btn danger" type="button" onclick={remove} disabled={busy}>Remove key</button>
+          {/if}
+        </div>
       </form>
     </section>
   </div>
 {/if}
+
+<style>
+  /* Each label sits above its field, full width, so the key form reads the same on a phone and a wide screen. */
+  .key { display: grid; gap: 0.75rem; }
+  .key label { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.9rem; }
+  .key input {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font: inherit;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  fieldset label { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; padding: 0.2rem 0; }
+</style>

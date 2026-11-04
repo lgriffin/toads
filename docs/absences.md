@@ -45,9 +45,9 @@ The web app only chooses what to render; the API checks every call (REQ-HUB-ABSE
 
 ## Launch hold
 
-Raid and Me stay open to every signed-in member during the launch hold (`apps/web/src/lib/launch.ts`): the Raid page
-is itself "Coming soon" for each night, and a raider's Me shows only their absences until launch, since absences help
-the officers plan before launch too. Me's claim and settings pages stay held.
+The hold was lifted for the Forever launch on 4 November 2026. While it was on, Raid and Me stayed open to every
+signed-in member (`apps/web/src/lib/launch.ts`) and a raider's Me showed only their absences, since absences help the
+officers plan before launch too; Me's claim and settings pages stayed held. A build with `LAUNCH_HOLD=1` restores that.
 
 ## Raids & Logs is now Logs
 

@@ -441,8 +441,8 @@ Rules worth knowing:
   absences until launch). Officers see every member page as it is being built (the hub fills in from the historic TBC raids
   the worker synced), except Bank, which shows what is coming with the Forever launch and a mockup until the bank has
   data. Super admins see exactly what officers see, plus the Admin console. The hold is in the web app
-  only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. To lift it, set `LAUNCH_HOLD` to `false`
-  there in a PR and let it deploy.
+  only (`apps/web/src/lib/launch.ts`); the API's permissions are unchanged. It was lifted for the launch on 4 November
+  2026; building the web app with `LAUNCH_HOLD=1` (`apps/web/vite.config.ts`) would put it back.
 
 ## 7. Member settings and members' own Warcraft Logs keys
 

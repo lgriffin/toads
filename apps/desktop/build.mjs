@@ -12,10 +12,11 @@ await build({
   target: 'node22',
   // electron-updater is a runtime dependency that electron-builder packs into the app.
   external: ['electron', 'electron-updater'],
-  // The real site's build: the launch hold is on unless launch.ts lifts it (apps/web/vite.config.ts).
+  // The real site's build: the launch hold was lifted for the Forever launch (apps/web/vite.config.ts); the live
+  // site's /desktop.json has the last word either way.
   // A release built with a Developer ID certificate (CSC_LINK, desktop.yml) installs its own updates on macOS too.
   define: {
-    __LAUNCH_HOLD__: 'true',
+    __LAUNCH_HOLD__: 'false',
     __PREVIEW__: 'false',
     __MAC_SIGNED__: JSON.stringify(process.platform === 'darwin' && Boolean(process.env.CSC_LINK))
   },

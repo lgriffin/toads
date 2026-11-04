@@ -100,6 +100,8 @@
   });
 </script>
 
+<svelte:head><title>Me · Toads</title></svelte:head>
+
 {#snippet absenceSection()}
   <section class="absences" id="absences" aria-labelledby="absences-h">
     <h2 id="absences-h">Your absences</h2>

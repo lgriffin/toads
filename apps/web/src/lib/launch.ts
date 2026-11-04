@@ -2,12 +2,13 @@
  * The launch hold: until the hub opens with the World of Warcraft: Forever launch, a raider who signs in sees one
  * coming-soon page, and an officer sees the real member pages as they are built, except the bank, which says what it
  * will hold at launch. A super admin sees exactly what an officer sees, plus the Admin console. It only decides what the web app renders; every route
- * still checks its own permission. Lift it by setting LAUNCH_HOLD to false.
+ * still checks its own permission. It was lifted for the Forever launch on 4 November 2026; a build with LAUNCH_HOLD=1
+ * (apps/web/vite.config.ts) puts it back.
  */
 import type { Tier } from './access';
 import { ACCOUNT_MENU, MEMBER_EXTRA, MEMBER_NAV, type NavItem } from './nav';
 
-/** The real site holds; the static preview keeps the full sample-data demo unless built with LAUNCH_HOLD=1. */
+/** Off since the Forever launch, on the real site and the preview alike; a build with LAUNCH_HOLD=1 holds again. */
 export const LAUNCH_HOLD: boolean = __LAUNCH_HOLD__;
 
 export const FOREVER_LAUNCH = { date: '2026-11-04', label: '4 November 2026' } as const;
