@@ -13,7 +13,9 @@ export interface Value {
 
 export const LANDING = {
   guild: 'Toads',
-  tagline: 'A very social guild that locks in on raid night, on the EU PvP side of WoW Forever. Horde, one big pond.',
+  tagline: 'The ultimate semi-hardcore guild. Are you small, green and angry?',
+  /** Follows the tagline as a link to the recruitment page. */
+  taglineLink: 'Sign up today.',
   schedule: `${TEAM_COUNT} 40-man teams, ${NIGHTS_IN_WORDS}, 21:00 to midnight server time`,
   who: [
     'We are a very social guild that locks into raiding with a focus on speed and execution. We don’t stack classes: we bring a balanced raid group, and our players step up with consumes and the level of play we expect. We have done this from Classic Fresh to TBC, and now Forever awaits us.',
