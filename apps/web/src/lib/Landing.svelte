@@ -96,7 +96,7 @@
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
     <p class="line">Horde · PvP · EU</p>
-    <p class="tagline">{LANDING.tagline}</p>
+    <p class="tagline">{LANDING.tagline} <a href="{base}/recruit/">{LANDING.taglineLink}</a></p>
     <div class="cta">
       {#if member}
         <a class="medal" href="{base}/hub/">Go to your hub</a>
@@ -376,6 +376,7 @@
   .hero h1 { font-size: clamp(3rem, 12vw, 6rem); color: var(--cream); letter-spacing: 0.12em; text-shadow: 0 2px 18px rgb(5 3 30 / 0.7); }
   .line { font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bronze-hi); font-size: 0.95rem; }
   .tagline { font-size: 1.3rem; text-shadow: 0 1px 10px rgb(5 3 30 / 0.8); text-wrap: balance; }
+  .tagline a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 0.2em; }
   .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.8rem; max-width: none; }
   .welcome { color: var(--muted); }
   .join {
