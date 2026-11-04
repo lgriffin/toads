@@ -30,8 +30,8 @@ describe('menusFor', () => {
     const m = menusFor(null);
     expect(m.tier).toBe('visitor');
     expect(m.menus.map((x) => x.label)).toEqual(['Hub', 'Me']);
-    expect(labels(m, 'Hub')).toEqual([['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']]);
-    expect(labels(m, 'Me')).toEqual([[SIGN_IN.label], ['What you can do']]);
+    expect(labels(m, 'Hub')).toEqual([['Home', 'How We Raid', 'Hub Features', 'Story', 'Recruit']]);
+    expect(labels(m, 'Me')).toEqual([[SIGN_IN.label], ['What You Can Do']]);
     expect(paths(m, 'Me')[0]).toBe('/auth/login');
     expect(m.officerQuickLinks).toEqual([]);
   });
@@ -39,7 +39,7 @@ describe('menusFor', () => {
   it("gives a raider the site's whole member top bar now the launch hold is lifted", () => {
     const m = menusFor(session());
     expect(m.tier).toBe('raider');
-    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid', 'Logs', 'Highlights', 'Bank']);
+    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub Home', 'Raid', 'Logs', 'Highlights', 'Bank']);
     expect(labels(m, 'Me')?.[1]).toEqual(ACCOUNT_MENU.map((i) => i.label));
     expect(labels(m, 'Officers')).toBeNull();
   });
@@ -49,13 +49,13 @@ describe('menusFor', () => {
     expect(m.tier).toBe('officer');
     const officers = labels(m, 'Officers');
     expect(officers?.[0]).toEqual(OFFICER_MENU.map((i) => i.label));
-    expect(officers?.[1]).toEqual(['Sunday officers']);
+    expect(officers?.[1]).toEqual(['Sunday Officers']);
     expect(officers).toHaveLength(2);
     expect(paths(m, 'Hub')).toContain('/bank');
-    expect(labels(m, 'Me')?.[1]).toContain('Account settings');
+    expect(labels(m, 'Me')?.[1]).toContain('Account Settings');
     expect(m.officerQuickLinks).toEqual([
-      { label: 'Officer console', path: '/officers' },
-      { label: 'Sunday officers', path: '/officers/nights/sunday' }
+      { label: 'Officer Console', path: '/officers' },
+      { label: 'Sunday Officers', path: '/officers/nights/sunday' }
     ]);
   });
 
@@ -64,8 +64,8 @@ describe('menusFor', () => {
       session({ super_admin: true, global_officer: true, officer_days: ['wednesday', 'sunday'], day_roles: {} })
     );
     expect(m.tier).toBe('admin');
-    expect(labels(m, 'Officers')?.at(-1)).toEqual(['Admin console']);
-    expect(labels(m, 'Officers')?.[1]).toEqual(['Wednesday officers', 'Sunday officers']);
+    expect(labels(m, 'Officers')?.at(-1)).toEqual(['Admin Console']);
+    expect(labels(m, 'Officers')?.[1]).toEqual(['Wednesday Officers', 'Sunday Officers']);
     expect(m.officerQuickLinks.map((l) => l.path)).not.toContain('/admin');
   });
 
@@ -98,8 +98,8 @@ describe("the live site's lists and launch hold (/desktop.json)", () => {
 
   it('holds a raider\'s menus again if the site puts the launch hold back, without a new release', () => {
     const m = menusFor(raider, desktopSite(true));
-    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub home', 'Raid']);
-    expect(labels(m, 'Me')).toEqual([['Me'], ['Your setup', 'What you can do'], [SIGN_OUT.label]]);
+    expect(labels(m, 'Hub')?.[0]).toEqual(['Hub Home', 'Raid']);
+    expect(labels(m, 'Me')).toEqual([['Me'], ['Your Setup', 'What You Can Do'], [SIGN_OUT.label]]);
   });
 
   it('shows a page the site adds to a menu, and drops one it removes', () => {
