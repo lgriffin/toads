@@ -96,7 +96,8 @@
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
     <p class="line">Horde · PvP · EU</p>
-    <p class="tagline">{LANDING.tagline} <a href="{base}/recruit/">{LANDING.taglineLink}</a></p>
+    <p class="tagline">{LANDING.tagline}</p>
+    <p class="tagline">{LANDING.recruitLine} <a href="{base}/recruit/">{LANDING.recruitLink}</a></p>
     <div class="cta">
       {#if member}
         <a class="medal" href="{base}/hub/">Go to your hub</a>
