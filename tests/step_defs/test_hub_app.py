@@ -243,7 +243,7 @@ def reads_the_site(main: str) -> None:
     assert "export const prerender = true;" in endpoint and "json(desktopSite())" in endpoint
     assert "getJson(DESKTOP_PATH)" in main and "site = parseDesktopSite(siteAnswer) ?? site;" in main
     assert "export const BUNDLED_SITE: DesktopSite = desktopSite();" in _read("src/menus.ts")
-    assert "lifts the launch hold, without a new release" in _read("test/menus.test.ts")
+    assert "puts the launch hold back, without a new release" in _read("test/menus.test.ts")
     assert "the live site's lists win over the bundled ones" in _read("test/smoke/smoke.cjs")
 
 

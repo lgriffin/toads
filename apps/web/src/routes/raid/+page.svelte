@@ -59,7 +59,7 @@
     <PondHero
       title="{name} raid"
       line="Raid night"
-      lede="{name}'s home on the hub: the night's strategy, who is away and the guild's crafters. Sign-ups and raid calls run from Discord."
+      lede="{name}'s home on the hub: the night's strategy, your nights away and the guild's crafters. Sign-ups and raid calls run from Discord."
       toads={[dayToad(day, name)]}
     >
       {#if onTeam}<a class="medal" href="{base}/me/#absences">Report an absence</a>{/if}
