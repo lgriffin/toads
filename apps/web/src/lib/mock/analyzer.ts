@@ -174,7 +174,7 @@ export const analyzerPage: AnalyzerPage = {
     },
     {
       id: 'badges',
-      title: 'Toads badges',
+      title: 'toads badges',
       kind: 'badges',
       size: 'half',
       ...blank,

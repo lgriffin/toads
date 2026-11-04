@@ -23,7 +23,7 @@
   const deskBackend = __PREVIEW__ ? previewBankDesk(true) : hubBankDesk();
 </script>
 
-<svelte:head><title>{tab?.label ?? 'Coming soon'} · Toads</title></svelte:head>
+<svelte:head><title>{tab?.label ?? 'Coming soon'} · toads</title></svelte:head>
 
 <div class="pond-page">
   <ToadGreeting {name} {...facts} />

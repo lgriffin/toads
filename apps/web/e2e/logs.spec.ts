@@ -35,7 +35,7 @@ test('Logs opens on the raid night of the Toad badge, with every raid a tab away
   await expect(page.getByRole('heading', { level: 2, name: 'Wednesday at a glance' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Last raid' })).toBeVisible();
   // Members never get the roster's badges.
-  await expect(page.getByRole('heading', { level: 2, name: 'Toads badges' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'toads badges' })).toHaveCount(0);
   const raids = page.getByRole('region', { name: 'Raids', exact: true });
   await expect(raids.getByText(/ of 6 raids, Wednesday\.$/)).toBeVisible();
   await expect(raids.getByRole('cell', { name: 'Thursday' })).toHaveCount(0);
@@ -49,7 +49,7 @@ test('a super admin opens Logs on every raid', async ({ page }) => {
   await page.goto('logs/');
   const nights = page.getByRole('group', { name: 'Raid night' });
   await expect(nights.getByRole('button', { name: 'Every raid' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('heading', { level: 2, name: 'Toads badges' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'toads badges' })).toBeVisible();
 });
 
 test('a Wednesday officer sees Wednesday raids in full and other nights as an overview', async ({ page }) => {

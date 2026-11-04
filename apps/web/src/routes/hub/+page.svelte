@@ -123,7 +123,7 @@
 
 </script>
 
-<svelte:head><title>Hub · Toads</title></svelte:head>
+<svelte:head><title>Hub · toads</title></svelte:head>
 
 {#snippet status(state: Loaded<unknown>)}
   {#if state.kind === 'loading'}
@@ -218,7 +218,7 @@
     {/snippet}
   </HomeView>
 {:else}
-  <h1>Toads Hub</h1>
+  <h1>toads Hub</h1>
   {#if view.kind === 'loading'}
     <p class="muted" role="status">Loading your home…</p>
   {:else if view.kind === 'signed-out'}

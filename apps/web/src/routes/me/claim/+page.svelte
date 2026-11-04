@@ -68,6 +68,6 @@
   });
 </script>
 
-<svelte:head><title>Claim your characters · Toads</title></svelte:head>
+<svelte:head><title>Claim your characters · toads</title></svelte:head>
 
 <ClaimFlow {claims} {signedInAs} {message} {busy} {search} {onclaim} {onunclaim} />

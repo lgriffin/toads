@@ -197,7 +197,7 @@
   });
 </script>
 
-<svelte:head><title>Reference comparison · Toads</title></svelte:head>
+<svelte:head><title>Reference comparison · toads</title></svelte:head>
 
 {#if __PREVIEW__}
   <Reference />

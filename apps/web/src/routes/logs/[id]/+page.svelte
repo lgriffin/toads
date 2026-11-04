@@ -22,7 +22,7 @@
   const ready = $derived(day !== undefined && (__PREVIEW__ ? previewSession.ready : true));
 </script>
 
-<svelte:head><title>Raid log · Toads</title></svelte:head>
+<svelte:head><title>Raid log · toads</title></svelte:head>
 
 <div class="raid-log">
   <p class="back"><a href="{base}/logs/">← Logs</a></p>

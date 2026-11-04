@@ -50,7 +50,7 @@
   };
 </script>
 
-<svelte:head><title>Hub features · Toads</title></svelte:head>
+<svelte:head><title>Hub features · toads</title></svelte:head>
 
 <div class="pond-page">
   <PondHero
@@ -58,7 +58,7 @@
     line={!FOREVER_LIVE
       ? `Opens with World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`
       : `Open since World of Warcraft: Forever · ${FOREVER_LAUNCH.label}`}
-    lede="The Toads Hub joins up our raid logs, the guild bank and Discord, behind the Discord account you already use with us. Here is what it does for everyone, for raiders and for officers."
+    lede="The toads Hub joins up our raid logs, the guild bank and Discord, behind the Discord account you already use with us. Here is what it does for everyone, for raiders and for officers."
     toads={[TOAD.analyzer, TOAD.bank, TOAD.discord]}
   >
     {#if signedIn}

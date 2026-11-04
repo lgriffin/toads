@@ -44,7 +44,7 @@
   }
 </script>
 
-<svelte:head><title>Admin · Toads</title></svelte:head>
+<svelte:head><title>Admin · toads</title></svelte:head>
 
 <h1>Admin console</h1>
 

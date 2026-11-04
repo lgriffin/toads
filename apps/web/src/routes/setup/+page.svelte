@@ -106,7 +106,7 @@
   }
 </script>
 
-<svelte:head><title>Set up · Toads</title></svelte:head>
+<svelte:head><title>Set up · toads</title></svelte:head>
 
 <section class="welcome" aria-labelledby="welcome-h">
   <picture>

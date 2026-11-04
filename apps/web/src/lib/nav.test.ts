@@ -46,7 +46,7 @@ describe('top bar menus', () => {
 
   it('puts Raid and Logs under Hub, then the public pages, and leaves Me and officer pages out of it', () => {
     const groups = hubMenu(memberNav(true, true));
-    expect(groups.map((g) => g.label)).toEqual(['Your hub', 'About the guild']);
+    expect(groups.map((g) => g.label)).toEqual(['Your Hub', 'About the Guild']);
     expect(hrefs([groups[0]])).toEqual(['/hub', '/raid', '/logs', '/highlights', '/bank']);
     expect(hrefs([groups[1]])).toEqual(PUBLIC_NAV.map((i) => i.href));
     expect(hrefs(groups)).not.toContain('/me');
@@ -64,7 +64,7 @@ describe('top bar menus', () => {
 
   it('lists only the raid nights an officer runs', () => {
     const groups = officerMenu(true, false, [{ day: 'sun', name: 'Sunday' }]);
-    expect(groups.map((g) => g.label)).toEqual(['Officer tools', 'Your raid night']);
+    expect(groups.map((g) => g.label)).toEqual(['Officer Tools', 'Your Raid Night']);
     expect(hrefs(groups)).toContain('/officers/nights/sun');
     expect(hrefs(groups)).not.toContain('/officers/nights/wed');
     expect(hrefs(groups)).not.toContain('/admin');
@@ -73,7 +73,7 @@ describe('top bar menus', () => {
   it('adds the Admin console for super admins only', () => {
     const nights = ['wed', 'thu', 'sun'].map((day) => ({ day, name: day }));
     const groups = officerMenu(true, true, nights);
-    expect(groups.map((g) => g.label)).toEqual(['Officer tools', 'Your raid nights', 'Super admin']);
+    expect(groups.map((g) => g.label)).toEqual(['Officer Tools', 'Your Raid Nights', 'Super Admin']);
     expect(hrefs(groups).at(-1)).toBe('/admin');
   });
 

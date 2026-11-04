@@ -3,6 +3,6 @@
   import LiveStory from '$lib/LiveStory.svelte';
 </script>
 
-<svelte:head><title>Our story · Toads</title></svelte:head>
+<svelte:head><title>Our story · toads</title></svelte:head>
 
 <LiveStory storyOnly={LAUNCH_HOLD} />

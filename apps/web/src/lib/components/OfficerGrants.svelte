@@ -158,7 +158,7 @@
     {:else}
       <form class="find" onsubmit={search}>
         <div class="field">
-          <label for="officer-grant-q">Find someone in the Toads Discord</label>
+          <label for="officer-grant-q">Find someone in the toads Discord</label>
           <input
             id="officer-grant-q"
             type="search"
@@ -186,7 +186,7 @@
             {/each}
           </ul>
         {:else}
-          <p class="muted">Nobody in the Toads Discord has a name starting “{searched}”.</p>
+          <p class="muted">Nobody in the toads Discord has a name starting “{searched}”.</p>
         {/if}
       {/if}
     {/if}

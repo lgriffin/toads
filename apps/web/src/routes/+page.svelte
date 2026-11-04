@@ -40,6 +40,6 @@
   });
 </script>
 
-<svelte:head><title>Toads · Horde PvP guild, EU, WoW Forever</title></svelte:head>
+<svelte:head><title>toads · Horde PvP guild, EU, WoW Forever</title></svelte:head>
 
 <Landing {member} {pulse} {needs} {needsFailed} {nights} loginHref={__PREVIEW__ ? `${base}/login/` : '/auth/login'} />

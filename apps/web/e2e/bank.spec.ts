@@ -41,7 +41,7 @@ test('a token the super admin mints gives the raider bank upkeep', async ({ page
   const token = (await admin.locator('.token code').textContent())?.trim() ?? '';
   expect(token).toMatch(/^demo-/);
 
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to Raider View' }).click();
   await expect(page.getByRole('heading', { name: 'Bank upkeep: requests and imports' })).toHaveCount(0);
   await page.getByText('Have an officer token?').click();
   await page.getByLabel('Token', { exact: true }).fill(token);

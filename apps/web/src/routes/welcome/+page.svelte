@@ -5,7 +5,7 @@
   // The first sign-in checklist. Each step is a link to the page that does it; nothing here is stored yet.
 </script>
 
-<svelte:head><title>Welcome · Toads</title></svelte:head>
+<svelte:head><title>Welcome · toads</title></svelte:head>
 
 <h1>Welcome to the pond</h1>
 <p class="lede">Six steps get you set up. Do them in any order; each one opens the page that does it.</p>

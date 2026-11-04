@@ -32,7 +32,7 @@
   const needs = __PREVIEW__ ? previewNeeds() : hubNeeds();
 </script>
 
-<svelte:head><title>Recruitment · Toads</title></svelte:head>
+<svelte:head><title>Recruitment · toads</title></svelte:head>
 
 <p class="crumbs"><a href="{base}/officers">Officer console</a></p>
 <h1>Recruitment</h1>

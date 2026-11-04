@@ -36,7 +36,7 @@
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
 </script>
 
-<svelte:head><title>{day ? `${name} raid` : 'Raid'} · Toads</title></svelte:head>
+<svelte:head><title>{day ? `${name} raid` : 'Raid'} · toads</title></svelte:head>
 
 {#if !ready}
   <p class="muted" role="status">Loading…</p>

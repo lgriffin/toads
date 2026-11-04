@@ -32,7 +32,7 @@ export function previewOfficerGrants(): OfficerGrantBackend {
     },
     grant: async (id, raidDay) => {
       const who = MEMBERS.find((m) => m.discord_user_id === id);
-      if (!who) throw new ApiError(422, 'They are not in the Toads Discord');
+      if (!who) throw new ApiError(422, 'They are not in the toads Discord');
       const held = grants.find((g) => g.discord_user_id === id && g.raid_day === raidDay);
       if (held) return held;
       const made = { id: next++, ...who, raid_day: raidDay, granted_by_name: 'You', granted_at: new Date().toISOString() };

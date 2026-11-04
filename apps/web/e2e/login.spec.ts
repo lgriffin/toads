@@ -5,7 +5,7 @@ import { openAccountMenu, openHubMenu, openOfficersMenu } from './nav';
 
 test('a visitor lands signed out and member pages ask them to log in', async ({ page }) => {
   await page.goto('');
-  await expect(page.getByRole('heading', { name: 'Toads', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'toads', level: 1 })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Go to your hub' })).toHaveCount(0);
 
@@ -28,7 +28,7 @@ test('a raider signs in, sees their own side but not the officer console', async
   const hub = await openHubMenu(page);
   await expect(hub.getByRole('list').first().getByRole('link')).toHaveText([/^Hub home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/]);
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Toads badges' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'toads badges' })).toHaveCount(0);
 
   await main.getByRole('link', { name: 'Me', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Your badges' })).toBeVisible();
@@ -42,7 +42,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await page.getByRole('button', { name: 'Sign in as a raider' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
 
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to officer view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to Officer View' }).click();
   await expect(page.locator('#menu-account')).toBeHidden();
   await expect((await openAccountMenu(page)).getByText('Officer', { exact: true })).toBeVisible();
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(1);
@@ -51,7 +51,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Officer console', level: 1 })).toBeVisible();
 
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to Raider View' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
   await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Officers' })).toHaveCount(0);
 });
@@ -60,7 +60,7 @@ test('logging out returns to the public landing page', async ({ page }) => {
   await page.goto('login/');
   await page.getByRole('button', { name: 'Sign in as an officer' }).click();
   await expect(page).toHaveURL(/\/toads\/hub\/$/);
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Log out' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Log Out' }).click();
   await expect(page).toHaveURL(/\/toads\/$/);
   await expect(page.getByRole('main').getByRole('link', { name: 'Log in with Discord' })).toBeVisible();
   await page.reload();
@@ -79,7 +79,7 @@ test('switching to the raider view mid-customise drops the officer widgets', asy
   await page.getByRole('button', { name: 'Customise' }).click();
   await expect(page.getByRole('checkbox', { name: /Raid leader desk/ })).toHaveCount(1);
 
-  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to raider view' }).click();
+  await (await openAccountMenu(page)).getByRole('button', { name: 'Switch to Raider View' }).click();
   await expect(page.getByRole('region', { name: 'Customise your home' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Customise' }).click();
   await expect(page.getByRole('checkbox', { name: /Raid leader desk/ })).toHaveCount(0);
@@ -89,7 +89,7 @@ test('switching to the raider view mid-customise drops the officer widgets', asy
 
 test('a visitor sees how a raid night works without anyone being named', async ({ page }) => {
   await page.goto('');
-  const model = page.getByRole('region', { name: 'How a Toads raid night works' });
+  const model = page.getByRole('region', { name: 'How a toads raid night works' });
   await expect(model.getByRole('link')).toHaveText([
     'Prep',
     'Flasks and consumes',
@@ -118,7 +118,7 @@ test('a signed-out applicant is asked to sign in with Discord and keeps their an
   await page.getByLabel('Class', { exact: true }).selectOption('Mage');
   await expect(page.getByRole('group', { name: 'Primary role' }).getByLabel('Ranged')).toBeChecked();
   await page.getByRole('group', { name: 'Raid night' }).getByLabel('Wednesday').check();
-  await page.getByLabel('Why Toads?').fill('Friends raid here.');
+  await page.getByLabel('Why toads?').fill('Friends raid here.');
   // The step's own sign-in link keeps the answers too, not only the send button.
   await page.getByRole('link', { name: 'Sign in with Discord', exact: true }).click();
   await expect(page).toHaveURL(/\/login\/$/);
@@ -128,6 +128,6 @@ test('a signed-out applicant is asked to sign in with Discord and keeps their an
   await expect(page).toHaveURL(/\/login\/$/);
   await page.goto('recruit/');
   await expect(page.getByLabel('Character name')).toHaveValue('Lilypad');
-  await expect(page.getByLabel('Why Toads?')).toHaveValue('Friends raid here.');
+  await expect(page.getByLabel('Why toads?')).toHaveValue('Friends raid here.');
   await expect(page.getByRole('group', { name: 'Raid night' }).getByLabel('Wednesday')).toBeChecked();
 });

@@ -12,7 +12,7 @@ export interface Value {
 }
 
 export const LANDING = {
-  guild: 'Toads',
+  guild: 'toads',
   tagline: 'A very social guild that locks in on raid night, on the EU PvP side of WoW Forever. Horde, one big pond.',
   /** The line under the tagline; `recruitLink` follows it as a link to the recruitment page. */
   recruitLine: 'The ultimate semi-hardcore guild. Are you small, green and angry?',
@@ -52,7 +52,7 @@ export const RECRUITING_COPY = {
   open: 'These are the primary specs the officers want first.',
   unavailable: 'We could not load what each night is recruiting just now. Ask us in Discord.',
   social:
-    'Not after a raid spot? Poke any member of Toads in game for a social invite and come to the pond: everyone is welcome.'
+    'Not after a raid spot? Poke any member of toads in game for a social invite and come to the pond: everyone is welcome.'
 };
 
 export const SOCIAL = {

@@ -10,7 +10,7 @@
   let live = $state<ReturnType<typeof BankLive>>();
 </script>
 
-<svelte:head><title>Guild bank · Toads</title></svelte:head>
+<svelte:head><title>Guild bank · toads</title></svelte:head>
 
 {#if __PREVIEW__}
   <Bank />

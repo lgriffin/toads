@@ -30,7 +30,7 @@
   }
 </script>
 
-<svelte:head><title>Log in · Toads</title></svelte:head>
+<svelte:head><title>Log in · toads</title></svelte:head>
 
 <section class="login" aria-labelledby="login-h">
   <h1 id="login-h">Log in with Discord</h1>

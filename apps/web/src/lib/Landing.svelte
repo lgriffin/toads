@@ -92,7 +92,7 @@
 
     <div class="seal">
       <span class="ripple"></span>
-      <ToadsMark size={168} title="The Toads medallion" />
+      <ToadsMark size={168} title="The toads medallion" />
     </div>
     <h1 id="landing-h">{LANDING.guild}</h1>
     <p class="line">Horde · PvP · EU</p>
@@ -269,13 +269,13 @@
           {/each}
         </ul>
       </div>
-      <img class="pond-art" src="{base}/logos/pond-medallion.svg" alt="Toads sharing a pond: a croaking toad, one chasing a firefly and one asleep on a lily pad" width="300" height="300" loading="lazy" />
+      <img class="pond-art" src="{base}/logos/pond-medallion.svg" alt="toads sharing a pond: a croaking toad, one chasing a firefly and one asleep on a lily pad" width="300" height="300" loading="lazy" />
     </div>
   </section>
 
   <section class="band" aria-labelledby="model-h">
     <div class="head">
-      <h2 id="model-h">How a Toads raid night works</h2>
+      <h2 id="model-h">How a toads raid night works</h2>
       <p>What we expect, how we measure it and what you see once you join. Everyone sees the same numbers.</p>
     </div>
     <ModelPillars compact />
@@ -285,7 +285,7 @@
   <section class="band" aria-labelledby="apps-h">
     <div class="head">
       <h2 id="apps-h">What opens when you join</h2>
-      <p>Sign in with the Discord account you use in the Toads server. Officers get more on top.</p>
+      <p>Sign in with the Discord account you use in the toads server. Officers get more on top.</p>
     </div>
     <!-- Until Forever is live (FOREVER_LIVE in src/lib/launch.ts), which lifting the launch hold sets. -->
     {#if !FOREVER_LIVE}

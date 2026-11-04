@@ -84,7 +84,7 @@ test('a signed-in officer has Hub, Me and one Officers menu in the top bar', asy
   const hub = await openHubMenu(page);
   await expect(main.getByRole('button', { name: 'Hub' })).toHaveAttribute('aria-expanded', 'true');
   await expect(hub.getByRole('link')).toHaveText([
-    /^Hub home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/, 'Home', 'How we raid', 'Hub features', 'Story', 'Recruit'
+    /^Hub Home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/, 'Home', 'How We Raid', 'Hub Features', 'Story', 'Recruit'
   ]);
   await page.keyboard.press('Escape');
   await expect(hub).toBeHidden();
@@ -108,7 +108,7 @@ test('a visitor keeps the public nav', async ({ page }) => {
   await signOut(page);
   await page.goto('');
   const guild = page.getByRole('navigation', { name: 'Guild' });
-  await expect(guild.getByRole('link')).toHaveText(['Home', 'How we raid', 'Hub features', 'Story', 'Recruit']);
+  await expect(guild.getByRole('link')).toHaveText(['Home', 'How We Raid', 'Hub Features', 'Story', 'Recruit']);
   await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
 });
 
@@ -137,7 +137,7 @@ test('a visitor picks a theme from the Display menu', async ({ page }) => {
 
 test('the landing page says who we are and what we stand for', async ({ page }) => {
   await page.goto('');
-  await expect(page.getByRole('heading', { name: 'Toads', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'toads', level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Who we are', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recruitment', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What we stand for' })).toBeVisible();
@@ -213,7 +213,7 @@ test('Logs draws the analyzer widgets from their shared payloads', async ({ page
 test('the hub home leaves the raid widgets to Logs', async ({ page }) => {
   await page.goto('hub/');
   await expect(page.locator('[data-widget="next_raid"]')).toBeVisible();
-  for (const name of ['Guild at a glance', 'Top damage', 'Recent raids', 'Toads badges']) {
+  for (const name of ['Guild at a glance', 'Top damage', 'Recent raids', 'toads badges']) {
     await expect(page.getByRole('region', { name, exact: true })).toHaveCount(0);
   }
   await page.getByRole('button', { name: 'Customise' }).click();
@@ -222,7 +222,7 @@ test('the hub home leaves the raid widgets to Logs', async ({ page }) => {
 
 test('raid leaders see the roster\'s badges on Logs and members their own on Me', async ({ page }) => {
   await page.goto('logs/');
-  const roster = page.getByRole('region', { name: 'Toads badges' });
+  const roster = page.getByRole('region', { name: 'toads badges' });
   await expect(roster.getByText('Hopscotch', { exact: true })).toBeVisible();
   await expect(roster.getByRole('img', { name: /^Loyal Toad, Legendary: 104 raids/ }).first()).toBeVisible();
   await page.goto('me/');

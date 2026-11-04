@@ -50,7 +50,7 @@ export const JOBS: readonly Job[] = [
   { name: 'sync-guild', what: 'Analyse the guild’s new Warcraft Logs reports', every: '60 minutes' },
   { name: 'publish-home', what: 'Analyzer widgets on the hub home', every: '30 minutes' },
   { name: 'publish-performance', what: 'Each member’s number against the role median', every: '30 minutes' },
-  { name: 'publish-badges', what: 'Toads badges', every: '30 minutes' },
+  { name: 'publish-badges', what: 'toads badges', every: '30 minutes' },
   { name: 'publish-reference', what: 'Reference raid lists and comparisons', every: '30 minutes' },
   { name: 'import-sheets', what: 'The CBA and RPB raid sheets', every: '6 hours' }
 ];

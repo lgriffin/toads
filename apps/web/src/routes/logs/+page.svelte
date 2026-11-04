@@ -76,7 +76,7 @@
   const label = $derived(nights.find((n) => n.id === night)?.name ?? 'Every raid');
 </script>
 
-<svelte:head><title>Logs · Toads</title></svelte:head>
+<svelte:head><title>Logs · toads</title></svelte:head>
 
 <div class="logs">
   <h1>Logs</h1>

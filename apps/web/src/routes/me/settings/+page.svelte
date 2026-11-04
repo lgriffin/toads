@@ -82,7 +82,7 @@
   });
 </script>
 
-<svelte:head><title>Your settings · Toads</title></svelte:head>
+<svelte:head><title>Your settings · toads</title></svelte:head>
 
 <h1>Your settings</h1>
 

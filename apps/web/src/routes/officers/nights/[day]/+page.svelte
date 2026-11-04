@@ -56,7 +56,7 @@
   const loot = __PREVIEW__ ? previewLoot : hubLoot();
 </script>
 
-<svelte:head><title>{runs ? `${name} officers` : 'Officers'} · Toads</title></svelte:head>
+<svelte:head><title>{runs ? `${name} officers` : 'Officers'} · toads</title></svelte:head>
 
 {#if !ready}
   <p class="muted" role="status">Loading…</p>
