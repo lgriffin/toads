@@ -45,7 +45,6 @@ def upgrade() -> None:
         "reference_jobs",
         sa.column("kind", sa.String),
         sa.column("status", sa.String),
-        sa.column("status", sa.String),
         sa.column("raid_day", sa.String),
         sa.column("params", sa.JSON),
         sa.column("created_at", sa.DateTime(timezone=True)),
