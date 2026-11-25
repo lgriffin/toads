@@ -6,8 +6,8 @@ Each doc gets the night its `strategy.add` audit row names. A doc another night 
 night's Raid page loses a doc it shows; so does a doc with no audit row. References and comparisons get the nights of
 the import and compare jobs still kept that succeeded; older ones stay shared.
 
-Revision ID: 0044
-Revises: 0043
+Revision ID: 0045
+Revises: 0044
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0044"
-down_revision = "0043"
+revision = "0045"
+down_revision = "0044"
 branch_labels = None
 depends_on = None
 

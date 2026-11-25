@@ -367,8 +367,8 @@ Rules worth knowing:
   day is the global tier's.
 - **Nights are kept apart** (since 25 Nov 2026). A night's officers see and change only their own night's officer work,
   never another night's: claims, main swaps, applications and their notes, interview panels, recruitment needs,
-  absences, the task board and links, loot lists, comps, photo and stream reviews, posts to curate, strategy docs and
-  reference comparisons. What the global tier adds (a strategy doc, an older reference raid) is shared with every night;
+  absences, the task board and links, loot lists, comps, photo and stream reviews, posts to curate, the sign-in audit,
+  strategy docs and reference comparisons. What the global tier adds (a strategy doc, an older reference raid) is shared with every night;
   an application or claim that names no night goes to the global tier alone. An officer of two nights sees both, and
   global officers and super admins see every night. Asking for another night's page answers 403 and is audited as
   `rbac.denied`; asking for another night's item through your own night's page answers 404. Still guild-wide on
@@ -623,6 +623,16 @@ The same panels hold **main swaps**, tagged "Main swap": a member asking to raid
 instead of their main (the first character they were approved for, until a swap). Approve makes the alt their main on
 Me, "Your performance" and badges; reject asks for the reason the member reads on Me. Main swaps follow the member's
 nights exactly as claims do (`/api/days/{day}/main-swaps`, `/api/admin/main-swaps`); see `docs/me.md`.
+
+### See who has signed in
+
+**Officers > Sign-ins** (`/officers/sign-ins`) is the sign-in audit: pick a day (or a bar in a night's last fortnight)
+to see who signed in to the hub that day and at what time, and below it when each member of the night last signed in,
+with anyone quiet for two weeks in italics and anyone who never has marked "Never". Days run midnight to midnight in
+`raid_days.yaml`'s `timezone`. A night's officers see only their own night's members, by the night roles a member held
+when they signed in; global officers and super admins see every night plus "Members on no raid night". Nothing to
+configure: every sign-in since the release with migration 0044 is recorded (before that, only each member's last
+sign-in is known). See `docs/sign-ins.md`.
 
 ### Refresh hub data by hand
 

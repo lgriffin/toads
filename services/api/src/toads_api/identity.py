@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import anyio
 import structlog
-from hub_db import Member
+from hub_db import Member, SignIn
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -108,6 +108,8 @@ def upsert_member(services: Services, member: GuildMember, *, signing_in: bool =
         row.raid_days = days
         if signing_in:
             row.signed_in_at = datetime.fromtimestamp(services.clock(), UTC)
+            # The officers' sign-in audit (docs/sign-ins.md), with the nights the member is on now.
+            db.add(SignIn(member_id=row.id, at=row.signed_in_at, raid_days=list(days)))
         return row.id
 
 

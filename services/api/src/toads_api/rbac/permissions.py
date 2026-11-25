@@ -62,6 +62,9 @@ class Permission(enum.StrEnum):
     # Raid strategy docs (docs/strategy.md): every officer adds Google Docs to the raids (a night's officers through
     # their night's path, the global tier guild-wide); a night's officers pin the docs its Raid page shows its raiders.
     MANAGE_STRATEGY = "manage_strategy"
+    # The sign-in audit (docs/sign-ins.md): who signed in on a day and when each member last did. A night's officers see
+    # their night's members; the global tier also sees members on no night.
+    VIEW_SIGN_INS = "view_sign_ins"
     # Super admins only (docs/admin.md "View as"): see the hub, read only, as one raid night's raider or officer.
     VIEW_AS = "view_as"
 

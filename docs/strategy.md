@@ -68,5 +68,5 @@ comma separated). Saves of one night's pins take turns, so two officers never le
 hub-db tables `strategy_docs` (one row per doc added to a raid; migration `0040`) and `night_strategy_docs` (one row per
 doc a raid day pins, with its `position`; migration `0043`, which replaced `night_raid_choices` and kept each night
 showing the docs it showed before). `strategy_docs.raid_day_id` is the night a doc belongs to, NULL for a shared one
-(migration `0044`, which gave each doc the night its `strategy.add` audit row names and left shared any doc another
+(migration `0045`, which gave each doc the night its `strategy.add` audit row names and left shared any doc another
 night already pinned, so no Raid page lost a doc).

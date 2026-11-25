@@ -20,7 +20,8 @@ run two nights, you see both, each on its own. Global officers see every night, 
 
 Officers get an **Officers** menu in the top bar:
 
-- **Officer Tools:** Officer Console, Character Claims, Calendar, Comp Builder, Professions, Recruitment and Strategy.
+- **Officer Tools:** Officer Console, Character Claims, Calendar, Comp Builder, Professions, Recruitment, Sign-ins and
+  Strategy.
   Each one shows you only the nights you run.
 - **Your Raid Night(s):** one entry per night you run, such as **Sunday Officers**, which opens that night's own
   section.
@@ -60,6 +61,12 @@ with a reason they will see on Me. Global officers also see a panel for members 
 Members add the nights they will miss on Me, each with a note only you see. **Officers > Calendar** shows your nights'
 upcoming absences a few weeks ahead. The same list is in your night's section, and the Tonight band shows the next
 raid's.
+
+## Sign-ins
+
+**Officers > Sign-ins** shows who signed in to the hub on a day you pick, and when each member of your night last
+signed in. Anyone quiet for two weeks shows in italics, and anyone who never has shows "Never". You only see your own
+nights' members. Global officers also see members on no raid night.
 
 ## Recruitment
 

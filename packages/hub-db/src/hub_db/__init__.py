@@ -50,6 +50,7 @@ from hub_db.raid_sheets import RaidSheetSnapshot
 from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferenceNight, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
 from hub_db.setup import DeclaredCharacter
+from hub_db.sign_ins import SignIn
 from hub_db.strategy import NightDoc, StrategyDoc
 
 __all__ = [
@@ -107,6 +108,7 @@ __all__ = [
     "ReferenceLogin",
     "ReferenceNight",
     "ReferencePage",
+    "SignIn",
     "Spotlight",
     "StoredWclCredentials",
     "StrategyDoc",
