@@ -11,7 +11,8 @@ night and also holds a few guild-wide jobs, marked "global officers" below.
 
 Everything a night owns is for that night's officers only: its officer section, task board, loot priority, absences,
 character claims, applicants, interview panel and recruitment needs, its roster in the comp builder and professions,
-its raids in full under Logs, and its members' highlights waiting for approval. A Sunday officer sees and changes
+its raids in full under Logs, its members' highlights waiting for approval, its strategy docs and its reference
+comparisons. A Sunday officer sees and changes
 Sunday's, never Wednesday's, and opening another night's page by its link shows a refusal instead of its content. If you
 run two nights, you see both, each on its own. Global officers see every night, with a switcher.
 
@@ -70,7 +71,7 @@ raid's.
 - **Interview panel:** who from the toads Discord interviews your night's applicants, up to 10 people. They do not need
   to have logged in to the hub. A change applies to the next application; rooms already open keep their people.
 - **Decisions:** every application for your night still waiting, oldest first, with the answers, a link into the
-  interview room and the applicant's logs.
+  interview room and the applicant's logs. An application that names no night goes to the global officers only.
   - **Notes** are for officers only; the applicant never sees them.
   - **Accept** gives the applicant your night's raider role in Discord and posts a welcome in their room. Inviting them
     in game is still yours to do.
@@ -112,13 +113,16 @@ Raiders never see the list.
 
 Strategy and role sheets stay in Google Drive; the hub only links them.
 
+Each night keeps its own library: a doc belongs to the night that added it, and only that night's officers see, pin
+or take it down. A doc a global officer adds is shared with every night, and only a global officer can take it down.
+
 1. On **Officers > Strategy**, pick the raid (MC, BWL, ZG, AQ20, AQ40, Naxx or TBD), paste a
    `docs.google.com` or `drive.google.com` link, optionally name it, and press **Add the doc**.
 2. Pin the docs your night's raiders need, on your night's Raid page or under "What each night's raiders see": tick one
    doc per raid the night runs, up to 10. Raiders see them on their Raid page in the order you ticked them.
 3. Share each doc in Drive with the raiders. The hub cannot tell whether they can open it.
 
-You can take down a doc no other night pins.
+You can take down your night's own docs that no other night pins.
 
 ## Professions and guild crafters
 
@@ -134,7 +138,8 @@ Engineering tabs, each raider's damage and healing per kill in Boss history, and
 weekday none of your nights raids is in full for global officers only.
 
 **Reference reports** (from the Officer Console, or `/officers/reference`) compare our raids with another guild's
-report.
+report. A night sees only the references and comparisons its own officers imported or ran; older ones from before
+nights were kept apart are shared, and only a global officer can relabel or delete them.
 
 ## Highlights approval
 
