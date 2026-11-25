@@ -85,6 +85,7 @@ export const APPS: readonly App[] = [
           { text: 'Approve character claims', permission: 'approve_claims' },
           { text: 'Build and lock in raid comps from your night’s roster', permission: 'build_comps' },
           { text: 'Your raid night’s absences in one place', permission: 'view_absences' },
+          { text: 'Who in your raid night signed in to the hub each day, and when each member last did', permission: 'view_sign_ins' },
           { text: 'Your raid night’s task board: assign tasks and set due dates', permission: 'manage_officer_board' },
           { text: 'Your raid night’s loot priority: who is first, second and third in line for each item', permission: 'manage_loot' },
           { text: 'See your raid night’s professions and name the guild’s crafters', permission: 'manage_crafters' },

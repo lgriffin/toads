@@ -69,6 +69,8 @@ from toads_api.role_badges.service import RoleBadgeService
 from toads_api.role_badges.sql import SqlRoleBadgeRepository
 from toads_api.sessions import SessionStore
 from toads_api.settings import Settings
+from toads_api.sign_ins.service import SignInService
+from toads_api.sign_ins.sql import SqlSignInRepository
 from toads_api.strategy.service import StrategyService
 from toads_api.strategy.sql import SqlStrategyRepository
 
@@ -89,6 +91,7 @@ class Services:
     account: AccountService = field(init=False)
     awards: AwardService = field(init=False)
     absences: AbsenceService = field(init=False)
+    sign_ins: SignInService = field(init=False)
     logs: LogService = field(init=False)
     role_badges: RoleBadgeService = field(init=False)
     comps: CompService = field(init=False)
@@ -244,6 +247,12 @@ class Services:
             SqlAbsenceRepository(self.db),
             self.account.shown_names,
             weekdays,
+            today=lambda: datetime.fromtimestamp(self.clock(), zone).date(),
+        )
+        self.sign_ins = SignInService(
+            SqlSignInRepository(self.db),
+            self.account.shown_names,
+            zone,
             today=lambda: datetime.fromtimestamp(self.clock(), zone).date(),
         )
         self.logs = LogService(SqlLogRepository(self.db), weekdays)

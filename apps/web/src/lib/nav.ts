@@ -63,6 +63,7 @@ export const OFFICER_MENU: readonly NavItem[] = [
   { href: '/officers/comp', label: 'Comp Builder', hint: 'Plan groups and buffs' },
   { href: '/officers/professions', label: 'Professions', hint: 'Who crafts what, and the guild’s crafters' },
   { href: '/officers/recruitment', label: 'Recruitment', hint: 'Needs, decisions and panels for each night' },
+  { href: '/officers/sign-ins', label: 'Sign-ins', hint: 'Who signed in each day, and when each member last did' },
   { href: '/officers/strategy', label: 'Strategy', hint: 'The pinned Google Doc for each raid' }
 ];
 
