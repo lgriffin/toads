@@ -22,6 +22,12 @@ flowchart LR
   api --> discord
 ```
 
+## Guides for players
+
+How to use the hub, one guide per role: [visitors and applicants](docs/guides/visitors.md),
+[raiders](docs/guides/raiders.md), [officers](docs/guides/officers.md) and [super admins](docs/guides/super-admins.md).
+Start at [docs/guides/README.md](docs/guides/README.md).
+
 ## Quick start
 
 Needs Docker, [uv](https://docs.astral.sh/uv/), Node 22 and [just](https://just.systems/).

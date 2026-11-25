@@ -76,7 +76,7 @@ export function menusFor(session: Session | null, site: DesktopSite = BUNDLED_SI
       groups: officerGroups.map((g, i) => links(g, i === 0 ? (n) => `CmdOrCtrl+Shift+${n + 1}` : undefined))
     });
   }
-  const quick = officerGroups.filter((g) => g.label !== 'Super admin').flatMap((g) => g.items);
+  const quick = officerGroups.filter((g) => g.label !== 'Super Admin').flatMap((g) => g.items);
   return {
     tier,
     menus,
