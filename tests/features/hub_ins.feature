@@ -35,3 +35,12 @@ Feature: HUB INS
     Given a Wednesday officer signed in to the hub
     When they import another guild's report as a reference
     Then the import is refused with 409
+
+  @ears_ubiquitous @raid_leader @phase_2_6
+  Scenario: REQ-HUB-INS-006 A raid night's reference comparisons shall be its own: a night's officers shall see and change only the references and comparisons their nights imported or compared and their nights' requests, never another night's
+    Given a Wednesday officer signed in to the hub
+    And they connect the guild's Warcraft Logs account
+    When they import another guild's report as a reference
+    And they compare one of our raids with it
+    Then a Sunday officer's reference page lists none of it
+    And a Sunday officer can neither read the comparison nor relabel or delete the reference

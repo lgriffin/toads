@@ -14,13 +14,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from hub_db import Base, CredentialCipher, Member, ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
-from hub_db.reference import LOGIN_ROW, JobKind, LoginToken, create_job, load_login, save_comparison, save_login
+from hub_db.reference import (
+    LOGIN_ROW,
+    JobKind,
+    LoginToken,
+    claim,
+    create_job,
+    load_login,
+    save_comparison,
+    save_login,
+)
 from pydantic import SecretStr
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from toads_worker.jobs import reference
 from toads_worker.settings import Settings
+from wcl_app import ReferenceRequestError
 from wcl_core.client import WarcraftLogsClient
 from wcl_core.models import (
     DPSPerformance,
@@ -95,9 +105,9 @@ def _connect(db: sessionmaker[Session], expires_at: float = 4_000_000_000.0) -> 
     return token
 
 
-def _job(db: sessionmaker[Session], kind: JobKind, **params: Any) -> str:
+def _job(db: sessionmaker[Session], kind: JobKind, day: str = "wed", **params: Any) -> str:
     with db.begin() as s:
-        return create_job(s, kind, "wed", 1, params).id
+        return create_job(s, kind, day, 1, params).id
 
 
 def _run(job_id: str, db: sessionmaker[Session], storage: Callable[[], PerformanceDB]) -> dict[str, Any]:
@@ -275,3 +285,68 @@ def test_a_refresh_after_a_reconnect_leaves_the_new_login_alone(
         assert _run(job, hub_db, storage)["message"] == reference.EXPIRED_MESSAGE
     with hub_db() as s:
         assert load_login(s, CredentialCipher([KEY])) == newer
+
+
+def _owners(db: sessionmaker[Session]) -> dict[str, set[str]]:
+    from hub_db import ReferenceNight
+
+    found: dict[str, set[str]] = {}
+    with db() as s:
+        for row in s.scalars(select(ReferenceNight)):
+            found.setdefault(row.key, set()).add(row.raid_day_id)
+    return found
+
+
+def test_a_night_owns_only_what_its_requests_stored(
+    hub_db: sessionmaker[Session], storage: Callable[[], PerformanceDB]
+) -> None:
+    """Nights are kept apart: an import or comparison belongs to its night once it succeeds, a failed one to nobody,
+    a raid stored before nights were kept apart stays shared, and a delete forgets who owned it."""
+    _connect(hub_db)
+    failed = _job(hub_db, JobKind.IMPORT, report=THEIRS, label=None)
+    with patch("wcl_app.raids.analyze_raid", side_effect=ReferenceRequestError("No such report")):
+        assert _run(failed, hub_db, storage)["status"] == "failed"
+    assert _owners(hub_db) == {}
+    job = _job(hub_db, JobKind.IMPORT, report=THEIRS, label=None)
+    with patch("wcl_app.raids.analyze_raid", return_value=_analysis(THEIRS, "Best Gruul", 800_000)):
+        assert _run(job, hub_db, storage)["status"] == "done"
+    assert (
+        _run(_job(hub_db, JobKind.COMPARE, guild_report=OURS, reference_report=THEIRS), hub_db, storage)["status"]
+        == "done"
+    )
+    assert _owners(hub_db) == {THEIRS: {"wed"}, f"{OURS}/{THEIRS}": {"wed"}}
+
+    # Sunday asked to relabel before Wednesday imported it: the worker checks again and refuses.
+    sunday = _job(hub_db, JobKind.LABEL, day="sun", report=THEIRS, label="Mine", nights=["sun"])
+    result = _run(sunday, hub_db, storage)
+    assert result["status"] == "failed" and "No such reference raid" in result["message"]
+    # A raid two nights own (a comparison both built, say): neither night alone may change it now.
+    with hub_db.begin() as s:
+        claim(s, THEIRS, "sun", existed=True)
+    assert _owners(hub_db)[THEIRS] == {"wed", "sun"}
+    result = _run(_job(hub_db, JobKind.DELETE, report=THEIRS, nights=["wed"]), hub_db, storage)
+    assert result["status"] == "failed" and "Another night" in result["message"]
+    # A global officer's delete forgets the raid, its comparisons and their owners.
+    assert _run(_job(hub_db, JobKind.DELETE, report=THEIRS, nights=None), hub_db, storage)["status"] == "done"
+    assert _owners(hub_db) == {}
+
+
+def test_a_comparison_of_a_shared_pair_stays_shared(
+    hub_db: sessionmaker[Session], storage: Callable[[], PerformanceDB]
+) -> None:
+    with storage() as db:
+        db.import_raid(_analysis(THEIRS, "Best Gruul", 800_000), source="reference")
+    payload = {"guild": {"report_id": OURS, "title": "Ours"}, "reference": {"report_id": THEIRS, "title": "Theirs"}}
+    with hub_db.begin() as s:
+        save_comparison(s, payload, "2026-11-01 10:00:00")
+    assert (
+        _run(_job(hub_db, JobKind.COMPARE, guild_report=OURS, reference_report=THEIRS), hub_db, storage)["status"]
+        == "done"
+    )
+    assert _owners(hub_db) == {}
+    # Another night's comparison of a pair one night owns adds it as an owner too: it rebuilt the result itself.
+    with hub_db.begin() as s:
+        claim(s, f"{OURS}/{THEIRS}", "wed", existed=False)
+    job = _job(hub_db, JobKind.COMPARE, day="sun", guild_report=OURS, reference_report=THEIRS)
+    assert _run(job, hub_db, storage)["status"] == "done"
+    assert _owners(hub_db) == {f"{OURS}/{THEIRS}": {"wed", "sun"}}

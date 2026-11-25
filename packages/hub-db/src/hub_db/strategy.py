@@ -16,7 +16,9 @@ from hub_db.models import Base, _now
 
 class StrategyDoc(Base):
     """A strategy doc added to a raid. A raid keeps every doc its officers add until one is taken down; a night shows
-    its raiders only the docs it pins (NightDoc)."""
+    its raiders only the docs it pins (NightDoc). A doc added through a night belongs to that night: only its officers
+    (and the global tier) see, pin or take it down. One the global tier adds (raid_day_id NULL) is shared by every
+    night."""
 
     __tablename__ = "strategy_docs"
     __table_args__ = (Index("ix_strategy_docs_raid", "raid", "id"),)
@@ -27,6 +29,8 @@ class StrategyDoc(Base):
     url: Mapped[str] = mapped_column(String(500))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # The raid day it was added through (config id, not a foreign key); NULL: shared with every night.
+    raid_day_id: Mapped[str | None] = mapped_column(String(32))
 
 
 class NightDoc(Base):

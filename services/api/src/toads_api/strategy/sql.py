@@ -14,7 +14,7 @@ from toads_api.strategy.repository import Removed, StrategyDoc
 
 
 def _doc(row: StrategyDocRow) -> StrategyDoc:
-    return StrategyDoc(row.id, row.raid, row.title, row.url, row.created_by, row.created_at)
+    return StrategyDoc(row.id, row.raid, row.title, row.url, row.created_by, row.created_at, row.raid_day_id)
 
 
 def _lock_night(db: Session, raid_day: str) -> None:
@@ -34,7 +34,7 @@ class SqlStrategyRepository:
 
     def add(self, raid: str, title: str, url: str, by: int, through: str | None = None) -> StrategyDoc:
         with self._db.begin() as db:
-            row = StrategyDocRow(raid=raid, title=title, url=url, created_by=by)
+            row = StrategyDocRow(raid=raid, title=title, url=url, created_by=by, raid_day_id=through)
             db.add(row)
             db.flush()
             audit.record(
@@ -47,8 +47,10 @@ class SqlStrategyRepository:
             # Locked, so a night pinning it meanwhile waits on its foreign key and then leaves it out; a pin already
             # saved is seen below.
             row = db.scalar(select(StrategyDocRow).where(StrategyDocRow.id == doc_id).with_for_update())
-            if row is None:
+            if row is None or (nights is not None and row.raid_day_id is not None and row.raid_day_id not in nights):
                 return "missing"
+            if nights is not None and row.raid_day_id is None:
+                return "shared"
             if nights is not None:
                 pinning = db.scalars(select(NightDoc.raid_day_id).where(NightDoc.doc_id == doc_id))
                 if any(day not in nights for day in pinning):

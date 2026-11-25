@@ -147,6 +147,15 @@ class Principal:
         """Holds officer powers anywhere: globally or for at least one raid day."""
         return self.global_officer or HubRole.OFFICER in self.day_roles.values()
 
+    def officer_days(self) -> frozenset[str]:
+        """The raid days this member runs as an officer (not counting the global tier)."""
+        return frozenset(d for d, role in self.day_roles.items() if role is HubRole.OFFICER)
+
+    def seen_days(self) -> frozenset[str] | None:
+        """Whose officer work this officer sees, so no night's officers see another's (Leigh, 2026-11-25): None (every
+        night) for the global tier, else the nights they run."""
+        return None if self.global_officer else self.officer_days()
+
     def home_day(self) -> str | None:
         """The raid day this member ranks highest on (config order breaks ties); None without one."""
         if not self.day_roles:

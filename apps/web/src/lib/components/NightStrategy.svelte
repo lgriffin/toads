@@ -32,7 +32,7 @@
     );
   });
   $effect(() => {
-    // Only the night's officers pin its docs, so only they need every raid's docs.
+    // Only the night's officers pin its docs, so only they need the raids' docs (their nights' and the shared ones).
     if (officer && !library)
       backend.library().then(
         (l) => (library = l),
@@ -57,7 +57,7 @@
     }
   }
 
-  const options = $derived(library ? docOptions(library) : []);
+  const options = $derived(library ? docOptions(library, day) : []);
 </script>
 
 <section class="band" class:dusk aria-labelledby="strategy-h">

@@ -1,4 +1,4 @@
-"""Reference comparison: REQ-HUB-INS-001, 003 to 005. Thin steps over the `hub` fixture (root conftest.py)."""
+"""Reference comparison: REQ-HUB-INS-001, 003 to 006. Thin steps over the `hub` fixture (root conftest.py)."""
 
 from __future__ import annotations
 
@@ -49,6 +49,11 @@ def test_ins_004() -> None:
 
 @_bind(5)
 def test_ins_005() -> None:
+    pass
+
+
+@_bind(6)
+def test_ins_006() -> None:
     pass
 
 
@@ -143,3 +148,34 @@ def listed(hub: Hub, ctx: dict[str, Any]) -> None:
 def refused(ctx: dict[str, Any]) -> None:
     assert ctx["import"].status_code == 409
     assert ctx["queued"] == []
+
+
+@then("a Sunday officer's reference page lists none of it")
+def sunday_sees_none(hub: Hub, ctx: dict[str, Any]) -> None:
+    from hub_db.reference import claim, save_comparison, save_page
+
+    payload = {
+        "version": 1,
+        "guild": {"report_id": OURS, "title": "Ours"},
+        "reference": {"report_id": THEIRS, "title": "Theirs"},
+    }
+    with hub.db.begin() as db:
+        save_page(db, "2026-11-25 10:00:00", [{"report_id": THEIRS, "title": "Theirs"}], [])
+        save_comparison(db, payload, "2026-11-25 10:00:00")
+        # What the worker records once Wednesday's import and comparison succeed.
+        claim(db, THEIRS, "wed", existed=False)
+        claim(db, f"{OURS}/{THEIRS}", "wed", existed=False)
+    ctx["sun"] = hub.login(hub.user(("sun", "officer")))
+    page = hub.get("/api/days/sun/reference", ctx["sun"]).json()
+    assert (page["references"], page["comparisons"], page["jobs"]) == ([], [], [])
+    mine = hub.get("/api/days/wed/reference", ctx["sid"]).json()
+    assert [r["report_id"] for r in mine["references"]] == [THEIRS] and len(mine["comparisons"]) == 1
+
+
+@then("a Sunday officer can neither read the comparison nor relabel or delete the reference")
+def sunday_cannot_touch(hub: Hub, ctx: dict[str, Any]) -> None:
+    sun = ctx["sun"]
+    assert hub.get(f"/api/days/sun/reference/comparisons/{OURS}/{THEIRS}", sun).status_code == 404
+    label = hub.put(f"/api/days/sun/reference/references/{THEIRS}/label", sun, {"label": "Ours now"})
+    assert label.status_code == 404
+    assert hub.delete(f"/api/days/sun/reference/references/{THEIRS}", sun).status_code == 404

@@ -214,10 +214,29 @@ def global_clears(hub: Hub, people: dict[str, Any]) -> None:
     assert _pin(hub, people["global"], "sun", []).json()["docs"] == []
 
 
-@then(parsers.parse('a Sunday officer can pin "{url}" for Sunday'))
-def sunday_officer_pins(hub: Hub, people: dict[str, Any], url: str) -> None:
+@then(parsers.parse('a Sunday officer cannot pin "{url}" for Sunday'))
+def sunday_officer_cannot_pin(hub: Hub, people: dict[str, Any], url: str) -> None:
     r = _pin(hub, _login(hub, people, "sun_officer"), "sun", [_doc_id(hub, people, url)])
+    assert r.status_code == 422, r.text
+
+
+@then(parsers.parse('a Wednesday officer can pin "{url}" for Wednesday'))
+def wednesday_officer_can_pin(hub: Hub, people: dict[str, Any], url: str) -> None:
+    r = _pin(hub, _login(hub, people, "wed_officer"), "wed", [_doc_id(hub, people, url)])
     assert r.status_code == 200, r.text
+
+
+@then(parsers.parse('a Sunday officer does not see "{url}"'))
+def sunday_officer_does_not_see(hub: Hub, people: dict[str, Any], url: str) -> None:
+    r = hub.get("/api/strategy", _login(hub, people, "sun_officer"))
+    assert url not in {d["url"] for raid in r.json()["raids"] for d in raid["docs"]}
+    assert [n["raid_day"] for n in r.json()["nights"]] == ["sun"]
+
+
+@then(parsers.parse('a Sunday officer cannot take down "{url}"'))
+def sunday_cannot_take_down(hub: Hub, people: dict[str, Any], url: str) -> None:
+    r = hub.delete(f"/api/days/sun/strategy/docs/{_doc_id(hub, people, url)}", _login(hub, people, "sun_officer"))
+    assert r.status_code == 404, r.text
 
 
 @when(parsers.parse('the global officer takes down "{url}"'))
@@ -228,7 +247,7 @@ def global_takes_down(hub: Hub, people: dict[str, Any], url: str) -> None:
 @then(parsers.parse('the Wednesday officer cannot take down "{url}"'))
 def night_cannot_take_down(hub: Hub, people: dict[str, Any], url: str) -> None:
     r = hub.delete(f"/api/days/wed/strategy/docs/{_doc_id(hub, people, url)}", people["wed_officer"])
-    assert r.status_code == 409, r.text
+    assert r.status_code == 403, r.text
 
 
 @then(parsers.parse('the Wednesday officer can take down "{url}"'))

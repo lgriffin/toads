@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from hub_db import CredentialCipher, Member, ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
+from hub_db import (
+    CredentialCipher,
+    Member,
+    ReferenceComparison,
+    ReferenceJob,
+    ReferenceLogin,
+    ReferenceNight,
+    ReferencePage,
+)
 from hub_db.reference import (
     LOGIN_ROW,
     PAGE_ROW,
@@ -105,3 +113,10 @@ class SqlReferenceRepository:
                 )
             )
             return None if row is None else StoredComparison(row.generated_at, dict(row.payload))
+
+    def owners(self) -> dict[str, frozenset[str]]:
+        found: dict[str, set[str]] = {}
+        with self._db() as db:
+            for row in db.scalars(select(ReferenceNight)):
+                found.setdefault(row.key, set()).add(row.raid_day_id)
+        return {k: frozenset(v) for k, v in found.items()}

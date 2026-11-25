@@ -365,6 +365,15 @@ Rules worth knowing:
 - **Raid-day scoping.** An officer power is always for one raid day, and the day comes from the URL path only, never
   from a body or query. Bank officer routes are also bound to the banks whose `raidDay` matches; a bank with no raid
   day is the global tier's.
+- **Nights are kept apart** (since 25 Nov 2026). A night's officers see and change only their own night's officer work,
+  never another night's: claims, main swaps, applications and their notes, interview panels, recruitment needs,
+  absences, the task board and links, loot lists, comps, photo and stream reviews, posts to curate, the sign-in audit,
+  strategy docs and reference comparisons. What the global tier adds (a strategy doc, an older reference raid) is shared with every night;
+  an application or claim that names no night goes to the global tier alone. An officer of two nights sees both, and
+  global officers and super admins see every night. Asking for another night's page answers 403 and is audited as
+  `rbac.denied`; asking for another night's item through your own night's page answers 404. Still guild-wide on
+  purpose: the bank and its request desk (one guild bank), guild crafters and awards (named per member, not per
+  night), the reference comparison's Warcraft Logs login (one account for the guild) and the members directory.
 - **Super admins are configuration only.** No route, table or Discord role makes someone a super admin. To change the
   list, change the env and restart the API. Keep it to two or three people.
 - **Break-glass** widens what one person may do, not who can sign in: they still sign in with Discord and must be in
@@ -417,12 +426,13 @@ Rules worth knowing:
   Forever's beta data lacks; refresh it with `scripts/import_items.py` (docs/loot.md "Item data"). Audited as
   `loot.add`, `loot.note`, `loot.line`, `loot.received`, `loot.unreceived` and `loot.remove`.
 - **Raid strategy docs** ([docs/strategy.md](docs/strategy.md)): every officer adds Google Docs to the classic raids
+  (a night's officers for their own night, which alone sees it; a global officer's doc is shared with every night)
   (MC, BWL, ZG, AQ20, AQ40, Naxx, and TBD for a raid not listed yet) on **Officers > Strategy** (`/officers/strategy`),
   pasting a `https://docs.google.com` or `drive.google.com` link (`MANAGE_STRATEGY`: a night's officers through their
   night's path, the global tier through `/api/admin/strategy`). Raiders see a doc only once their night pins it: each
   night's officers tick the docs for their night on its Raid page or on the Strategy page (`MANAGE_STRATEGY`, scoped to
-  the night in the URL). Taking a doc down takes it off every night; a night's officers can take down only docs no other
-  night pins. The hub only links the doc: share it in Drive with the raiders. Nothing to set up. Audited as
+  the night in the URL). Taking a doc down takes it off every night; a night's officers can take down only their own
+  night's docs. The hub only links the doc: share it in Drive with the raiders. Nothing to set up. Audited as
   `strategy.add`, `strategy.remove` and `strategy.night`.
 - **Professions and guild crafters** ([docs/professions.md](docs/professions.md)): members pick their professions on Me;
   officers see their night's on `/officers/professions` and name the guild's crafters, the members we send a profession's
@@ -472,7 +482,10 @@ Admin side:
 
 Officers compare a guild raid with another guild's report on `/officers/reference/` (needs `VIEW_INSIGHTS`, so
 officers only, per raid day). The officer console links to it from its **Reference reports** card ("Add reference
-reports"). Reading other guilds' reports needs a Warcraft Logs **user** login on the guild's behalf: a dedicated account
+reports"). Each night's reference raids, comparisons and requests are its own: a night's officers see and change only
+what their nights imported or compared, plus references from before 25 Nov 2026, which stay shared and which only a
+global officer can relabel or delete. A raid two nights both imported is left to a global officer too. The login itself
+is the guild's, so any night's officer can connect or disconnect it. Reading other guilds' reports needs a Warcraft Logs **user** login on the guild's behalf: a dedicated account
 or a super admin's own Warcraft Logs account both work.
 
 Setup:

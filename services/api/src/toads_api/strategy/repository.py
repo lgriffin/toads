@@ -7,8 +7,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
 
-# What taking a doc down did: took it down, found no such doc, or left it up because a night outside `nights` pins it.
-Removed = Literal["removed", "missing", "pinned"]
+# What taking a doc down did: took it down, found no such doc (or one of a night outside `nights`), left it up because a
+# night outside `nights` pins it, or left it up because it is shared with every night and `nights` was given.
+Removed = Literal["removed", "missing", "pinned", "shared"]
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,12 @@ class StrategyDoc:
     url: str
     created_by: int | None
     created_at: datetime
+    # The night it was added through, which owns it; None: the global tier added it, and every night shares it.
+    night: str | None = None
+
+    def seen_by(self, nights: frozenset[str] | None) -> bool:
+        """Whether officers of `nights` (None: the global tier) see, pin and work with it."""
+        return nights is None or self.night is None or self.night in nights
 
 
 class StrategyRepository(Protocol):
@@ -29,12 +36,12 @@ class StrategyRepository(Protocol):
         ...
 
     def add(self, raid: str, title: str, url: str, by: int, through: str | None = None) -> StrategyDoc:
-        """Add a doc to `raid`. `through`: the night the officer acted through, for the audit log."""
+        """Add a doc to `raid`. `through`: the night the officer acted through, which owns the doc (None: shared)."""
         ...
 
     def remove(self, doc_id: int, by: int, through: str | None = None, nights: frozenset[str] | None = None) -> Removed:
-        """Take a doc down, and off every night that pins it. With `nights`, only while no other night pins it, checked
-        in the same write."""
+        """Take a doc down, and off every night that pins it. With `nights` (a night officer's), only a doc one of those
+        nights owns and no other night pins, checked in the same write."""
         ...
 
     def night_docs(self) -> dict[str, list[int]]:
@@ -59,14 +66,17 @@ class InMemoryStrategyRepository:
         return sorted(self.rows, key=lambda d: -d.id)
 
     def add(self, raid: str, title: str, url: str, by: int, through: str | None = None) -> StrategyDoc:
-        doc = StrategyDoc(self.next_id, raid, title, url, by, datetime.now(UTC))
+        doc = StrategyDoc(self.next_id, raid, title, url, by, datetime.now(UTC), through)
         self.next_id += 1
         self.rows.append(doc)
         return doc
 
     def remove(self, doc_id: int, by: int, through: str | None = None, nights: frozenset[str] | None = None) -> Removed:
-        if not any(d.id == doc_id for d in self.rows):
+        doc = next((d for d in self.rows if d.id == doc_id), None)
+        if doc is None or (nights is not None and doc.night is not None and doc.night not in nights):
             return "missing"
+        if nights is not None and doc.night is None:
+            return "shared"
         if nights is not None and any(doc_id in ids for day, ids in self.nights.items() if day not in nights):
             return "pinned"
         self.rows = [d for d in self.rows if d.id != doc_id]

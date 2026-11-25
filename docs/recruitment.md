@@ -29,7 +29,8 @@ social to poke any member of Toads in game for a social invite and come to the p
 
 1. The panel of the night the applicant chose.
 2. If that night has no panel yet (or the application names no night, as from an older client), the `interviewers`
-   list in `config/community.yaml`, as before.
+   list in `config/community.yaml`, as before. An application that names no night is the global tier's alone: no
+   night's officers see it on their panels, and its room lets in only the global officer roles.
 3. If both are empty, nobody is added automatically: the application waits as **Applied** until an officer opens the
    room from the officer console, and the officers of the nights applied for (plus the global tier) are let in.
 
@@ -52,7 +53,7 @@ The other night's officers cannot see or change it (403). Global officers and su
 ## Decisions
 
 Above the panels, **Officers > Recruitment** has a Decisions card for each night the officer runs: every application
-for that night (or for any night) still waiting on a decision, oldest first, with the answers, a link into the
+for that night still waiting on a decision, oldest first, with the answers, a link into the
 interview room and the logs.
 
 - **Notes.** Any of the night's officers (and global officers and super admins) can add a note while the applicant

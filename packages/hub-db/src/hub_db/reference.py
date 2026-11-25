@@ -116,6 +116,19 @@ class ReferenceComparison(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
 
+class ReferenceNight(Base):
+    """A raid night that owns a stored reference or a comparison: the night whose path an officer imported or compared
+    it through. Only that night's officers (and the global tier) see and change it; one with no night (from before
+    nights were kept apart) is shared. A key is a reference's report id, or "<guild report>/<reference report>" for a
+    comparison."""
+
+    __tablename__ = "reference_nights"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    raid_day_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 # ── The login ──
 
 
@@ -279,10 +292,17 @@ def save_comparison(db: Session, payload: dict[str, Any], generated_at: str) -> 
 
 
 def delete_comparisons_of(db: Session, report_id: str) -> None:
-    """Forget comparisons with a raid that was deleted."""
+    """Forget comparisons with a raid that was deleted, and which nights owned them and the raid."""
     db.execute(
         delete(ReferenceComparison).where(
             (ReferenceComparison.guild_report == report_id) | (ReferenceComparison.reference_report == report_id)
+        )
+    )
+    db.execute(
+        delete(ReferenceNight).where(
+            (ReferenceNight.key == report_id)
+            | ReferenceNight.key.startswith(f"{report_id}/", autoescape=True)
+            | ReferenceNight.key.endswith(f"/{report_id}", autoescape=True)
         )
     )
 
@@ -290,4 +310,44 @@ def delete_comparisons_of(db: Session, report_id: str) -> None:
 def _prune(db: Session, model: type[ReferenceJob] | type[ReferenceComparison], newest: Any, keep: int) -> None:
     stale = list(db.scalars(select(model).order_by(newest.desc()).offset(keep)))
     for row in stale:
+        if isinstance(row, ReferenceComparison):
+            db.execute(
+                delete(ReferenceNight).where(ReferenceNight.key == pair_key(row.guild_report, row.reference_report))
+            )
         db.delete(row)
+
+
+# ── Which nights own what (nights are kept apart: docs/admin.md) ──
+
+
+def pair_key(guild_report: str, reference_report: str) -> str:
+    """The key a comparison's owning nights are kept under; a reference's is its report id."""
+    return f"{guild_report}/{reference_report}"
+
+
+def owners_of(db: Session, key: str) -> frozenset[str]:
+    return frozenset(db.scalars(select(ReferenceNight.raid_day_id).where(ReferenceNight.key == key)))
+
+
+def claim(db: Session, key: str, raid_day: str, *, existed: bool) -> None:
+    """After a night's import or comparison succeeds, record that the night owns it: always for something new, and
+    alongside the nights that own something that was already there. Something already there that no night owns (from
+    before nights were kept apart) stays shared, so re-importing it hides it from no one."""
+    owners = owners_of(db, key)
+    if raid_day in owners or (existed and not owners):
+        return
+    db.add(ReferenceNight(key=key, raid_day_id=raid_day))
+
+
+def refusal(owners: frozenset[str], nights: frozenset[str] | None) -> tuple[int, str] | None:
+    """Why officers of `nights` (None: the global tier) may not relabel or delete a reference these nights own, as an
+    HTTP status and message; None when they may. Checked when the request is made and again when the worker runs it."""
+    if nights is None:
+        return None
+    if owners and not owners & nights:
+        return 404, "No such reference raid for this night."
+    if not owners:
+        return 403, "This reference is shared with every night; a global officer can change it."
+    if not owners <= nights:
+        return 409, "Another night uses this reference too; a global officer can change it."
+    return None

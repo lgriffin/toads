@@ -18,13 +18,18 @@ name (up to 80 characters; "Naxxramas strategy" when left blank), then presses *
 Google Doc, Sheet, Slides deck or Drive file. If something is wrong the reason shows under the button.
 
 - A raid holds every doc its officers add, newest first, until one is taken down.
-- An added doc is not shown to raiders until a night pins it. Each doc on the Strategy page says which nights pin it.
+- A doc a night's officers add belongs to that night: only its officers (and global officers and super admins) see it,
+  pin it or take it down, and it says "Wednesday's doc" (say) on the Strategy page. An officer who runs more than one
+  night picks which night it is for. A doc a global officer adds is shared with every night ("Shared with every night").
+- An added doc is not shown to raiders until a night pins it. Each doc on the Strategy page says which of the nights
+  you see pin it.
 - Share the doc in Drive with the raiders ("Anyone in the guild's group" or "Anyone with the link"); the hub cannot see
   whether they can open it.
 
 ## Pinning docs for a night's raiders
 
-A night's officers pick the docs their raiders see, from every raid's docs, on the night's **Raid page** (the picker
+A night's officers pick the docs their raiders see, from their night's own docs and the shared ones, on the night's
+**Raid page** (the picker
 under Strategy, shown to that night's officers only) or on the Strategy page under "What each night's raiders see". The
 picker is a list of tick boxes: tick one doc per raid the night runs (ZG then BWL, say), or more. The Raid page lists
 them in the order they were ticked. Unticking every doc clears the night. Global officers and super admins can pin any
@@ -32,8 +37,9 @@ night's docs. A night pins up to 10.
 
 ## Taking a doc down
 
-Taking a doc down removes it from the raid and from every night that pins it. A night's officers can take down a doc
-that no other night pins; a doc another night pins is for that night's officers or the global tier to take down.
+Taking a doc down removes it from the raid and from every night that pins it. A night's officers can take down their own
+night's docs; a shared doc is the global tier's to take down, and so is one another night still pins from before nights
+were kept apart. Another night's doc is simply not there for them (404).
 
 ## The Raid page
 
@@ -44,15 +50,16 @@ in a new tab, with its name, its raid and who added it when. Until the night's o
 
 | Action | Who | Route |
 | --- | --- | --- |
-| See every raid's docs and each night's pins | any signed-in member (`view_guild_raids`) | `GET /api/strategy` |
+| See the raids' docs and nights' pins | global officers: every doc and night; a night's officers: their nights' docs, the shared ones and their nights' pins; other members: the docs their own nights pin (`view_guild_raids`) | `GET /api/strategy` |
 | See a night's pinned docs | any signed-in member | `GET /api/days/{day}/strategy` |
-| Add a doc to a raid, take one down | any night's officers (`manage_strategy`, scoped to their night) | `POST /api/days/{day}/strategy/docs`, `DELETE /api/days/{day}/strategy/docs/{id}` |
+| Add a doc to a raid for their night, take one of their night's down | any night's officers (`manage_strategy`, scoped to their night) | `POST /api/days/{day}/strategy/docs`, `DELETE /api/days/{day}/strategy/docs/{id}` |
 | Add a doc to a raid, take any down | global officers and super admins (`manage_strategy`, guild-wide) | `POST /api/admin/strategy`, `DELETE /api/admin/strategy/{id}` |
-| Pin a night's docs | that night's officers, global officers, super admins (`manage_strategy`, scoped) | `PUT /api/days/{day}/strategy` |
+| Pin a night's docs (its own and the shared ones) | that night's officers, global officers, super admins (`manage_strategy`, scoped) | `PUT /api/days/{day}/strategy` |
 
 Every officer may add docs (Leigh's call, 22 Oct 2026): a night's officers do it through their own night's path, so their
 power stays scoped to a raid day in the URL and the audit log names the night they acted for. A night's pins are that
-night's alone. Every change is on the audit log: `strategy.add` and `strategy.remove` (the night the officer acted
+night's alone. Nights are kept apart (Leigh, 25 Nov 2026): no night's officers see or change another night's docs, its
+pins or who added them. Every change is on the audit log: `strategy.add` and `strategy.remove` (the night the officer acted
 through, or none for the global tier; the raid in `detail`) and `strategy.night` (the night and its pinned doc ids,
 comma separated). Saves of one night's pins take turns, so two officers never leave a night with a list neither picked.
 
@@ -60,4 +67,6 @@ comma separated). Saves of one night's pins take turns, so two officers never le
 
 hub-db tables `strategy_docs` (one row per doc added to a raid; migration `0040`) and `night_strategy_docs` (one row per
 doc a raid day pins, with its `position`; migration `0043`, which replaced `night_raid_choices` and kept each night
-showing the docs it showed before).
+showing the docs it showed before). `strategy_docs.raid_day_id` is the night a doc belongs to, NULL for a shared one
+(migration `0045`, which gave each doc the night its `strategy.add` audit row names and left shared any doc another
+night already pinned, so no Raid page lost a doc).

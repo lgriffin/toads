@@ -578,10 +578,27 @@ def test_other_character_names_are_refused(as_: Any, name: str) -> None:
     assert as_("applicant").post("/api/applications", json={**APPLICATION, "character_name": name}).status_code == 422
 
 
-def test_applying_for_any_day_reaches_every_days_officers(as_: Any) -> None:
-    as_("applicant").post("/api/applications", json={**APPLICATION, "raid_days": []})
-    assert len(as_("Wednesday officer").get("/api/days/wed/admin/applications").json()) == 1
-    assert len(as_("Sunday officer").get("/api/days/sun/admin/applications").json()) == 1
+def test_an_application_for_no_night_reaches_only_the_global_tier(as_: Any) -> None:
+    app = as_("applicant").post("/api/applications", json={**APPLICATION, "raid_days": []}).json()
+    for officer, day in (("Wednesday officer", "wed"), ("Sunday officer", "sun")):
+        assert as_(officer).get(f"/api/days/{day}/admin/applications").json() == []
+        note = as_(officer).post(f"/api/days/{day}/admin/applications/{app['id']}/notes", json={"body": "Hi"})
+        assert note.status_code == 404
+    assert [a["id"] for a in as_("global officer").get("/api/admin/applications").json()] == [app["id"]]
+
+
+def test_one_nights_officers_never_see_or_decide_another_nights_applicants(as_: Any) -> None:
+    app = as_("applicant").post("/api/applications", json={**APPLICATION, "raid_days": ["wed"]}).json()
+    sun = as_("Sunday officer")
+    assert sun.get("/api/days/sun/admin/applications").json() == []
+    assert sun.get("/api/days/sun/admin/decisions").json()["waiting"] == []
+    assert sun.post(f"/api/days/sun/admin/applications/{app['id']}/notes", json={"body": "Hi"}).status_code == 404
+    assert (
+        sun.post(f"/api/days/sun/admin/applications/{app['id']}/decision", json={"decision": "reject"}).status_code
+        == 404
+    )
+    assert sun.get("/api/desk").json()["applications_waiting"] == 0
+    assert as_("Wednesday officer").get("/api/desk").json()["applications_waiting"] == 1
 
 
 # --------------------------------------------------------- highlights, spotlights

@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 from hub_db import AuditEntry
-from hub_db.reference import save_comparison
+from hub_db.reference import claim, save_comparison, save_page
 from sqlalchemy import select
 from toads_api.reference.login import WclLogin
 from toads_api.reference.repository import InMemoryReferenceRepository, StoredComparison, UserToken
@@ -267,6 +267,10 @@ def test_requests_refuse_bad_input(wired: tuple[Hub, FakeWcl, list[str]]) -> Non
 def test_compare_label_delete_and_read_a_comparison(wired: tuple[Hub, FakeWcl, list[str]]) -> None:
     hub, _, queued = wired
     sid = hub.login(hub.user(("wed", "officer")))
+    _connect(hub, sid)
+    assert hub.post("/api/days/wed/reference/imports", sid, {"report": THEIRS}).status_code == 202
+    with hub.db.begin() as db:
+        claim(db, THEIRS, "wed", existed=False)  # what the worker records once the import succeeds
     r = hub.post("/api/days/wed/reference/comparisons", sid, {"guild_report": OURS, "reference_report": THEIRS})
     assert r.status_code == 202 and r.json()["kind"] == "compare"
     r = hub.client.put(
@@ -274,7 +278,7 @@ def test_compare_label_delete_and_read_a_comparison(wired: tuple[Hub, FakeWcl, l
     )
     assert r.status_code == 202 and r.json()["kind"] == "label"
     assert hub.delete(f"/api/days/wed/reference/references/{THEIRS}", sid).status_code == 202
-    assert len(queued) == 3
+    assert len(queued) == 4
 
     path = f"/api/days/wed/reference/comparisons/{OURS}/{THEIRS}"
     assert hub.get(path, sid).status_code == 404
@@ -324,3 +328,68 @@ def test_a_login_finished_while_viewing_as_another_role_connects_nothing(wired: 
     r = hub.client.get(f"/api/reference/login/callback?code=abc&state={state}", headers=hub.as_(sid))
     assert r.status_code == 403 and "read only" in r.json()["detail"]
     assert wcl.seen == []
+
+
+def test_one_nights_officers_never_see_or_change_another_nights_references(
+    wired: tuple[Hub, FakeWcl, list[str]],
+) -> None:
+    hub, _, queued = wired
+    wed = hub.login(hub.user(("wed", "officer")))
+    sun = hub.login(hub.user(("sun", "officer")))
+    admin = hub.login(hub.user(("global", "officer")))
+    _connect(hub, wed)
+    assert hub.post("/api/days/wed/reference/imports", wed, {"report": THEIRS}).status_code == 202
+    assert (
+        hub.post(
+            "/api/days/wed/reference/comparisons", wed, {"guild_report": OURS, "reference_report": THEIRS}
+        ).status_code
+        == 202
+    )
+    shared = "SharedSharedShar"
+    refs = [{"report_id": r, "title": r} for r in (THEIRS, shared)]
+    payload: dict[str, Any] = {
+        "version": 1,
+        "guild": {"report_id": OURS, "title": "Toads Gruul"},
+        "reference": {"report_id": THEIRS, "title": "Best Gruul"},
+    }
+    with hub.db.begin() as db:
+        save_page(db, "2026-09-28 10:00:00", refs, [])
+        save_comparison(db, payload, "2026-09-28 10:00:00")
+        # What the worker records once Wednesday's import and comparison succeed.
+        claim(db, THEIRS, "wed", existed=False)
+        claim(db, f"{OURS}/{THEIRS}", "wed", existed=False)
+
+    def seen(sid: str, day: str) -> tuple[list[str], int, int]:
+        o = hub.get(f"/api/days/{day}/reference", sid).json()
+        return [r["report_id"] for r in o["references"]], len(o["comparisons"]), len(o["jobs"])
+
+    assert seen(wed, "wed") == ([THEIRS, shared], 1, 2)
+    # Sunday sees the shared reference from before nights were kept apart, and nothing of Wednesday's.
+    assert seen(sun, "sun") == ([shared], 0, 0)
+    assert seen(admin, "sun") == ([THEIRS, shared], 1, 2)
+    assert hub.get(f"/api/days/sun/reference/comparisons/{OURS}/{THEIRS}", sun).status_code == 404
+    label = {"label": "Mine now"}
+    assert (
+        hub.client.put(
+            f"/api/days/sun/reference/references/{THEIRS}/label", headers=hub.as_(sun), json=label
+        ).status_code
+        == 404
+    )
+    assert hub.delete(f"/api/days/sun/reference/references/{THEIRS}", sun).status_code == 404
+    assert hub.delete(f"/api/days/sun/reference/references/{shared}", sun).status_code == 403
+    # A raid both nights own (both compared with it, say): neither night alone may change it; the global tier may.
+    with hub.db.begin() as db:
+        claim(db, THEIRS, "sun", existed=True)
+    assert hub.delete(f"/api/days/wed/reference/references/{THEIRS}", wed).status_code == 409
+    assert hub.delete(f"/api/days/sun/reference/references/{THEIRS}", admin).status_code == 202
+    assert len(queued) == 3
+
+
+@pytest.mark.parametrize("owners", [frozenset(), frozenset({"wed"}), frozenset({"wed", "sun"})])
+@pytest.mark.parametrize("nights", [None, frozenset({"wed"}), frozenset({"sun"}), frozenset({"wed", "sun"})])
+def test_the_api_and_the_worker_refuse_the_same_changes(owners: frozenset[str], nights: frozenset[str] | None) -> None:
+    from hub_db import reference as stored
+    from toads_api.reference import service
+
+    assert service.refusal(owners, nights) == stored.refusal(owners, nights)
+    assert service.pair_key("a", "b") == stored.pair_key("a", "b")

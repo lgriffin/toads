@@ -47,7 +47,7 @@ from hub_db.officer_board import NightLink, OfficerBoardCard
 from hub_db.officer_grants import OfficerGrant
 from hub_db.professions import GuildCrafter, MemberProfession
 from hub_db.raid_sheets import RaidSheetSnapshot
-from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
+from hub_db.reference import ReferenceComparison, ReferenceJob, ReferenceLogin, ReferenceNight, ReferencePage
 from hub_db.role_badges import DiscordRoleBadge
 from hub_db.setup import DeclaredCharacter
 from hub_db.sign_ins import SignIn
@@ -106,6 +106,7 @@ __all__ = [
     "ReferenceComparison",
     "ReferenceJob",
     "ReferenceLogin",
+    "ReferenceNight",
     "ReferencePage",
     "SignIn",
     "Spotlight",

@@ -76,6 +76,10 @@ const nights: Record<string, number[]> = {
 };
 const dayNames = PREVIEW_DAY_NAMES;
 
+// The night a doc was added through, which alone sees it; the rest are a global officer's, shared by every night.
+const ownNight = (d: StrategyDoc): string | null =>
+  d.title === "Sunday MC (fast clear)" ? "sun" : null;
+
 function library(): Library {
   const pinning = (id: number) =>
     Object.keys(dayNames).filter((day) => (nights[day] ?? []).includes(id));
@@ -84,7 +88,7 @@ function library(): Library {
       raid,
       docs: docs
         .filter((d) => d.raid === raid.id)
-        .map((d) => ({ ...d, nights: pinning(d.id) })),
+        .map((d) => ({ ...d, night: ownNight(d), nights: pinning(d.id) })),
     })),
     nights: Object.entries(dayNames).map(([raid_day, name]) => ({
       raid_day,

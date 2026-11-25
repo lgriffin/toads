@@ -920,6 +920,41 @@ def sunday_cannot(world: World) -> None:
     assert sunday.post(f"/api/days/wed/admin/applications/{world.app_id}/notes", json=note).status_code == 403
 
 
+@given("the applicant has sent an application that names no night")
+def applicant_applies_for_no_night(world: World) -> None:
+    app = world.application("wed").model_copy(update={"raid_days": []})
+    world.app_id = world.store.apply(PRINCIPALS["applicant"].member_id, app).id
+
+
+@then("no night's officers can see or note the application")
+def no_night_sees(world: World) -> None:
+    for officer, day in (("Wednesday officer", "wed"), ("Sunday officer", "sun")):
+        client = world.client(officer)
+        assert client.get(f"/api/days/{day}/admin/applications").json() == []
+        assert client.get(f"/api/days/{day}/admin/decisions").json()["waiting"] == []
+        note = {"body": "Mine?"}
+        assert client.post(f"/api/days/{day}/admin/applications/{world.app_id}/notes", json=note).status_code == 404
+
+
+@then("the global officer sees the application")
+def global_sees(world: World) -> None:
+    assert [a["id"] for a in world.client("global officer").get("/api/admin/applications").json()] == [world.app_id]
+
+
+@when("the global officer opens an interview room")
+def global_opens_room(world: World) -> None:
+    r = world.client("global officer").post(f"/api/admin/applications/{world.app_id}/interview-room")
+    assert r.status_code == 202, r.text
+
+
+@then("the bot is asked for a room for the applicant with the global officer role only")
+def global_room_job(world: World) -> None:
+    from toads_api.community.demo import GLOBAL_ROLE
+
+    [job] = [j for j in world.store.repo.jobs() if j.kind is OutboxKind.CREATE_INTERVIEW_ROOM]
+    assert job.payload["officer_role_ids"] == [GLOBAL_ROLE]
+
+
 @then("the applicant's own view of the application carries no notes")
 def applicant_sees_no_notes(world: World) -> None:
     [mine] = world.client("applicant").get("/api/applications/mine").json()

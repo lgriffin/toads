@@ -131,7 +131,7 @@ describe("strategy docs", () => {
         .find((r) => r.raid.id === "naxx")
         ?.docs.map((d) => [d.title, d.nights]),
     ).toEqual([["Naxx full clear", []]]);
-    expect(docOptions(library).slice(0, 2)).toEqual([
+    expect(docOptions(library, "sun").slice(0, 2)).toEqual([
       {
         id: String(library.raids[0].docs[0].id),
         short: "MC",

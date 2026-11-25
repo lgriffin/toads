@@ -82,6 +82,11 @@ class ReferenceRepository(Protocol):
     def comparisons(self) -> list[ComparisonSummary]: ...
     def comparison(self, guild_report: str, reference_report: str) -> StoredComparison | None: ...
 
+    def owners(self) -> dict[str, frozenset[str]]:
+        """The nights that own each reference (by report id) and comparison ("<guild>/<reference>"); a key not listed
+        has no night and is shared. The worker records them as imports and comparisons succeed."""
+        ...
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -97,6 +102,7 @@ class InMemoryReferenceRepository:
     jobs: list[Job] = field(default_factory=list)
     stored_page: StoredPage | None = None
     stored: dict[tuple[str, str], StoredComparison] = field(default_factory=dict)
+    nights: dict[str, set[str]] = field(default_factory=dict)
 
     def login_info(self) -> LoginInfo:
         if self.token is None:
@@ -133,3 +139,10 @@ class InMemoryReferenceRepository:
 
     def comparison(self, guild_report: str, reference_report: str) -> StoredComparison | None:
         return self.stored.get((guild_report, reference_report))
+
+    def owners(self) -> dict[str, frozenset[str]]:
+        return {k: frozenset(v) for k, v in self.nights.items()}
+
+    def own(self, key: str, raid_day: str) -> None:
+        """For tests: what the worker records when a night's import or comparison succeeds."""
+        self.nights.setdefault(key, set()).add(raid_day)

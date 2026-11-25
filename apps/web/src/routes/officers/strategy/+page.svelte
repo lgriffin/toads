@@ -23,7 +23,8 @@
 
   // The officers' strategy docs (docs/strategy.md): every officer adds Google Docs to each raid here (a night's officers
   // through their night's path, the global tier through /api/admin); each night's officers then pin the docs its
-  // raiders see, here or on the night's Raid page. The API checks every call.
+  // raiders see, here or on the night's Raid page. Nights are kept apart: the API lists a night officer only their
+  // nights' docs and the shared ones, and checks every call.
   let session = $state<Session | null | undefined>(undefined);
   const backend = __PREVIEW__ ? previewStrategy : hubStrategy();
   let library = $state<Library | null>(null);
@@ -46,12 +47,18 @@
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
   const runs = (day: string) => globalTier || raidDays.officerDays.includes(day);
   const canAdd = $derived(globalTier || raidDays.officerDays.length > 0);
-  // The night a night officer acts through: the first night they run; none for the global tier.
-  const through = $derived(globalTier ? null : (raidDays.officerDays[0] ?? null));
-  // A night's officers take down a doc only no other night pins; the global tier any.
-  const canTakeDown = (doc: LibraryDoc) => canAdd && (globalTier || doc.nights.every((n) => runs(n)));
+  // The night a night officer adds through, which then owns the doc: the night they pick when they run more than one,
+  // else their one night; none for the global tier, whose docs every night shares.
+  let addFor = $state('');
+  const through = $derived(
+    globalTier ? null : (raidDays.officerDays.find((d) => d === addFor) ?? raidDays.officerDays[0] ?? null)
+  );
+  // A night's officers take down only their own nights' docs that no other night pins; the global tier any.
+  const canTakeDown = (doc: LibraryDoc) =>
+    globalTier || (doc.night !== null && runs(doc.night) && doc.nights.every((n) => runs(n)));
   const nightName = (day: string) => library?.nights.find((n) => n.raid_day === day)?.name ?? day;
-  const options = $derived(library ? docOptions(library) : []);
+  const optionsFor = (day: string) => (library ? docOptions(library, day) : []);
+  const ownerLine = (doc: LibraryDoc) => (doc.night === null ? 'Shared with every night' : `${nightName(doc.night)}’s doc`);
 
   let raid = $state('');
   let url = $state('');
@@ -86,7 +93,7 @@
     if (!confirm(`Take down “${doc.title}”?${pinned}`)) return;
     listProblem = '';
     try {
-      await backend.remove(doc.id, globalTier ? null : (doc.nights[0] ?? through));
+      await backend.remove(doc.id, globalTier ? null : doc.night);
     } catch (err) {
       listProblem = strategyError(err);
     }
@@ -118,7 +125,8 @@
   <h1>Strategy</h1>
   <p class="lede muted">
     Strategy docs live in Google Drive. Add each raid’s docs here, then pin the ones raiders need for a night, below or
-    on that night’s Raid page. Raiders only see the docs their night pins.
+    on that night’s Raid page. Raiders only see the docs their night pins, and each night’s officers see only their
+    own night’s docs and the ones global officers share.
   </p>
 
   {#if failed}
@@ -149,12 +157,25 @@
               bind:value={url}
             />
           </label>
+          {#if !globalTier && raidDays.officerDays.length > 1}
+            <label>
+              For
+              <select bind:value={addFor}>
+                {#each raidDays.officerDays as d (d)}
+                  <option value={d}>{nightName(d)}</option>
+                {/each}
+              </select>
+            </label>
+          {/if}
           <label class="wide">
             <span>Name <span class="muted">(optional)</span></span>
             <input maxlength={TITLE_LIMIT} placeholder="Naxx full clear" bind:value={title} />
           </label>
         </div>
-        <p class="muted">Share the doc in Drive with the raiders first; the hub only links it.</p>
+        <p class="muted">
+          Share the doc in Drive with the raiders first; the hub only links it.
+          {#if globalTier}Docs you add here are shared with every night.{:else}Only {through ? nightName(through) : 'your night'}’s officers see it.{/if}
+        </p>
         <button class="btn primary" type="submit" disabled={busy}>Add the doc</button>
         {#if addProblem}<p class="err" role="alert">{addProblem}</p>{/if}
         {#if done}<p class="ok" role="status">{done}</p>{/if}
@@ -173,7 +194,7 @@
             {#if runs(n.raid_day)}
               <DocPicker
                 label="Docs pinned for {n.name}"
-                {options}
+                options={optionsFor(n.raid_day)}
                 chosen={n.docs.map(String)}
                 disabled={savingNight === n.raid_day}
                 onchange={(picked) => pin(n.raid_day, picked)}
@@ -181,7 +202,7 @@
             {:else}
               <span>
                 {n.docs
-                  .flatMap((id) => options.filter((o) => o.id === String(id)))
+                  .flatMap((id) => optionsFor(n.raid_day).filter((o) => o.id === String(id)))
                   .map((o) => `${o.short}: ${o.name}`)
                   .join(', ') || 'No docs pinned'}
               </span>
@@ -202,7 +223,7 @@
               {#each r.docs as d (d.id)}
                 <li class="doc">
                   <a href={d.url} target="_blank" rel="noopener noreferrer">{d.title}</a>
-                  <span class="muted">{addedLine(d)}</span>
+                  <span class="muted">{addedLine(d)} · {ownerLine(d)}</span>
                   <span class="pins" class:on={d.nights.length}>
                     {d.nights.length ? `Pinned for ${d.nights.map(nightName).join(', ')}` : 'Not pinned for any night'}
                   </span>

@@ -1,16 +1,19 @@
 """Raid strategy docs (docs/strategy.md).
 
-- GET    /api/strategy                            every raid's docs and the docs each night pins (any signed-in member)
+- GET    /api/strategy                            the docs and nights' pins the caller may see (any signed-in member)
 - POST   /api/admin/strategy                      add a Google Doc to a raid (global officers and super admins)
 - DELETE /api/admin/strategy/{doc_id}             take a doc down, off every night that pins it
 - POST   /api/days/{day}/strategy/docs            add a doc to a raid, as one of that night's officers
-- DELETE /api/days/{day}/strategy/docs/{doc_id}   take down a doc no other night pins
+- DELETE /api/days/{day}/strategy/docs/{doc_id}   take down one of the night's own docs that no other night pins
 - GET    /api/days/{day}/strategy                 the docs the night pins for its raiders (its Raid page)
 - PUT    /api/days/{day}/strategy                 pin the night's docs, in order (that night's officers)
 
 Every officer may add docs (Leigh, 2026-10-22): a night's officers through their night's path, which keeps officer
 powers scoped to a raid day in the URL; the global tier through /api/admin. A doc shows to raiders only once a night
 pins it, and only that night's officers (or the global tier) pin its docs.
+
+Nights are kept apart (Leigh, 2026-11-25): a doc added through a night belongs to it, and only that night's officers
+see, pin or take it down; a doc the global tier adds is shared by every night.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ import structlog
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, Field
 
-from toads_api.rbac import HubRole, Permission, Principal
+from toads_api.rbac import Permission, Principal
 from toads_api.rbac.deps import get_services, require
 from toads_api.services import Services
 from toads_api.strategy.service import (
@@ -72,7 +75,9 @@ class DocOut(BaseModel):
 
 
 class LibraryDocOut(DocOut):
-    # The raid days that pin it for their raiders, in config order.
+    # The night it was added through, which owns it; null: a global officer added it, and every night shares it.
+    night: str | None
+    # The raid days that pin it for their raiders, in config order (only the nights the caller sees).
     nights: list[str]
 
 
@@ -130,18 +135,37 @@ def _refused(exc: StrategyError) -> HTTPException:
     return HTTPException(status_code=exc.status, detail=exc.message)
 
 
-def _library(strategy: StrategyService, services: Services) -> LibraryOut:
-    names = {d.id: d.name for d in services.raid_days.raid_days}
-    pinned = strategy.night_docs()
+def _seen_nights(principal: Principal) -> frozenset[str] | None:
+    """The nights whose strategy a caller sees on /api/strategy: every night for the global tier (None), the nights a
+    night officer runs, else the nights a member raids on."""
+    if principal.global_officer:
+        return None
+    return principal.officer_days() or frozenset(principal.day_roles)
+
+
+def _library(strategy: StrategyService, services: Services, principal: Principal) -> LibraryOut:
+    """The strategy a caller may see (Leigh, 2026-11-25: no night's officers see another night's): the global tier
+    every doc and night; a night officer their nights' docs, the shared ones, and their nights' pins; any other member
+    only the docs their nights pin."""
+    seen = _seen_nights(principal)
+    names = {d.id: d.name for d in services.raid_days.raid_days if seen is None or d.id in seen}
+    pinned = {d: ids for d, ids in strategy.night_docs().items() if d in names}
+    officer = principal.is_officer
+    shown_pins = {i for ids in pinned.values() for i in ids}
     raids = [
         RaidDocsOut(
             raid=_raid(r.raid),
             docs=[
-                LibraryDocOut(**_doc(v).model_dump(), nights=[d for d in names if v.doc.id in pinned.get(d, [])])
+                LibraryDocOut(
+                    **_doc(v).model_dump(),
+                    night=v.doc.night,
+                    nights=[d for d in names if v.doc.id in pinned.get(d, [])],
+                )
                 for v in r.docs
+                if officer or v.doc.id in shown_pins
             ],
         )
-        for r in strategy.library()
+        for r in strategy.library(seen if officer else None)
     ]
     nights = [NightDocsOut(raid_day=d, name=n, docs=pinned.get(d, [])) for d, n in names.items()]
     return LibraryOut(raids=raids, nights=nights)
@@ -149,7 +173,7 @@ def _library(strategy: StrategyService, services: Services) -> LibraryOut:
 
 @router.get("/api/strategy")
 async def strategy_library(principal: SignedIn, strategy: Strategy, services: Hub) -> LibraryOut:
-    return await anyio.to_thread.run_sync(_library, strategy, services)
+    return await anyio.to_thread.run_sync(_library, strategy, services, principal)
 
 
 async def _add(strategy: StrategyService, body: AddIn, principal: Principal, through: str | None) -> DocOut:
@@ -167,7 +191,7 @@ async def _remove(strategy: StrategyService, doc_id: int, principal: Principal, 
     # A night's officers take down only docs no night they don't run pins; the global tier any doc.
     runs = None
     if through is not None and not principal.global_officer:
-        runs = frozenset(d for d, role in principal.day_roles.items() if role is HubRole.OFFICER)
+        runs = principal.officer_days()
     try:
         await anyio.to_thread.run_sync(
             lambda: strategy.remove(doc_id, principal.member_id, through=through, nights=runs)

@@ -154,6 +154,31 @@ def test_comparisons_replace_cap_and_follow_deletes(db: Session) -> None:
     assert db.scalar(select(func.count()).select_from(ReferenceComparison)) == 0
 
 
+def test_owners_follow_comparisons_pruned_or_deleted(db: Session) -> None:
+    from hub_db import ReferenceNight
+    from hub_db.reference import claim, owners_of, pair_key, refusal
+
+    first = pair_key("g" * 16, "r" * 16)
+    save_comparison(db, _payload("g" * 16, "r" * 16), "2026-09-28 10:00:00")
+    claim(db, first, "wed", existed=False)
+    claim(db, "r" * 16, "wed", existed=False)
+    claim(db, "r" * 16, "wed", existed=False)
+    db.flush()
+    assert owners_of(db, first) == {"wed"} and owners_of(db, "r" * 16) == {"wed"}
+    assert refusal(frozenset({"wed"}), frozenset({"sun"})) == (404, "No such reference raid for this night.")
+    assert refusal(frozenset({"wed"}), frozenset({"wed"})) is None and refusal(frozenset(), None) is None
+    for i in range(MAX_COMPARISONS):
+        save_comparison(db, _payload(f"{i:016d}", "x" * 16), "2026-09-28 12:00:00")
+        db.flush()
+    # The oldest comparison was pruned, and its owners with it; the reference keeps its own.
+    assert owners_of(db, first) == frozenset() and owners_of(db, "r" * 16) == {"wed"}
+    claim(db, pair_key("0" * 16, "x" * 16), "sun", existed=False)
+    db.flush()
+    delete_comparisons_of(db, "r" * 16)
+    delete_comparisons_of(db, "x" * 16)
+    assert db.scalar(select(func.count()).select_from(ReferenceNight)) == 0
+
+
 def test_page_is_one_row(db: Session) -> None:
     save_page(db, "2026-09-28 10:00:00", [{"report_id": "r"}], [])
     save_page(db, "2026-09-28 11:00:00", [], [{"report_id": "g"}])
