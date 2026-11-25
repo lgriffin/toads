@@ -3,12 +3,16 @@ days it refuses (docs/sign-ins.md). The routes and RBAC are covered by tests/ste
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from hub_db import Base, Member, SignIn
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from toads_api.sign_ins.repository import InMemorySignInRepository, MemberRecord, SignInRecord
 from toads_api.sign_ins.service import RECENT_DAYS, SignInError, SignInService
+from toads_api.sign_ins.sql import SqlSignInRepository
 
 PARIS = ZoneInfo("Europe/Paris")
 TODAY = date(2026, 11, 25)
@@ -77,3 +81,41 @@ def test_refuses_a_day_ahead_or_more_than_a_year_back(repo: InMemorySignInReposi
     with pytest.raises(SignInError) as refused:
         _service(repo).day("wed", on)
     assert refused.value.status == 422
+
+
+@pytest.mark.parametrize(
+    ("today", "earliest"),
+    [
+        (date(2026, 11, 25), date(2025, 11, 25)),
+        (date(2028, 2, 29), date(2027, 2, 28)),
+        (date(2028, 3, 1), date(2027, 3, 1)),
+    ],
+)
+def test_looks_back_one_calendar_year_to_the_day(today: date, earliest: date) -> None:
+    service = SignInService(InMemorySignInRepository(), lambda ids: {}, PARIS, today=lambda: today)
+    assert service.day("wed", earliest).date == earliest
+    with pytest.raises(SignInError):
+        service.day("wed", earliest - timedelta(days=1))
+
+
+def test_the_sql_repository_reads_guild_local_days_in_utc() -> None:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    db = sessionmaker(engine, expire_on_commit=False)
+    with db.begin() as s:
+        member = Member(discord_user_id=1, display_name="Hopscotch", raid_days=["wed"], signed_in_at=_at(11, 23, 30))
+        s.add(member)
+        s.flush()
+        # 23:30 UTC on the 11th is 00:30 on the 12th in Paris; 22:30 is still the 11th there.
+        s.add_all(
+            [
+                SignIn(member_id=member.id, at=_at(11, 22, 30), raid_days=["wed"]),
+                SignIn(member_id=member.id, at=_at(11, 23, 30), raid_days=["wed"]),
+            ]
+        )
+    repo = SqlSignInRepository(db)
+    start = datetime(2026, 11, 12, tzinfo=PARIS)
+    found = repo.between(start, start + timedelta(days=1))
+    assert [s.at for s in found] == [_at(11, 23, 30)]
+    assert found[0].raid_days == ("wed",)
+    assert repo.members() == [MemberRecord(member.id, ("wed",), _at(11, 23, 30))]

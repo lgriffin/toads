@@ -21,6 +21,8 @@ class SqlSignInRepository:
         self._db = db
 
     def between(self, start: datetime, end: datetime) -> list[SignInRecord]:
+        # Compare in UTC, as every sign-in is stored: SQLite keeps no offset, so a local bound would be read as UTC.
+        start, end = start.astimezone(UTC), end.astimezone(UTC)
         query = select(SignIn).where(SignIn.at >= start, SignIn.at < end).order_by(SignIn.at, SignIn.id)
         with self._db() as db:
             return [SignInRecord(r.member_id, _aware(r.at), tuple(r.raid_days or ())) for r in db.scalars(query)]

@@ -18,8 +18,6 @@ from toads_api.sign_ins.repository import MemberRecord, SignInRecord, SignInRepo
 
 # Days the view counts back from the chosen one, so officers can see at a glance which days to look at.
 RECENT_DAYS = 14
-# How far back an officer may look: sign-ins are kept, but the audit is about who is using the hub now.
-MAX_DAYS_BACK = 366
 
 
 class SignInError(Exception):
@@ -65,6 +63,15 @@ class AuditDayView:
     recent: list[DayCount]
 
 
+def _a_year_before(today: date) -> date:
+    """The same date a calendar year back (28 February for 29 February): how far back an officer may look. Sign-ins are
+    kept, but the audit is about who is using the hub now."""
+    try:
+        return today.replace(year=today.year - 1)
+    except ValueError:
+        return today.replace(year=today.year - 1, day=28)
+
+
 def _most_recent_first(v: LastSignInView) -> tuple[bool, float, str]:
     at = v.last_signed_in_at
     return (at is None, -at.timestamp() if at else 0.0, v.member_name.casefold())
@@ -97,7 +104,7 @@ class SignInService:
         on = on or today
         if on > today:
             raise SignInError("That day has not happened yet")
-        if (today - on).days > MAX_DAYS_BACK:
+        if on < _a_year_before(today):
             raise SignInError("The sign-in audit looks back one year at most")
         first = on - timedelta(days=RECENT_DAYS - 1)
         sign_ins = [

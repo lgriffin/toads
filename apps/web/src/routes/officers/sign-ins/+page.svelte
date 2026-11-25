@@ -8,7 +8,7 @@
   import { previewRaidSession } from '$lib/preview/absences-fake';
   import { previewSignIns } from '$lib/preview/sign-ins-fake';
   import { previewSession } from '$lib/preview/session.svelte';
-  import { dayLabel, hubSignIns, isoDay, shiftDay } from '$lib/sign-ins';
+  import { dayLabel, hubSignIns, shiftDay } from '$lib/sign-ins';
   import SignInAudit from '$lib/components/SignInAudit.svelte';
 
   // The officers' sign-in audit: one panel for each raid night the viewer runs, holding that night's members only, so a
@@ -23,9 +23,13 @@
   const ready = $derived(__PREVIEW__ ? previewSession.ready : session !== undefined);
   const globalTier = $derived(__PREVIEW__ ? previewSession.role === 'admin' : !!session?.global_officer);
 
-  const today = isoDay(new Date());
-  let on = $state(today);
-  const pick = (date: string) => (on = date > today ? today : date);
+  // "Today" is the guild's, not the reader's: the first read leaves the day to the hub (its time zone, raid_days.yaml)
+  // and learns it from the answer. `on` null means that day.
+  let today = $state<string | null>(null);
+  let on = $state<string | null>(null);
+  const shown = $derived(on ?? today);
+  const ontoday = (date: string) => (today = date);
+  const pick = (date: string) => (on = today !== null && date >= today ? null : date);
 </script>
 
 <svelte:head><title>Sign-ins · Officers · toads</title></svelte:head>
@@ -46,21 +50,21 @@
     </section>
   {:else}
     <div class="picker" role="group" aria-label="Day">
-      <button type="button" class="btn" onclick={() => pick(shiftDay(on, -1))} aria-label="Day before">‹</button>
+      <button type="button" class="btn" onclick={() => shown && pick(shiftDay(shown, -1))} disabled={!shown} aria-label="Day before">‹</button>
       <label>
         <span class="sr">Day</span>
-        <input type="date" value={on} max={today} onchange={(e) => e.currentTarget.value && pick(e.currentTarget.value)} />
+        <input type="date" value={shown ?? ''} max={today ?? undefined} onchange={(e) => e.currentTarget.value && pick(e.currentTarget.value)} />
       </label>
-      <button type="button" class="btn" onclick={() => pick(shiftDay(on, 1))} disabled={on >= today} aria-label="Day after">›</button>
-      {#if on !== today}<button type="button" class="btn link" onclick={() => pick(today)}>Today</button>{/if}
-      <span class="muted">{dayLabel(on)}</span>
+      <button type="button" class="btn" onclick={() => shown && pick(shiftDay(shown, 1))} disabled={on === null} aria-label="Day after">›</button>
+      {#if on !== null}<button type="button" class="btn link" onclick={() => (on = null)}>Today</button>{/if}
+      {#if shown}<span class="muted">{dayLabel(shown)}</span>{/if}
     </div>
     <div class="nights">
       {#each raidDays.officerDays as day (day)}
-        <SignInAudit {backend} {day} title="{dayName(day, raidDays.names)} members" {on} onpick={pick} />
+        <SignInAudit {backend} {day} title="{dayName(day, raidDays.names)} members" {on} onpick={pick} {ontoday} />
       {/each}
       {#if globalTier}
-        <SignInAudit {backend} day={null} title="Members on no raid night" {on} onpick={pick} />
+        <SignInAudit {backend} day={null} title="Members on no raid night" {on} onpick={pick} {ontoday} />
       {/if}
     </div>
   {/if}

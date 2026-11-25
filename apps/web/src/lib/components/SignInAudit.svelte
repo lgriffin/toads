@@ -17,13 +17,16 @@
     day,
     title,
     on,
-    onpick
+    onpick,
+    ontoday
   }: {
     backend: SignInsBackend;
     day: string | null;
     title: string;
-    on: string;
+    /** The day to show; null asks the hub for its today, in the guild's time zone, which `ontoday` then reports. */
+    on: string | null;
     onpick: (date: string) => void;
+    ontoday?: (date: string) => void;
   } = $props();
 
   let view = $state<SignInDay | null>(null);
@@ -37,9 +40,11 @@
     const date = on;
     const read = ++latest;
     error = '';
-    backend.day(d, date).then(
+    backend.day(d, date ?? undefined).then(
       (v) => {
-        if (read === latest) view = v;
+        if (read !== latest) return;
+        view = v;
+        if (date === null) ontoday?.(v.date);
       },
       (e) => {
         if (read === latest) {
