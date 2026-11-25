@@ -31,7 +31,7 @@ test('the old toolkit address lands on Hub features', async ({ page }) => {
 test('a raider has the raider column and sees what officers hold', async ({ page }) => {
   await signIn(page, 'member');
   await page.goto('');
-  await (await openAccountMenu(page)).getByRole('link', { name: /^What you can do/ }).click();
+  await (await openAccountMenu(page)).getByRole('link', { name: /^What You Can Do/ }).click();
   await expect(page).toHaveURL(/\/toads\/features\/$/);
   await expect(step(page, 'Raid analyzer', 'raider')).not.toHaveClass(/locked/);
   await expect(step(page, 'Raid analyzer', 'raider')).toHaveClass(/here/);
