@@ -66,7 +66,8 @@ def test_interview_rooms_admit_the_nights_badge_officers() -> None:
         badge_officer_roles=lambda: {"thu": {60}, "sun": {70}},
     )
     assert directory.officer_role_ids(["thu"]) == [60, 900]
-    assert directory.officer_role_ids([]) == [12, 60, 70, 900]
+    # An application for no night is the global tier's alone.
+    assert directory.officer_role_ids([]) == [900]
 
 
 def test_links_are_listed_in_catalogue_order() -> None:

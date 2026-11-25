@@ -4,7 +4,7 @@ night's officers no longer see or change another night's. What the global tier a
 
 Each doc gets the night its `strategy.add` audit row names. A doc another night already pins stays shared, so no
 night's Raid page loses a doc it shows; so does a doc with no audit row. References and comparisons get the nights of
-the import and compare jobs still kept; older ones stay shared.
+the import and compare jobs still kept that succeeded; older ones stay shared.
 
 Revision ID: 0044
 Revises: 0043
@@ -44,15 +44,16 @@ def upgrade() -> None:
     jobs = sa.table(
         "reference_jobs",
         sa.column("kind", sa.String),
+        sa.column("status", sa.String),
+        sa.column("status", sa.String),
         sa.column("raid_day", sa.String),
         sa.column("params", sa.JSON),
         sa.column("created_at", sa.DateTime(timezone=True)),
     )
     bind = op.get_bind()
     owners: dict[tuple[str, str], object] = {}
-    for kind, day, params, at in bind.execute(
-        sa.select(jobs.c.kind, jobs.c.raid_day, jobs.c.params, jobs.c.created_at)
-    ):
+    done = sa.select(jobs.c.kind, jobs.c.raid_day, jobs.c.params, jobs.c.created_at).where(jobs.c.status == "done")
+    for kind, day, params, at in bind.execute(done):
         key = _key(kind, params or {})
         if key and day:
             owners.setdefault((key[:80], day), at)

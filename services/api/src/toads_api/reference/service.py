@@ -11,6 +11,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from toads_api.reference.repository import (
     ComparisonSummary,
@@ -32,8 +33,28 @@ JOBS_SCANNED = 100
 
 
 def pair_key(guild_report: str, reference_report: str) -> str:
-    """The key a comparison's owning nights are kept under."""
+    """The key a comparison's owning nights are kept under; a reference's is its report id."""
     return f"{guild_report}/{reference_report}"
+
+
+def refusal(owners: frozenset[str], nights: frozenset[str] | None) -> tuple[int, str] | None:
+    """Why officers of `nights` (None: the global tier) may not relabel or delete a reference these nights own, as an
+    HTTP status and message; None when they may. The worker applies the same rule (hub_db.reference.refusal) when it
+    runs the request; tests/test_reference.py checks the two agree."""
+    if nights is None:
+        return None
+    if owners and not owners & nights:
+        return 404, "No such reference raid for this night."
+    if not owners:
+        return 403, "This reference is shared with every night; a global officer can change it."
+    if not owners <= nights:
+        return 409, "Another night uses this reference too; a global officer can change it."
+    return None
+
+
+def _nights_param(nights: frozenset[str] | None) -> list[str] | None:
+    """The requesting officer's nights, kept on a relabel or delete so the worker checks them again (None: global)."""
+    return None if nights is None else sorted(nights)
 
 
 def _seen(owners: frozenset[str] | None, nights: frozenset[str] | None) -> bool:
@@ -157,44 +178,36 @@ class ReferenceService:
             raise ReferenceRequestError("Connect the Warcraft Logs account before importing a reference.", 409)
         if login.status == "expired":
             raise ReferenceRequestError("The Warcraft Logs sign-in has expired; connect the account again.", 409)
-        job = self._queue("import", raid_day, member_id, {"report": code, "label": label})
-        self.repo.own(code, raid_day)
-        return job
+        # The worker records that the night owns the reference once the import succeeds.
+        return self._queue("import", raid_day, member_id, {"report": code, "label": label})
 
     def request_compare(self, raid_day: str, member_id: int, guild_report: str, reference_report: str) -> Job:
         guild, ref = parse_report(guild_report), parse_report(reference_report)
         if guild == ref:
             raise ReferenceRequestError("Pick one of our raids and a different reference raid.")
-        job = self._queue("compare", raid_day, member_id, {"guild_report": guild, "reference_report": ref})
-        self.repo.own(pair_key(guild, ref), raid_day)
-        return job
+        # The worker records that the night owns the comparison once it is built, so asking is not reading.
+        return self._queue("compare", raid_day, member_id, {"guild_report": guild, "reference_report": ref})
 
     def request_label(
         self, raid_day: str, member_id: int, report: str, label: str | None, nights: frozenset[str] | None = None
     ) -> Job:
         code = parse_report(report)
         self._check_changeable(code, nights)
-        return self._queue("label", raid_day, member_id, {"report": code, "label": clean_label(label)})
+        params = {"report": code, "label": clean_label(label), "nights": _nights_param(nights)}
+        return self._queue("label", raid_day, member_id, params)
 
     def request_delete(self, raid_day: str, member_id: int, report: str, nights: frozenset[str] | None = None) -> Job:
         code = parse_report(report)
         self._check_changeable(code, nights)
-        return self._queue("delete", raid_day, member_id, {"report": code})
+        return self._queue("delete", raid_day, member_id, {"report": code, "nights": _nights_param(nights)})
 
     def _check_changeable(self, report: str, nights: frozenset[str] | None) -> None:
         """A night's officers (`nights`) relabel or delete only a reference their nights imported and no other night
-        did; a shared one, or one another night also uses, is left to a global officer. None: the global tier."""
-        if nights is None:
-            return
-        owners = self.repo.owners().get(report)
-        if owners is not None and not owners & nights:
-            raise ReferenceRequestError("No such reference raid for this night.", 404)
-        if owners is None:
-            raise ReferenceRequestError(
-                "This reference is shared with every night; a global officer can change it.", 403
-            )
-        if not owners <= nights:
-            raise ReferenceRequestError("Another night uses this reference too; a global officer can change it.", 409)
+        did; a shared one, or one another night also uses, is left to a global officer. None: the global tier. The
+        worker checks again when it runs the request, since another night may import the raid meanwhile."""
+        refused = refusal(self.repo.owners().get(report, frozenset()), nights)
+        if refused is not None:
+            raise ReferenceRequestError(refused[1], refused[0])
 
     def comparison(
         self, guild_report: str, reference_report: str, nights: frozenset[str] | None = None
@@ -205,7 +218,7 @@ class ReferenceService:
             return None
         return self.repo.comparison(guild, ref)
 
-    def _queue(self, kind: str, raid_day: str, member_id: int, params: dict[str, str | None]) -> Job:
+    def _queue(self, kind: str, raid_day: str, member_id: int, params: dict[str, Any]) -> Job:
         job = self.repo.create_job(kind, raid_day, member_id, dict(params))
         try:
             self.enqueue(job.id)

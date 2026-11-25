@@ -19,19 +19,26 @@ from typing import Any
 import structlog
 from hub_db import CredentialCipher, CredentialDecryptError
 from hub_db.reference import (
+    PAGE_ROW,
     JobKind,
     JobStatus,
     LoginToken,
+    ReferenceComparison,
+    ReferencePage,
+    claim,
     delete_comparisons_of,
     load_login,
     mark_login_expired,
+    owners_of,
+    pair_key,
+    refusal,
     save_comparison,
     save_page,
     store_refreshed_login,
     update_job,
 )
 from pydantic import SecretStr
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from wcl_app import AppContext, ReferenceAuthRequired, ReferenceRequestError, ReferenceService
 from wcl_app.context import StorageFactory
@@ -158,20 +165,59 @@ def publish_page(refs: ReferenceService, db: sessionmaker[Session]) -> dict[str,
     return {"references": len(references), "guild_raids": len(guild_raids)}
 
 
-def _run(kind: str, params: dict[str, Any], refs: ReferenceService, db: sessionmaker[Session]) -> str:
-    """Carry out one request; returns the message the officer sees."""
+def _listed(db: sessionmaker[Session], report: str) -> bool:
+    """Whether the stored reference list already holds this raid (so importing it again is not a new raid)."""
+    with db() as s:
+        page = s.get(ReferencePage, PAGE_ROW)
+        return page is not None and any(r.get("report_id") == report for r in page.references)
+
+
+def _compared(s: Session, guild: str, ref: str) -> bool:
+    found = s.scalar(
+        select(ReferenceComparison.id).where(
+            ReferenceComparison.guild_report == guild, ReferenceComparison.reference_report == ref
+        )
+    )
+    return found is not None
+
+
+def _still_theirs(params: dict[str, Any], db: sessionmaker[Session]) -> None:
+    """Nights are kept apart: a night officer's relabel or delete runs only if their nights may still change the raid,
+    which another night importing it meanwhile changes. `nights` absent or None: the global tier."""
+    nights = params.get("nights")
+    if nights is None:
+        return
+    with db() as s:
+        owners = owners_of(s, str(params["report"]))
+    refused = refusal(owners, frozenset(nights))
+    if refused is not None:
+        raise ReferenceRequestError(refused[1])
+
+
+def _run(kind: str, params: dict[str, Any], refs: ReferenceService, db: sessionmaker[Session], night: str) -> str:
+    """Carry out one request for `night` (the raid day it was asked through); returns the message the officer sees.
+    A night owns what its import or comparison stores, recorded only once that succeeds."""
     if kind == JobKind.IMPORT:
-        analysis = refs.import_reference(str(params["report"]), label=params.get("label"))
+        code = str(params["report"])
+        existed = _listed(db, code)
+        analysis = refs.import_reference(code, label=params.get("label"))
+        with db.begin() as s:
+            claim(s, code, night, existed=existed)
         return f"Imported {analysis.metadata.title}."
     if kind == JobKind.COMPARE:
-        comparison = refs.compare(str(params["guild_report"]), str(params["reference_report"]))
+        guild, ref = str(params["guild_report"]), str(params["reference_report"])
+        comparison = refs.compare(guild, ref)
         with db.begin() as s:
+            existed = _compared(s, guild, ref)
             save_comparison(s, comparison.to_dict(), _stamp())
+            claim(s, pair_key(guild, ref), night, existed=existed)
         return f"Compared {comparison.guild.title} with {comparison.reference.title}."
     if kind == JobKind.LABEL:
+        _still_theirs(params, db)
         refs.set_label(str(params["report"]), params.get("label"))
         return "Label saved." if params.get("label") else "Label cleared."
     if kind == JobKind.DELETE:
+        _still_theirs(params, db)
         code = str(params["report"])
         refs.delete_reference(code)
         with db.begin() as s:
@@ -181,10 +227,10 @@ def _run(kind: str, params: dict[str, Any], refs: ReferenceService, db: sessionm
 
 
 def _outcome(
-    kind: str, params: dict[str, Any], refs: ReferenceService, db: sessionmaker[Session]
+    kind: str, params: dict[str, Any], refs: ReferenceService, db: sessionmaker[Session], night: str
 ) -> tuple[JobStatus, str]:
     try:
-        return JobStatus.DONE, _run(kind, params, refs, db)
+        return JobStatus.DONE, _run(kind, params, refs, db, night)
     except ReferenceRequestError as exc:
         return JobStatus.FAILED, str(exc)
     except ReferenceAuthRequired:
@@ -217,7 +263,7 @@ def run_reference_job(
         job = update_job(s, job_id, JobStatus.RUNNING)
         if job is None:
             return {"job": job_id, "status": "missing"}
-        kind, params = job.kind, dict(job.params)
+        kind, params, night = job.kind, dict(job.params), job.raid_day
 
     login = DedicatedLogin(db, CredentialCipher.from_setting(settings.credentials_keys.get_secret_value()))
     ctx = AppContext.headless(
@@ -227,7 +273,7 @@ def run_reference_job(
     )
     refs = ReferenceService(ctx)
     try:
-        status, message = _outcome(kind, params, refs, db)
+        status, message = _outcome(kind, params, refs, db, night)
         if message == EXPIRED_MESSAGE:
             login.expire()
     except Exception:

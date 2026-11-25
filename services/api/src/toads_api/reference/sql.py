@@ -26,7 +26,6 @@ from hub_db.reference import (
     update_job,
 )
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.reference.repository import (
@@ -121,11 +120,3 @@ class SqlReferenceRepository:
             for row in db.scalars(select(ReferenceNight)):
                 found.setdefault(row.key, set()).add(row.raid_day_id)
         return {k: frozenset(v) for k, v in found.items()}
-
-    def own(self, key: str, raid_day: str) -> None:
-        try:
-            with self._db.begin() as db:
-                if db.get(ReferenceNight, (key, raid_day)) is None:
-                    db.add(ReferenceNight(key=key, raid_day_id=raid_day))
-        except IntegrityError:
-            pass  # Another request recorded the same night meanwhile.

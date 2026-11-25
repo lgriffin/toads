@@ -84,11 +84,7 @@ class ReferenceRepository(Protocol):
 
     def owners(self) -> dict[str, frozenset[str]]:
         """The nights that own each reference (by report id) and comparison ("<guild>/<reference>"); a key not listed
-        has no night and is shared."""
-        ...
-
-    def own(self, key: str, raid_day: str) -> None:
-        """Record that `raid_day` owns a reference or comparison (kept if it already does)."""
+        has no night and is shared. The worker records them as imports and comparisons succeed."""
         ...
 
 
@@ -148,4 +144,5 @@ class InMemoryReferenceRepository:
         return {k: frozenset(v) for k, v in self.nights.items()}
 
     def own(self, key: str, raid_day: str) -> None:
+        """For tests: what the worker records when a night's import or comparison succeeds."""
         self.nights.setdefault(key, set()).add(raid_day)

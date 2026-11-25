@@ -152,7 +152,7 @@ def refused(ctx: dict[str, Any]) -> None:
 
 @then("a Sunday officer's reference page lists none of it")
 def sunday_sees_none(hub: Hub, ctx: dict[str, Any]) -> None:
-    from hub_db.reference import save_comparison, save_page
+    from hub_db.reference import claim, save_comparison, save_page
 
     payload = {
         "version": 1,
@@ -162,6 +162,9 @@ def sunday_sees_none(hub: Hub, ctx: dict[str, Any]) -> None:
     with hub.db.begin() as db:
         save_page(db, "2026-11-25 10:00:00", [{"report_id": THEIRS, "title": "Theirs"}], [])
         save_comparison(db, payload, "2026-11-25 10:00:00")
+        # What the worker records once Wednesday's import and comparison succeed.
+        claim(db, THEIRS, "wed", existed=False)
+        claim(db, f"{OURS}/{THEIRS}", "wed", existed=False)
     ctx["sun"] = hub.login(hub.user(("sun", "officer")))
     page = hub.get("/api/days/sun/reference", ctx["sun"]).json()
     assert (page["references"], page["comparisons"], page["jobs"]) == ([], [], [])
