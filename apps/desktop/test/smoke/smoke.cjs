@@ -51,7 +51,7 @@ async function run() {
   const win = require('electron').BrowserWindow.getAllWindows()[0];
   const contents = win.webContents;
   await until('the hub page', () => contents.getURL() === `${origin}/hub` && !contents.isLoading());
-  await until('the visitor menus', () => submenu('Me').includes('Log in with Discord'));
+  await until('the visitor menus', () => submenu('Me').includes('Log In with Discord'));
   await until("the site's theme", () => nativeTheme.themeSource === 'dark');
   assert.ok(!labels().includes('Officers'), 'a visitor has no Officers menu');
 
@@ -70,12 +70,12 @@ async function run() {
   await click('login');
   await until('the officer menus', () => labels().includes('Officers'));
   assert.ok(submenu('Officers').includes('Officer console'));
-  assert.ok(submenu('Officers').includes('Wednesday officers'));
-  assert.ok(!submenu('Officers').includes('Sunday officers'), 'only the nights this officer runs');
-  assert.ok(!submenu('Officers').includes('Admin console'));
+  assert.ok(submenu('Officers').includes('Wednesday Officers'));
+  assert.ok(!submenu('Officers').includes('Sunday Officers'), 'only the nights this officer runs');
+  assert.ok(!submenu('Officers').includes('Admin Console'));
   assert.ok(submenu('Me').includes('Me'));
   assert.ok(submenu('Hub').includes('Raid toolkit'), "the live site's lists win over the bundled ones");
-  assert.ok(submenu('Me').includes('Log out'));
+  assert.ok(submenu('Me').includes('Log Out'));
 
   // A reader who picked the light theme on the site: the app's theme follows, and is remembered for the next launch.
   await contents.loadURL(`${origin}/light`);
@@ -93,8 +93,8 @@ async function run() {
 
   // Log out from the Me menu posts to the hub as the site does; the menus go back to a visitor's.
   await contents.executeJavaScript("sessionStorage.setItem('toads:recruit-draft', 'answers')");
-  Menu.getApplicationMenu().items.find((i) => i.label === 'Me').submenu.items.find((i) => i.label === 'Log out').click();
-  await until('signed out', () => submenu('Me').includes('Log in with Discord'));
+  Menu.getApplicationMenu().items.find((i) => i.label === 'Me').submenu.items.find((i) => i.label === 'Log Out').click();
+  await until('signed out', () => submenu('Me').includes('Log In with Discord'));
   assert.ok(!labels().includes('Officers'));
   assert.equal(contents.getURL(), `${origin}/`, "Log out lands on the hub's front page");
   await until('the recruit draft forgotten', async () =>
