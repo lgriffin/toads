@@ -608,6 +608,16 @@ instead of their main (the first character they were approved for, until a swap)
 Me, "Your performance" and badges; reject asks for the reason the member reads on Me. Main swaps follow the member's
 nights exactly as claims do (`/api/days/{day}/main-swaps`, `/api/admin/main-swaps`); see `docs/me.md`.
 
+### See who has signed in
+
+**Officers > Sign-ins** (`/officers/sign-ins`) is the sign-in audit: pick a day (or a bar in a night's last fortnight)
+to see who signed in to the hub that day and at what time, and below it when each member of the night last signed in,
+with anyone quiet for two weeks in italics and anyone who never has marked "Never". Days run midnight to midnight in
+`raid_days.yaml`'s `timezone`. A night's officers see only their own night's members, by the night roles a member held
+when they signed in; global officers and super admins see every night plus "Members on no raid night". Nothing to
+configure: every sign-in since the release with migration 0044 is recorded (before that, only each member's last
+sign-in is known). See `docs/sign-ins.md`.
+
 ### Refresh hub data by hand
 
 The scheduler does this every 30 minutes, and imports new guild reports every 15 minutes, as many as the guild key's
