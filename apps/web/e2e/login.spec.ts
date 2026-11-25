@@ -26,7 +26,7 @@ test('a raider signs in, sees their own side but not the officer console', async
   const main = page.getByRole('navigation', { name: 'Main' });
   await expect(main.getByRole('button', { name: 'Officers' })).toHaveCount(0);
   const hub = await openHubMenu(page);
-  await expect(hub.getByRole('list').first().getByRole('link')).toHaveText([/^Hub home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/]);
+  await expect(hub.getByRole('list').first().getByRole('link')).toHaveText([/^Hub Home/, /^Raid/, /^Logs/, /^Highlights/, /^Bank/]);
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'toads badges' })).toHaveCount(0);
 
@@ -46,7 +46,7 @@ test('the view switch moves between the raider and officer sides and survives a 
   await expect(page.locator('#menu-account')).toBeHidden();
   await expect((await openAccountMenu(page)).getByText('Officer', { exact: true })).toBeVisible();
   await expect(page.locator('[data-widget="officer_desk"]')).toHaveCount(1);
-  await (await openOfficersMenu(page)).getByRole('link', { name: /^Officer console/ }).click();
+  await (await openOfficersMenu(page)).getByRole('link', { name: /^Officer Console/ }).click();
   await expect(page).toHaveURL(/\/toads\/officers\/$/);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Officer console', level: 1 })).toBeVisible();

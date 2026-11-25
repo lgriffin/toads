@@ -10,6 +10,9 @@ This guide is the map. The detailed rules live next to the code and are linked f
 side of the bank), [docs/bots.md](docs/bots.md) (the bot kit) and ToadsBank's
 [docs/api.md](https://github.com/lgriffin/ToadsBank/blob/main/docs/api.md).
 
+What players see and click, one guide per role, is in the player guides ([docs/guides/](docs/guides/README.md)). When a
+change here alters a page, a menu or who may use something, update the guide it touches too.
+
 Never write a secret into this repository, an issue or a chat. Every secret below goes into the deployment's
 environment or secret store only.
 

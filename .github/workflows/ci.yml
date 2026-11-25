@@ -89,7 +89,9 @@ jobs:
       - run: python3 ../../scripts/dev.py web-check web-test web-build web-audit
 
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is Ubuntu 26.04, where Playwright 1.56 cannot install Chromium's dependencies. Move to
+    # ubuntu-latest again with a Playwright release that supports it.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/web

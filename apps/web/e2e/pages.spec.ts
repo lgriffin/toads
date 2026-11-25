@@ -97,9 +97,9 @@ test('a signed-in officer has Hub, Me and one Officers menu in the top bar', asy
 
   // The Wednesday raid leader sees the officer tools and Wednesday's section, never another night's or the Admin console.
   const officers = await openOfficersMenu(page);
-  await expect(officers.getByRole('link', { name: /^Wednesday officers/ })).toBeVisible();
-  await expect(officers.getByRole('link', { name: /^Sunday officers/ })).toHaveCount(0);
-  await expect(officers.getByRole('link', { name: /^Admin console/ })).toHaveCount(0);
+  await expect(officers.getByRole('link', { name: /^Wednesday Officers/ })).toBeVisible();
+  await expect(officers.getByRole('link', { name: /^Sunday Officers/ })).toHaveCount(0);
+  await expect(officers.getByRole('link', { name: /^Admin Console/ })).toHaveCount(0);
 });
 
 const signOut = (page: Page) => page.addInitScript(() => localStorage.removeItem('toads-preview-role'));

@@ -19,13 +19,13 @@ test('only the super admin view opens the admin console', async ({ page }) => {
   await signIn(page, 'officer');
   await page.goto('admin/');
   await expect(page.getByRole('heading', { name: 'Super admins only' })).toBeVisible();
-  await expect((await openOfficersMenu(page)).getByRole('link', { name: /^Admin console/ })).toHaveCount(0);
+  await expect((await openOfficersMenu(page)).getByRole('link', { name: /^Admin Console/ })).toHaveCount(0);
 });
 
 test('a super admin sees integrations, jobs and grants on the admin console', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('hub/');
-  await (await openOfficersMenu(page)).getByRole('link', { name: /^Admin console/ }).click();
+  await (await openOfficersMenu(page)).getByRole('link', { name: /^Admin Console/ }).click();
   await expect(page.getByRole('heading', { name: 'Admin console', level: 1 })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Integrations' }).getByRole('heading', { name: 'Google Drive' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'import-sheets' })).toBeVisible();
