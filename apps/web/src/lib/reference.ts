@@ -200,7 +200,8 @@ export function referenceError(e: unknown): string {
     case 401:
       return 'Your session ended; sign in again.';
     case 403:
-      return 'Reference comparisons are for officers of this raid day.';
+      // The API's own words when a night's officer reaches for a reference every night shares.
+      return e.message && e.message !== 'Forbidden' ? e.message : 'Reference comparisons are for officers of this raid day.';
     default:
       return e.message || 'Something went wrong; try again.';
   }

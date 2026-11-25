@@ -27,6 +27,20 @@ _URL = re.compile(r"warcraftlogs\.com/reports/([A-Za-z0-9]{16})(?![A-Za-z0-9])")
 MAX_LABEL_LENGTH = 80
 MAX_REPORT_INPUT = 300
 RECENT_JOBS = 10
+# How many of the newest requests a night's overview looks through for its own (the hub keeps 100).
+JOBS_SCANNED = 100
+
+
+def pair_key(guild_report: str, reference_report: str) -> str:
+    """The key a comparison's owning nights are kept under."""
+    return f"{guild_report}/{reference_report}"
+
+
+def _seen(owners: frozenset[str] | None, nights: frozenset[str] | None) -> bool:
+    """Whether officers of `nights` (None: the global tier) see something these nights own (None: shared)."""
+    return nights is None or owners is None or bool(owners & nights)
+
+
 # A job still queued or running this long after its last update was lost (the worker died or RQ's 30-minute
 # timeout killed it before it could record an outcome); the page shows it failed instead of polling forever.
 ABANDONED_AFTER = timedelta(hours=1)
@@ -91,13 +105,27 @@ class ReferenceService:
         # Whether the hub has a Warcraft Logs application to sign in with.
         self.configured = configured
 
-    def overview(self) -> Overview:
+    def overview(self, nights: frozenset[str] | None = None) -> Overview:
+        """What the reference page shows. With `nights` (a night officer's), only those nights' references,
+        comparisons and requests, and the shared ones from before nights were kept apart; None: everything."""
+        page = self.repo.page()
+        owners = self.repo.owners()
+        if nights is not None and page is not None:
+            page = replace(
+                page,
+                references=[r for r in page.references if _seen(owners.get(str(r.get("report_id", ""))), nights)],
+            )
+        jobs = self.repo.recent_jobs(RECENT_JOBS if nights is None else JOBS_SCANNED)
         return Overview(
             configured=self.configured,
             login=self.repo.login_info(),
-            page=self.repo.page(),
-            comparisons=self.repo.comparisons(),
-            jobs=[self._settled(j) for j in self.repo.recent_jobs(RECENT_JOBS)],
+            page=page,
+            comparisons=[
+                c
+                for c in self.repo.comparisons()
+                if _seen(owners.get(pair_key(c.guild_report, c.reference_report)), nights)
+            ],
+            jobs=[self._settled(j) for j in jobs if nights is None or j.raid_day in nights][:RECENT_JOBS],
         )
 
     def _settled(self, job: Job) -> Job:
@@ -129,22 +157,53 @@ class ReferenceService:
             raise ReferenceRequestError("Connect the Warcraft Logs account before importing a reference.", 409)
         if login.status == "expired":
             raise ReferenceRequestError("The Warcraft Logs sign-in has expired; connect the account again.", 409)
-        return self._queue("import", raid_day, member_id, {"report": code, "label": label})
+        job = self._queue("import", raid_day, member_id, {"report": code, "label": label})
+        self.repo.own(code, raid_day)
+        return job
 
     def request_compare(self, raid_day: str, member_id: int, guild_report: str, reference_report: str) -> Job:
         guild, ref = parse_report(guild_report), parse_report(reference_report)
         if guild == ref:
             raise ReferenceRequestError("Pick one of our raids and a different reference raid.")
-        return self._queue("compare", raid_day, member_id, {"guild_report": guild, "reference_report": ref})
+        job = self._queue("compare", raid_day, member_id, {"guild_report": guild, "reference_report": ref})
+        self.repo.own(pair_key(guild, ref), raid_day)
+        return job
 
-    def request_label(self, raid_day: str, member_id: int, report: str, label: str | None) -> Job:
-        return self._queue("label", raid_day, member_id, {"report": parse_report(report), "label": clean_label(label)})
+    def request_label(
+        self, raid_day: str, member_id: int, report: str, label: str | None, nights: frozenset[str] | None = None
+    ) -> Job:
+        code = parse_report(report)
+        self._check_changeable(code, nights)
+        return self._queue("label", raid_day, member_id, {"report": code, "label": clean_label(label)})
 
-    def request_delete(self, raid_day: str, member_id: int, report: str) -> Job:
-        return self._queue("delete", raid_day, member_id, {"report": parse_report(report)})
+    def request_delete(self, raid_day: str, member_id: int, report: str, nights: frozenset[str] | None = None) -> Job:
+        code = parse_report(report)
+        self._check_changeable(code, nights)
+        return self._queue("delete", raid_day, member_id, {"report": code})
 
-    def comparison(self, guild_report: str, reference_report: str) -> StoredComparison | None:
-        return self.repo.comparison(parse_report(guild_report), parse_report(reference_report))
+    def _check_changeable(self, report: str, nights: frozenset[str] | None) -> None:
+        """A night's officers (`nights`) relabel or delete only a reference their nights imported and no other night
+        did; a shared one, or one another night also uses, is left to a global officer. None: the global tier."""
+        if nights is None:
+            return
+        owners = self.repo.owners().get(report)
+        if owners is not None and not owners & nights:
+            raise ReferenceRequestError("No such reference raid for this night.", 404)
+        if owners is None:
+            raise ReferenceRequestError(
+                "This reference is shared with every night; a global officer can change it.", 403
+            )
+        if not owners <= nights:
+            raise ReferenceRequestError("Another night uses this reference too; a global officer can change it.", 409)
+
+    def comparison(
+        self, guild_report: str, reference_report: str, nights: frozenset[str] | None = None
+    ) -> StoredComparison | None:
+        """A built comparison, or None when there is none, or it is another night's (`nights`: a night officer's)."""
+        guild, ref = parse_report(guild_report), parse_report(reference_report)
+        if not _seen(self.repo.owners().get(pair_key(guild, ref)), nights):
+            return None
+        return self.repo.comparison(guild, ref)
 
     def _queue(self, kind: str, raid_day: str, member_id: int, params: dict[str, str | None]) -> Job:
         job = self.repo.create_job(kind, raid_day, member_id, dict(params))

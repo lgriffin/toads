@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from hub_db import CredentialCipher, Member, ReferenceComparison, ReferenceJob, ReferenceLogin, ReferencePage
+from hub_db import (
+    CredentialCipher,
+    Member,
+    ReferenceComparison,
+    ReferenceJob,
+    ReferenceLogin,
+    ReferenceNight,
+    ReferencePage,
+)
 from hub_db.reference import (
     LOGIN_ROW,
     PAGE_ROW,
@@ -18,6 +26,7 @@ from hub_db.reference import (
     update_job,
 )
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from toads_api.reference.repository import (
@@ -105,3 +114,18 @@ class SqlReferenceRepository:
                 )
             )
             return None if row is None else StoredComparison(row.generated_at, dict(row.payload))
+
+    def owners(self) -> dict[str, frozenset[str]]:
+        found: dict[str, set[str]] = {}
+        with self._db() as db:
+            for row in db.scalars(select(ReferenceNight)):
+                found.setdefault(row.key, set()).add(row.raid_day_id)
+        return {k: frozenset(v) for k, v in found.items()}
+
+    def own(self, key: str, raid_day: str) -> None:
+        try:
+            with self._db.begin() as db:
+                if db.get(ReferenceNight, (key, raid_day)) is None:
+                    db.add(ReferenceNight(key=key, raid_day_id=raid_day))
+        except IntegrityError:
+            pass  # Another request recorded the same night meanwhile.

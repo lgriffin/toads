@@ -116,6 +116,19 @@ class ReferenceComparison(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
 
+class ReferenceNight(Base):
+    """A raid night that owns a stored reference or a comparison: the night whose path an officer imported or compared
+    it through. Only that night's officers (and the global tier) see and change it; one with no night (from before
+    nights were kept apart) is shared. A key is a reference's report id, or "<guild report>/<reference report>" for a
+    comparison."""
+
+    __tablename__ = "reference_nights"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    raid_day_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 # ── The login ──
 
 

@@ -107,24 +107,41 @@ def test_taking_a_doc_down_takes_it_off_every_night() -> None:
     assert info.value.status == 404
 
 
-def test_a_night_takes_down_only_docs_no_other_night_pins() -> None:
+def test_a_night_takes_down_only_its_own_docs_no_other_night_pins() -> None:
     svc = _svc()
-    sun = svc.add("naxx", url=DOC + "sun", by=1).doc.id
-    both = svc.add("naxx", url=DOC + "both", by=1).doc.id
-    own = svc.add("naxx", url=DOC + "own", by=1).doc.id
-    svc.set_night("sun", [sun, both], by=1)
-    svc.set_night("wed", [both, own], by=1)
-    for doc in (sun, both):
+    shared = svc.add("naxx", url=DOC + "shared", by=1).doc.id
+    sun = svc.add("naxx", url=DOC + "sun", by=1, through="sun").doc.id
+    old = svc.add("naxx", url=DOC + "old", by=1, through="wed").doc.id
+    own = svc.add("naxx", url=DOC + "own", by=1, through="wed").doc.id
+    # A pin from before nights were kept apart: Sunday shows Wednesday's doc.
+    svc.repo.nights["sun"] = [old]
+    wed = frozenset({"wed"})
+    for doc, status in ((shared, 403), (sun, 404), (old, 409)):
         with pytest.raises(StrategyError) as info:
-            svc.remove(doc, by=1, through="wed", nights=frozenset({"wed"}))
-        assert info.value.status == 409
-    svc.remove(own, by=1, through="wed", nights=frozenset({"wed"}))
+            svc.remove(doc, by=1, through="wed", nights=wed)
+        assert info.value.status == status
+    svc.remove(own, by=1, through="wed", nights=wed)
     with pytest.raises(StrategyError) as info:
-        svc.remove(own, by=1, through="wed", nights=frozenset({"wed"}))
+        svc.remove(own, by=1, through="wed", nights=wed)
     assert info.value.status == 404
-    svc.remove(sun, by=1, through="wed", nights=frozenset({"wed", "sun"}))
-    svc.remove(both, by=1)
+    svc.remove(sun, by=1, through="sun", nights=frozenset({"wed", "sun"}))
+    svc.remove(old, by=1, through="wed", nights=frozenset({"wed", "sun"}))
+    svc.remove(shared, by=1)
     assert _docs(svc, "naxx") == []
+
+
+def test_each_night_sees_and_pins_only_its_own_docs_and_the_shared_ones() -> None:
+    svc = _svc()
+    shared = svc.add("mc", url=DOC + "shared", by=1).doc.id
+    wed = svc.add("mc", url=DOC + "wed", by=1, through="wed").doc.id
+    sun = svc.add("mc", url=DOC + "sun", by=1, through="sun").doc.id
+    seen = {n: [v.doc.id for r in svc.library(frozenset({n})) for v in r.docs] for n in ("wed", "sun")}
+    assert seen == {"wed": [wed, shared], "sun": [sun, shared]}
+    assert [v.doc.id for r in svc.library() for v in r.docs] == [sun, wed, shared]
+    with pytest.raises(StrategyError) as info:
+        svc.set_night("sun", [shared, wed], by=1)
+    assert info.value.status == 422
+    assert [d.doc.doc.id for d in svc.set_night("sun", [sun, shared], by=1).docs] == [sun, shared]
 
 
 def test_a_night_skips_a_doc_for_a_retired_raid_or_one_gone() -> None:
@@ -178,6 +195,32 @@ def test_strategy_needs_a_signed_in_member(hub: Hub) -> None:
     member = hub.login(hub.user())
     assert hub.get("/api/strategy", member).status_code == 200
     assert hub.post("/api/admin/strategy", member, {"raid": "mc", "url": DOC + "1"}).status_code == 403
+
+
+def test_one_nights_officers_never_see_or_touch_another_nights_docs(hub: Hub) -> None:
+    wed = hub.login(hub.user(("wed", "officer")))
+    sun = hub.login(hub.user(("sun", "officer")))
+    sun_raider = hub.login(hub.user(("sun", "raider")))
+    admin = hub.login(hub.user(("global", "officer")))
+    mine = hub.post("/api/days/wed/strategy/docs", wed, {"raid": "mc", "url": DOC + "wed"}).json()
+    shared = hub.post("/api/admin/strategy", admin, {"raid": "mc", "url": DOC + "all"}).json()
+    hub.put("/api/days/wed/strategy", wed, {"docs": [mine["id"], shared["id"]]})
+
+    def seen(sid: str) -> tuple[list[tuple[int, str | None, list[str]]], list[str]]:
+        library = hub.get("/api/strategy", sid).json()
+        docs = [(d["id"], d["night"], d["nights"]) for r in library["raids"] for d in r["docs"]]
+        return docs, [n["raid_day"] for n in library["nights"]]
+
+    assert seen(sun) == ([(shared["id"], None, [])], ["sun"])
+    assert seen(wed) == ([(shared["id"], None, ["wed"]), (mine["id"], "wed", ["wed"])], ["wed"])
+    assert seen(admin)[1] == ["wed", "thu", "sun"] and len(seen(admin)[0]) == 2
+    # Raiders see only what their nights pin: Sunday pins nothing yet.
+    assert seen(sun_raider) == ([], ["sun"])
+    assert hub.put("/api/days/sun/strategy", sun, {"docs": [mine["id"]]}).status_code == 422
+    assert hub.delete(f"/api/days/sun/strategy/docs/{mine['id']}", sun).status_code == 404
+    assert hub.delete(f"/api/days/sun/strategy/docs/{shared['id']}", sun).status_code == 403
+    assert hub.put("/api/days/sun/strategy", sun, {"docs": [shared["id"]]}).status_code == 200
+    assert seen(sun_raider) == ([(shared["id"], None, ["sun"])], ["sun"])
 
 
 def test_the_audit_log_names_the_night_an_officer_acted_through(hub: Hub) -> None:
@@ -250,13 +293,17 @@ def test_postgres_saves_of_one_nights_docs_take_turns() -> None:
             assert "pg_advisory_xact_lock" in seen[0][0] and seen[0][1] == {"key": "night_strategy:wed"}
 
 
-def test_the_database_checks_other_nights_pins_as_it_takes_a_doc_down(hub: Hub) -> None:
+def test_the_database_checks_the_docs_night_and_other_nights_pins_as_it_takes_a_doc_down(hub: Hub) -> None:
     from toads_api.strategy.sql import SqlStrategyRepository
 
     repo = SqlStrategyRepository(hub.services.db)
-    doc = repo.add("mc", "MC", DOC + "1", 1).id
+    doc = repo.add("mc", "MC", DOC + "1", 1, "wed").id
+    shared = repo.add("mc", "MC", DOC + "2", 1).id
+    assert [(d.id, d.night) for d in repo.docs()] == [(shared, None), (doc, "wed")]
     repo.set_night_docs("sun", [doc], 1)
     assert repo.remove(doc, 1, "wed", frozenset({"wed"})) == "pinned"
+    assert repo.remove(doc, 1, "sun", frozenset({"sun"})) == "missing"
+    assert repo.remove(shared, 1, "wed", frozenset({"wed"})) == "shared"
     assert repo.remove(doc, 1, "wed", frozenset({"wed", "sun"})) == "removed"
     assert repo.remove(doc, 1, None, None) == "missing"
     assert repo.night_docs() == {}

@@ -61,19 +61,22 @@ Feature: HUB STRAT
     And the Strategy page adds docs to each raid and pins each night's docs
 
   @ears_event_driven @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-007 When a raid night's officer adds a doc through their night, the hub shall list it under the raid for every night's officers to pin, and record the night on the audit log
+  Scenario: REQ-HUB-STRAT-007 When a raid night's officer adds a doc through their night, the hub shall keep it for that night's officers alone to see and pin, and record the night on the audit log
     Given a global officer
     When a Wednesday officer adds "https://docs.google.com/document/d/aq20-wed" to "aq20" through Wednesday
     Then the "aq20" docs are "Ruins of Ahn'Qiraj strategy"
     And the audit log records "strategy.add" for Wednesday
-    And a Sunday officer can pin "https://docs.google.com/document/d/aq20-wed" for Sunday
+    And a Sunday officer does not see "https://docs.google.com/document/d/aq20-wed"
+    And a Sunday officer cannot pin "https://docs.google.com/document/d/aq20-wed" for Sunday
+    And a Wednesday officer can pin "https://docs.google.com/document/d/aq20-wed" for Wednesday
 
   @ears_unwanted_behavior @raid_leader @phase_2_7
-  Scenario: REQ-HUB-STRAT-008 If a raid night's officer tries to take down a doc another night pins, then the hub shall refuse it; they may take down a doc no other night pins
+  Scenario: REQ-HUB-STRAT-008 If a raid night's officer tries to take down a doc shared with every night or another night's doc, then the hub shall refuse it; they may take down their own night's doc
     Given a global officer
     And the global officer adds "https://docs.google.com/document/d/naxx-sun" to "naxx"
     And the global officer can pin "https://docs.google.com/document/d/naxx-sun" for Sunday
     When a Wednesday officer adds "https://docs.google.com/document/d/naxx-wed" to "naxx" through Wednesday
     And a Wednesday officer pins "https://docs.google.com/document/d/naxx-wed" for Wednesday
     Then the Wednesday officer cannot take down "https://docs.google.com/document/d/naxx-sun"
+    And a Sunday officer cannot take down "https://docs.google.com/document/d/naxx-wed"
     And the Wednesday officer can take down "https://docs.google.com/document/d/naxx-wed"

@@ -96,11 +96,11 @@ class RaidDayDirectory:
 
     def officer_role_ids(self, days: list[str]) -> list[int]:
         """Roles that may see an interview room: the global tier plus the officers of the days applied for, from the
-        config and the nights' Officer badges."""
+        config and the nights' Officer badges. An application for no night is the global tier's alone."""
         ids = set(self.global_officer_roles)
         for roles_by_day in (self.officer_roles, self.badge_officer_roles()):
             for day, roles in roles_by_day.items():
-                if not days or day in days:
+                if day in days:
                     ids.update(roles)
         return sorted(ids)
 
@@ -383,15 +383,16 @@ class CommunityService:
         return sorted(mine, key=lambda a: a.created_at, reverse=True)
 
     def applications_for(self, scope: str | None) -> list[Application]:
-        """A raid day's applications are those for that day or for any day; None is every application."""
+        """A raid day's applications are those that name that day; None is every application. One that names no night
+        is the global tier's alone, like a claim on no night, so no night's officers see what another night decides."""
         return sorted(
-            (a for a in self.repo.applications() if scope is None or not a.raid_days or scope in a.raid_days),
+            (a for a in self.repo.applications() if scope is None or scope in a.raid_days),
             key=lambda a: a.created_at,
         )
 
     def _application_in_scope(self, app_id: int, scope: str | None) -> Application:
         app = self.repo.get_application(app_id)
-        if app is None or (scope is not None and app.raid_days and scope not in app.raid_days):
+        if app is None or (scope is not None and scope not in app.raid_days):
             raise NotFound("No such application")
         return app
 

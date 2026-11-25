@@ -185,3 +185,12 @@ Feature: HUB RECRUIT
     Then the Wednesday officer cannot set Sunday's recruitment needs
     And a spec the hub does not know, or the same spec twice, is refused for Sunday
     And Sunday's needs are still empty
+
+  @ears_unwanted_behavior @raid_leader @phase_2_4
+  Scenario: REQ-HUB-RECRUIT-024 If an application names no raid night, then the hub shall show it only to the global tier and super admins, not to any night's officers, and its interview room shall admit the global officers alone
+    Given the demo guild
+    And the applicant has sent an application that names no night
+    Then no night's officers can see or note the application
+    And the global officer sees the application
+    When the global officer opens an interview room
+    Then the bot is asked for a room for the applicant with the global officer role only

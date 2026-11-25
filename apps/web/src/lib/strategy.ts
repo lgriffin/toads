@@ -1,12 +1,13 @@
 /**
  * Raid strategy docs (docs/strategy.md): officers add Google Docs to each classic raid, then each raid night pins the
  * docs its raiders see on the night's Raid page. Officers keep the docs in Google Drive; the hub only links them.
+ * Nights are kept apart: a doc added through a night is that night's alone; a global officer's doc is shared.
  *
- * - GET    /api/strategy                  every raid's docs and the docs each night pins
+ * - GET    /api/strategy                  the raids' docs and nights' pins the caller may see
  * - POST   /api/admin/strategy            add a doc to a raid (global officers)
  * - DELETE /api/admin/strategy/{id}       take a doc down, off every night that pins it
  * - POST   /api/days/{day}/strategy/docs  add a doc as one of that night's officers
- * - DELETE /api/days/{day}/strategy/docs/{id}   take down a doc no other night pins
+ * - DELETE /api/days/{day}/strategy/docs/{id}   take down one of the night's own docs
  * - GET    /api/days/{day}/strategy       the docs the night pins (the Raid page)
  * - PUT    /api/days/{day}/strategy       pin the night's docs, in order (that night's officers)
  */
@@ -33,7 +34,9 @@ export interface StrategyDoc {
 }
 
 export interface LibraryDoc extends StrategyDoc {
-  /** The raid days that pin it for their raiders. */
+  /** The night it was added through, which alone sees and pins it; null: shared with every night. */
+  night: string | null;
+  /** The raid days that pin it for their raiders (only the nights the caller sees). */
   nights: string[];
 }
 
@@ -104,12 +107,14 @@ export function hubStrategy(f: Fetch = fetch): StrategyBackend {
   };
 }
 
-/** The docs an officer can pin for a night, as picker options: "ZG · Hakkar guide", raid by raid. */
+/** The docs an officer can pin for `day`, as picker options: "ZG · Hakkar guide", raid by raid. A night pins its own
+ * docs and the shared ones, never another night's. */
 export function docOptions(
   library: Library,
+  day: string,
 ): { id: string; short: string; name: string }[] {
   return library.raids.flatMap((r) =>
-    r.docs.map((d) => ({
+    r.docs.filter((d) => d.night === null || d.night === day).map((d) => ({
       id: String(d.id),
       short: r.raid.short,
       name: d.title,
@@ -155,7 +160,9 @@ export function addedLine(
 export function strategyError(e: unknown): string {
   if (!(e instanceof ApiError)) return "Something went wrong; try again.";
   if (e.status === 403)
-    return "Only officers add strategy docs, and only a night’s officers pin its docs.";
+    return e.message && e.message !== "Forbidden"
+      ? e.message
+      : "Only officers add strategy docs, and only a night’s officers pin its docs.";
   if (e.status === 404)
     return "That doc is gone; someone may have taken it down.";
   return e.message || "Something went wrong; try again.";

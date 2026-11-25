@@ -98,9 +98,10 @@ class StrategyService:
         names = self._shown_names({d.created_by for d in docs if d.created_by is not None})
         return [DocView(d, names.get(d.created_by) if d.created_by is not None else None) for d in docs]
 
-    def library(self) -> list[RaidDocs]:
-        """Every raid in order, with its docs, newest first; a doc for a raid no longer listed is left out."""
-        views = self._views(self.repo.docs())
+    def library(self, nights: frozenset[str] | None = None) -> list[RaidDocs]:
+        """Every raid in order, with its docs, newest first; a doc for a raid no longer listed is left out. With
+        `nights`, only the docs those nights' officers see: their own nights' and the shared ones."""
+        views = self._views([d for d in self.repo.docs() if d.seen_by(nights)])
         return [RaidDocs(raid, [v for v in views if v.doc.raid == raid.id]) for raid in RAIDS.values()]
 
     def add(self, raid: str, *, url: str, by: int, title: str = "", through: str | None = None) -> DocView:
@@ -118,9 +119,12 @@ class StrategyService:
         return self._views([self.repo.add(raid, title, url, by, through)])[0]
 
     def remove(self, doc_id: int, by: int, *, through: str | None = None, nights: frozenset[str] | None = None) -> None:
-        """Take a doc down, and off every night that pins it. With `nights` (the nights a night officer runs), a doc
-        another night pins stays up for that night's officers or the global tier to decide."""
+        """Take a doc down, and off every night that pins it. With `nights` (the nights a night officer runs), only one
+        of those nights' own docs: another night's is not theirs to see, a shared one is the global tier's to decide,
+        and one another night pins stays up for that night's officers or the global tier."""
         outcome = self.repo.remove(doc_id, by, through, nights)
+        if outcome == "shared":
+            raise StrategyError("This doc is shared with every night; a global officer can take it down", status=403)
         if outcome == "pinned":
             raise StrategyError(
                 "Another night pins this doc; its officers or a global officer can take it down", status=409
@@ -144,7 +148,8 @@ class StrategyService:
     def set_night(self, raid_day: str, doc_ids: list[int], by: int) -> NightStrategy:
         """Pin docs for a night's raiders, in order, so its Raid page shows them; [] clears them. A doc taken down while
         this saves is left out, as if it had not been ticked."""
-        known = {d.id for d in self.repo.docs()}
+        # A night pins only its own docs and the shared ones, never another night's.
+        known = {d.id for d in self.repo.docs() if d.seen_by(frozenset({raid_day}))}
         chosen = list(dict.fromkeys(doc_ids))
         if any(i not in known for i in chosen):
             raise StrategyError("Pick from the docs listed; one may have been taken down", status=422)

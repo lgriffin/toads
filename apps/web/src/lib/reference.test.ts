@@ -92,6 +92,8 @@ describe('referenceError', () => {
   it('explains refusals', () => {
     expect(referenceError(new ApiError(401, ''))).toMatch(/sign in/);
     expect(referenceError(new ApiError(403, ''))).toMatch(/officers/);
+    expect(referenceError(new ApiError(403, 'Forbidden'))).toMatch(/officers/);
+    expect(referenceError(new ApiError(403, 'This reference is shared with every night'))).toMatch(/shared/);
     expect(referenceError(new ApiError(400, 'Report codes are 16 characters'))).toBe('Report codes are 16 characters');
     expect(referenceError(new Error('x'))).toMatch(/try again/);
   });

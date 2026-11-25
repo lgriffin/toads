@@ -1,5 +1,7 @@
 """Reference comparison routes. Officers only (REQ-HUB-INS-001): every route needs VIEW_INSIGHTS on the raid day in
-its path, so a raid-day officer works from their own day and a global officer from any.
+its path, so a raid-day officer works from their own day and a global officer from any. Nights are kept apart: a
+night's officers see and change only the references and comparisons their nights imported or compared (and the shared
+ones from before), and only their nights' requests; the Warcraft Logs login itself is the guild's.
 
 - GET    /api/days/{day}/reference                              login state, stored raids, comparisons, recent jobs
 - POST   /api/days/{day}/reference/login                        start connecting the dedicated Warcraft Logs account
@@ -137,8 +139,9 @@ def _audit(live: Services, principal: Principal, action: str, target: str, day: 
 
 
 @router.get("")
-async def overview(_: Officer, reference: Reference) -> OverviewOut:
-    o = await anyio.to_thread.run_sync(reference.overview)
+async def overview(principal: Officer, reference: Reference) -> OverviewOut:
+    # Only the nights this officer runs (every night for the global tier): no night sees another's work.
+    o = await anyio.to_thread.run_sync(reference.overview, principal.seen_days())
     return OverviewOut(
         login=LoginOut(
             configured=o.configured,
@@ -196,9 +199,13 @@ async def request_compare(day: str, body: CompareIn, principal: Officer, referen
 
 
 @router.get("/comparisons/{guild_report}/{reference_report}")
-async def comparison(_: Officer, guild_report: str, reference_report: str, reference: Reference) -> ComparisonOut:
+async def comparison(
+    principal: Officer, guild_report: str, reference_report: str, reference: Reference
+) -> ComparisonOut:
     try:
-        found = await anyio.to_thread.run_sync(reference.comparison, guild_report, reference_report)
+        found = await anyio.to_thread.run_sync(
+            reference.comparison, guild_report, reference_report, principal.seen_days()
+        )
     except ReferenceRequestError as exc:
         raise _refused(exc) from None
     if found is None:
@@ -209,7 +216,9 @@ async def comparison(_: Officer, guild_report: str, reference_report: str, refer
 @router.put("/references/{report}/label", status_code=status.HTTP_202_ACCEPTED)
 async def request_label(day: str, report: str, body: LabelIn, principal: Officer, reference: Reference) -> JobOut:
     try:
-        job = await anyio.to_thread.run_sync(reference.request_label, day, principal.member_id, report, body.label)
+        job = await anyio.to_thread.run_sync(
+            reference.request_label, day, principal.member_id, report, body.label, principal.seen_days()
+        )
     except ReferenceRequestError as exc:
         raise _refused(exc) from None
     return _job(job)
@@ -218,7 +227,9 @@ async def request_label(day: str, report: str, body: LabelIn, principal: Officer
 @router.delete("/references/{report}", status_code=status.HTTP_202_ACCEPTED)
 async def request_delete(day: str, report: str, principal: Officer, reference: Reference, live: Live) -> JobOut:
     try:
-        job = await anyio.to_thread.run_sync(reference.request_delete, day, principal.member_id, report)
+        job = await anyio.to_thread.run_sync(
+            reference.request_delete, day, principal.member_id, report, principal.seen_days()
+        )
     except ReferenceRequestError as exc:
         raise _refused(exc) from None
     await anyio.to_thread.run_sync(_audit, live, principal, "reference.delete", f"report {job.report}", day)
